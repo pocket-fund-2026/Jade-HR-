@@ -49,7 +49,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     if not employee_id:
         raise _credentials_error()
 
-    resp = supabase.table("hr_employees").select("*").eq("id", employee_id).single().execute()
+    resp = supabase.table("hr_employees").select("*").eq("id", employee_id).maybe_single().execute()
     employee = resp.data
     if not employee or not employee["is_active"]:
         raise _credentials_error()

@@ -22,7 +22,7 @@ def list_employees(admin: dict = Depends(require_admin)):
 def get_employee(employee_id: str, user: dict = Depends(get_current_user)):
     if user["role"] != "admin" and user["id"] != employee_id:
         raise HTTPException(status_code=403, detail="Not authorized")
-    resp = supabase.table("hr_employees").select("*").eq("id", employee_id).single().execute()
+    resp = supabase.table("hr_employees").select("*").eq("id", employee_id).maybe_single().execute()
     if not resp.data:
         raise HTTPException(status_code=404, detail="Employee not found")
     return _sanitize(resp.data)

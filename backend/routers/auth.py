@@ -13,7 +13,7 @@ def login(body: LoginRequest):
         supabase.table("hr_employees")
         .select("*")
         .eq("employee_code", body.employee_code)
-        .single()
+        .maybe_single()
         .execute()
     )
     employee = resp.data

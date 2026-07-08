@@ -99,7 +99,7 @@ def _fetch_all_overrides_by_employee(year: int, month: int) -> dict[str, dict[da
 
 
 def _get_active_employee(employee_id: str) -> dict:
-    resp = supabase.table("hr_employees").select("*").eq("id", employee_id).single().execute()
+    resp = supabase.table("hr_employees").select("*").eq("id", employee_id).maybe_single().execute()
     if not resp.data:
         raise HTTPException(status_code=404, detail="Employee not found")
     return resp.data

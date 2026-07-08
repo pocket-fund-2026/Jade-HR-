@@ -46,7 +46,7 @@ def list_disputes(status: str | None = Query(None), admin: dict = Depends(requir
 
 @router.put("/disputes/{dispute_id}")
 def resolve_dispute(dispute_id: str, body: DisputeResolve, admin: dict = Depends(require_admin)):
-    dispute_resp = supabase.table("hr_attendance_disputes").select("*").eq("id", dispute_id).single().execute()
+    dispute_resp = supabase.table("hr_attendance_disputes").select("*").eq("id", dispute_id).maybe_single().execute()
     dispute = dispute_resp.data
     if not dispute:
         raise HTTPException(status_code=404, detail="Dispute not found")
