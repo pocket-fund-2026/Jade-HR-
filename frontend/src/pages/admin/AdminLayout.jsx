@@ -1,16 +1,24 @@
-import { LayoutDashboard, LogOut, Receipt, Users } from "lucide-react";
+import { Flag, LayoutDashboard, LogOut, Receipt, Users } from "lucide-react";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
+import api from "../../lib/api.js";
 import { useAuth } from "../../lib/auth.jsx";
 
 const navItems = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/admin/employees", label: "Employees", icon: Users },
   { to: "/admin/payroll", label: "Payroll & OT", icon: Receipt },
+  { to: "/admin/disputes", label: "Disputes", icon: Flag },
 ];
 
 export default function AdminLayout() {
   const { user, logout } = useAuth();
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    api.get("/api/disputes", { params: { status: "pending" } }).then(({ data }) => setPendingCount(data.length)).catch(() => {});
+  }, []);
 
   return (
     <div className="min-h-screen flex bg-manila">
@@ -36,6 +44,11 @@ export default function AdminLayout() {
             >
               <Icon size={17} strokeWidth={2} />
               {label}
+              {label === "Disputes" && pendingCount > 0 && (
+                <span className="ml-auto bg-ochre-500 text-ledger-900 text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  {pendingCount}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>

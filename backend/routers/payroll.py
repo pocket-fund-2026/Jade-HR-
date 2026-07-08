@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime, time
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -16,6 +16,10 @@ def _month_bounds(year: int, month: int) -> tuple[str, str]:
     from_dt = f"{year:04d}-{month:02d}-01T00:00:00+00:00"
     to_dt = f"{year:04d}-{month:02d}-{last_day:02d}T23:59:59+00:00"
     return from_dt, to_dt
+
+
+def _parse_time(t: str | None) -> time | None:
+    return time.fromisoformat(t) if t else None
 
 
 def _fetch_punch_times(employee_code: str, year: int, month: int) -> list[datetime]:
@@ -55,6 +59,45 @@ def _fetch_all_punches_by_employee(year: int, month: int) -> dict[str, list[date
     return by_employee
 
 
+def _fetch_overrides(employee_id: str, year: int, month: int) -> dict[date, dict]:
+    from_d, to_d = f"{year:04d}-{month:02d}-01", f"{year:04d}-{month:02d}-{31:02d}"
+    resp = (
+        supabase.table("hr_attendance_overrides")
+        .select("*")
+        .eq("employee_id", employee_id)
+        .gte("date", from_d)
+        .lte("date", to_d)
+        .execute()
+    )
+    return {
+        date.fromisoformat(r["date"]): {
+            "status_override": r["status_override"],
+            "first_in": _parse_time(r["first_in"]),
+            "last_out": _parse_time(r["last_out"]),
+        }
+        for r in resp.data
+    }
+
+
+def _fetch_all_overrides_by_employee(year: int, month: int) -> dict[str, dict[date, dict]]:
+    from_d, to_d = f"{year:04d}-{month:02d}-01", f"{year:04d}-{month:02d}-{31:02d}"
+    resp = (
+        supabase.table("hr_attendance_overrides")
+        .select("*")
+        .gte("date", from_d)
+        .lte("date", to_d)
+        .execute()
+    )
+    by_employee: dict[str, dict[date, dict]] = {}
+    for r in resp.data:
+        by_employee.setdefault(r["employee_id"], {})[date.fromisoformat(r["date"])] = {
+            "status_override": r["status_override"],
+            "first_in": _parse_time(r["first_in"]),
+            "last_out": _parse_time(r["last_out"]),
+        }
+    return by_employee
+
+
 def _get_active_employee(employee_id: str) -> dict:
     resp = supabase.table("hr_employees").select("*").eq("id", employee_id).single().execute()
     if not resp.data:
@@ -70,10 +113,12 @@ def payroll_for_month(
 ):
     employees = supabase.table("hr_employees").select("*").eq("is_active", True).execute().data
     punches_by_employee = _fetch_all_punches_by_employee(year, month)
+    overrides_by_employee = _fetch_all_overrides_by_employee(year, month)
     summaries = []
     for employee in employees:
         punches = punches_by_employee.get(employee["employee_code"], [])
-        summary = compute_monthly_summary(employee, year, month, punches)
+        overrides = overrides_by_employee.get(employee["id"], {})
+        summary = compute_monthly_summary(employee, year, month, punches, overrides)
         summary.pop("daily")
         summaries.append(summary)
     return summaries
@@ -90,7 +135,8 @@ def payroll_for_employee(
         raise HTTPException(status_code=403, detail="Not authorized")
     employee = _get_active_employee(employee_id)
     punches = _fetch_punch_times(employee["employee_code"], year, month)
-    return compute_monthly_summary(employee, year, month, punches)
+    overrides = _fetch_overrides(employee_id, year, month)
+    return compute_monthly_summary(employee, year, month, punches, overrides)
 
 
 @router.get("/me/payroll")
@@ -100,4 +146,5 @@ def my_payroll(
     user: dict = Depends(get_current_user),
 ):
     punches = _fetch_punch_times(user["employee_code"], year, month)
-    return compute_monthly_summary(user, year, month, punches)
+    overrides = _fetch_overrides(user["id"], year, month)
+    return compute_monthly_summary(user, year, month, punches, overrides)

@@ -27,13 +27,48 @@ def group_punches_by_day(punch_times: list[datetime]) -> dict[date, list[datetim
     return by_day
 
 
+def _apply_override(d: date, override: dict, standard_hours_per_day: float) -> dict:
+    status = override["status_override"]
+    first_in, last_out = override.get("first_in"), override.get("last_out")
+
+    hours_worked = ot_hours = 0.0
+    first_in_iso = last_out_iso = None
+    if status == "present" and first_in and last_out:
+        start = datetime.combine(d, first_in, tzinfo=timezone.utc)
+        end = datetime.combine(d, last_out, tzinfo=timezone.utc)
+        hours_worked = max(0.0, (end - start).total_seconds() / 3600.0)
+        ot_hours = max(0.0, hours_worked - standard_hours_per_day)
+        first_in_iso, last_out_iso = start.isoformat(), end.isoformat()
+    elif status == "present":
+        hours_worked = standard_hours_per_day
+    elif status == "half_day":
+        hours_worked = standard_hours_per_day / 2
+
+    return {
+        "date": d.isoformat(),
+        "first_in": first_in_iso,
+        "last_out": last_out_iso,
+        "hours_worked": round(hours_worked, 2),
+        "ot_hours": round(ot_hours, 2),
+        "status": status,
+        "corrected": True,
+    }
+
+
 def compute_daily_attendance(
     year: int,
     month: int,
     punch_times: list[datetime],
     standard_hours_per_day: float,
+    overrides: dict[date, dict] | None = None,
 ) -> list[dict]:
-    """One row per calendar day in the month, present/absent/future + hours + OT."""
+    """One row per calendar day in the month, present/absent/future + hours + OT.
+
+    `overrides` (keyed by date) are admin-approved corrections — e.g. from an
+    employee's "I forgot to punch out" dispute — and take priority over raw
+    punch data for that day.
+    """
+    overrides = overrides or {}
     by_day = group_punches_by_day(punch_times)
     total_days = days_in_month(year, month)
     today = datetime.now(timezone.utc).date()
@@ -41,6 +76,11 @@ def compute_daily_attendance(
     rows = []
     for day_num in range(1, total_days + 1):
         d = date(year, month, day_num)
+
+        if d in overrides:
+            rows.append(_apply_override(d, overrides[d], standard_hours_per_day))
+            continue
+
         punches = by_day.get(d, [])
 
         if not punches:
@@ -72,9 +112,15 @@ def compute_daily_attendance(
     return rows
 
 
-def compute_monthly_summary(employee: dict, year: int, month: int, punch_times: list[datetime]) -> dict:
+def compute_monthly_summary(
+    employee: dict,
+    year: int,
+    month: int,
+    punch_times: list[datetime],
+    overrides: dict[date, dict] | None = None,
+) -> dict:
     standard_hours = float(employee.get("standard_hours_per_day") or 8)
-    daily = compute_daily_attendance(year, month, punch_times, standard_hours)
+    daily = compute_daily_attendance(year, month, punch_times, standard_hours, overrides)
 
     present_days = sum(1 for r in daily if r["status"] == "present")
     absent_days = sum(1 for r in daily if r["status"] == "absent")

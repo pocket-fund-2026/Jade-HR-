@@ -5,13 +5,13 @@ import Login from "./pages/Login.jsx";
 import Setup from "./pages/Setup.jsx";
 import AdminLayout from "./pages/admin/AdminLayout.jsx";
 import Dashboard from "./pages/admin/Dashboard.jsx";
+import Disputes from "./pages/admin/Disputes.jsx";
 import EmployeeForm from "./pages/admin/EmployeeForm.jsx";
 import Employees from "./pages/admin/Employees.jsx";
 import Payroll from "./pages/admin/Payroll.jsx";
 import PayrollDetail from "./pages/admin/PayrollDetail.jsx";
 import EmployeeLayout from "./pages/employee/EmployeeLayout.jsx";
-import MyAttendance from "./pages/employee/MyAttendance.jsx";
-import MyPayslip from "./pages/employee/MyPayslip.jsx";
+import EmployeeDashboard from "./pages/employee/Dashboard.jsx";
 
 function Protected({ role, children }) {
   const { user, loading } = useAuth();
@@ -50,6 +50,7 @@ export default function App() {
           <Route path="employees/:id" element={<EmployeeForm />} />
           <Route path="payroll" element={<Payroll />} />
           <Route path="payroll/:id" element={<PayrollDetail />} />
+          <Route path="disputes" element={<Disputes />} />
         </Route>
 
         <Route
@@ -60,8 +61,8 @@ export default function App() {
             </Protected>
           }
         >
-          <Route index element={<MyAttendance />} />
-          <Route path="payslip" element={<MyPayslip />} />
+          <Route index element={<EmployeeDashboard />} />
+          <Route path="*" element={<Navigate to="/employee" replace />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/login" replace />} />

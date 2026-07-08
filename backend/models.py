@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, time
 from typing import Optional
 
 from pydantic import BaseModel
@@ -59,3 +59,20 @@ class BiometricPunch(BaseModel):
     LogDate: str  # "yyyy-MM-dd HH:MM:SS"
     SerialNumber: str = ""
     PunchDirection: str = ""
+
+
+class DisputeCreate(BaseModel):
+    date: date
+    issue_type: str  # missed_clock_in | missed_clock_out | both | other
+    claimed_in: Optional[time] = None
+    claimed_out: Optional[time] = None
+    reason: str
+
+
+class DisputeResolve(BaseModel):
+    action: str  # approve | reject
+    admin_note: str = ""
+    # Admin can adjust the claimed times before approving.
+    first_in: Optional[time] = None
+    last_out: Optional[time] = None
+    status_override: str = "present"  # present | absent | half_day
