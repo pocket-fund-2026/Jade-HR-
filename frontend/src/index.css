@@ -39,3 +39,29 @@ body {
   background-repeat: no-repeat;
   background-position: top;
 }
+
+/* Payslip printing — hide chrome, drop the dark ledger panel to a bordered
+   light one so it doesn't waste ink, force color backgrounds to render. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body, .print-area {
+    background: #fff !important;
+  }
+  .print-area .bg-ledger-800 {
+    background: #fff !important;
+    border: 1.5px solid #16302A !important;
+    color: #16302A !important;
+  }
+  .print-area .bg-ledger-800 * {
+    color: #16302A !important;
+  }
+  .print-area {
+    box-shadow: none !important;
+  }
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

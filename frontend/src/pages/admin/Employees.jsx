@@ -72,7 +72,7 @@ export default function Employees() {
         />
       </div>
 
-      <div className="bg-paper rounded-sm shadow-card overflow-hidden">
+      <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="text-left">
             <tr className="border-b-2 border-ink/10">

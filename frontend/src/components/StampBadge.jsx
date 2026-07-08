@@ -11,6 +11,7 @@ const VARIANTS = {
   half_day: "text-ochre-500",
   ot: "text-ochre-500",
   pending: "text-ochre-500",
+  leave: "text-jade-600",
 };
 
 export default function StampBadge({ status, children }) {

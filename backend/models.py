@@ -88,3 +88,15 @@ class SalaryImportRow(BaseModel):
 
 class SalaryImportRequest(BaseModel):
     rows: list[SalaryImportRow]
+
+
+class LeaveRequestCreate(BaseModel):
+    leave_type: str  # casual | sick | earned | unpaid
+    start_date: date
+    end_date: date
+    reason: str
+
+
+class LeaveResolve(BaseModel):
+    action: str  # approve | reject
+    admin_note: str = ""

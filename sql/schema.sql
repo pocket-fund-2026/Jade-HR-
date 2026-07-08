@@ -84,10 +84,33 @@ create table if not exists hr_attendance_disputes (
     admin_note    text default '',
     resolved_by   uuid references hr_employees(id),
     resolved_at   timestamptz,
+    seen_by_employee boolean not null default false,
     created_at    timestamptz not null default now()
 );
 
 create index if not exists idx_hr_disputes_status on hr_attendance_disputes (status, created_at desc);
+
+-- Employee-requested leave. Fixed annual allocations (12 casual / 12 sick /
+-- 15 earned, unpaid unlimited) are enforced in code, not a balances table —
+-- "used" is computed from approved requests in the current year.
+create table if not exists hr_leave_requests (
+    id                uuid primary key default gen_random_uuid(),
+    employee_id       uuid not null references hr_employees(id) on delete cascade,
+    leave_type        text not null check (leave_type in ('casual', 'sick', 'earned', 'unpaid')),
+    start_date        date not null,
+    end_date          date not null,
+    reason            text not null,
+    status            text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+    admin_note        text default '',
+    resolved_by       uuid references hr_employees(id),
+    resolved_at       timestamptz,
+    seen_by_employee  boolean not null default false,
+    created_at        timestamptz not null default now(),
+    check (end_date >= start_date)
+);
+
+create index if not exists idx_hr_leave_requests_status on hr_leave_requests (status, created_at desc);
+create index if not exists idx_hr_leave_requests_employee on hr_leave_requests (employee_id, start_date);
 
 -- Default-deny RLS: the backend connects with the service_role key, which
 -- bypasses RLS entirely. This only stops the publishable/anon key (exposed
@@ -98,3 +121,4 @@ alter table hr_biometric_punches enable row level security;
 alter table hr_sync_log enable row level security;
 alter table hr_attendance_overrides enable row level security;
 alter table hr_attendance_disputes enable row level security;
+alter table hr_leave_requests enable row level security;

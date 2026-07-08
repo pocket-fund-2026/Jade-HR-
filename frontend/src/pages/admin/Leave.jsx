@@ -11,29 +11,24 @@ const TABS = [
   { key: "rejected", label: "Rejected" },
 ];
 
-function ResolveRow({ dispute, onResolved }) {
-  const [firstIn, setFirstIn] = useState(dispute.claimed_in?.slice(0, 5) || "");
-  const [lastOut, setLastOut] = useState(dispute.claimed_out?.slice(0, 5) || "");
+const LEAVE_LABELS = { casual: "Casual", sick: "Sick", earned: "Earned", unpaid: "Unpaid" };
+
+function ResolveRow({ request, onResolved }) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
 
   const resolve = async (action) => {
     setBusy(true);
     try {
-      await api.put(`/api/disputes/${dispute.id}`, {
-        action,
-        admin_note: note,
-        first_in: firstIn ? `${firstIn}:00` : null,
-        last_out: lastOut ? `${lastOut}:00` : null,
-        status_override: "present",
-      });
+      await api.put(`/api/leave-requests/${request.id}`, { action, admin_note: note });
       onResolved();
     } finally {
       setBusy(false);
     }
   };
 
-  const employee = dispute.hr_employees;
+  const employee = request.hr_employees;
+  const days = (new Date(request.end_date) - new Date(request.start_date)) / 86400000 + 1;
 
   return (
     <tr className="border-b border-ink/[0.06] last:border-0 align-top">
@@ -41,28 +36,19 @@ function ResolveRow({ dispute, onResolved }) {
         <span className="text-ink font-medium">{employee?.first_name} {employee?.last_name}</span>
         <div className="text-xs text-ink/40 font-nums">{employee?.employee_code}</div>
       </td>
-      <td className="px-5 py-3.5 font-nums text-ink/70">{formatDate(dispute.date)}</td>
-      <td className="px-5 py-3.5 max-w-xs">
-        <p className="text-ink/70">{dispute.reason}</p>
-        <p className="text-xs text-ink/40 mt-0.5 uppercase tracking-wide">{dispute.issue_type.replace(/_/g, " ")}</p>
+      <td className="px-5 py-3.5 text-ink/70">{LEAVE_LABELS[request.leave_type]}</td>
+      <td className="px-5 py-3.5 font-nums text-ink/70">
+        {formatDate(request.start_date)}–{formatDate(request.end_date)}
+        <div className="text-xs text-ink/40">{days} day{days > 1 ? "s" : ""}</div>
       </td>
+      <td className="px-5 py-3.5 max-w-xs text-ink/70">{request.reason}</td>
       <td className="px-5 py-3.5">
-        <div className="flex gap-2">
-          <input
-            type="time"
-            value={firstIn}
-            onChange={(e) => setFirstIn(e.target.value)}
-            placeholder="In"
-            className="w-24 rounded-sm border border-ink/15 bg-manila/40 px-2 py-1.5 text-xs font-nums focus:outline-none focus:ring-2 focus:ring-jade-500"
-          />
-          <input
-            type="time"
-            value={lastOut}
-            onChange={(e) => setLastOut(e.target.value)}
-            placeholder="Out"
-            className="w-24 rounded-sm border border-ink/15 bg-manila/40 px-2 py-1.5 text-xs font-nums focus:outline-none focus:ring-2 focus:ring-jade-500"
-          />
-        </div>
+        <input
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Note (optional)"
+          className="w-40 rounded-sm border border-ink/15 bg-manila/40 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-jade-500"
+        />
       </td>
       <td className="px-5 py-3.5">
         <div className="flex gap-2">
@@ -86,14 +72,14 @@ function ResolveRow({ dispute, onResolved }) {
   );
 }
 
-export default function Disputes() {
+export default function Leave() {
   const [tab, setTab] = useState("pending");
-  const [disputes, setDisputes] = useState([]);
+  const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const load = () => {
     setLoading(true);
-    api.get("/api/disputes", { params: { status: tab } }).then(({ data }) => setDisputes(data)).finally(() => setLoading(false));
+    api.get("/api/leave-requests", { params: { status: tab } }).then(({ data }) => setRequests(data)).finally(() => setLoading(false));
   };
 
   useEffect(load, [tab]);
@@ -101,8 +87,8 @@ export default function Disputes() {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="font-display text-2xl text-ink">Attendance Disputes</h2>
-        <p className="text-xs text-ink/40 font-nums mt-0.5">Employee-reported missed punches</p>
+        <h2 className="font-display text-2xl text-ink">Leave Requests</h2>
+        <p className="text-xs text-ink/40 font-nums mt-0.5">Casual, sick, earned & unpaid leave</p>
       </div>
 
       <div className="flex gap-1 mb-4">
@@ -124,30 +110,32 @@ export default function Disputes() {
           <thead className="text-left">
             <tr className="border-b-2 border-ink/10">
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Employee</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Date</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Issue</th>
-              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Confirm times</th>}
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Type</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Dates</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Reason</th>
+              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Note</th>}
               {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Action</th>}
               {tab !== "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Status</th>}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={5}>Loading…</td></tr>
-            ) : disputes.length === 0 ? (
-              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={5}>No {tab} disputes.</td></tr>
+              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={6}>Loading…</td></tr>
+            ) : requests.length === 0 ? (
+              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={6}>No {tab} leave requests.</td></tr>
             ) : tab === "pending" ? (
-              disputes.map((d) => <ResolveRow key={d.id} dispute={d} onResolved={load} />)
+              requests.map((r) => <ResolveRow key={r.id} request={r} onResolved={load} />)
             ) : (
-              disputes.map((d) => (
-                <tr key={d.id} className="border-b border-ink/[0.06] last:border-0">
+              requests.map((r) => (
+                <tr key={r.id} className="border-b border-ink/[0.06] last:border-0">
                   <td className="px-5 py-3.5">
-                    <span className="text-ink font-medium">{d.hr_employees?.first_name} {d.hr_employees?.last_name}</span>
-                    <div className="text-xs text-ink/40 font-nums">{d.hr_employees?.employee_code}</div>
+                    <span className="text-ink font-medium">{r.hr_employees?.first_name} {r.hr_employees?.last_name}</span>
+                    <div className="text-xs text-ink/40 font-nums">{r.hr_employees?.employee_code}</div>
                   </td>
-                  <td className="px-5 py-3.5 font-nums text-ink/70">{formatDate(d.date)}</td>
-                  <td className="px-5 py-3.5 text-ink/70 max-w-xs">{d.reason}</td>
-                  <td className="px-5 py-3.5"><StampBadge status={d.status}>{d.status}</StampBadge></td>
+                  <td className="px-5 py-3.5 text-ink/70">{LEAVE_LABELS[r.leave_type]}</td>
+                  <td className="px-5 py-3.5 font-nums text-ink/70">{formatDate(r.start_date)}–{formatDate(r.end_date)}</td>
+                  <td className="px-5 py-3.5 text-ink/70 max-w-xs">{r.reason}</td>
+                  <td className="px-5 py-3.5"><StampBadge status={r.status}>{r.status}</StampBadge></td>
                 </tr>
               ))
             )}

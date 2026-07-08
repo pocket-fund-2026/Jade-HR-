@@ -1,3 +1,4 @@
+import { Download } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -6,6 +7,40 @@ import api from "../../lib/api.js";
 import { formatINR } from "../../lib/format.js";
 
 const today = new Date();
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+function exportCsv(rows, year, month) {
+  const headers = [
+    "Employee Code", "Name", "Gross (Basic+HRA+Conveyance)", "Per Day Salary",
+    "Per Hour Salary", "Present Days", "Absent Days", "Leave Days", "OT Hours", "OT Amount", "Total Payable",
+  ];
+  const lines = [headers.join(",")];
+  for (const r of rows) {
+    lines.push([
+      r.employee_code,
+      `"${r.name}"`,
+      r.basic + r.hra + r.conveyance,
+      r.per_day_salary,
+      r.per_hour_salary,
+      r.present_days,
+      r.absent_days,
+      r.leave_days,
+      r.total_ot_hours,
+      r.ot_amount,
+      r.total_payable,
+    ].join(","));
+  }
+  const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `jade-hr-payroll-${MONTH_NAMES[month - 1]}-${year}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export default function Payroll() {
   const [year, setYear] = useState(today.getFullYear());
@@ -30,7 +65,16 @@ export default function Payroll() {
             OT = (Basic + HRA + Conveyance) &divide; days in month &divide; hours &times; OT hours
           </p>
         </div>
-        <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => exportCsv(rows, year, month)}
+            disabled={!rows.length}
+            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
+          >
+            <Download size={15} /> Export CSV
+          </button>
+          <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
+        </div>
       </div>
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">

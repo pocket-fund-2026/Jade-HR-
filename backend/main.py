@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import ALLOWED_ORIGINS
-from routers import auth, biometric, disputes, employees, payroll
+from routers import auth, biometric, disputes, employees, leave, payroll
 
 app = FastAPI(title="JADE HR")
 
@@ -19,6 +19,7 @@ app.include_router(employees.router)
 app.include_router(payroll.router)
 app.include_router(biometric.router)
 app.include_router(disputes.router)
+app.include_router(leave.router)
 
 
 @app.get("/api/health")

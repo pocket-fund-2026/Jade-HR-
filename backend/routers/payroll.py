@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from auth import get_current_user, require_admin
 from database import supabase
 from payroll import compute_monthly_summary
+from routers.leave import fetch_all_approved_leaves_by_employee, fetch_approved_leaves
 
 router = APIRouter(prefix="/api", tags=["payroll"])
 
@@ -114,11 +115,13 @@ def payroll_for_month(
     employees = supabase.table("hr_employees").select("*").eq("is_active", True).execute().data
     punches_by_employee = _fetch_all_punches_by_employee(year, month)
     overrides_by_employee = _fetch_all_overrides_by_employee(year, month)
+    leaves_by_employee = fetch_all_approved_leaves_by_employee(year, month)
     summaries = []
     for employee in employees:
         punches = punches_by_employee.get(employee["employee_code"], [])
         overrides = overrides_by_employee.get(employee["id"], {})
-        summary = compute_monthly_summary(employee, year, month, punches, overrides)
+        leaves = leaves_by_employee.get(employee["id"], {})
+        summary = compute_monthly_summary(employee, year, month, punches, overrides, leaves)
         summary.pop("daily")
         summaries.append(summary)
     return summaries
@@ -136,7 +139,8 @@ def payroll_for_employee(
     employee = _get_active_employee(employee_id)
     punches = _fetch_punch_times(employee["employee_code"], year, month)
     overrides = _fetch_overrides(employee_id, year, month)
-    return compute_monthly_summary(employee, year, month, punches, overrides)
+    leaves = fetch_approved_leaves(employee_id, year, month)
+    return compute_monthly_summary(employee, year, month, punches, overrides, leaves)
 
 
 @router.get("/me/payroll")
@@ -147,4 +151,5 @@ def my_payroll(
 ):
     punches = _fetch_punch_times(user["employee_code"], year, month)
     overrides = _fetch_overrides(user["id"], year, month)
-    return compute_monthly_summary(user, year, month, punches, overrides)
+    leaves = fetch_approved_leaves(user["id"], year, month)
+    return compute_monthly_summary(user, year, month, punches, overrides, leaves)

@@ -61,14 +61,18 @@ def compute_daily_attendance(
     punch_times: list[datetime],
     standard_hours_per_day: float,
     overrides: dict[date, dict] | None = None,
+    leaves: dict[date, str] | None = None,
 ) -> list[dict]:
     """One row per calendar day in the month, present/absent/future + hours + OT.
 
     `overrides` (keyed by date) are admin-approved corrections — e.g. from an
     employee's "I forgot to punch out" dispute — and take priority over raw
-    punch data for that day.
+    punch data for that day. `leaves` (date -> leave_type) are approved leave
+    requests; a day with no punches falls back to "leave" instead of "absent"
+    when one covers it.
     """
     overrides = overrides or {}
+    leaves = leaves or {}
     by_day = group_punches_by_day(punch_times)
     total_days = days_in_month(year, month)
     today = datetime.now(timezone.utc).date()
@@ -84,6 +88,17 @@ def compute_daily_attendance(
         punches = by_day.get(d, [])
 
         if not punches:
+            if d in leaves:
+                rows.append({
+                    "date": d.isoformat(),
+                    "first_in": None,
+                    "last_out": None,
+                    "hours_worked": 0.0,
+                    "ot_hours": 0.0,
+                    "status": "leave",
+                    "leave_type": leaves[d],
+                })
+                continue
             status = "future" if d > today else "absent"
             rows.append({
                 "date": d.isoformat(),
@@ -118,12 +133,14 @@ def compute_monthly_summary(
     month: int,
     punch_times: list[datetime],
     overrides: dict[date, dict] | None = None,
+    leaves: dict[date, str] | None = None,
 ) -> dict:
     standard_hours = float(employee.get("standard_hours_per_day") or 8)
-    daily = compute_daily_attendance(year, month, punch_times, standard_hours, overrides)
+    daily = compute_daily_attendance(year, month, punch_times, standard_hours, overrides, leaves)
 
     present_days = sum(1 for r in daily if r["status"] == "present")
     absent_days = sum(1 for r in daily if r["status"] == "absent")
+    leave_days = sum(1 for r in daily if r["status"] == "leave")
     total_hours_worked = round(sum(r["hours_worked"] for r in daily), 2)
     total_ot_hours = round(sum(r["ot_hours"] for r in daily), 2)
 
@@ -147,6 +164,7 @@ def compute_monthly_summary(
         "days_in_month": total_days,
         "present_days": present_days,
         "absent_days": absent_days,
+        "leave_days": leave_days,
         "total_hours_worked": total_hours_worked,
         "total_ot_hours": total_ot_hours,
         "basic": round(basic, 2),

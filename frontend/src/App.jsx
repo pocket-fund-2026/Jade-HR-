@@ -8,6 +8,7 @@ import Dashboard from "./pages/admin/Dashboard.jsx";
 import Disputes from "./pages/admin/Disputes.jsx";
 import EmployeeForm from "./pages/admin/EmployeeForm.jsx";
 import Employees from "./pages/admin/Employees.jsx";
+import Leave from "./pages/admin/Leave.jsx";
 import Payroll from "./pages/admin/Payroll.jsx";
 import PayrollDetail from "./pages/admin/PayrollDetail.jsx";
 import EmployeeLayout from "./pages/employee/EmployeeLayout.jsx";
@@ -51,6 +52,7 @@ export default function App() {
           <Route path="payroll" element={<Payroll />} />
           <Route path="payroll/:id" element={<PayrollDetail />} />
           <Route path="disputes" element={<Disputes />} />
+          <Route path="leave" element={<Leave />} />
         </Route>
 
         <Route
