@@ -51,3 +51,11 @@ create table if not exists hr_sync_log (
     status        text not null default 'ok',
     error_message text
 );
+
+-- Default-deny RLS: the backend connects with the service_role key, which
+-- bypasses RLS entirely. This only stops the publishable/anon key (exposed
+-- client-side) from reading/writing this data — salary figures and password
+-- hashes — via Supabase's auto-generated REST API.
+alter table hr_employees enable row level security;
+alter table hr_biometric_punches enable row level security;
+alter table hr_sync_log enable row level security;
