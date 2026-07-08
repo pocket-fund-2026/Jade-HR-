@@ -76,3 +76,15 @@ class DisputeResolve(BaseModel):
     first_in: Optional[time] = None
     last_out: Optional[time] = None
     status_override: str = "present"  # present | absent | half_day
+
+
+class SalaryImportRow(BaseModel):
+    employee_code: str
+    basic: float = 0
+    hra: float = 0
+    conveyance: float = 0
+    other_allowance: float = 0
+
+
+class SalaryImportRequest(BaseModel):
+    rows: list[SalaryImportRow]

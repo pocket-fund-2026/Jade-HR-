@@ -1,7 +1,8 @@
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Upload } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
+import SalaryImportModal from "../../components/SalaryImportModal.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
 import { formatINR } from "../../lib/format.js";
@@ -10,10 +11,14 @@ export default function Employees() {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [showImport, setShowImport] = useState(false);
 
-  useEffect(() => {
+  const load = () => {
+    setLoading(true);
     api.get("/api/employees").then(({ data }) => setEmployees(data)).finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(load, []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -32,14 +37,30 @@ export default function Employees() {
           <h2 className="font-display text-2xl text-ink">Employees</h2>
           <p className="text-xs text-ink/40 font-nums mt-0.5">{employees.length} on the ledger</p>
         </div>
-        <Link
-          to="/admin/employees/new"
-          className="flex items-center gap-2 bg-ledger-800 text-manila px-4 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
-        >
-          <Plus size={16} />
-          Add Employee
-        </Link>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowImport(true)}
+            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-4 py-2.5 rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
+          >
+            <Upload size={16} />
+            Import Salaries
+          </button>
+          <Link
+            to="/admin/employees/new"
+            className="flex items-center gap-2 bg-ledger-800 text-manila px-4 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+          >
+            <Plus size={16} />
+            Add Employee
+          </Link>
+        </div>
       </div>
+
+      {showImport && (
+        <SalaryImportModal
+          onClose={() => setShowImport(false)}
+          onImported={() => { setShowImport(false); load(); }}
+        />
+      )}
 
       <div className="relative mb-4 max-w-xs">
         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/30" />

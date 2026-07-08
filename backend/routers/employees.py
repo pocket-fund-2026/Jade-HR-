@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from auth import get_current_user, hash_password, require_admin
 from database import supabase
-from models import EmployeeCreate, EmployeeUpdate
+from models import EmployeeCreate, EmployeeUpdate, SalaryImportRequest
 
 router = APIRouter(prefix="/api/employees", tags=["employees"])
 
@@ -16,6 +16,29 @@ def _sanitize(employee: dict) -> dict:
 def list_employees(admin: dict = Depends(require_admin)):
     resp = supabase.table("hr_employees").select("*").order("first_name").execute()
     return [_sanitize(e) for e in resp.data]
+
+
+@router.post("/bulk-salary")
+def bulk_import_salary(body: SalaryImportRequest, admin: dict = Depends(require_admin)):
+    """Set Basic/HRA/Conveyance/Other for many employees at once, matched by employee_code."""
+    existing = supabase.table("hr_employees").select("id,employee_code").execute().data
+    id_by_code = {e["employee_code"]: e["id"] for e in existing}
+
+    updated, not_found = [], []
+    for row in body.rows:
+        emp_id = id_by_code.get(row.employee_code)
+        if not emp_id:
+            not_found.append(row.employee_code)
+            continue
+        supabase.table("hr_employees").update({
+            "basic": row.basic,
+            "hra": row.hra,
+            "conveyance": row.conveyance,
+            "other_allowance": row.other_allowance,
+        }).eq("id", emp_id).execute()
+        updated.append(row.employee_code)
+
+    return {"updated": len(updated), "not_found": not_found}
 
 
 @router.get("/{employee_id}")
