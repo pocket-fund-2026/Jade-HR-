@@ -3,25 +3,12 @@ JADE HR biometric sync — Madhu Estate, Mumbai.
 
 Pulls punch logs from the SmartOffice biometric API and pushes them into
 jade-hr via /api/biometric/ingest. Mirrors the pattern used by jade-tts's
-biometric_relay.py — run this as a cron job wherever it has network access
-to the SmartOffice device (either directly on this VPS if the device is
-reachable, or on a machine at Madhu Estate otherwise, same as jade-tts's
-Kolkata relay).
+biometric_relay.py. Runs as a cron job on this VPS (/etc/cron.d/jade-hr-sync).
 
-*** REQUIRES CONFIG BEFORE FIRST RUN ***
-  SMARTOFFICE_URL  — base URL of the Madhu Estate SmartOffice device/server,
-                      e.g. "http://<device-ip>:<port>/api/v2/WebAPI/GetDeviceLogs"
-                      (unknown — get this from whoever manages the Madhu
-                      Estate biometric device, same as the Kolkata one at
-                      45.118.183.175:86)
-  DEVICE_SERIALS   — optional set of device serial numbers to filter to, if
-                      this SmartOffice server also serves other locations.
-                      Leave empty to accept all records the server returns.
-  JADE_HR_URL      — the deployed jade-hr API base (filled in once the
-                      Vercel project exists)
-  JADE_HR_USER / JADE_HR_PASS — a dedicated admin service account created
-                      in jade-hr for this sync job (do not reuse a human's
-                      login)
+The Madhu-Estate-specific API key SmartOffice showed us never authenticated
+(confirmed rejected 5 different ways). This account's SmartOffice server is
+shared across all Jade locations, so we use the same key jade-tts already
+uses for Kolkata and filter to Madhu Estate's device serial instead.
 
 Manual usage:
   python biometric_sync.py                          # last 3 days (default)
@@ -40,12 +27,17 @@ from datetime import date, datetime, timedelta
 
 # ── CONFIG ────────────────────────────────────────────────────────────────
 
-SMARTOFFICE_URL = os.environ.get("SMARTOFFICE_URL", "")  # TODO: Madhu Estate device host
-SMARTOFFICE_API_KEY = os.environ.get("SMARTOFFICE_API_KEY", "050418072608")
-DEVICE_SERIALS = set(filter(None, os.environ.get("DEVICE_SERIALS", "").split(",")))
+SMARTOFFICE_URL = os.environ.get(
+    "SMARTOFFICE_URL", "http://122.179.138.219:92/api/v2/WebAPI/GetDeviceLogs"
+)
+# Shared account key (same one jade-tts uses for Kolkata) — Madhu Estate's
+# own key never worked, see module docstring.
+SMARTOFFICE_API_KEY = os.environ.get("SMARTOFFICE_API_KEY", "120612082520")
+MADHU_ESTATE_SERIAL = "C2696422DF0E2832"
+DEVICE_SERIALS = set(filter(None, os.environ.get("DEVICE_SERIALS", MADHU_ESTATE_SERIAL).split(",")))
 
 JADE_HR_URL = os.environ.get("JADE_HR_URL", "https://jade-hr.vercel.app")
-JADE_HR_USER = os.environ.get("JADE_HR_USER", "")  # TODO: dedicated sync service account
+JADE_HR_USER = os.environ.get("JADE_HR_USER", "")  # set via /etc/jade-hr-sync.env, not hardcoded
 JADE_HR_PASS = os.environ.get("JADE_HR_PASS", "")
 
 LOOKBACK_DAYS = 3
@@ -66,12 +58,19 @@ def _get_token() -> str:
 
 # ── FETCH ─────────────────────────────────────────────────────────────────
 
+def _to_smartoffice_fmt(d: str) -> str:
+    """Convert yyyy-MM-dd (or yyyy-MM-dd HH:MM:SS) to MM/dd/yyyy — what this
+    SmartOffice server's GetDeviceLogs actually expects (confirmed by hand)."""
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(d, fmt).strftime("%m/%d/%Y")
+        except ValueError:
+            continue
+    return d
+
+
 def _fetch_punches(from_dt: str, to_dt: str) -> list:
-    if not SMARTOFFICE_URL:
-        raise RuntimeError(
-            "SMARTOFFICE_URL is not set — get the Madhu Estate device/server "
-            "address and set it via env var (or edit this file) before running."
-        )
+    from_dt, to_dt = _to_smartoffice_fmt(from_dt), _to_smartoffice_fmt(to_dt)
     url = (
         f"{SMARTOFFICE_URL}"
         f"?APIKey={SMARTOFFICE_API_KEY}"
@@ -120,6 +119,10 @@ def main():
 
     print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] JADE HR biometric sync starting")
     print(f"  Date range: {from_dt} -> {to_dt}")
+
+    if not JADE_HR_USER or not JADE_HR_PASS:
+        print("ERROR: JADE_HR_USER / JADE_HR_PASS not set (see /etc/jade-hr-sync.env)", file=sys.stderr)
+        sys.exit(1)
 
     print("Fetching SmartOffice punch logs ...")
     try:
