@@ -1,3 +1,4 @@
+import { ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 
@@ -25,13 +26,15 @@ export default function PayrollDetail() {
 
   return (
     <div>
-      <Link to="/admin/payroll" className="text-sm text-gray-500 hover:underline">← Back to Payroll</Link>
+      <Link to="/admin/payroll" className="inline-flex items-center gap-1.5 text-xs text-ink/45 hover:text-ink transition-colors">
+        <ArrowLeft size={13} /> Back to Payroll
+      </Link>
       <div className="flex items-center justify-between mt-2 mb-6">
-        <h2 className="text-xl font-semibold">{summary?.name || "Payslip"}</h2>
+        <h2 className="font-display text-2xl text-ink">{summary?.name || "Payslip"}</h2>
         <MonthPicker year={year} month={month} onChange={(y, m) => setParams({ year: y, month: m })} />
       </div>
 
-      {loading ? <p className="text-gray-400">Loading...</p> : <PayslipDetail summary={summary} />}
+      {loading ? <p className="text-ink/40">Loading…</p> : <PayslipDetail summary={summary} />}
     </div>
   );
 }

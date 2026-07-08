@@ -13,19 +13,21 @@ export default function MonthPicker({ year, month, onChange }) {
   };
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-1 bg-paper rounded-sm shadow-card px-1 py-1">
       <button
         onClick={() => shift(-1)}
-        className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-100"
+        className="w-8 h-8 flex items-center justify-center rounded-sm text-ink/50 hover:bg-ink/5 hover:text-ink transition-colors"
+        aria-label="Previous month"
       >
         ‹
       </button>
-      <span className="text-sm font-medium w-36 text-center">
+      <span className="font-nums text-sm font-medium w-32 text-center text-ink">
         {MONTHS[month - 1]} {year}
       </span>
       <button
         onClick={() => shift(1)}
-        className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-100"
+        className="w-8 h-8 flex items-center justify-center rounded-sm text-ink/50 hover:bg-ink/5 hover:text-ink transition-colors"
+        aria-label="Next month"
       >
         ›
       </button>

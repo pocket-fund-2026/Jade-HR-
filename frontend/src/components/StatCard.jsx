@@ -1,9 +1,9 @@
 export default function StatCard({ label, value, sub, accent }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className={`text-2xl font-semibold mt-1 ${accent || "text-gray-900"}`}>{value}</p>
-      {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
+    <div className="bg-paper rounded-sm shadow-card px-5 py-4 border-t-2 border-ink/10">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/45">{label}</p>
+      <p className={`font-display text-[28px] leading-tight mt-1.5 ${accent || "text-ink"}`}>{value}</p>
+      {sub && <p className="text-xs text-ink/40 mt-1 font-nums">{sub}</p>}
     </div>
   );
 }

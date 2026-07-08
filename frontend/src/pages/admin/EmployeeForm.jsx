@@ -1,5 +1,6 @@
+import { ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import api from "../../lib/api.js";
 
@@ -70,10 +71,10 @@ export default function EmployeeForm() {
 
   const field = (label, key, type = "text", extra = {}) => (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1.5">{label}</label>
       <input
         type={type}
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-jade-500"
+        className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500 disabled:opacity-50 disabled:bg-ink/5"
         value={form[key]}
         onChange={set(key)}
         {...extra}
@@ -83,9 +84,12 @@ export default function EmployeeForm() {
 
   return (
     <div className="max-w-2xl">
-      <h2 className="text-xl font-semibold mb-6">{isEdit ? "Edit Employee" : "Add Employee"}</h2>
+      <Link to="/admin/employees" className="inline-flex items-center gap-1.5 text-xs text-ink/45 hover:text-ink mb-3 transition-colors">
+        <ArrowLeft size={13} /> Back to Employees
+      </Link>
+      <h2 className="font-display text-2xl text-ink mb-6">{isEdit ? "Edit Employee" : "Add Employee"}</h2>
 
-      <form onSubmit={submit} className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
+      <form onSubmit={submit} className="bg-paper rounded-sm shadow-card p-7 space-y-7 border-t-4 border-jade-500">
         <div className="grid grid-cols-2 gap-4">
           {field("Employee Code (biometric ID)", "employee_code", "text", isEdit ? { disabled: true } : { required: true })}
           {field("Role", "role")}
@@ -103,8 +107,8 @@ export default function EmployeeForm() {
           {field("Date of Joining", "date_of_joining", "date")}
         </div>
 
-        <div className="border-t border-gray-100 pt-4">
-          <p className="text-sm font-medium text-gray-700 mb-3">Salary Structure (used for OT calc)</p>
+        <div className="border-t border-ink/10 pt-6">
+          <p className="text-xs font-semibold uppercase tracking-wider text-ochre-600 mb-4">Salary structure — used for OT calc</p>
           <div className="grid grid-cols-3 gap-4">
             {field("Basic", "basic", "number")}
             {field("HRA", "hra", "number")}
@@ -116,21 +120,21 @@ export default function EmployeeForm() {
           </div>
         </div>
 
-        <div className="border-t border-gray-100 pt-4 grid grid-cols-2 gap-4">
+        <div className="border-t border-ink/10 pt-6 grid grid-cols-2 gap-4">
           {field("Phone", "phone")}
           {field("Email", "email")}
         </div>
 
-        <div className="border-t border-gray-100 pt-4">
+        <div className="border-t border-ink/10 pt-6">
           {field(isEdit ? "Reset Password (leave blank to keep)" : "Password", "password", "password", isEdit ? {} : { required: true })}
         </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
 
         <div className="flex items-center justify-between pt-2">
           <div>
             {isEdit && (
-              <button type="button" onClick={deactivate} className="text-sm text-red-600 hover:underline">
+              <button type="button" onClick={deactivate} className="text-sm text-rust-500 hover:text-rust-600 hover:underline">
                 Deactivate employee
               </button>
             )}
@@ -138,9 +142,9 @@ export default function EmployeeForm() {
           <button
             type="submit"
             disabled={busy}
-            className="bg-jade-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-jade-700 disabled:opacity-50"
+            className="bg-ledger-800 text-manila px-6 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
           >
-            {busy ? "Saving..." : "Save"}
+            {busy ? "Saving…" : "Save"}
           </button>
         </div>
       </form>

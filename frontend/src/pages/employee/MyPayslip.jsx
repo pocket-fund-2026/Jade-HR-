@@ -23,11 +23,11 @@ export default function MyPayslip() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold">My Payslip</h2>
+        <h2 className="font-display text-2xl text-ink">My Payslip</h2>
         <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
       </div>
 
-      {loading ? <p className="text-gray-400">Loading...</p> : <PayslipDetail summary={summary} />}
+      {loading ? <p className="text-ink/40">Loading…</p> : <PayslipDetail summary={summary} />}
     </div>
   );
 }

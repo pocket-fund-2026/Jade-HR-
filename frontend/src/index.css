@@ -3,5 +3,39 @@
 @tailwind utilities;
 
 body {
-  @apply bg-gray-50 text-gray-900;
+  @apply bg-manila text-ink font-sans antialiased;
+}
+
+.font-nums {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-feature-settings: "tnum" 1, "zero" 1;
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+/* Ink-stamp status mark — the signature motif. A rotated, soft-edged
+   rubber-stamp look built from layered shadows rather than an image, so it
+   stays crisp at any size and themes with currentColor. */
+.stamp {
+  @apply inline-flex items-center justify-center font-sans text-[11px] font-semibold uppercase tracking-wider;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  border: 1.5px solid currentColor;
+  transform: rotate(-2deg);
+  position: relative;
+}
+.stamp::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  border: 1.5px solid currentColor;
+  opacity: 0.25;
+  transform: rotate(2.5deg);
+}
+
+.rule-line {
+  background-image: linear-gradient(to right, rgba(27, 27, 24, 0.1) 0 100%);
+  background-size: 100% 1px;
+  background-repeat: no-repeat;
+  background-position: top;
 }

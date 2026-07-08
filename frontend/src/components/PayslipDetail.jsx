@@ -1,5 +1,20 @@
+import StampBadge from "./StampBadge.jsx";
 import StatCard from "./StatCard.jsx";
 import { formatDate, formatINR, formatTime } from "../lib/format.js";
+
+function LedgerLine({ label, value, sub, strong, accent }) {
+  return (
+    <div className={`flex justify-between items-baseline py-2 ${strong ? "" : "border-b border-ink/[0.06]"}`}>
+      <div>
+        <span className={strong ? "font-semibold text-ink" : "text-ink/70"}>{label}</span>
+        {sub && <div className="text-xs text-ink/35 mt-0.5">{sub}</div>}
+      </div>
+      <span className={`font-nums ${strong ? `font-semibold text-lg ${accent || "text-ink"}` : "text-ink"}`}>
+        {value}
+      </span>
+    </div>
+  );
+}
 
 export default function PayslipDetail({ summary }) {
   if (!summary) return null;
@@ -10,87 +25,79 @@ export default function PayslipDetail({ summary }) {
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard label="Present Days" value={`${summary.present_days}/${summary.days_in_month}`} />
-        <StatCard label="Total Hours Worked" value={summary.total_hours_worked} />
-        <StatCard label="Total OT Hours" value={summary.total_ot_hours} />
-        <StatCard label="OT Amount" value={formatINR(summary.ot_amount)} accent="text-jade-700" />
+        <StatCard label="Hours Worked" value={summary.total_hours_worked} />
+        <StatCard label="OT Hours" value={summary.total_ot_hours} />
+        <StatCard label="OT Amount" value={formatINR(summary.ot_amount)} accent="text-ochre-500" />
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <p className="text-sm font-medium text-gray-700 mb-4">OT Calculation</p>
-        <div className="text-sm space-y-2 text-gray-600">
-          <div className="flex justify-between"><span>Basic</span><span>{formatINR(summary.basic)}</span></div>
-          <div className="flex justify-between"><span>HRA</span><span>{formatINR(summary.hra)}</span></div>
-          <div className="flex justify-between"><span>Conveyance</span><span>{formatINR(summary.conveyance)}</span></div>
-          <div className="flex justify-between font-medium text-gray-900 border-t border-gray-100 pt-2">
-            <span>Total Salary</span><span>{formatINR(gross)}</span>
-          </div>
-          <div className="flex justify-between pt-2">
-            <span>Per Day Salary ({formatINR(gross)} / {summary.days_in_month} days)</span>
-            <span>{formatINR(summary.per_day_salary)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Per Hour Salary (Per Day / 8 hrs)</span>
-            <span>{formatINR(summary.per_hour_salary)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Total OT Hours</span>
-            <span>{summary.total_ot_hours}</span>
-          </div>
-          <div className="flex justify-between font-medium text-jade-700 border-t border-gray-100 pt-2">
-            <span>OT Amount</span>
-            <span>{formatINR(summary.ot_amount)}</span>
-          </div>
+      <div className="bg-paper rounded-sm shadow-card p-7 border-t-4 border-ochre-500">
+        <p className="text-xs font-semibold uppercase tracking-wider text-ochre-600 mb-1">Overtime calculation</p>
+        <p className="text-xs text-ink/35 mb-4 font-nums">
+          (Basic + HRA + Conveyance) &divide; days in month &divide; standard hours &times; OT hours
+        </p>
+        <div>
+          <LedgerLine label="Basic" value={formatINR(summary.basic)} />
+          <LedgerLine label="HRA" value={formatINR(summary.hra)} />
+          <LedgerLine label="Conveyance" value={formatINR(summary.conveyance)} />
+          <LedgerLine label="Total salary" value={formatINR(gross)} strong />
         </div>
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-500">Gross Salary (Basic + HRA + Conveyance + Other)</span>
-          <span className="font-medium">{formatINR(summary.gross_salary)}</span>
-        </div>
-        <div className="flex justify-between text-sm mt-2">
-          <span className="text-gray-500">OT Amount</span>
-          <span className="font-medium">{formatINR(summary.ot_amount)}</span>
-        </div>
-        <div className="flex justify-between text-base mt-3 pt-3 border-t border-gray-100">
-          <span className="font-semibold">Total Payable</span>
-          <span className="font-semibold text-jade-700">{formatINR(summary.total_payable)}</span>
+        <div className="mt-3">
+          <LedgerLine
+            label="Per day salary"
+            sub={`${formatINR(gross)} ÷ ${summary.days_in_month} days`}
+            value={formatINR(summary.per_day_salary)}
+          />
+          <LedgerLine
+            label="Per hour salary"
+            sub="per day ÷ standard hours"
+            value={formatINR(summary.per_hour_salary)}
+          />
+          <LedgerLine label="Total OT hours" value={summary.total_ot_hours} />
+          <LedgerLine label="OT amount" value={formatINR(summary.ot_amount)} strong accent="text-ochre-600" />
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <p className="px-6 pt-4 text-sm font-medium text-gray-700">Daily Attendance</p>
+      <div className="bg-ledger-800 rounded-sm shadow-card p-7 relative overflow-hidden">
+        <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
+        <div className="relative space-y-2">
+          <div className="flex justify-between text-sm text-manila/60">
+            <span>Gross salary (Basic + HRA + Conveyance + Other)</span>
+            <span className="font-nums text-manila">{formatINR(summary.gross_salary)}</span>
+          </div>
+          <div className="flex justify-between text-sm text-manila/60">
+            <span>OT amount</span>
+            <span className="font-nums text-manila">{formatINR(summary.ot_amount)}</span>
+          </div>
+          <div className="flex justify-between items-baseline pt-4 mt-2 border-t border-manila/15">
+            <span className="font-display text-manila text-lg">Total payable</span>
+            <span className="font-nums font-semibold text-3xl text-manila">{formatINR(summary.total_payable)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-paper rounded-sm shadow-card overflow-hidden">
+        <p className="px-5 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-ink/45">Daily attendance</p>
         <table className="w-full text-sm mt-2">
-          <thead className="bg-gray-50 text-gray-500 text-left">
-            <tr>
-              <th className="px-4 py-2 font-medium">Date</th>
-              <th className="px-4 py-2 font-medium">In</th>
-              <th className="px-4 py-2 font-medium">Out</th>
-              <th className="px-4 py-2 font-medium">Hours</th>
-              <th className="px-4 py-2 font-medium">OT Hours</th>
-              <th className="px-4 py-2 font-medium">Status</th>
+          <thead className="text-left">
+            <tr className="border-b-2 border-ink/10">
+              <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Date</th>
+              <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/45">In</th>
+              <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Out</th>
+              <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Hours</th>
+              <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/45">OT Hours</th>
+              <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Status</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody>
             {summary.daily?.map((d) => (
-              <tr key={d.date}>
-                <td className="px-4 py-2">{formatDate(d.date)}</td>
-                <td className="px-4 py-2">{formatTime(d.first_in)}</td>
-                <td className="px-4 py-2">{formatTime(d.last_out)}</td>
-                <td className="px-4 py-2">{d.hours_worked || "-"}</td>
-                <td className="px-4 py-2">{d.ot_hours || "-"}</td>
-                <td className="px-4 py-2">
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-xs ${
-                      d.status === "present"
-                        ? "bg-jade-50 text-jade-700"
-                        : d.status === "absent"
-                          ? "bg-red-50 text-red-600"
-                          : "bg-gray-100 text-gray-400"
-                    }`}
-                  >
-                    {d.status}
-                  </span>
+              <tr key={d.date} className="border-b border-ink/[0.05] last:border-0">
+                <td className="px-5 py-2 font-nums text-ink/70">{formatDate(d.date)}</td>
+                <td className="px-5 py-2 font-nums text-ink/70">{formatTime(d.first_in)}</td>
+                <td className="px-5 py-2 font-nums text-ink/70">{formatTime(d.last_out)}</td>
+                <td className="px-5 py-2 font-nums">{d.hours_worked || "—"}</td>
+                <td className="px-5 py-2 font-nums text-ochre-600">{d.ot_hours || "—"}</td>
+                <td className="px-5 py-2">
+                  <StampBadge status={d.status}>{d.status}</StampBadge>
                 </td>
               </tr>
             ))}
