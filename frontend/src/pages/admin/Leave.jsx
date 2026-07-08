@@ -72,17 +72,24 @@ function ResolveRow({ request, onResolved }) {
   );
 }
 
+const POLL_MS = 20000;
+
 export default function Leave() {
   const [tab, setTab] = useState("pending");
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const load = () => {
-    setLoading(true);
+  const load = (silent) => {
+    if (!silent) setLoading(true);
     api.get("/api/leave-requests", { params: { status: tab } }).then(({ data }) => setRequests(data)).finally(() => setLoading(false));
   };
 
-  useEffect(load, [tab]);
+  useEffect(() => {
+    load();
+    if (tab !== "pending") return;
+    const interval = setInterval(() => load(true), POLL_MS);
+    return () => clearInterval(interval);
+  }, [tab]);
 
   return (
     <div>

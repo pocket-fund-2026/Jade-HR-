@@ -86,17 +86,24 @@ function ResolveRow({ dispute, onResolved }) {
   );
 }
 
+const POLL_MS = 20000;
+
 export default function Disputes() {
   const [tab, setTab] = useState("pending");
   const [disputes, setDisputes] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const load = () => {
-    setLoading(true);
+  const load = (silent) => {
+    if (!silent) setLoading(true);
     api.get("/api/disputes", { params: { status: tab } }).then(({ data }) => setDisputes(data)).finally(() => setLoading(false));
   };
 
-  useEffect(load, [tab]);
+  useEffect(() => {
+    load();
+    if (tab !== "pending") return;
+    const interval = setInterval(() => load(true), POLL_MS);
+    return () => clearInterval(interval);
+  }, [tab]);
 
   return (
     <div>

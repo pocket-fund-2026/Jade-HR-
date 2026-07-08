@@ -5,6 +5,8 @@ import { NavLink, Outlet } from "react-router-dom";
 import api from "../../lib/api.js";
 import { useAuth } from "../../lib/auth.jsx";
 
+const POLL_MS = 25000;
+
 const navItems = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/admin/employees", label: "Employees", icon: Users },
@@ -69,18 +71,28 @@ function SidebarContent({ user, logout, pendingCounts, onNavigate }) {
 
 export default function AdminLayout() {
   const { user, logout } = useAuth();
-  const [pendingCounts, setPendingCounts] = useState({ disputes: 0, leave: 0 });
+  const [pendingDisputes, setPendingDisputes] = useState([]);
+  const [pendingLeave, setPendingLeave] = useState([]);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const pendingCounts = { disputes: pendingDisputes.length, leave: pendingLeave.length };
 
   useEffect(() => {
-    Promise.all([
-      api.get("/api/disputes", { params: { status: "pending" } }),
-      api.get("/api/leave-requests", { params: { status: "pending" } }),
-    ])
-      .then(([disputesRes, leaveRes]) => {
-        setPendingCounts({ disputes: disputesRes.data.length, leave: leaveRes.data.length });
-      })
-      .catch(() => {});
+    let cancelled = false;
+    const poll = () => {
+      Promise.all([
+        api.get("/api/disputes", { params: { status: "pending" } }),
+        api.get("/api/leave-requests", { params: { status: "pending" } }),
+      ])
+        .then(([disputesRes, leaveRes]) => {
+          if (cancelled) return;
+          setPendingDisputes(disputesRes.data);
+          setPendingLeave(leaveRes.data);
+        })
+        .catch(() => {});
+    };
+    poll();
+    const interval = setInterval(poll, POLL_MS);
+    return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
   return (
@@ -116,7 +128,7 @@ export default function AdminLayout() {
       )}
 
       <main className="flex-1 p-4 pt-20 md:p-8 md:pt-8 overflow-y-auto overflow-x-hidden max-w-[1400px]">
-        <Outlet />
+        <Outlet context={{ pendingDisputes, pendingLeave }} />
       </main>
     </div>
   );

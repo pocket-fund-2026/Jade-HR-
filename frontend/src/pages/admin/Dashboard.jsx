@@ -1,5 +1,6 @@
+import { Bell, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useOutletContext } from "react-router-dom";
 
 import MonthPicker from "../../components/MonthPicker.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
@@ -8,6 +9,7 @@ import api from "../../lib/api.js";
 import { formatINR } from "../../lib/format.js";
 
 const today = new Date();
+const SEEN_KEY = "jade_hr_admin_notif_seen_at";
 
 export default function Dashboard() {
   const [year, setYear] = useState(today.getFullYear());
@@ -16,6 +18,9 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [lastSync, setLastSync] = useState(null);
+  const [dismissed, setDismissed] = useState(false);
+
+  const { pendingDisputes = [], pendingLeave = [] } = useOutletContext() || {};
 
   useEffect(() => {
     setLoading(true);
@@ -32,6 +37,16 @@ export default function Dashboard() {
       .then(({ data }) => setLastSync(data[0] || null))
       .catch(() => {});
   }, []);
+
+  const seenAt = localStorage.getItem(SEEN_KEY) || "1970-01-01";
+  const newDisputes = pendingDisputes.filter((d) => d.created_at > seenAt);
+  const newLeave = pendingLeave.filter((l) => l.created_at > seenAt);
+  const hasNew = !dismissed && (newDisputes.length > 0 || newLeave.length > 0);
+
+  const dismiss = () => {
+    localStorage.setItem(SEEN_KEY, new Date().toISOString());
+    setDismissed(true);
+  };
 
   const totals = rows.reduce(
     (acc, r) => ({
@@ -53,6 +68,29 @@ export default function Dashboard() {
           ? `Last biometric sync ${new Date(lastSync.run_at).toLocaleString("en-IN")} — ${lastSync.inserted} new punches`
           : "No biometric sync has run yet."}
       </p>
+
+      {hasNew && (
+        <div className="bg-ochre-50 border border-ochre-400/40 rounded-sm px-4 py-3 mb-6 flex items-start gap-3">
+          <Bell size={16} className="text-ochre-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 space-y-1 text-sm text-ink/80">
+            {newLeave.length > 0 && (
+              <p>
+                {newLeave.length} new leave request{newLeave.length > 1 ? "s" : ""} awaiting review —{" "}
+                <Link to="/admin/leave" className="text-jade-700 hover:underline font-medium">Review leave</Link>
+              </p>
+            )}
+            {newDisputes.length > 0 && (
+              <p>
+                {newDisputes.length} new attendance dispute{newDisputes.length > 1 ? "s" : ""} awaiting review —{" "}
+                <Link to="/admin/disputes" className="text-jade-700 hover:underline font-medium">Review disputes</Link>
+              </p>
+            )}
+          </div>
+          <button onClick={dismiss} className="text-ink/40 hover:text-ink">
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       {error && <p className="text-sm text-rust-500 mb-4 border-l-2 border-rust-500 pl-2.5">{error}</p>}
 
