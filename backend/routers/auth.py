@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from auth import create_access_token, get_current_user, hash_password, verify_password
@@ -5,6 +7,9 @@ from database import supabase
 from models import BootstrapAdminRequest, LoginRequest
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+MAX_FAILED_ATTEMPTS = 5
+LOCKOUT_MINUTES = 15
 
 
 @router.post("/login")
@@ -17,8 +22,32 @@ def login(body: LoginRequest):
         .execute()
     )
     employee = resp.data
-    if not employee or not employee["is_active"] or not verify_password(body.password, employee["password_hash"]):
+    if not employee or not employee["is_active"]:
         raise HTTPException(status_code=401, detail="Invalid employee code or password")
+
+    locked_until = employee.get("locked_until")
+    if locked_until:
+        locked_until_dt = datetime.fromisoformat(locked_until)
+        remaining = (locked_until_dt - datetime.now(timezone.utc)).total_seconds()
+        if remaining > 0:
+            raise HTTPException(
+                status_code=423,
+                detail=f"Too many failed attempts. Try again in {max(1, int(remaining // 60) + 1)} minute(s).",
+            )
+
+    if not verify_password(body.password, employee["password_hash"]):
+        new_count = employee.get("failed_login_count", 0) + 1
+        updates = {"failed_login_count": new_count}
+        if new_count >= MAX_FAILED_ATTEMPTS:
+            updates["failed_login_count"] = 0
+            updates["locked_until"] = (datetime.now(timezone.utc) + timedelta(minutes=LOCKOUT_MINUTES)).isoformat()
+        supabase.table("hr_employees").update(updates).eq("id", employee["id"]).execute()
+        raise HTTPException(status_code=401, detail="Invalid employee code or password")
+
+    if employee.get("failed_login_count", 0) > 0 or employee.get("locked_until"):
+        supabase.table("hr_employees").update(
+            {"failed_login_count": 0, "locked_until": None}
+        ).eq("id", employee["id"]).execute()
 
     token = create_access_token(employee)
     return {

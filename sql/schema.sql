@@ -22,6 +22,8 @@ create table if not exists hr_employees (
     password_hash           text not null,
     role                    text not null default 'employee' check (role in ('admin', 'employee')),
     is_active               boolean not null default true,
+    failed_login_count      int not null default 0,
+    locked_until            timestamptz,
     created_at              timestamptz not null default now(),
     updated_at              timestamptz not null default now()
 );
