@@ -15,7 +15,13 @@ import MyPayslip from "./pages/employee/MyPayslip.jsx";
 
 function Protected({ role, children }) {
   const { user, loading } = useAuth();
-  if (loading) return <div className="p-8 text-gray-500">Loading...</div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-manila">
+        <p className="font-display text-ink/40 text-lg">Opening the ledger…</p>
+      </div>
+    );
+  }
   if (!user) return <Navigate to="/login" replace />;
   if (role && user.role !== role) {
     return <Navigate to={user.role === "admin" ? "/admin" : "/employee"} replace />;
