@@ -37,7 +37,9 @@ def my_disputes(user: dict = Depends(get_current_user)):
 
 @router.get("/disputes")
 def list_disputes(status: str | None = Query(None), admin: dict = Depends(require_admin)):
-    query = supabase.table("hr_attendance_disputes").select("*, hr_employees(first_name,last_name,employee_code)")
+    query = supabase.table("hr_attendance_disputes").select(
+        "*, hr_employees!hr_attendance_disputes_employee_id_fkey(first_name,last_name,employee_code)"
+    )
     if status:
         query = query.eq("status", status)
     resp = query.order("created_at", desc=True).execute()
