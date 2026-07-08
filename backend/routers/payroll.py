@@ -9,13 +9,17 @@ from payroll import compute_monthly_summary
 router = APIRouter(prefix="/api", tags=["payroll"])
 
 
-def _fetch_punch_times(employee_code: str, year: int, month: int) -> list[datetime]:
+def _month_bounds(year: int, month: int) -> tuple[str, str]:
     from payroll import days_in_month
 
     last_day = days_in_month(year, month)
     from_dt = f"{year:04d}-{month:02d}-01T00:00:00+00:00"
     to_dt = f"{year:04d}-{month:02d}-{last_day:02d}T23:59:59+00:00"
+    return from_dt, to_dt
 
+
+def _fetch_punch_times(employee_code: str, year: int, month: int) -> list[datetime]:
+    from_dt, to_dt = _month_bounds(year, month)
     resp = (
         supabase.table("hr_biometric_punches")
         .select("punch_time")
@@ -25,6 +29,30 @@ def _fetch_punch_times(employee_code: str, year: int, month: int) -> list[dateti
         .execute()
     )
     return [datetime.fromisoformat(r["punch_time"]) for r in resp.data]
+
+
+def _fetch_all_punches_by_employee(year: int, month: int) -> dict[str, list[datetime]]:
+    """One (paginated) query for the whole month instead of one query per employee."""
+    from_dt, to_dt = _month_bounds(year, month)
+    by_employee: dict[str, list[datetime]] = {}
+    page_size = 1000
+    start = 0
+    while True:
+        resp = (
+            supabase.table("hr_biometric_punches")
+            .select("employee_code,punch_time")
+            .gte("punch_time", from_dt)
+            .lte("punch_time", to_dt)
+            .range(start, start + page_size - 1)
+            .execute()
+        )
+        rows = resp.data
+        for r in rows:
+            by_employee.setdefault(r["employee_code"], []).append(datetime.fromisoformat(r["punch_time"]))
+        if len(rows) < page_size:
+            break
+        start += page_size
+    return by_employee
 
 
 def _get_active_employee(employee_id: str) -> dict:
@@ -41,9 +69,10 @@ def payroll_for_month(
     admin: dict = Depends(require_admin),
 ):
     employees = supabase.table("hr_employees").select("*").eq("is_active", True).execute().data
+    punches_by_employee = _fetch_all_punches_by_employee(year, month)
     summaries = []
     for employee in employees:
-        punches = _fetch_punch_times(employee["employee_code"], year, month)
+        punches = punches_by_employee.get(employee["employee_code"], [])
         summary = compute_monthly_summary(employee, year, month, punches)
         summary.pop("daily")
         summaries.append(summary)
