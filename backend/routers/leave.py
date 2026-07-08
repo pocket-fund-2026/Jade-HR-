@@ -65,10 +65,11 @@ def my_leave_balance(user: dict = Depends(get_current_user)):
     for r in resp.data:
         used[r["leave_type"]] += _days_in_range(r["start_date"], r["end_date"])
 
+    uncapped = ["unpaid", "other"]
     return [
         {"leave_type": t, "allocated": allocated, "used": used.get(t, 0), "remaining": allocated - used.get(t, 0)}
         for t, allocated in LEAVE_ALLOCATIONS.items()
-    ] + [{"leave_type": "unpaid", "allocated": None, "used": used.get("unpaid", 0), "remaining": None}]
+    ] + [{"leave_type": t, "allocated": None, "used": used.get(t, 0), "remaining": None} for t in uncapped]
 
 
 @router.get("/leave-requests")

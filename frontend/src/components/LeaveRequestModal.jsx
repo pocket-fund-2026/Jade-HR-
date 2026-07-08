@@ -3,11 +3,12 @@ import { useState } from "react";
 
 import api from "../lib/api.js";
 
-const LEAVE_LABELS = {
+export const LEAVE_LABELS = {
   casual: "Casual Leave",
   sick: "Sick Leave",
   earned: "Earned Leave",
   unpaid: "Unpaid Leave",
+  other: "Other",
 };
 
 export default function LeaveRequestModal({ onClose, onSubmitted }) {
@@ -15,6 +16,7 @@ export default function LeaveRequestModal({ onClose, onSubmitted }) {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [reason, setReason] = useState("");
+  const [remark, setRemark] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -25,13 +27,17 @@ export default function LeaveRequestModal({ onClose, onSubmitted }) {
       setError("End date must be on or after the start date");
       return;
     }
+    if (leaveType === "other" && !remark.trim()) {
+      setError("Please specify what kind of leave this is");
+      return;
+    }
     setBusy(true);
     try {
       await api.post("/api/me/leave-requests", {
         leave_type: leaveType,
         start_date: startDate,
         end_date: endDate,
-        reason,
+        reason: leaveType === "other" ? `[${remark.trim()}] ${reason}` : reason,
       });
       onSubmitted();
     } catch (err) {
@@ -63,6 +69,20 @@ export default function LeaveRequestModal({ onClose, onSubmitted }) {
               ))}
             </select>
           </div>
+
+          {leaveType === "other" && (
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-ochre-600 mb-1.5">Please specify</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Bereavement, compensatory off, jury duty…"
+                className="w-full rounded-sm border border-ochre-400/50 bg-ochre-50 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ochre-500"
+                value={remark}
+                onChange={(e) => setRemark(e.target.value)}
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>

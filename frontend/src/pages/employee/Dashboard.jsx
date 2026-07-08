@@ -11,7 +11,7 @@ import api from "../../lib/api.js";
 import { formatDate, formatINR, formatTime } from "../../lib/format.js";
 
 const today = new Date();
-const LEAVE_LABELS = { casual: "Casual", sick: "Sick", earned: "Earned", unpaid: "Unpaid" };
+const LEAVE_LABELS = { casual: "Casual", sick: "Sick", earned: "Earned", unpaid: "Unpaid", other: "Other" };
 
 export default function Dashboard() {
   const [year, setYear] = useState(today.getFullYear());

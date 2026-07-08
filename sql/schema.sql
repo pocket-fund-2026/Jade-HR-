@@ -96,7 +96,7 @@ create index if not exists idx_hr_disputes_status on hr_attendance_disputes (sta
 create table if not exists hr_leave_requests (
     id                uuid primary key default gen_random_uuid(),
     employee_id       uuid not null references hr_employees(id) on delete cascade,
-    leave_type        text not null check (leave_type in ('casual', 'sick', 'earned', 'unpaid')),
+    leave_type        text not null check (leave_type in ('casual', 'sick', 'earned', 'unpaid', 'other')),
     start_date        date not null,
     end_date          date not null,
     reason            text not null,
