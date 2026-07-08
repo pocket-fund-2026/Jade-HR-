@@ -11,9 +11,12 @@ export default function EmployeeLayout() {
       <header className="bg-ledger-800 relative">
         <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
         <div className="max-w-4xl mx-auto px-6 py-5 flex items-center justify-between relative">
-          <div>
-            <p className="font-display text-manila text-lg leading-none">JADE HR</p>
-            <p className="text-manila/40 text-xs mt-1">{user?.name}</p>
+          <div className="flex items-center gap-3">
+            <img src="/jade-logo.png" alt="" className="w-8 h-8 flex-shrink-0" />
+            <div>
+              <p className="font-display text-manila text-lg leading-none">JADE HR</p>
+              <p className="text-manila/40 text-xs mt-1">{user?.name}</p>
+            </div>
           </div>
           <button
             onClick={logout}

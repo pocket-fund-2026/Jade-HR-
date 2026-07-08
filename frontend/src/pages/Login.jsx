@@ -31,14 +31,9 @@ export default function Login() {
 
       <div className="w-full max-w-sm relative">
         <div className="text-center mb-10">
-          <div
-            className="inline-flex flex-col items-center justify-center border-[3px] border-manila/70 rounded-full w-28 h-28 -rotate-3 mb-5"
-            style={{ boxShadow: "0 0 0 1px rgba(239,233,218,0.15)" }}
-          >
-            <span className="font-display text-manila text-3xl font-semibold leading-none">JADE</span>
-            <span className="font-display text-manila text-[11px] tracking-[0.4em] uppercase mt-2">HR</span>
-          </div>
-          <p className="text-manila/50 text-sm font-nums tracking-wide">Madhu Estate &middot; Mumbai</p>
+          <img src="/jade-logo.png" alt="JADE" className="w-24 h-24 mx-auto -rotate-2 mb-3" />
+          <p className="font-display text-manila text-lg tracking-[0.15em] uppercase">HR</p>
+          <p className="text-manila/50 text-sm font-nums tracking-wide mt-1">Madhu Estate &middot; Mumbai</p>
         </div>
 
         <div className="bg-paper rounded-sm shadow-stamp px-8 pt-8 pb-7 border-t-4 border-jade-500">

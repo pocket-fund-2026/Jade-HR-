@@ -24,9 +24,12 @@ export default function AdminLayout() {
     <div className="min-h-screen flex bg-manila">
       <aside className="w-60 bg-ledger-800 flex flex-col relative">
         <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
-        <div className="px-6 py-6 relative">
-          <p className="font-display text-manila text-xl leading-none">JADE HR</p>
-          <p className="text-manila/40 text-[11px] uppercase tracking-[0.2em] mt-1.5">Admin Ledger</p>
+        <div className="px-6 py-6 relative flex items-center gap-3">
+          <img src="/jade-logo.png" alt="" className="w-9 h-9 flex-shrink-0" />
+          <div>
+            <p className="font-display text-manila text-xl leading-none">JADE HR</p>
+            <p className="text-manila/40 text-[11px] uppercase tracking-[0.2em] mt-1.5">Admin Ledger</p>
+          </div>
         </div>
         <nav className="flex-1 px-3 py-2 space-y-1 relative">
           {navItems.map(({ to, label, icon: Icon, end }) => (
