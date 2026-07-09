@@ -6,6 +6,14 @@ body {
   @apply bg-manila text-ink font-sans antialiased;
 }
 
+/* Keyboard focus everywhere reads as jade, even on plain buttons/links that
+   don't set their own focus:ring — inputs already do via focus:ring-jade-500. */
+a:focus-visible, button:focus-visible {
+  outline: 2px solid theme("colors.jade.500");
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 .font-nums {
   font-family: "IBM Plex Mono", ui-monospace, monospace;
   font-feature-settings: "tnum" 1, "zero" 1;
@@ -14,7 +22,9 @@ body {
 
 /* Ink-stamp status mark — the signature motif. A rotated, soft-edged
    rubber-stamp look built from layered shadows rather than an image, so it
-   stays crisp at any size and themes with currentColor. */
+   stays crisp at any size and themes with currentColor. Lands with
+   .stamp-land (see below) wherever a status is freshly decided, not on
+   every render of a table full of old ones. */
 .stamp {
   @apply inline-flex items-center justify-center font-sans text-[11px] font-semibold uppercase tracking-wider;
   padding: 0.2rem 0.6rem;
@@ -38,6 +48,47 @@ body {
   background-size: 100% 1px;
   background-repeat: no-repeat;
   background-position: top;
+}
+
+/* Motion vocabulary: the ledger's only two moves are a stamp landing on
+   paper and a page settling into place. Both carry the -2deg tilt already
+   baked into .stamp, so entrances read as "hand-pressed" rather than
+   "fed in from a slideshow." Kept to these two so motion stays legible as
+   one idea, not scattered effects. */
+@keyframes stamp-land {
+  0% { opacity: 0; transform: scale(1.7) rotate(-9deg); }
+  60% { opacity: 1; transform: scale(0.96) rotate(-1deg); }
+  100% { opacity: 1; transform: scale(1) rotate(-2deg); }
+}
+.stamp-land {
+  animation: stamp-land 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.rise-in {
+  animation: rise-in 0.4s ease-out both;
+}
+
+/* Stat-card rows settle in left-to-right, once, on page load — like laying
+   ledger cards down on a desk. Applied to the grid wrapper; children need
+   no changes. Capped at 6 so it never fans out awkwardly on wide rows. */
+.stagger-rise > * {
+  animation: rise-in 0.4s ease-out both;
+}
+.stagger-rise > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-rise > *:nth-child(2) { animation-delay: 45ms; }
+.stagger-rise > *:nth-child(3) { animation-delay: 90ms; }
+.stagger-rise > *:nth-child(4) { animation-delay: 135ms; }
+.stagger-rise > *:nth-child(5) { animation-delay: 180ms; }
+.stagger-rise > *:nth-child(6) { animation-delay: 225ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .stamp-land, .rise-in, .stagger-rise > * {
+    animation: none !important;
+  }
 }
 
 /* Payslip printing — hide chrome, drop the dark ledger panel to a bordered

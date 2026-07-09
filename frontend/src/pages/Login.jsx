@@ -36,7 +36,7 @@ export default function Login() {
           <p className="text-manila/50 text-sm font-nums tracking-wide mt-1">Madhu Estate &middot; Mumbai</p>
         </div>
 
-        <div className="bg-paper rounded-sm shadow-stamp px-8 pt-8 pb-7 border-t-4 border-jade-500">
+        <div className="bg-paper rounded-sm shadow-stamp px-8 pt-8 pb-7 border-t-4 border-jade-500 rise-in">
           <p className="font-display text-ink text-lg mb-6">Clock in to your account</p>
 
           <form onSubmit={submit} className="space-y-5">

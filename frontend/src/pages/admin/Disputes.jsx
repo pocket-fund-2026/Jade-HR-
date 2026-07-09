@@ -164,7 +164,7 @@ export default function Disputes() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={6}>Loading…</td></tr>
+              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={6}>Loading ledger…</td></tr>
             ) : filtered.length === 0 ? (
               <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={6}>No {tab} disputes.</td></tr>
             ) : tab === "pending" ? (

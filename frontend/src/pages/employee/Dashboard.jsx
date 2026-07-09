@@ -96,10 +96,10 @@ export default function Dashboard() {
       </div>
 
       {loading || !summary ? (
-        <p className="text-ink/40">Loading…</p>
+        <p className="text-ink/40">Loading ledger…</p>
       ) : (
         <div className="print-area">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6 stagger-rise">
             <StatCard label="Present Days" value={`${summary.present_days}/${summary.days_in_month}`} />
             <StatCard label="Absent Days" value={summary.absent_days} />
             <StatCard label="Hours Worked" value={summary.total_hours_worked} />

@@ -20,7 +20,7 @@ export default function PayslipDetail({ summary }) {
           <Printer size={14} /> Print / Save as PDF
         </button>
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 stagger-rise">
         <StatCard label="Present Days" value={`${summary.present_days}/${summary.days_in_month}`} />
         <StatCard label="Hours Worked" value={summary.total_hours_worked} />
         <StatCard label="OT Hours" value={summary.total_ot_hours} />

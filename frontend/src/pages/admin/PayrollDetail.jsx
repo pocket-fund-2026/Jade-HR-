@@ -34,7 +34,7 @@ export default function PayrollDetail() {
         <MonthPicker year={year} month={month} onChange={(y, m) => setParams({ year: y, month: m })} />
       </div>
 
-      {loading ? <p className="text-ink/40">Loading…</p> : <PayslipDetail summary={summary} />}
+      {loading ? <p className="text-ink/40">Loading ledger…</p> : <PayslipDetail summary={summary} />}
     </div>
   );
 }

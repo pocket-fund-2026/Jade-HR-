@@ -4,14 +4,20 @@ import { useEffect, useRef, useState } from "react";
 import api from "../lib/api.js";
 import { formatTime } from "../lib/format.js";
 
-// idle -> capturing -> preview -> submitting -> idle
+const SUCCESS_MS = 2200;
+
+// idle -> capturing -> preview -> submitting -> success -> idle
 export default function SelfieCheckinCard() {
   const [status, setStatus] = useState(null);
   const [mode, setMode] = useState("idle");
   const [photo, setPhoto] = useState(null);
   const [error, setError] = useState("");
+  const [justPunched, setJustPunched] = useState(null);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const dismissTimer = useRef(null);
+
+  useEffect(() => () => clearTimeout(dismissTimer.current), []);
 
   const loadStatus = () => {
     api.get("/api/me/selfie-status").then((res) => setStatus(res.data)).catch(() => {});
@@ -70,14 +76,21 @@ export default function SelfieCheckinCard() {
     setMode("submitting");
     setError("");
     try {
-      await api.post("/api/me/selfie-checkin", { photo_base64: photo });
+      const { data } = await api.post("/api/me/selfie-checkin", { photo_base64: photo });
       setPhoto(null);
-      setMode("idle");
+      setJustPunched(data);
+      setMode("success");
       loadStatus();
+      dismissTimer.current = setTimeout(() => setMode("idle"), SUCCESS_MS);
     } catch (err) {
       setError(err.response?.data?.detail || "Couldn't submit — try again");
       setMode("preview");
     }
+  };
+
+  const dismissSuccess = () => {
+    clearTimeout(dismissTimer.current);
+    setMode("idle");
   };
 
   if (!status?.requires_selfie_checkin) return null;
@@ -146,6 +159,18 @@ export default function SelfieCheckinCard() {
             </button>
           </div>
         </div>
+      )}
+
+      {mode === "success" && justPunched && (
+        <button onClick={dismissSuccess} className="w-full text-left group">
+          <div className="flex items-center gap-4 py-1">
+            <span className="stamp stamp-land text-jade-600 text-sm px-3 py-1.5 flex-shrink-0">
+              {justPunched.direction === "IN" ? "Checked In" : "Checked Out"}
+            </span>
+            <span className="font-nums text-ink/50 text-sm">{formatTime(justPunched.time)}</span>
+            <span className="ml-auto text-xs text-ink/30 group-hover:text-ink/50 transition-colors">Tap to dismiss</span>
+          </div>
+        </button>
       )}
     </div>
   );

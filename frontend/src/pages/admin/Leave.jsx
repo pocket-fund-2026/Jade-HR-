@@ -151,7 +151,7 @@ export default function Leave() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={7}>Loading…</td></tr>
+              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={7}>Loading ledger…</td></tr>
             ) : filtered.length === 0 ? (
               <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={7}>No {tab} leave requests.</td></tr>
             ) : tab === "pending" ? (

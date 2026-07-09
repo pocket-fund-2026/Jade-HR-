@@ -49,7 +49,7 @@ export default function Setup() {
           <p className="text-manila/50 text-sm mt-1">Open a new ledger — create the first admin account</p>
         </div>
 
-        <div className="bg-paper rounded-sm shadow-stamp px-8 pt-8 pb-7 border-t-4 border-ochre-500">
+        <div className="bg-paper rounded-sm shadow-stamp px-8 pt-8 pb-7 border-t-4 border-ochre-500 rise-in">
           <form onSubmit={submit} className="space-y-5">
             {field("Admin Employee Code", "employee_code", { required: true })}
             <div className="grid grid-cols-2 gap-4">

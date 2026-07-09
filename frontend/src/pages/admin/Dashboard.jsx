@@ -116,7 +116,7 @@ export default function Dashboard() {
 
       {error && <p className="text-sm text-rust-500 mb-4 border-l-2 border-rust-500 pl-2.5">{error}</p>}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 stagger-rise">
         <StatCard label="Active Employees" value={filtered.length} />
         <StatCard label="Total OT Hours" value={totals.otHours.toFixed(1)} />
         <StatCard label="Total OT Amount" value={formatINR(totals.otAmount)} accent="text-ochre-500" />
