@@ -100,3 +100,7 @@ class LeaveRequestCreate(BaseModel):
 class LeaveResolve(BaseModel):
     action: str  # approve | reject
     admin_note: str = ""
+
+
+class SelfieCheckinRequest(BaseModel):
+    photo_base64: str  # may be a data: URL or raw base64

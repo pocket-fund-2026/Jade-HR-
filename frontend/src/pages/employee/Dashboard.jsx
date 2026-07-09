@@ -5,6 +5,7 @@ import DisputeModal from "../../components/DisputeModal.jsx";
 import LedgerLine from "../../components/LedgerLine.jsx";
 import LeaveRequestModal from "../../components/LeaveRequestModal.jsx";
 import MonthPicker from "../../components/MonthPicker.jsx";
+import SelfieCheckinCard from "../../components/SelfieCheckinCard.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import StatCard from "../../components/StatCard.jsx";
 import api from "../../lib/api.js";
@@ -89,6 +90,10 @@ export default function Dashboard() {
           </button>
         </div>
       )}
+
+      <div className="no-print">
+        <SelfieCheckinCard />
+      </div>
 
       {loading || !summary ? (
         <p className="text-ink/40">Loading…</p>

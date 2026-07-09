@@ -24,6 +24,7 @@ create table if not exists hr_employees (
     is_active               boolean not null default true,
     failed_login_count      int not null default 0,
     locked_until            timestamptz,
+    requires_selfie_checkin boolean not null default false,
     created_at              timestamptz not null default now(),
     updated_at              timestamptz not null default now()
 );
@@ -122,3 +123,9 @@ alter table hr_sync_log enable row level security;
 alter table hr_attendance_overrides enable row level security;
 alter table hr_attendance_disputes enable row level security;
 alter table hr_leave_requests enable row level security;
+
+-- Selfie check-in photos for employees flagged with requires_selfie_checkin
+-- (private bucket; only the service_role backend reads/writes it).
+insert into storage.buckets (id, name, public)
+values ('selfies', 'selfies', false)
+on conflict (id) do nothing;
