@@ -11,6 +11,7 @@ export default function Employees() {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [location, setLocation] = useState("all");
   const [showImport, setShowImport] = useState(false);
 
   const load = () => {
@@ -20,15 +21,22 @@ export default function Employees() {
 
   useEffect(load, []);
 
+  const locations = useMemo(
+    () => [...new Set(employees.map((e) => e.location).filter(Boolean))].sort(),
+    [employees],
+  );
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return employees;
-    return employees.filter(
-      (e) =>
+    return employees.filter((e) => {
+      if (location !== "all" && e.location !== location) return false;
+      if (!q) return true;
+      return (
         `${e.first_name} ${e.last_name}`.toLowerCase().includes(q) ||
-        e.employee_code.toLowerCase().includes(q),
-    );
-  }, [employees, query]);
+        e.employee_code.toLowerCase().includes(q)
+      );
+    });
+  }, [employees, query, location]);
 
   return (
     <div>
@@ -62,14 +70,26 @@ export default function Employees() {
         />
       )}
 
-      <div className="relative mb-4 max-w-xs">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/30" />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search name or code"
-          className="w-full rounded-sm border border-ink/15 bg-paper pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500"
-        />
+      <div className="flex gap-3 mb-4">
+        <div className="relative max-w-xs flex-1">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/30" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search name or code"
+            className="w-full rounded-sm border border-ink/15 bg-paper pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500"
+          />
+        </div>
+        <select
+          value={location}
+          onChange={(e) => setLocation(e.target.value)}
+          className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+        >
+          <option value="all">All locations</option>
+          {locations.map((loc) => (
+            <option key={loc} value={loc}>{loc}</option>
+          ))}
+        </select>
       </div>
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
@@ -78,6 +98,7 @@ export default function Employees() {
             <tr className="border-b-2 border-ink/10">
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Name</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Code</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Location</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Designation</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Gross (B+H+C)</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Status</th>
@@ -85,9 +106,9 @@ export default function Employees() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={5}>Loading ledger…</td></tr>
+              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={6}>Loading ledger…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={5}>No employees match.</td></tr>
+              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={6}>No employees match.</td></tr>
             ) : (
               filtered.map((e) => (
                 <tr key={e.id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
@@ -97,6 +118,7 @@ export default function Employees() {
                     </Link>
                   </td>
                   <td className="px-5 py-3.5 text-ink/50 font-nums">{e.employee_code}</td>
+                  <td className="px-5 py-3.5 text-ink/70">{e.location || "—"}</td>
                   <td className="px-5 py-3.5 text-ink/70">{e.designation || "—"}</td>
                   <td className="px-5 py-3.5 font-nums">{formatINR(Number(e.basic) + Number(e.hra) + Number(e.conveyance))}</td>
                   <td className="px-5 py-3.5">

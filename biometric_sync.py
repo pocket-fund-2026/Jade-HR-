@@ -1,5 +1,5 @@
 """
-JADE HR biometric sync — Madhu Estate, Mumbai.
+JADE HR biometric sync — all Jade retail/office locations.
 
 Pulls punch logs from the SmartOffice biometric API and pushes them into
 jade-hr via /api/biometric/ingest. Mirrors the pattern used by jade-tts's
@@ -8,7 +8,12 @@ biometric_relay.py. Runs as a cron job on this VPS (/etc/cron.d/jade-hr-sync).
 The Madhu-Estate-specific API key SmartOffice showed us never authenticated
 (confirmed rejected 5 different ways). This account's SmartOffice server is
 shared across all Jade locations, so we use the same key jade-tts already
-uses for Kolkata and filter to Madhu Estate's device serial instead.
+uses for Kolkata and filter to each location's device serial instead.
+Locations covered by default (see DEVICE_SERIALS below): Madhu Estate,
+Pedder Road, Mehrauli/Ambawatta, Emporio, Ahmedabad, Kolkata — identified by
+cross-referencing employee codes per SmartOffice department against which
+serial their punches land on (see backend/config.py's SERIAL_TO_LOCATION,
+which must be kept in sync with this list).
 
 Manual usage:
   python biometric_sync.py                          # last 3 days (default)
@@ -33,8 +38,16 @@ SMARTOFFICE_URL = os.environ.get(
 # Shared account key (same one jade-tts uses for Kolkata) — Madhu Estate's
 # own key never worked, see module docstring.
 SMARTOFFICE_API_KEY = os.environ.get("SMARTOFFICE_API_KEY", "120612082520")
-MADHU_ESTATE_SERIAL = "C2696422DF0E2832"
-DEVICE_SERIALS = set(filter(None, os.environ.get("DEVICE_SERIALS", MADHU_ESTATE_SERIAL).split(",")))
+# Keep in sync with backend/config.py's SERIAL_TO_LOCATION.
+ALL_JADE_SERIALS = ",".join([
+    "C2696422DF0E2832",  # Madhu Estate, Mumbai
+    "C2684450831C3B32",  # Pedder Road, Mumbai
+    "C26238441B160C2E",  # Mehrauli (Ambawatta), Delhi
+    "C2600831C32B1034",  # Emporio, Delhi
+    "C2625841D724172A",  # Ahmedabad
+    "CK5O223960664",     # Kolkata
+])
+DEVICE_SERIALS = set(filter(None, os.environ.get("DEVICE_SERIALS", ALL_JADE_SERIALS).split(",")))
 
 JADE_HR_URL = os.environ.get("JADE_HR_URL", "https://jade-hr.vercel.app")
 JADE_HR_USER = os.environ.get("JADE_HR_USER", "")  # set via /etc/jade-hr-sync.env, not hardcoded

@@ -1,27 +1,49 @@
 """OT / attendance calculation engine.
 
+Pay periods run from the 23rd of the prior month through the 22nd of the
+period's own month (e.g. "July 2026" = 23 Jun 2026 - 22 Jul 2026) — not
+calendar months. The (year, month) pair labels a period by its END date.
+
 Formula (as specified by JADE HR ops), example — Sarita:
     Basic = 16,000, HRA = 9,600, Conveyance = 1,200 -> Total = 26,800
-    Days in Month = 31
+    Days in Period = 31
     Per Day Salary  = 26,800 / 31   = 864.51
     Per Hour Salary = 864.51 / 8    = 108.06
     Total OT Hours  = 21.54
     OT Amount = 108.06 x 21.54 = 2,328 (approx)
 """
 
-import calendar
 from collections import defaultdict
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta
+
+from config import IST
+
+
+def pay_period_bounds(year: int, month: int) -> tuple[date, date]:
+    """Pay period labeled (year, month) runs 23rd of the prior month
+    through the 22nd of (year, month)."""
+    if month == 1:
+        prev_year, prev_month = year - 1, 12
+    else:
+        prev_year, prev_month = year, month - 1
+    start = date(prev_year, prev_month, 23)
+    end = date(year, month, 22)
+    return start, end
 
 
 def days_in_month(year: int, month: int) -> int:
-    return calendar.monthrange(year, month)[1]
+    """Number of days in the pay period. Name kept for call-site compatibility."""
+    start, end = pay_period_bounds(year, month)
+    return (end - start).days + 1
 
 
 def group_punches_by_day(punch_times: list[datetime]) -> dict[date, list[datetime]]:
+    """Groups by IST calendar date. Punches are stored as true UTC instants,
+    but the attendance "day" boundary is local Indian midnight, not UTC —
+    grouping by UTC date would misfile any punch in the ~5.5hr IST/UTC gap."""
     by_day: dict[date, list[datetime]] = defaultdict(list)
     for pt in punch_times:
-        by_day[pt.astimezone(timezone.utc).date()].append(pt)
+        by_day[pt.astimezone(IST).date()].append(pt)
     for day_punches in by_day.values():
         day_punches.sort()
     return by_day
@@ -34,8 +56,8 @@ def _apply_override(d: date, override: dict, standard_hours_per_day: float) -> d
     hours_worked = ot_hours = 0.0
     first_in_iso = last_out_iso = None
     if status == "present" and first_in and last_out:
-        start = datetime.combine(d, first_in, tzinfo=timezone.utc)
-        end = datetime.combine(d, last_out, tzinfo=timezone.utc)
+        start = datetime.combine(d, first_in, tzinfo=IST)
+        end = datetime.combine(d, last_out, tzinfo=IST)
         hours_worked = max(0.0, (end - start).total_seconds() / 3600.0)
         ot_hours = max(0.0, hours_worked - standard_hours_per_day)
         first_in_iso, last_out_iso = start.isoformat(), end.isoformat()
@@ -63,7 +85,7 @@ def compute_daily_attendance(
     overrides: dict[date, dict] | None = None,
     leaves: dict[date, str] | None = None,
 ) -> list[dict]:
-    """One row per calendar day in the month, present/absent/future + hours + OT.
+    """One row per day in the pay period (23rd of prior month - 22nd of this month).
 
     `overrides` (keyed by date) are admin-approved corrections — e.g. from an
     employee's "I forgot to punch out" dispute — and take priority over raw
@@ -74,15 +96,15 @@ def compute_daily_attendance(
     overrides = overrides or {}
     leaves = leaves or {}
     by_day = group_punches_by_day(punch_times)
-    total_days = days_in_month(year, month)
-    today = datetime.now(timezone.utc).date()
+    start, end = pay_period_bounds(year, month)
+    today = datetime.now(IST).date()
 
     rows = []
-    for day_num in range(1, total_days + 1):
-        d = date(year, month, day_num)
-
+    d = start
+    while d <= end:
         if d in overrides:
             rows.append(_apply_override(d, overrides[d], standard_hours_per_day))
+            d += timedelta(days=1)
             continue
 
         punches = by_day.get(d, [])
@@ -98,6 +120,7 @@ def compute_daily_attendance(
                     "status": "leave",
                     "leave_type": leaves[d],
                 })
+                d += timedelta(days=1)
                 continue
             status = "future" if d > today else "absent"
             rows.append({
@@ -108,6 +131,7 @@ def compute_daily_attendance(
                 "ot_hours": 0.0,
                 "status": status,
             })
+            d += timedelta(days=1)
             continue
 
         first_in = punches[0]
@@ -123,6 +147,7 @@ def compute_daily_attendance(
             "ot_hours": round(ot_hours, 2),
             "status": "present",
         })
+        d += timedelta(days=1)
 
     return rows
 
@@ -155,12 +180,17 @@ def compute_monthly_summary(
     per_hour_salary = per_day_salary / standard_hours if standard_hours else 0
     ot_amount = per_hour_salary * total_ot_hours
 
+    period_start, period_end = pay_period_bounds(year, month)
+
     return {
         "employee_id": employee["id"],
         "employee_code": employee["employee_code"],
         "name": f"{employee['first_name']} {employee.get('last_name', '')}".strip(),
+        "location": employee.get("location", ""),
         "year": year,
         "month": month,
+        "period_start": period_start.isoformat(),
+        "period_end": period_end.isoformat(),
         "days_in_month": total_days,
         "present_days": present_days,
         "absent_days": absent_days,

@@ -1,5 +1,5 @@
 import { Download } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import MonthPicker from "../../components/MonthPicker.jsx";
@@ -47,6 +47,7 @@ export default function Payroll() {
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [location, setLocation] = useState("all");
 
   useEffect(() => {
     setLoading(true);
@@ -55,6 +56,15 @@ export default function Payroll() {
       .then(({ data }) => setRows(data))
       .finally(() => setLoading(false));
   }, [year, month]);
+
+  const locations = useMemo(
+    () => [...new Set(rows.map((r) => r.location).filter(Boolean))].sort(),
+    [rows],
+  );
+  const filtered = useMemo(
+    () => (location === "all" ? rows : rows.filter((r) => r.location === location)),
+    [rows, location],
+  );
 
   return (
     <div>
@@ -66,9 +76,19 @@ export default function Payroll() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <select
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+          >
+            <option value="all">All locations</option>
+            {locations.map((loc) => (
+              <option key={loc} value={loc}>{loc}</option>
+            ))}
+          </select>
           <button
-            onClick={() => exportCsv(rows, year, month)}
-            disabled={!rows.length}
+            onClick={() => exportCsv(filtered, year, month)}
+            disabled={!filtered.length}
             className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
           >
             <Download size={15} /> Export CSV
@@ -94,10 +114,10 @@ export default function Payroll() {
           <tbody>
             {loading ? (
               <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={8}>Loading ledger…</td></tr>
-            ) : rows.length === 0 ? (
-              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={8}>No employees yet.</td></tr>
+            ) : filtered.length === 0 ? (
+              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={8}>No employees match.</td></tr>
             ) : (
-              rows.map((r) => (
+              filtered.map((r) => (
                 <tr key={r.employee_id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
                   <td className="px-5 py-3.5">
                     <span className="text-ink font-medium">{r.name}</span>

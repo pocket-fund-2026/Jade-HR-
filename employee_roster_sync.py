@@ -1,9 +1,9 @@
 """
-JADE HR employee roster sync — Madhu Estate, Mumbai.
+JADE HR employee roster sync — all Jade retail/office locations.
 
 Logs into the SmartOffice web UI (the API has no employee-master endpoint,
 only punch logs), exports the company-wide employee master CSV, filters to
-"Mumbai-Madhu Estate Staff", and reconciles it against jade-hr:
+each known department (see DEPARTMENTS below), and reconciles against jade-hr:
   - updates real names on existing employees
   - deactivates anyone whose SmartOffice status isn't "Working" (resigned etc.)
   - creates employees who are Working but have no punch history yet
@@ -40,7 +40,16 @@ SMARTOFFICE_WEB_PASS = os.environ.get("SMARTOFFICE_WEB_PASS", "")
 _AES_KEY = b"absf1245mm12wsdf"
 _AES_IV = b"absf1245mm12wsdf"
 
-MADHU_DEPARTMENT = "Mumbai-Madhu Estate Staff"
+# SmartOffice department name -> (jade-hr location, password prefix).
+# Keep in sync with backend/config.py's SERIAL_TO_LOCATION.
+DEPARTMENTS = {
+    "Mumbai-Madhu Estate Staff": ("Madhu Estate, Mumbai", "Madhu"),
+    "Mumbai Pedder Road": ("Pedder Road, Mumbai", "Jade"),
+    "Delhi Mehrauli Store": ("Mehrauli (Ambawatta), Delhi", "Jade"),
+    "Delhi Emporio Store": ("Emporio, Delhi", "Jade"),
+    "Ahmedabad Retail Store": ("Ahmedabad", "Jade"),
+    "Kolkatta": ("Kolkata", "Jade"),
+}
 
 JADE_HR_URL = os.environ.get("JADE_HR_URL", "https://jade-hr.vercel.app")
 JADE_HR_USER = os.environ.get("JADE_HR_USER", "")  # set via /etc/jade-hr-sync.env, not hardcoded
@@ -112,7 +121,12 @@ def _api(token: str, method: str, path: str, body=None):
 
 def reconcile(csv_text: str, token: str):
     rows = list(csv.DictReader(io.StringIO(csv_text)))
-    madhu = {r["EmployeeCode"].strip(): r for r in rows if r["Department"] == MADHU_DEPARTMENT}
+    # employee_code -> (master row, location, password_prefix), across all known departments
+    tracked = {}
+    for r in rows:
+        dept = DEPARTMENTS.get(r["Department"])
+        if dept:
+            tracked[r["EmployeeCode"].strip()] = (r, dept[0], dept[1])
 
     _, existing = _api(token, "GET", "/api/employees")
     existing_by_code = {e["employee_code"]: e for e in existing}
@@ -122,14 +136,15 @@ def reconcile(csv_text: str, token: str):
     for code, emp in existing_by_code.items():
         if code == JADE_HR_USER:
             continue
-        master = madhu.get(code)
-        if not master:
+        entry = tracked.get(code)
+        if not entry:
             unmatched += 1
             continue
+        master, location, _ = entry
         parts = master["EmployeeName"].strip().split(" ", 1)
         first, last = parts[0], (parts[1] if len(parts) > 1 else "")
         is_working = master["Status"] == "Working"
-        body = {"first_name": first, "last_name": last, "is_active": is_working}
+        body = {"first_name": first, "last_name": last, "is_active": is_working, "location": location}
         doj = master.get("DOJ", "")
         if doj and doj not in ("1900-01-01", "3000-01-01", ""):
             body["date_of_joining"] = doj
@@ -140,15 +155,15 @@ def reconcile(csv_text: str, token: str):
                 deactivated += 1
 
     existing_codes = set(existing_by_code.keys())
-    for code, master in madhu.items():
+    for code, (master, location, pw_prefix) in tracked.items():
         if master["Status"] != "Working" or code in existing_codes:
             continue
         parts = master["EmployeeName"].strip().split(" ", 1)
         first, last = parts[0], (parts[1] if len(parts) > 1 else "")
         body = {
             "employee_code": code, "first_name": first, "last_name": last,
-            "location": "Madhu Estate, Mumbai", "role": "employee",
-            "password": f"Madhu@{code}!2026",
+            "location": location, "role": "employee",
+            "password": f"{pw_prefix}@{code}!2026",
         }
         doj = master.get("DOJ", "")
         if doj and doj not in ("1900-01-01", "3000-01-01", ""):
@@ -191,7 +206,7 @@ def main():
 
     print(f"  Updated: {result['updated']} (of which deactivated: {result['deactivated']})")
     print(f"  Created: {result['created']}")
-    print(f"  Unmatched (no longer / not found in Madhu Estate master): {result['unmatched']}")
+    print(f"  Unmatched (not found in any tracked department's master): {result['unmatched']}")
     print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] Roster sync complete")
 
 

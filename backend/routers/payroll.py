@@ -1,21 +1,23 @@
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from auth import get_current_user, require_admin
+from config import IST
 from database import supabase
-from payroll import compute_monthly_summary
+from payroll import compute_monthly_summary, pay_period_bounds
 from routers.leave import fetch_all_approved_leaves_by_employee, fetch_approved_leaves
 
 router = APIRouter(prefix="/api", tags=["payroll"])
 
 
 def _month_bounds(year: int, month: int) -> tuple[str, str]:
-    from payroll import days_in_month
-
-    last_day = days_in_month(year, month)
-    from_dt = f"{year:04d}-{month:02d}-01T00:00:00+00:00"
-    to_dt = f"{year:04d}-{month:02d}-{last_day:02d}T23:59:59+00:00"
+    """Pay-period bounds (23rd of prior month - 22nd of this month), as UTC
+    instants — the period is defined in IST wall-clock time, so midnight IST
+    on each boundary date is what actually delimits it."""
+    start, end = pay_period_bounds(year, month)
+    from_dt = datetime.combine(start, datetime.min.time(), tzinfo=IST).isoformat()
+    to_dt = datetime.combine(end + timedelta(days=1), datetime.min.time(), tzinfo=IST).isoformat()
     return from_dt, to_dt
 
 
@@ -61,7 +63,8 @@ def _fetch_all_punches_by_employee(year: int, month: int) -> dict[str, list[date
 
 
 def _fetch_overrides(employee_id: str, year: int, month: int) -> dict[date, dict]:
-    from_d, to_d = f"{year:04d}-{month:02d}-01", f"{year:04d}-{month:02d}-{31:02d}"
+    start, end = pay_period_bounds(year, month)
+    from_d, to_d = start.isoformat(), end.isoformat()
     resp = (
         supabase.table("hr_attendance_overrides")
         .select("*")
@@ -81,7 +84,8 @@ def _fetch_overrides(employee_id: str, year: int, month: int) -> dict[date, dict
 
 
 def _fetch_all_overrides_by_employee(year: int, month: int) -> dict[str, dict[date, dict]]:
-    from_d, to_d = f"{year:04d}-{month:02d}-01", f"{year:04d}-{month:02d}-{31:02d}"
+    start, end = pay_period_bounds(year, month)
+    from_d, to_d = start.isoformat(), end.isoformat()
     resp = (
         supabase.table("hr_attendance_overrides")
         .select("*")

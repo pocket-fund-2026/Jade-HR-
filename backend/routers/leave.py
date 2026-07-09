@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from auth import get_current_user, require_admin
 from database import supabase
 from models import LeaveRequestCreate, LeaveResolve
+from payroll import pay_period_bounds
 
 router = APIRouter(prefix="/api", tags=["leave"])
 
@@ -106,10 +107,7 @@ def resolve_leave_request(request_id: str, body: LeaveResolve, admin: dict = Dep
 
 def fetch_approved_leaves(employee_id: str, year: int, month: int) -> dict[date, str]:
     """Used by the payroll engine — maps each day in an approved leave range to its leave_type."""
-    import calendar
-
-    from_d = date(year, month, 1)
-    to_d = date(year, month, calendar.monthrange(year, month)[1])
+    from_d, to_d = pay_period_bounds(year, month)
 
     resp = (
         supabase.table("hr_leave_requests")
@@ -132,10 +130,7 @@ def fetch_approved_leaves(employee_id: str, year: int, month: int) -> dict[date,
 
 def fetch_all_approved_leaves_by_employee(year: int, month: int) -> dict[str, dict[date, str]]:
     """One query for the whole month instead of one per employee (mirrors payroll.py's punch fetcher)."""
-    import calendar
-
-    from_d = date(year, month, 1)
-    to_d = date(year, month, calendar.monthrange(year, month)[1])
+    from_d, to_d = pay_period_bounds(year, month)
 
     resp = (
         supabase.table("hr_leave_requests")

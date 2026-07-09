@@ -3,6 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends
 
 from auth import require_admin
+from config import IST, SERIAL_TO_LOCATION
 from database import supabase
 from models import BiometricPunch
 
@@ -20,15 +21,19 @@ def ingest(records: list[BiometricPunch], admin: dict = Depends(require_admin)):
         if not employee_code or not log_date:
             continue
         try:
-            punch_dt = datetime.strptime(log_date, "%Y-%m-%d %H:%M:%S")
+            # SmartOffice's LogDate is IST wall-clock time with no offset —
+            # tag it explicitly so it converts to the correct UTC instant.
+            punch_dt = datetime.strptime(log_date, "%Y-%m-%d %H:%M:%S").replace(tzinfo=IST)
         except ValueError:
             continue
         dates.append(punch_dt.date())
+        serial = r.SerialNumber.strip()
         rows.append({
             "employee_code": employee_code,
             "punch_time": punch_dt.isoformat(),
-            "serial_number": r.SerialNumber.strip(),
+            "serial_number": serial,
             "punch_direction": r.PunchDirection.strip(),
+            "device_location": SERIAL_TO_LOCATION.get(serial, "Unknown"),
         })
 
     inserted = 0

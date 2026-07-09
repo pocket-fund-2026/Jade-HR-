@@ -1,5 +1,5 @@
 import { Bell, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 
 import MonthPicker from "../../components/MonthPicker.jsx";
@@ -19,6 +19,7 @@ export default function Dashboard() {
   const [error, setError] = useState("");
   const [lastSync, setLastSync] = useState(null);
   const [dismissed, setDismissed] = useState(false);
+  const [location, setLocation] = useState("all");
 
   const { pendingDisputes = [], pendingLeave = [] } = useOutletContext() || {};
 
@@ -48,7 +49,16 @@ export default function Dashboard() {
     setDismissed(true);
   };
 
-  const totals = rows.reduce(
+  const locations = useMemo(
+    () => [...new Set(rows.map((r) => r.location).filter(Boolean))].sort(),
+    [rows],
+  );
+  const filtered = useMemo(
+    () => (location === "all" ? rows : rows.filter((r) => r.location === location)),
+    [rows, location],
+  );
+
+  const totals = filtered.reduce(
     (acc, r) => ({
       otHours: acc.otHours + r.total_ot_hours,
       otAmount: acc.otAmount + r.ot_amount,
@@ -61,7 +71,19 @@ export default function Dashboard() {
     <div>
       <div className="flex items-center justify-between mb-1">
         <h2 className="font-display text-2xl text-ink">Dashboard</h2>
-        <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
+        <div className="flex items-center gap-3">
+          <select
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+          >
+            <option value="all">All locations</option>
+            {locations.map((loc) => (
+              <option key={loc} value={loc}>{loc}</option>
+            ))}
+          </select>
+          <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
+        </div>
       </div>
       <p className="text-xs text-ink/40 font-nums mb-6">
         {lastSync
@@ -95,7 +117,7 @@ export default function Dashboard() {
       {error && <p className="text-sm text-rust-500 mb-4 border-l-2 border-rust-500 pl-2.5">{error}</p>}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Active Employees" value={rows.length} />
+        <StatCard label="Active Employees" value={filtered.length} />
         <StatCard label="Total OT Hours" value={totals.otHours.toFixed(1)} />
         <StatCard label="Total OT Amount" value={formatINR(totals.otAmount)} accent="text-ochre-500" />
         <StatCard label="Total Payable" value={formatINR(totals.payable)} accent="text-jade-600" />
@@ -116,10 +138,10 @@ export default function Dashboard() {
           <tbody>
             {loading ? (
               <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={6}>Loading ledger…</td></tr>
-            ) : rows.length === 0 ? (
-              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={6}>No employees yet.</td></tr>
+            ) : filtered.length === 0 ? (
+              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={6}>No employees match.</td></tr>
             ) : (
-              rows.map((r) => (
+              filtered.map((r) => (
                 <tr key={r.employee_id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
                   <td className="px-5 py-3.5">
                     <Link to={`/admin/payroll/${r.employee_id}?year=${year}&month=${month}`} className="text-ink hover:text-jade-600 font-medium transition-colors">
