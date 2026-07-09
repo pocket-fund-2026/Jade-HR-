@@ -3,7 +3,10 @@ import { Printer } from "lucide-react";
 import LedgerLine from "./LedgerLine.jsx";
 import StampBadge from "./StampBadge.jsx";
 import StatCard from "./StatCard.jsx";
-import { formatDate, formatINR, formatTime } from "../lib/format.js";
+import { formatDate, formatINR, formatTime, payPeriodLabel } from "../lib/format.js";
+
+const OFFICE_ADDRESS =
+  "Madhu Estate Office, Ground Floor, Pandurang Budhkar Marg, Lower Parel, Mumbai, Maharashtra 400013";
 
 export default function PayslipDetail({ summary }) {
   if (!summary) return null;
@@ -20,6 +23,20 @@ export default function PayslipDetail({ summary }) {
           <Printer size={14} /> Print / Save as PDF
         </button>
       </div>
+
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4 pb-5 border-b-2 border-ink/10 rise-in">
+        <div>
+          <p className="font-display text-ink text-xl leading-none">JADE by MK</p>
+          <p className="text-ink/45 text-xs mt-2 max-w-[260px] leading-snug">{OFFICE_ADDRESS}</p>
+        </div>
+        <div className="text-right">
+          <p className="font-display text-ink text-lg leading-none">Payslip</p>
+          <p className="text-ink/40 text-xs font-nums mt-1.5">{payPeriodLabel(summary.year, summary.month)}</p>
+          <p className="text-ink font-medium text-sm mt-3">{summary.name}</p>
+          <p className="text-ink/40 text-xs font-nums mt-0.5">{summary.employee_code} &middot; {summary.location}</p>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 stagger-rise">
         <StatCard label="Present Days" value={`${summary.present_days}/${summary.days_in_month}`} />
         <StatCard label="Hours Worked" value={summary.total_hours_worked} />

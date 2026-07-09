@@ -1,5 +1,5 @@
 import { Bell, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 
 import MonthPicker from "../../components/MonthPicker.jsx";
@@ -8,8 +8,21 @@ import StatCard from "../../components/StatCard.jsx";
 import api from "../../lib/api.js";
 import { formatINR } from "../../lib/format.js";
 
+// recharts is a heavy dependency (~380KB) — split out of the main bundle
+// the same way Payroll.jsx lazy-imports xlsx for its Excel export.
+const OtTrendChart = lazy(() => import("../../components/OtTrendChart.jsx"));
+
 const today = new Date();
 const SEEN_KEY = "jade_hr_admin_notif_seen_at";
+const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function shiftPeriod(year, month, delta) {
+  let m = month + delta;
+  let y = year;
+  while (m < 1) { m += 12; y -= 1; }
+  while (m > 12) { m -= 12; y += 1; }
+  return [y, m];
+}
 
 export default function Dashboard() {
   const [year, setYear] = useState(today.getFullYear());
@@ -39,6 +52,21 @@ export default function Dashboard() {
       .catch(() => {});
   }, []);
 
+  const [trendRaw, setTrendRaw] = useState([]);
+
+  useEffect(() => {
+    const periods = Array.from({ length: 6 }, (_, i) => shiftPeriod(year, month, -(5 - i)));
+    Promise.all(
+      periods.map(([y, m]) =>
+        api
+          .get("/api/payroll", { params: { year: y, month: m } })
+          .then(({ data }) => ({ label: `${SHORT_MONTHS[m - 1]} '${String(y).slice(2)}`, rows: data })),
+      ),
+    )
+      .then(setTrendRaw)
+      .catch(() => setTrendRaw([]));
+  }, [year, month]);
+
   const seenAt = localStorage.getItem(SEEN_KEY) || "1970-01-01";
   const newDisputes = pendingDisputes.filter((d) => d.created_at > seenAt);
   const newLeave = pendingLeave.filter((l) => l.created_at > seenAt);
@@ -56,6 +84,16 @@ export default function Dashboard() {
   const filtered = useMemo(
     () => (location === "all" ? rows : rows.filter((r) => r.location === location)),
     [rows, location],
+  );
+
+  const trend = useMemo(
+    () =>
+      trendRaw.map((p) => ({
+        label: p.label,
+        ot_hours: Math.round((location === "all" ? p.rows : p.rows.filter((r) => r.location === location))
+          .reduce((sum, r) => sum + r.total_ot_hours, 0) * 10) / 10,
+      })),
+    [trendRaw, location],
   );
 
   const totals = filtered.reduce(
@@ -122,6 +160,12 @@ export default function Dashboard() {
         <StatCard label="Total OT Amount" value={formatINR(totals.otAmount)} accent="text-ochre-500" />
         <StatCard label="Total Payable" value={formatINR(totals.payable)} accent="text-jade-600" />
       </div>
+
+      {trend.length > 0 && (
+        <Suspense fallback={<div className="rounded-sm mb-8 h-[284px] bg-ink/[0.03]" />}>
+          <OtTrendChart data={trend} />
+        </Suspense>
+      )}
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm">

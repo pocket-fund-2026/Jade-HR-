@@ -120,7 +120,10 @@ export default function Employees() {
                   </td>
                   <td className="px-5 py-3.5 text-ink/50 font-nums">{e.employee_code}</td>
                   <td className="px-5 py-3.5 text-ink/70">{e.location || "—"}</td>
-                  <td className="px-5 py-3.5 text-ink/70">{e.designation || "—"}</td>
+                  <td className="px-5 py-3.5 text-ink/70">
+                    {e.designation || "—"}
+                    {e.department && <div className="text-xs text-ink/40 mt-0.5">{e.department}</div>}
+                  </td>
                   <td className="px-5 py-3.5 font-nums">{formatINR(Number(e.basic) + Number(e.hra) + Number(e.conveyance))}</td>
                   <td className="px-5 py-3.5">
                     <StampBadge status={e.is_active ? "active" : "inactive"}>
