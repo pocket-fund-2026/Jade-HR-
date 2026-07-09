@@ -1,4 +1,4 @@
-import { Download } from "lucide-react";
+import { FileSpreadsheet } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -12,34 +12,29 @@ const MONTH_NAMES = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-function exportCsv(rows, year, month) {
-  const headers = [
-    "Employee Code", "Name", "Gross (Basic+HRA+Conveyance)", "Per Day Salary",
-    "Per Hour Salary", "Present Days", "Absent Days", "Leave Days", "OT Hours", "OT Amount", "Total Payable",
-  ];
-  const lines = [headers.join(",")];
-  for (const r of rows) {
-    lines.push([
-      r.employee_code,
-      `"${r.name}"`,
-      r.basic + r.hra + r.conveyance,
-      r.per_day_salary,
-      r.per_hour_salary,
-      r.present_days,
-      r.absent_days,
-      r.leave_days,
-      r.total_ot_hours,
-      r.ot_amount,
-      r.total_payable,
-    ].join(","));
-  }
-  const blob = new Blob([lines.join("\n")], { type: "text/csv" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `jade-hr-payroll-${MONTH_NAMES[month - 1]}-${year}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+async function exportExcel(rows, year, month) {
+  const XLSX = await import("xlsx");
+  const data = rows.map((r) => ({
+    "Employee Code": r.employee_code,
+    "Name": r.name,
+    "Location": r.location,
+    "Base Day": r.days_in_month,
+    "Present": r.present_days,
+    "Weekoff": r.weekoff_days,
+    "PL": r.pl_days,
+    "Absent": r.absent_days,
+    "Paid Days": r.paid_days,
+    "Gross (Basic+HRA+Conveyance)": r.basic + r.hra + r.conveyance,
+    "Per Day Salary": r.per_day_salary,
+    "Per Hour Salary": r.per_hour_salary,
+    "OT Hours": r.total_ot_hours,
+    "OT Amount": r.ot_amount,
+    "Total Payable": r.total_payable,
+  }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Payroll");
+  XLSX.writeFile(wb, `jade-hr-payroll-${MONTH_NAMES[month - 1]}-${year}.xlsx`);
 }
 
 export default function Payroll() {
@@ -87,11 +82,11 @@ export default function Payroll() {
             ))}
           </select>
           <button
-            onClick={() => exportCsv(filtered, year, month)}
+            onClick={() => exportExcel(filtered, year, month)}
             disabled={!filtered.length}
             className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
           >
-            <Download size={15} /> Export CSV
+            <FileSpreadsheet size={15} /> Export Excel
           </button>
           <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
         </div>
@@ -102,6 +97,12 @@ export default function Payroll() {
           <thead className="text-left">
             <tr className="border-b-2 border-ink/10">
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Employee</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Base Day</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Present</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Weekoff</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">PL</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Absent</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Paid Days</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Gross (B+H+C)</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Per Day</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Per Hour</th>
@@ -113,9 +114,9 @@ export default function Payroll() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={8}>Loading ledger…</td></tr>
+              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={14}>Loading ledger…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={8}>No employees match.</td></tr>
+              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={14}>No employees match.</td></tr>
             ) : (
               filtered.map((r) => (
                 <tr key={r.employee_id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
@@ -123,6 +124,12 @@ export default function Payroll() {
                     <span className="text-ink font-medium">{r.name}</span>
                     <div className="text-xs text-ink/40 font-nums">{r.employee_code}</div>
                   </td>
+                  <td className="px-5 py-3.5 font-nums text-ink/60">{r.days_in_month}</td>
+                  <td className="px-5 py-3.5 font-nums text-jade-700">{r.present_days}</td>
+                  <td className="px-5 py-3.5 font-nums text-ink/60">{r.weekoff_days}</td>
+                  <td className="px-5 py-3.5 font-nums text-ink/60">{r.pl_days}</td>
+                  <td className="px-5 py-3.5 font-nums text-rust-500">{r.absent_days}</td>
+                  <td className="px-5 py-3.5 font-nums font-semibold text-ink">{r.paid_days}</td>
                   <td className="px-5 py-3.5 font-nums">{formatINR(r.basic + r.hra + r.conveyance)}</td>
                   <td className="px-5 py-3.5 font-nums text-ink/60">{formatINR(r.per_day_salary)}</td>
                   <td className="px-5 py-3.5 font-nums text-ink/60">{formatINR(r.per_hour_salary)}</td>

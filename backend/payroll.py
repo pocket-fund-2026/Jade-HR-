@@ -122,7 +122,12 @@ def compute_daily_attendance(
                 })
                 d += timedelta(days=1)
                 continue
-            status = "future" if d > today else "absent"
+            if d > today:
+                status = "future"
+            elif d.weekday() == 6:  # Sunday — the standard weekly off
+                status = "weekoff"
+            else:
+                status = "absent"
             rows.append({
                 "date": d.isoformat(),
                 "first_in": None,
@@ -166,6 +171,11 @@ def compute_monthly_summary(
     present_days = sum(1 for r in daily if r["status"] == "present")
     absent_days = sum(1 for r in daily if r["status"] == "absent")
     leave_days = sum(1 for r in daily if r["status"] == "leave")
+    weekoff_days = sum(1 for r in daily if r["status"] == "weekoff")
+    half_days = sum(1 for r in daily if r["status"] == "half_day")
+    unpaid_leave_days = sum(1 for r in daily if r["status"] == "leave" and r.get("leave_type") == "unpaid")
+    pl_days = leave_days - unpaid_leave_days
+    paid_days = present_days + weekoff_days + pl_days + 0.5 * half_days
     total_hours_worked = round(sum(r["hours_worked"] for r in daily), 2)
     total_ot_hours = round(sum(r["ot_hours"] for r in daily), 2)
 
@@ -195,6 +205,9 @@ def compute_monthly_summary(
         "present_days": present_days,
         "absent_days": absent_days,
         "leave_days": leave_days,
+        "weekoff_days": weekoff_days,
+        "pl_days": pl_days,
+        "paid_days": round(paid_days, 1),
         "total_hours_worked": total_hours_worked,
         "total_ot_hours": total_ot_hours,
         "basic": round(basic, 2),
