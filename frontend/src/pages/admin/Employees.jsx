@@ -1,4 +1,4 @@
-import { Plus, Search, Upload } from "lucide-react";
+import { Pencil, Plus, Search, Upload } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -102,13 +102,14 @@ export default function Employees() {
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Designation</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Gross (B+H+C)</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Status</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={6}>Loading ledger…</td></tr>
+              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={7}>Loading ledger…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={6}>No employees match.</td></tr>
+              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={7}>No employees match.</td></tr>
             ) : (
               filtered.map((e) => (
                 <tr key={e.id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
@@ -125,6 +126,14 @@ export default function Employees() {
                     <StampBadge status={e.is_active ? "active" : "inactive"}>
                       {e.is_active ? "Working" : "Inactive"}
                     </StampBadge>
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <Link
+                      to={`/admin/employees/${e.id}`}
+                      className="flex items-center gap-1.5 text-jade-600 hover:text-jade-700 hover:underline text-xs font-medium"
+                    >
+                      <Pencil size={12} /> Edit salary
+                    </Link>
                   </td>
                 </tr>
               ))
