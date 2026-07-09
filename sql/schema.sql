@@ -25,6 +25,7 @@ create table if not exists hr_employees (
     failed_login_count      int not null default 0,
     locked_until            timestamptz,
     requires_selfie_checkin boolean not null default false,
+    weekly_off_day          int not null default 6 check (weekly_off_day between 0 and 6), -- 0=Mon .. 6=Sun
     created_at              timestamptz not null default now(),
     updated_at              timestamptz not null default now()
 );

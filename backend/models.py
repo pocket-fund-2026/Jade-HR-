@@ -29,6 +29,7 @@ class EmployeeCreate(BaseModel):
     conveyance: float = 0
     other_allowance: float = 0
     standard_hours_per_day: float = 8
+    weekly_off_day: int = 6  # 0=Mon .. 6=Sun
     phone: str = ""
     email: str = ""
     role: str = "employee"
@@ -47,6 +48,7 @@ class EmployeeUpdate(BaseModel):
     conveyance: Optional[float] = None
     other_allowance: Optional[float] = None
     standard_hours_per_day: Optional[float] = None
+    weekly_off_day: Optional[int] = None
     phone: Optional[str] = None
     email: Optional[str] = None
     role: Optional[str] = None

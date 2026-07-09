@@ -17,11 +17,14 @@ const empty = {
   conveyance: 0,
   other_allowance: 0,
   standard_hours_per_day: 8,
+  weekly_off_day: 6,
   phone: "",
   email: "",
   role: "employee",
   password: "",
 };
+
+const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 export default function EmployeeForm() {
   const { id } = useParams();
@@ -117,6 +120,20 @@ export default function EmployeeForm() {
           <div className="grid grid-cols-2 gap-4 mt-4">
             {field("Other Allowance", "other_allowance", "number")}
             {field("Standard Hours / Day", "standard_hours_per_day", "number", { step: "0.5" })}
+          </div>
+          <div className="grid grid-cols-2 gap-4 mt-4">
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1.5">Weekly Off Day</label>
+              <select
+                className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+                value={form.weekly_off_day}
+                onChange={(e) => setForm((f) => ({ ...f, weekly_off_day: Number(e.target.value) }))}
+              >
+                {DAY_NAMES.map((name, i) => (
+                  <option key={i} value={i}>{name}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 

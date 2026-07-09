@@ -84,6 +84,7 @@ def compute_daily_attendance(
     standard_hours_per_day: float,
     overrides: dict[date, dict] | None = None,
     leaves: dict[date, str] | None = None,
+    weekly_off_day: int = 6,
 ) -> list[dict]:
     """One row per day in the pay period (23rd of prior month - 22nd of this month).
 
@@ -91,7 +92,8 @@ def compute_daily_attendance(
     employee's "I forgot to punch out" dispute — and take priority over raw
     punch data for that day. `leaves` (date -> leave_type) are approved leave
     requests; a day with no punches falls back to "leave" instead of "absent"
-    when one covers it.
+    when one covers it. `weekly_off_day` follows date.weekday() (0=Mon..6=Sun,
+    default Sunday) and is set per-employee for staff with a rotational off.
     """
     overrides = overrides or {}
     leaves = leaves or {}
@@ -124,7 +126,7 @@ def compute_daily_attendance(
                 continue
             if d > today:
                 status = "future"
-            elif d.weekday() == 6:  # Sunday — the standard weekly off
+            elif d.weekday() == weekly_off_day:
                 status = "weekoff"
             else:
                 status = "absent"
@@ -166,7 +168,8 @@ def compute_monthly_summary(
     leaves: dict[date, str] | None = None,
 ) -> dict:
     standard_hours = float(employee.get("standard_hours_per_day") or 8)
-    daily = compute_daily_attendance(year, month, punch_times, standard_hours, overrides, leaves)
+    weekly_off_day = int(employee.get("weekly_off_day") if employee.get("weekly_off_day") is not None else 6)
+    daily = compute_daily_attendance(year, month, punch_times, standard_hours, overrides, leaves, weekly_off_day)
 
     present_days = sum(1 for r in daily if r["status"] == "present")
     absent_days = sum(1 for r in daily if r["status"] == "absent")
