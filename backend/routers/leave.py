@@ -76,7 +76,7 @@ def my_leave_balance(user: dict = Depends(get_current_user)):
 @router.get("/leave-requests")
 def list_leave_requests(status: str | None = Query(None), admin: dict = Depends(require_admin)):
     query = supabase.table("hr_leave_requests").select(
-        "*, hr_employees!hr_leave_requests_employee_id_fkey(first_name,last_name,employee_code)"
+        "*, hr_employees!hr_leave_requests_employee_id_fkey(first_name,last_name,employee_code,location)"
     )
     if status:
         query = query.eq("status", status)

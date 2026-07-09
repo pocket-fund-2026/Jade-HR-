@@ -1,5 +1,5 @@
 import { Check, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
@@ -36,6 +36,7 @@ function ResolveRow({ request, onResolved }) {
         <span className="text-ink font-medium">{employee?.first_name} {employee?.last_name}</span>
         <div className="text-xs text-ink/40 font-nums">{employee?.employee_code}</div>
       </td>
+      <td className="px-5 py-3.5 text-ink/70">{employee?.location || "—"}</td>
       <td className="px-5 py-3.5 text-ink/70">{LEAVE_LABELS[request.leave_type]}</td>
       <td className="px-5 py-3.5 font-nums text-ink/70">
         {formatDate(request.start_date)}–{formatDate(request.end_date)}
@@ -78,6 +79,7 @@ export default function Leave() {
   const [tab, setTab] = useState("pending");
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [location, setLocation] = useState("all");
 
   const load = (silent) => {
     if (!silent) setLoading(true);
@@ -91,11 +93,32 @@ export default function Leave() {
     return () => clearInterval(interval);
   }, [tab]);
 
+  const locations = useMemo(
+    () => [...new Set(requests.map((r) => r.hr_employees?.location).filter(Boolean))].sort(),
+    [requests],
+  );
+  const filtered = useMemo(
+    () => (location === "all" ? requests : requests.filter((r) => r.hr_employees?.location === location)),
+    [requests, location],
+  );
+
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="font-display text-2xl text-ink">Leave Requests</h2>
-        <p className="text-xs text-ink/40 font-nums mt-0.5">Casual, sick, earned & unpaid leave</p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="font-display text-2xl text-ink">Leave Requests</h2>
+          <p className="text-xs text-ink/40 font-nums mt-0.5">Casual, sick, earned & unpaid leave</p>
+        </div>
+        <select
+          value={location}
+          onChange={(e) => setLocation(e.target.value)}
+          className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+        >
+          <option value="all">All locations</option>
+          {locations.map((loc) => (
+            <option key={loc} value={loc}>{loc}</option>
+          ))}
+        </select>
       </div>
 
       <div className="flex gap-1 mb-4">
@@ -117,6 +140,7 @@ export default function Leave() {
           <thead className="text-left">
             <tr className="border-b-2 border-ink/10">
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Employee</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Location</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Type</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Dates</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Reason</th>
@@ -127,18 +151,19 @@ export default function Leave() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={6}>Loading…</td></tr>
-            ) : requests.length === 0 ? (
-              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={6}>No {tab} leave requests.</td></tr>
+              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={7}>Loading…</td></tr>
+            ) : filtered.length === 0 ? (
+              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={7}>No {tab} leave requests.</td></tr>
             ) : tab === "pending" ? (
-              requests.map((r) => <ResolveRow key={r.id} request={r} onResolved={load} />)
+              filtered.map((r) => <ResolveRow key={r.id} request={r} onResolved={load} />)
             ) : (
-              requests.map((r) => (
+              filtered.map((r) => (
                 <tr key={r.id} className="border-b border-ink/[0.06] last:border-0">
                   <td className="px-5 py-3.5">
                     <span className="text-ink font-medium">{r.hr_employees?.first_name} {r.hr_employees?.last_name}</span>
                     <div className="text-xs text-ink/40 font-nums">{r.hr_employees?.employee_code}</div>
                   </td>
+                  <td className="px-5 py-3.5 text-ink/70">{r.hr_employees?.location || "—"}</td>
                   <td className="px-5 py-3.5 text-ink/70">{LEAVE_LABELS[r.leave_type]}</td>
                   <td className="px-5 py-3.5 font-nums text-ink/70">{formatDate(r.start_date)}–{formatDate(r.end_date)}</td>
                   <td className="px-5 py-3.5 text-ink/70 max-w-xs">{r.reason}</td>
