@@ -168,7 +168,10 @@ export default function Dashboard() {
                 {summary.daily.map((d) => (
                   <tr key={d.date} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
                     <td className="px-5 py-2.5 font-nums text-ink/70">{formatDate(d.date)}</td>
-                    <td className="px-5 py-2.5 font-nums text-ink/70">{formatTime(d.first_in)}</td>
+                    <td className="px-5 py-2.5 font-nums text-ink/70">
+                      {formatTime(d.first_in)}
+                      {d.late && <span className="ml-1.5 text-[10px] font-sans font-semibold text-rust-500 uppercase tracking-wide">Late</span>}
+                    </td>
                     <td className="px-5 py-2.5 font-nums text-ink/70">{formatTime(d.last_out)}</td>
                     <td className="px-5 py-2.5 font-nums">{d.hours_worked || "—"}</td>
                     <td className="px-5 py-2.5">

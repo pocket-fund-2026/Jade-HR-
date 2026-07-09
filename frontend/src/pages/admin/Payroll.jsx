@@ -24,6 +24,8 @@ async function exportExcel(rows, year, month) {
     "PL": r.pl_days,
     "Absent": r.absent_days,
     "Paid Days": r.paid_days,
+    "Late": r.late_days,
+    "On Time": r.on_time_days,
     "Gross (Basic+HRA+Conveyance)": r.basic + r.hra + r.conveyance,
     "Per Day Salary": r.per_day_salary,
     "Per Hour Salary": r.per_hour_salary,
@@ -103,6 +105,8 @@ export default function Payroll() {
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">PL</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Absent</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Paid Days</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Late</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">On Time</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Gross (B+H+C)</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Per Day</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Per Hour</th>
@@ -114,9 +118,9 @@ export default function Payroll() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={14}>Loading ledger…</td></tr>
+              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={16}>Loading ledger…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={14}>No employees match.</td></tr>
+              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={16}>No employees match.</td></tr>
             ) : (
               filtered.map((r) => (
                 <tr key={r.employee_id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
@@ -130,6 +134,8 @@ export default function Payroll() {
                   <td className="px-5 py-3.5 font-nums text-ink/60">{r.pl_days}</td>
                   <td className="px-5 py-3.5 font-nums text-rust-500">{r.absent_days}</td>
                   <td className="px-5 py-3.5 font-nums font-semibold text-ink">{r.paid_days}</td>
+                  <td className="px-5 py-3.5 font-nums text-rust-500">{r.late_days}</td>
+                  <td className="px-5 py-3.5 font-nums text-jade-700">{r.on_time_days}</td>
                   <td className="px-5 py-3.5 font-nums">{formatINR(r.basic + r.hra + r.conveyance)}</td>
                   <td className="px-5 py-3.5 font-nums text-ink/60">{formatINR(r.per_day_salary)}</td>
                   <td className="px-5 py-3.5 font-nums text-ink/60">{formatINR(r.per_hour_salary)}</td>

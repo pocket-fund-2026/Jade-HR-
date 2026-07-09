@@ -14,9 +14,12 @@ Formula (as specified by JADE HR ops), example — Sarita:
 """
 
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 
 from config import IST
+
+# Grace period: clocking in by 10:10 AM IST counts as on time.
+LATE_GRACE = time(10, 10)
 
 
 def pay_period_bounds(year: int, month: int) -> tuple[date, date]:
@@ -55,12 +58,14 @@ def _apply_override(d: date, override: dict, standard_hours_per_day: float) -> d
 
     hours_worked = ot_hours = 0.0
     first_in_iso = last_out_iso = None
+    late = False
     if status == "present" and first_in and last_out:
         start = datetime.combine(d, first_in, tzinfo=IST)
         end = datetime.combine(d, last_out, tzinfo=IST)
         hours_worked = max(0.0, (end - start).total_seconds() / 3600.0)
         ot_hours = max(0.0, hours_worked - standard_hours_per_day)
         first_in_iso, last_out_iso = start.isoformat(), end.isoformat()
+        late = first_in > LATE_GRACE
     elif status == "present":
         hours_worked = standard_hours_per_day
     elif status == "half_day":
@@ -73,6 +78,7 @@ def _apply_override(d: date, override: dict, standard_hours_per_day: float) -> d
         "hours_worked": round(hours_worked, 2),
         "ot_hours": round(ot_hours, 2),
         "status": status,
+        "late": late,
         "corrected": True,
     }
 
@@ -121,6 +127,7 @@ def compute_daily_attendance(
                     "ot_hours": 0.0,
                     "status": "leave",
                     "leave_type": leaves[d],
+                    "late": False,
                 })
                 d += timedelta(days=1)
                 continue
@@ -137,6 +144,7 @@ def compute_daily_attendance(
                 "hours_worked": 0.0,
                 "ot_hours": 0.0,
                 "status": status,
+                "late": False,
             })
             d += timedelta(days=1)
             continue
@@ -153,6 +161,7 @@ def compute_daily_attendance(
             "hours_worked": round(hours_worked, 2),
             "ot_hours": round(ot_hours, 2),
             "status": "present",
+            "late": first_in.astimezone(IST).time() > LATE_GRACE,
         })
         d += timedelta(days=1)
 
@@ -179,6 +188,8 @@ def compute_monthly_summary(
     unpaid_leave_days = sum(1 for r in daily if r["status"] == "leave" and r.get("leave_type") == "unpaid")
     pl_days = leave_days - unpaid_leave_days
     paid_days = present_days + weekoff_days + pl_days + 0.5 * half_days
+    late_days = sum(1 for r in daily if r["status"] == "present" and r.get("late"))
+    on_time_days = present_days - late_days
     total_hours_worked = round(sum(r["hours_worked"] for r in daily), 2)
     total_ot_hours = round(sum(r["ot_hours"] for r in daily), 2)
 
@@ -211,6 +222,8 @@ def compute_monthly_summary(
         "weekoff_days": weekoff_days,
         "pl_days": pl_days,
         "paid_days": round(paid_days, 1),
+        "late_days": late_days,
+        "on_time_days": on_time_days,
         "total_hours_worked": total_hours_worked,
         "total_ot_hours": total_ot_hours,
         "basic": round(basic, 2),
