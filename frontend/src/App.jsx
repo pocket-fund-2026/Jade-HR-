@@ -6,7 +6,7 @@ import Setup from "./pages/Setup.jsx";
 import AdminLayout from "./pages/admin/AdminLayout.jsx";
 import Dashboard from "./pages/admin/Dashboard.jsx";
 import Disputes from "./pages/admin/Disputes.jsx";
-import EmployeeForm from "./pages/admin/EmployeeForm.jsx";
+import EmployeeDetails from "./pages/admin/EmployeeDetails.jsx";
 import Employees from "./pages/admin/Employees.jsx";
 import Leave from "./pages/admin/Leave.jsx";
 import Payroll from "./pages/admin/Payroll.jsx";
@@ -65,8 +65,8 @@ export default function App() {
         >
           <Route index element={<Dashboard />} />
           <Route path="employees" element={<RequirePermission anyOf={["employees.view"]}><Employees /></RequirePermission>} />
-          <Route path="employees/new" element={<RequirePermission anyOf={["employees.manage"]}><EmployeeForm /></RequirePermission>} />
-          <Route path="employees/:id" element={<RequirePermission anyOf={["employees.view"]}><EmployeeForm /></RequirePermission>} />
+          <Route path="employees/new" element={<RequirePermission anyOf={["employees.manage"]}><EmployeeDetails /></RequirePermission>} />
+          <Route path="employees/:id" element={<RequirePermission anyOf={["employees.view"]}><EmployeeDetails /></RequirePermission>} />
           <Route path="payroll" element={<RequirePermission anyOf={["payroll.view"]}><Payroll /></RequirePermission>} />
           <Route path="payroll/:id" element={<RequirePermission anyOf={["payroll.view"]}><PayrollDetail /></RequirePermission>} />
           <Route path="disputes" element={<RequirePermission anyOf={["disputes.manage"]}><Disputes /></RequirePermission>} />

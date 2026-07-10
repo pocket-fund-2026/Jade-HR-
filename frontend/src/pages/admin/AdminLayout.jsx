@@ -33,7 +33,7 @@ function SidebarContent({ user, can, logout, pendingCounts, onNavigate }) {
           </p>
         </div>
       </div>
-      <nav className="flex-1 px-3 py-2 space-y-1 relative">
+      <nav className="flex-1 px-3 py-2 space-y-1 relative overflow-y-auto">
         {visibleItems.map(({ to, label, icon: Icon, end, badgeKey }) => (
           <NavLink
             key={to}
@@ -106,9 +106,9 @@ export default function AdminLayout() {
   }, [canDisputes, canLeave]);
 
   return (
-    <div className="min-h-screen flex bg-manila">
-      {/* Desktop sidebar — always visible */}
-      <aside className="hidden md:flex w-60 bg-ledger-800 flex-col relative flex-shrink-0">
+    <div className="h-screen flex bg-manila overflow-hidden">
+      {/* Desktop sidebar — fixed height, never scrolls with page content */}
+      <aside className="hidden md:flex w-60 h-screen bg-ledger-800 flex-col relative flex-shrink-0">
         <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
         <SidebarContent user={user} can={can} logout={logout} pendingCounts={pendingCounts} />
       </aside>
@@ -128,7 +128,7 @@ export default function AdminLayout() {
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-40 flex">
           <div className="absolute inset-0 bg-ledger-900/60" onClick={() => setMobileOpen(false)} />
-          <aside className="relative w-64 bg-ledger-800 flex flex-col">
+          <aside className="relative w-64 h-screen bg-ledger-800 flex flex-col">
             <button onClick={() => setMobileOpen(false)} className="absolute top-5 right-4 text-manila/70">
               <X size={20} />
             </button>

@@ -1,4 +1,4 @@
-import { Pencil, Plus, Search, Upload } from "lucide-react";
+import { ChevronRight, Plus, Search, Upload } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -145,7 +145,7 @@ export default function Employees() {
                       to={`/admin/employees/${e.id}`}
                       className="flex items-center gap-1.5 text-jade-600 hover:text-jade-700 hover:underline text-xs font-medium"
                     >
-                      <Pencil size={12} /> {canEditSalary ? "Edit salary" : "Edit"}
+                      Details <ChevronRight size={12} />
                     </Link>
                   </td>
                 </tr>
