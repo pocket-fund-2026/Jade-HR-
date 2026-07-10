@@ -1,4 +1,4 @@
-import { ChevronRight, Plus, Search, Upload } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Search, Upload } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -8,6 +8,8 @@ import api from "../../lib/api.js";
 import { useAuth } from "../../lib/auth.jsx";
 import { formatINR } from "../../lib/format.js";
 
+const PAGE_SIZE = 20;
+
 export default function Employees() {
   const { can } = useAuth();
   const canViewSalary = can("salary.view", "salary.edit");
@@ -16,6 +18,7 @@ export default function Employees() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [location, setLocation] = useState("all");
+  const [page, setPage] = useState(1);
   const [showImport, setShowImport] = useState(false);
 
   const load = () => {
@@ -24,6 +27,7 @@ export default function Employees() {
   };
 
   useEffect(load, []);
+  useEffect(() => setPage(1), [query, location]);
 
   const locations = useMemo(
     () => [...new Set(employees.map((e) => e.location).filter(Boolean))].sort(),
@@ -41,6 +45,13 @@ export default function Employees() {
       );
     });
   }, [employees, query, location]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageSafe = Math.min(page, totalPages);
+  const pageItems = useMemo(
+    () => filtered.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE),
+    [filtered, pageSafe],
+  );
 
   return (
     <div>
@@ -119,7 +130,7 @@ export default function Employees() {
             ) : filtered.length === 0 ? (
               <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={7}>No employees match.</td></tr>
             ) : (
-              filtered.map((e) => (
+              pageItems.map((e) => (
                 <tr key={e.id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
                   <td className="px-5 py-3.5">
                     <Link to={`/admin/employees/${e.id}`} className="text-ink hover:text-jade-600 font-medium transition-colors">
@@ -154,6 +165,31 @@ export default function Employees() {
           </tbody>
         </table>
       </div>
+
+      {!loading && filtered.length > 0 && (
+        <div className="flex items-center justify-between mt-4">
+          <p className="text-xs text-ink/40 font-nums">
+            Showing {(pageSafe - 1) * PAGE_SIZE + 1}–{Math.min(pageSafe * PAGE_SIZE, filtered.length)} of {filtered.length}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={pageSafe <= 1}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-sm border border-ink/15 bg-paper text-sm text-ink disabled:opacity-40 hover:border-jade-500 transition-colors"
+            >
+              <ChevronLeft size={14} /> Prev
+            </button>
+            <span className="text-xs text-ink/50 font-nums px-2">Page {pageSafe} of {totalPages}</span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={pageSafe >= totalPages}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-sm border border-ink/15 bg-paper text-sm text-ink disabled:opacity-40 hover:border-jade-500 transition-colors"
+            >
+              Next <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
