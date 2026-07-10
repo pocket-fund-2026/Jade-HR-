@@ -779,7 +779,7 @@ export default function EmployeeDetails() {
           udfs: udfs || [],
         });
       })
-      .catch(() => setError("Could not load employee"))
+      .catch((err) => setError(err.response?.data?.detail || "Could not load employee"))
       .finally(() => setLoading(false));
   };
 
@@ -875,6 +875,17 @@ export default function EmployeeDetails() {
 
   if (loading) {
     return <p className="text-ink/70">Loading ledger…</p>;
+  }
+
+  if (error && !isNew && !form.employee_code) {
+    return (
+      <div>
+        <Link to="/admin/employees" className="inline-flex items-center gap-1.5 text-xs text-ink/70 hover:text-ink mb-3 transition-colors">
+          <ArrowLeft size={13} /> Back to Employees
+        </Link>
+        <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>
+      </div>
+    );
   }
 
   return (

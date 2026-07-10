@@ -6,7 +6,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 
 from config import JWT_ALGORITHM, JWT_EXPIRE_MINUTES, JWT_SECRET
-from database import supabase
+from database import maybe_single_data, supabase
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
@@ -50,7 +50,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
         raise _credentials_error()
 
     resp = supabase.table("hr_employees").select("*").eq("id", employee_id).maybe_single().execute()
-    employee = resp.data
+    employee = maybe_single_data(resp)
     if not employee or not employee["is_active"]:
         raise _credentials_error()
 

@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
 from auth import CONSOLE_ROLES, get_current_user, require_permission, user_can
-from database import supabase
+from database import maybe_single_data, supabase
 from models import EmployeeProfileUpdate
 
 router = APIRouter(prefix="/api/employees", tags=["employee-profile"])
@@ -17,7 +17,7 @@ def _require_view_access(employee_id: str, user: dict) -> None:
 
 def _employee_exists(employee_id: str) -> bool:
     resp = supabase.table("hr_employees").select("id").eq("id", employee_id).maybe_single().execute()
-    return bool(resp.data)
+    return bool(maybe_single_data(resp))
 
 
 @router.get("/{employee_id}/profile")
@@ -29,7 +29,7 @@ def get_employee_profile(employee_id: str, user: dict = Depends(get_current_user
     profile_resp = (
         supabase.table("hr_employee_profile").select("*").eq("employee_id", employee_id).maybe_single().execute()
     )
-    profile = profile_resp.data or {"employee_id": employee_id}
+    profile = maybe_single_data(profile_resp) or {"employee_id": employee_id}
 
     udf_resp = (
         supabase.table("hr_employee_udf")

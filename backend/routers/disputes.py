@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from auth import get_current_user, require_permission
-from database import supabase
+from database import maybe_single_data, supabase
 from models import DisputeCreate, DisputeResolve
 
 router = APIRouter(prefix="/api", tags=["disputes"])
@@ -49,7 +49,7 @@ def list_disputes(status: str | None = Query(None), admin: dict = Depends(requir
 @router.put("/disputes/{dispute_id}")
 def resolve_dispute(dispute_id: str, body: DisputeResolve, admin: dict = Depends(require_permission("disputes.manage"))):
     dispute_resp = supabase.table("hr_attendance_disputes").select("*").eq("id", dispute_id).maybe_single().execute()
-    dispute = dispute_resp.data
+    dispute = maybe_single_data(dispute_resp)
     if not dispute:
         raise HTTPException(status_code=404, detail="Dispute not found")
     if dispute["status"] != "pending":

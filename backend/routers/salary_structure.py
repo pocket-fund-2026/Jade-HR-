@@ -3,7 +3,7 @@ from datetime import date, datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
 from auth import require_permission
-from database import supabase
+from database import maybe_single_data, supabase
 from models import SalaryStructureSave
 
 router = APIRouter(prefix="/api/employees", tags=["salary-structure"])
@@ -11,9 +11,10 @@ router = APIRouter(prefix="/api/employees", tags=["salary-structure"])
 
 def _get_employee(employee_id: str) -> dict:
     resp = supabase.table("hr_employees").select("id,date_of_joining").eq("id", employee_id).maybe_single().execute()
-    if not resp.data:
+    data = maybe_single_data(resp)
+    if not data:
         raise HTTPException(status_code=404, detail="Employee not found")
-    return resp.data
+    return data
 
 
 def _compute_summary(body: SalaryStructureSave) -> dict:
@@ -78,9 +79,10 @@ def get_salary_structure(employee_id: str, structure_id: str, user: dict = Depen
         .maybe_single()
         .execute()
     )
-    if not resp.data:
+    data = maybe_single_data(resp)
+    if not data:
         raise HTTPException(status_code=404, detail="Salary structure not found")
-    return resp.data
+    return data
 
 
 @router.post("/{employee_id}/salary-structures")

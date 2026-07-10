@@ -4,7 +4,7 @@ from datetime import date, datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from auth import get_current_user, require_permission
-from database import supabase
+from database import maybe_single_data, supabase
 from models import LeaveRequestCreate, LeaveResolve
 from payroll import pay_period_bounds
 
@@ -87,7 +87,7 @@ def list_leave_requests(status: str | None = Query(None), admin: dict = Depends(
 @router.put("/leave-requests/{request_id}")
 def resolve_leave_request(request_id: str, body: LeaveResolve, admin: dict = Depends(require_permission("leave.manage"))):
     existing = supabase.table("hr_leave_requests").select("*").eq("id", request_id).maybe_single().execute()
-    leave_request = existing.data
+    leave_request = maybe_single_data(existing)
     if not leave_request:
         raise HTTPException(status_code=404, detail="Leave request not found")
     if leave_request["status"] != "pending":

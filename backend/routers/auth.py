@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
 from auth import create_access_token, get_current_user, hash_password, verify_password
-from database import supabase
+from database import maybe_single_data, supabase
 from models import BootstrapAdminRequest, LoginRequest
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -21,7 +21,7 @@ def login(body: LoginRequest):
         .maybe_single()
         .execute()
     )
-    employee = resp.data
+    employee = maybe_single_data(resp)
     if not employee or not employee["is_active"]:
         raise HTTPException(status_code=401, detail="Invalid employee code or password")
 

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from auth import CONSOLE_ROLES, get_current_user, hash_password, require_permission, user_can
-from database import supabase
+from database import maybe_single_data, supabase
 from models import EmployeeCreate, EmployeeUpdate, SalaryImportRequest
 
 router = APIRouter(prefix="/api/employees", tags=["employees"])
@@ -60,9 +60,10 @@ def get_employee(employee_id: str, user: dict = Depends(get_current_user)):
         if user["role"] not in CONSOLE_ROLES or not user_can(user, "employees.view"):
             raise HTTPException(status_code=403, detail="Not authorized")
     resp = supabase.table("hr_employees").select("*").eq("id", employee_id).maybe_single().execute()
-    if not resp.data:
+    data = maybe_single_data(resp)
+    if not data:
         raise HTTPException(status_code=404, detail="Employee not found")
-    return _sanitize(resp.data, user)
+    return _sanitize(data, user)
 
 
 @router.post("")

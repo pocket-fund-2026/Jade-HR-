@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from auth import CONSOLE_ROLES, get_current_user, require_permission, user_can
 from config import IST
-from database import supabase
+from database import maybe_single_data, supabase
 from payroll import compute_monthly_summary, pay_period_bounds
 from routers.leave import fetch_all_approved_leaves_by_employee, fetch_approved_leaves
 
@@ -105,9 +105,10 @@ def _fetch_all_overrides_by_employee(year: int, month: int) -> dict[str, dict[da
 
 def _get_active_employee(employee_id: str) -> dict:
     resp = supabase.table("hr_employees").select("*").eq("id", employee_id).maybe_single().execute()
-    if not resp.data:
+    data = maybe_single_data(resp)
+    if not data:
         raise HTTPException(status_code=404, detail="Employee not found")
-    return resp.data
+    return data
 
 
 @router.get("/payroll")
