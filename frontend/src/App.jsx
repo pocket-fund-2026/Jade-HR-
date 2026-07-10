@@ -41,17 +41,11 @@ function Protected({ roles, children }) {
 }
 
 // Gates a section behind an hr_permissions key — accounts always passes.
-// Used both for whole pages (Payroll, Disputes, Leave) and the accounts-only
-// Team Access settings page.
+// Used for whole pages (Payroll, Disputes, Leave) and Team Access, which is
+// accounts by default but can be delegated via the permissions.manage key.
 function RequirePermission({ anyOf, children }) {
   const { can } = useAuth();
   if (!can(...anyOf)) return <Navigate to="/admin" replace />;
-  return children;
-}
-
-function RequireAccounts({ children }) {
-  const { user } = useAuth();
-  if (user?.role !== "accounts") return <Navigate to="/admin" replace />;
   return children;
 }
 
@@ -79,7 +73,7 @@ export default function App() {
             <Route path="payroll/:id" element={<RequirePermission anyOf={["payroll.view"]}><PayrollDetail /></RequirePermission>} />
             <Route path="disputes" element={<RequirePermission anyOf={["disputes.manage"]}><Disputes /></RequirePermission>} />
             <Route path="leave" element={<RequirePermission anyOf={["leave.manage"]}><Leave /></RequirePermission>} />
-            <Route path="team-access" element={<RequireAccounts><TeamAccess /></RequireAccounts>} />
+            <Route path="team-access" element={<RequirePermission anyOf={["permissions.manage"]}><TeamAccess /></RequirePermission>} />
           </Route>
 
           <Route

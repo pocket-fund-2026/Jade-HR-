@@ -116,6 +116,12 @@ class PermissionUpdate(BaseModel):
     hr_can_access: bool
 
 
+class BulkOverrideRequest(BaseModel):
+    employee_ids: list[str]
+    permission_key: str
+    granted: bool
+
+
 class UDFEntry(BaseModel):
     udf_name: str = ""
     udf_value: str = ""
@@ -177,6 +183,10 @@ class EmployeeProfileUpdate(BaseModel):
     personal_email_id: Optional[str] = None
     current_address: Optional[str] = None
     permanent_address: Optional[str] = None
+    additional_contact_1_name: Optional[str] = None
+    additional_contact_1_phone: Optional[str] = None
+    additional_contact_2_name: Optional[str] = None
+    additional_contact_2_phone: Optional[str] = None
     freeze_salary: Optional[bool] = None
     freeze_reason: Optional[str] = None
     mobile_punch: Optional[bool] = None
@@ -217,6 +227,7 @@ class EmployeeProfileUpdate(BaseModel):
     is_super_senior_citizen: Optional[bool] = None
     severe_disability: Optional[bool] = None
     severe_disability_details: Optional[str] = None
+    additional_info: Optional[str] = None
 
     # User Defined Fields — full list, replaces existing rows on save
     udfs: Optional[list[UDFEntry]] = None

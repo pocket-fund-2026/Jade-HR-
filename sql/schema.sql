@@ -137,8 +137,25 @@ insert into hr_permissions (permission_key, label, hr_can_access) values
     ('payroll.view',     'View Payroll & OT section and payroll figures on Dashboard',  false),
     ('disputes.manage',  'View & resolve attendance disputes',                          true),
     ('leave.manage',     'View & resolve leave requests',                               true),
-    ('biometric.view',   'View biometric sync status/log',                              true)
+    ('biometric.view',   'View biometric sync status/log',                              true),
+    ('permissions.manage', 'Manage per-person access overrides for other HR logins',    false)
 on conflict (permission_key) do nothing;
+
+-- hr_permissions controls defaults for the whole 'hr' role. This table lets
+-- Accounts (or anyone granted 'permissions.manage') grant or deny a
+-- SPECIFIC permission to a SPECIFIC hr-role person, without changing what
+-- every other hr login sees.
+create table if not exists hr_permission_overrides (
+    id             uuid primary key default gen_random_uuid(),
+    employee_id    uuid not null references hr_employees(id) on delete cascade,
+    permission_key text not null,
+    granted        boolean not null,
+    updated_by     uuid references hr_employees(id),
+    updated_at     timestamptz not null default now(),
+    unique (employee_id, permission_key)
+);
+
+create index if not exists idx_hr_permission_overrides_employee on hr_permission_overrides (employee_id);
 
 -- Extends the employee record with the full HRMS-style profile fields shown
 -- on the admin "Details" page: Personal / Official / Dates / Communication /
@@ -205,6 +222,10 @@ create table if not exists hr_employee_profile (
     personal_email_id           text default '',
     current_address             text default '',
     permanent_address           text default '',
+    additional_contact_1_name   text default '',
+    additional_contact_1_phone  text default '',
+    additional_contact_2_name   text default '',
+    additional_contact_2_phone  text default '',
     freeze_salary                boolean not null default false,
     freeze_reason                text default '',
     mobile_punch                 boolean not null default false,
@@ -245,6 +266,7 @@ create table if not exists hr_employee_profile (
     is_super_senior_citizen         boolean not null default false,
     severe_disability               boolean not null default false,
     severe_disability_details       text default '',
+    additional_info                 text default '',
 
     updated_at                      timestamptz not null default now()
 );
@@ -361,6 +383,7 @@ alter table hr_permissions enable row level security;
 alter table hr_employee_profile enable row level security;
 alter table hr_employee_udf enable row level security;
 alter table hr_salary_structure enable row level security;
+alter table hr_permission_overrides enable row level security;
 
 -- Selfie check-in photos for employees flagged with requires_selfie_checkin
 -- (private bucket; only the service_role backend reads/writes it).

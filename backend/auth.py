@@ -80,15 +80,40 @@ def get_hr_permissions() -> dict[str, bool]:
     return {row["permission_key"]: row["hr_can_access"] for row in resp.data}
 
 
+def get_permission_overrides(employee_id: str) -> dict[str, bool]:
+    """permission_key -> explicit grant/deny for one specific hr-role person,
+    layered on top of (and taking priority over) the role-wide default."""
+    resp = supabase.table("hr_permission_overrides").select("permission_key,granted").eq("employee_id", employee_id).execute()
+    return {row["permission_key"]: row["granted"] for row in resp.data}
+
+
 def user_can(user: dict, *permission_keys: str) -> bool:
-    """True if user's role grants any of the given permission keys.
-    'accounts' always passes. 'hr' is checked against hr_permissions."""
+    """True if user's role (or a per-person override) grants any of the given
+    permission keys. 'accounts' always passes. 'hr' is checked against
+    hr_permission_overrides first, falling back to the role-wide hr_permissions
+    default for any key with no override set."""
     if user["role"] == "accounts":
         return True
     if user["role"] != "hr":
         return False
-    granted = get_hr_permissions()
-    return any(granted.get(key, False) for key in permission_keys)
+    role_defaults = get_hr_permissions()
+    overrides = get_permission_overrides(user["id"])
+    for key in permission_keys:
+        if key in overrides:
+            if overrides[key]:
+                return True
+        elif role_defaults.get(key, False):
+            return True
+    return False
+
+
+def require_permissions_manage(user: dict = Depends(get_current_user)) -> dict:
+    """Accounts always; hr only if granted 'permissions.manage' (role-wide or override)."""
+    if user["role"] not in CONSOLE_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin console access required")
+    if user["role"] != "accounts" and not user_can(user, "permissions.manage"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not permitted — ask Accounts for access")
+    return user
 
 
 def require_permission(*permission_keys: str):

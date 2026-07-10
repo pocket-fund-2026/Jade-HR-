@@ -13,15 +13,11 @@ const navItems = [
   { to: "/admin/payroll", label: "Payroll & OT", icon: Receipt, permission: "payroll.view" },
   { to: "/admin/disputes", label: "Disputes", icon: Flag, badgeKey: "disputes", permission: "disputes.manage" },
   { to: "/admin/leave", label: "Leave", icon: Plane, badgeKey: "leave", permission: "leave.manage" },
-  { to: "/admin/team-access", label: "Team Access", icon: Shield, accountsOnly: true },
+  { to: "/admin/team-access", label: "Team Access", icon: Shield, permission: "permissions.manage" },
 ];
 
 function SidebarContent({ user, can, logout, pendingCounts, onNavigate }) {
-  const visibleItems = navItems.filter(({ permission, accountsOnly }) => {
-    if (accountsOnly) return user?.role === "accounts";
-    if (permission) return can(permission);
-    return true;
-  });
+  const visibleItems = navItems.filter(({ permission }) => (permission ? can(permission) : true));
   return (
     <>
       <div className="px-6 py-6 relative flex items-center gap-3">
