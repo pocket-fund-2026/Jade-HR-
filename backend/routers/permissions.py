@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from auth import require_accounts, require_console, require_permissions_manage
+from auth import get_hr_permissions, get_permission_overrides, require_accounts, require_console, require_permissions_manage
 from database import supabase
 from models import BulkOverrideRequest, PermissionUpdate
 
@@ -15,6 +15,19 @@ def list_permissions(user: dict = Depends(require_console)):
     nav items/fields to show; accounts needs it to edit."""
     resp = supabase.table("hr_permissions").select("*").order("permission_key").execute()
     return resp.data
+
+
+@router.get("/me")
+def my_effective_permissions(user: dict = Depends(require_console)):
+    """permission_key -> whether THIS user actually has it right now (role
+    default, with their own per-person overrides layered on top). This is
+    what nav/route gating should read — GET /api/permissions above is the
+    role-wide defaults only, which misses per-person grants entirely."""
+    role_defaults = get_hr_permissions()
+    if user["role"] == "accounts":
+        return {k: True for k in role_defaults}
+    overrides = get_permission_overrides(user["id"])
+    return {k: overrides.get(k, v) for k, v in role_defaults.items()}
 
 
 @router.put("/{permission_key}")

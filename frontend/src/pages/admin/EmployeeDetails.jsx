@@ -62,6 +62,8 @@ const SECTIONS = [
           { k: "head_of_department", l: "Head of Department", t: "boolean" },
           { k: "reporting_to", l: "Reporting To", t: "text" },
           { k: "leave_approver_id", l: "Leave Approver", t: "approver", core: true },
+          { k: "employee_category", l: "Employee Category", t: "select", options: ["corporate", "factory_retail"], core: true, hint: "Corporate roster staff are covered by the Leave & Attendance Policy v1.1 (Red Card/LOP, holiday calendar, PL/Paternity/Maternity/Compassionate/Comp-Off leave)" },
+          { k: "standard_working_days_per_month", l: "Standard Working Days / Month", t: "number", core: true, hint: "Overrides the pay-period length used to compute per-day salary — leave blank to use the default (~30–31 days)" },
           { k: "role", l: "Console Role", t: "role", core: true },
         ],
       },
@@ -221,7 +223,7 @@ const EMPTY_CORE = {
   location: "Madhu Estate, Mumbai", date_of_joining: "", basic: 0, hra: 0, conveyance: 0,
   other_allowance: 0, standard_hours_per_day: 8, weekly_off_day: 6, phone: "", email: "",
   role: "employee", password: "", requires_selfie_checkin: false, is_active: true,
-  leave_approver_id: "",
+  leave_approver_id: "", employee_category: "factory_retail", standard_working_days_per_month: "",
 };
 const EMPTY_PROFILE = Object.fromEntries(
   SECTIONS.flatMap((s) => s.groups.flatMap((g) => g.fields))
@@ -833,6 +835,7 @@ export default function EmployeeDetails() {
       );
       if (!corePayload.password) delete corePayload.password;
       if (corePayload.date_of_joining === "") corePayload.date_of_joining = null;
+      if (corePayload.standard_working_days_per_month === "") corePayload.standard_working_days_per_month = null;
       delete corePayload.is_active;
 
       let employeeId = id;

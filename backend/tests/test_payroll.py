@@ -22,6 +22,8 @@ EMPLOYEE = {
     "weekly_off_day": 6,  # Sunday
 }
 
+CORPORATE_EMPLOYEE = {**EMPLOYEE, "id": "emp-2", "employee_code": "E002", "employee_category": "corporate"}
+
 
 def test_pay_period_bounds_within_year():
     start, end = pay_period_bounds(2026, 7)
@@ -121,3 +123,52 @@ def test_compute_monthly_summary_ot_formula_matches_documented_example():
     assert summary["ot_amount"] == 216.13  # unrounded per_hour_salary * 2h, then rounded
     assert summary["gross_salary"] == 26800.0
     assert summary["total_payable"] == 27016.13
+
+
+def _late_punch(y, m, d, hour=11):
+    first_in = datetime(y, m, d, hour, 0, tzinfo=IST)
+    last_out = datetime(y, m, d, 19, 0, tzinfo=IST)
+    return [first_in, last_out]
+
+
+def test_red_card_and_lop_only_apply_to_corporate_roster():
+    # 5 late arrivals (all weekdays, none Sunday) within the Dec23-Jan22 cycle.
+    late_days = [(2025, 12, 29), (2025, 12, 30), (2025, 12, 31), (2026, 1, 2), (2026, 1, 5)]
+    punches = [p for day in late_days for p in _late_punch(*day)]
+
+    corporate_summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 1, punches)
+    assert corporate_summary["late_mark_count"] == 5
+    assert corporate_summary["red_card"] is True
+    # First 2 late marks are free; the 3rd, 4th, 5th are each 1/2 day LOP.
+    assert corporate_summary["lop_half_days"] == 3
+
+    factory_summary = compute_monthly_summary(EMPLOYEE, 2026, 1, punches)
+    assert factory_summary["late_mark_count"] == 0
+    assert factory_summary["red_card"] is False
+    assert factory_summary["lop_half_days"] == 0
+    assert factory_summary["late_days"] == 5  # the plain "late" badge is unaffected either way
+
+
+def test_after_noon_arrival_is_lop_regardless_of_late_mark_count():
+    punches = [datetime(2026, 1, 5, 12, 0, 1, tzinfo=IST), datetime(2026, 1, 5, 19, 0, tzinfo=IST)]
+    summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 1, punches)
+    assert summary["late_mark_count"] == 1
+    assert summary["lop_half_days"] == 1  # would normally be free (1st late mark) but after-noon overrides that
+
+
+def test_closed_holiday_is_paid_for_corporate_only():
+    holidays = {date(2026, 1, 1): {"day_type": "closed", "description": "New Year's Day"}}
+
+    corporate_summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 1, [], holidays=holidays)
+    corporate_jan1 = next(r for r in corporate_summary["daily"] if r["date"] == "2026-01-01")
+    assert corporate_jan1["status"] == "holiday"
+
+    factory_summary = compute_monthly_summary(EMPLOYEE, 2026, 1, [], holidays=holidays)
+    factory_jan1 = next(r for r in factory_summary["daily"] if r["date"] == "2026-01-01")
+    assert factory_jan1["status"] == "absent"  # Jan 1 2026 is a Thursday, not their Sunday weekoff
+
+
+def test_standard_working_days_per_month_overrides_the_per_day_rate_divisor():
+    nimit = {**CORPORATE_EMPLOYEE, "standard_working_days_per_month": 20}
+    summary = compute_monthly_summary(nimit, 2026, 1, [])
+    assert summary["per_day_salary"] == 1340.0  # 26800 / 20, not / 31

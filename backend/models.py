@@ -35,6 +35,8 @@ class EmployeeCreate(BaseModel):
     role: str = "employee"
     requires_selfie_checkin: bool = False
     leave_approver_id: Optional[str] = None
+    employee_category: str = "factory_retail"
+    standard_working_days_per_month: Optional[float] = None
     password: str
 
 
@@ -57,6 +59,8 @@ class EmployeeUpdate(BaseModel):
     is_active: Optional[bool] = None
     requires_selfie_checkin: Optional[bool] = None
     leave_approver_id: Optional[str] = None
+    employee_category: Optional[str] = None
+    standard_working_days_per_month: Optional[float] = None
     password: Optional[str] = None
 
 
@@ -120,6 +124,19 @@ class BulkOverrideRequest(BaseModel):
     employee_ids: list[str]
     permission_key: str
     granted: bool
+
+
+class HolidayCreate(BaseModel):
+    holiday_date: date
+    description: str
+    day_type: str = "closed"  # closed | open_statutory | open_till_4pm
+    remarks: str = ""
+
+
+class CompOffGrant(BaseModel):
+    employee_id: str
+    earned_date: date
+    units: float  # 0.5 or 1.0
 
 
 class UDFEntry(BaseModel):

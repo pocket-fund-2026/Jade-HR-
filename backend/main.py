@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import ALLOWED_ORIGINS
 from routers import (
-    auth, biometric, disputes, employee_profile, employees, leave, payroll, permissions,
+    auth, biometric, disputes, employee_profile, employees, holidays, leave, payroll, permissions,
     salary_structure, selfie,
 )
 
@@ -27,6 +27,7 @@ app.include_router(disputes.router)
 app.include_router(leave.router)
 app.include_router(selfie.router)
 app.include_router(permissions.router)
+app.include_router(holidays.router)
 
 
 @app.get("/api/health")

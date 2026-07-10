@@ -12,7 +12,10 @@ import api from "../../lib/api.js";
 import { formatDate, formatINR, formatTime } from "../../lib/format.js";
 
 const today = new Date();
-const LEAVE_LABELS = { casual: "Casual", sick: "Sick", earned: "Earned", unpaid: "Unpaid", other: "Other" };
+const LEAVE_LABELS = {
+  casual: "Casual", sick: "Sick", earned: "Privilege (PL)", unpaid: "Unpaid", other: "Other",
+  paternity: "Paternity", maternity: "Maternity", compassionate: "Compassionate", comp_off: "Comp-Off",
+};
 
 export default function Dashboard() {
   const [year, setYear] = useState(today.getFullYear());
@@ -99,6 +102,12 @@ export default function Dashboard() {
         <p className="text-ink/70">Loading ledger…</p>
       ) : (
         <div className="print-area">
+          {summary.red_card && (
+            <div className="bg-rust-50 border border-rust-500/40 rounded-sm px-4 py-3 mb-6 text-sm text-rust-500 no-print">
+              <strong>Red Card this cycle</strong> — {summary.late_mark_count} late marks recorded (23rd–22nd cycle). Leave
+              taken during a Red Card cycle is treated as Loss of Pay unless corrected by HR.
+            </div>
+          )}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6 stagger-rise">
             <StatCard label="Present Days" value={`${summary.present_days}/${summary.days_in_month}`} />
             <StatCard label="Absent Days" value={summary.absent_days} />
@@ -119,6 +128,11 @@ export default function Dashboard() {
               <LedgerLine label="Total OT hours" value={summary.total_ot_hours} />
               <LedgerLine label="OT amount" value={formatINR(summary.ot_amount)} strong accent="text-ochre-700" />
             </div>
+            {summary.lop_amount > 0 && (
+              <div className="mt-3">
+                <LedgerLine label={`Loss of Pay (${summary.lop_half_days} late-mark half-day${summary.lop_half_days === 1 ? "" : "s"})`} value={`− ${formatINR(summary.lop_amount)}`} strong accent="text-rust-500" />
+              </div>
+            )}
           </div>
 
           <div className="bg-ledger-800 rounded-sm shadow-card p-6 relative overflow-hidden mb-6">
@@ -140,7 +154,7 @@ export default function Dashboard() {
               </button>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {leaveBalance.filter((b) => b.leave_type !== "unpaid").map((b) => (
+              {leaveBalance.filter((b) => !["unpaid", "maternity", "compassionate"].includes(b.leave_type)).map((b) => (
                 <div key={b.leave_type}>
                   <p className="text-[11px] uppercase tracking-wider text-ink/70">{LEAVE_LABELS[b.leave_type]}</p>
                   <p className="font-nums text-lg text-ink mt-0.5">
@@ -171,12 +185,17 @@ export default function Dashboard() {
                     <td className="px-5 py-2.5 font-nums text-ink/70">
                       {formatTime(d.first_in)}
                       {d.late && <span className="ml-1.5 text-[10px] font-sans font-semibold text-rust-500 uppercase tracking-wide">Late</span>}
+                      {d.lop_half_day && <span className="ml-1.5 text-[10px] font-sans font-semibold text-rust-500 uppercase tracking-wide">½ LOP</span>}
                     </td>
                     <td className="px-5 py-2.5 font-nums text-ink/70">{formatTime(d.last_out)}</td>
                     <td className="px-5 py-2.5 font-nums">{d.hours_worked || "—"}</td>
                     <td className="px-5 py-2.5">
                       <StampBadge status={d.status}>
-                        {d.status === "leave" ? `${LEAVE_LABELS[d.leave_type]} leave` : d.corrected ? `${d.status} · corrected` : d.status}
+                        {d.status === "leave"
+                          ? `${LEAVE_LABELS[d.leave_type]} leave${d.red_card_lop ? " · LOP (Red Card)" : ""}`
+                          : d.status === "holiday"
+                          ? d.holiday_description || "holiday"
+                          : d.corrected ? `${d.status} · corrected` : d.status}
                       </StampBadge>
                     </td>
                     <td className="px-5 py-2.5">

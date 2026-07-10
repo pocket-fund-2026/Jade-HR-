@@ -111,6 +111,12 @@ def _get_active_employee(employee_id: str) -> dict:
     return data
 
 
+def _fetch_holidays() -> dict[date, dict]:
+    """Small, mostly-static table — one unfiltered fetch per request is fine."""
+    resp = supabase.table("hr_holidays").select("holiday_date,description,day_type").execute()
+    return {date.fromisoformat(r["holiday_date"]): r for r in resp.data}
+
+
 @router.get("/payroll")
 def payroll_for_month(
     year: int = Query(...),
@@ -121,12 +127,13 @@ def payroll_for_month(
     punches_by_employee = _fetch_all_punches_by_employee(year, month)
     overrides_by_employee = _fetch_all_overrides_by_employee(year, month)
     leaves_by_employee = fetch_all_approved_leaves_by_employee(year, month)
+    holidays = _fetch_holidays()
     summaries = []
     for employee in employees:
         punches = punches_by_employee.get(employee["employee_code"], [])
         overrides = overrides_by_employee.get(employee["id"], {})
         leaves = leaves_by_employee.get(employee["id"], {})
-        summary = compute_monthly_summary(employee, year, month, punches, overrides, leaves)
+        summary = compute_monthly_summary(employee, year, month, punches, overrides, leaves, holidays)
         summary.pop("daily")
         summaries.append(summary)
     return summaries
@@ -146,7 +153,7 @@ def payroll_for_employee(
     punches = _fetch_punch_times(employee["employee_code"], year, month)
     overrides = _fetch_overrides(employee_id, year, month)
     leaves = fetch_approved_leaves(employee_id, year, month)
-    return compute_monthly_summary(employee, year, month, punches, overrides, leaves)
+    return compute_monthly_summary(employee, year, month, punches, overrides, leaves, _fetch_holidays())
 
 
 @router.get("/me/payroll")
@@ -158,4 +165,4 @@ def my_payroll(
     punches = _fetch_punch_times(user["employee_code"], year, month)
     overrides = _fetch_overrides(user["id"], year, month)
     leaves = fetch_approved_leaves(user["id"], year, month)
-    return compute_monthly_summary(user, year, month, punches, overrides, leaves)
+    return compute_monthly_summary(user, year, month, punches, overrides, leaves, _fetch_holidays())

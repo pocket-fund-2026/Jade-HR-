@@ -1,4 +1,4 @@
-import { Flag, LayoutDashboard, LogOut, Menu, Plane, Receipt, Shield, Users, X } from "lucide-react";
+import { CalendarDays, Flag, LayoutDashboard, LogOut, Menu, Plane, Receipt, Shield, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
@@ -13,11 +13,12 @@ const navItems = [
   { to: "/admin/payroll", label: "Payroll & OT", icon: Receipt, permission: "payroll.view" },
   { to: "/admin/disputes", label: "Disputes", icon: Flag, badgeKey: "disputes", permission: "disputes.manage" },
   { to: "/admin/leave", label: "Leave", icon: Plane, badgeKey: "leave", permission: "leave.manage" },
+  { to: "/admin/policy", label: "Leave Policy", icon: CalendarDays, permission: ["employees.manage", "policy.manage"] },
   { to: "/admin/team-access", label: "Team Access", icon: Shield, permission: "permissions.manage" },
 ];
 
 function SidebarContent({ user, can, logout, pendingCounts, onNavigate }) {
-  const visibleItems = navItems.filter(({ permission }) => (permission ? can(permission) : true));
+  const visibleItems = navItems.filter(({ permission }) => (permission ? can(...[].concat(permission)) : true));
   return (
     <>
       <div className="px-6 py-6 relative flex items-center gap-3">

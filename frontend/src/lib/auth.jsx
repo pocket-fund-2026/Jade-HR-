@@ -12,8 +12,8 @@ export function AuthProvider({ children }) {
 
   const loadPermissions = async () => {
     try {
-      const { data } = await api.get("/api/permissions");
-      setPermissions(Object.fromEntries(data.map((p) => [p.permission_key, p.hr_can_access])));
+      const { data } = await api.get("/api/permissions/me");
+      setPermissions(data);
     } catch {
       setPermissions({});
     }

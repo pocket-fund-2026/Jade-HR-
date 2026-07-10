@@ -15,6 +15,7 @@ const Employees = lazy(() => import("./pages/admin/Employees.jsx"));
 const Leave = lazy(() => import("./pages/admin/Leave.jsx"));
 const Payroll = lazy(() => import("./pages/admin/Payroll.jsx"));
 const PayrollDetail = lazy(() => import("./pages/admin/PayrollDetail.jsx"));
+const Policy = lazy(() => import("./pages/admin/Policy.jsx"));
 const TeamAccess = lazy(() => import("./pages/admin/TeamAccess.jsx"));
 const EmployeeLayout = lazy(() => import("./pages/employee/EmployeeLayout.jsx"));
 const EmployeeDashboard = lazy(() => import("./pages/employee/Dashboard.jsx"));
@@ -73,6 +74,7 @@ export default function App() {
             <Route path="payroll/:id" element={<RequirePermission anyOf={["payroll.view"]}><PayrollDetail /></RequirePermission>} />
             <Route path="disputes" element={<RequirePermission anyOf={["disputes.manage"]}><Disputes /></RequirePermission>} />
             <Route path="leave" element={<RequirePermission anyOf={["leave.manage"]}><Leave /></RequirePermission>} />
+            <Route path="policy" element={<RequirePermission anyOf={["employees.manage", "policy.manage"]}><Policy /></RequirePermission>} />
             <Route path="team-access" element={<RequirePermission anyOf={["permissions.manage"]}><TeamAccess /></RequirePermission>} />
           </Route>
 

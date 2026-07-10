@@ -11,7 +11,10 @@ const TABS = [
   { key: "rejected", label: "Rejected" },
 ];
 
-const LEAVE_LABELS = { casual: "Casual", sick: "Sick", earned: "Earned", unpaid: "Unpaid", other: "Other" };
+const LEAVE_LABELS = {
+  casual: "Casual", sick: "Sick", earned: "Privilege (PL)", unpaid: "Unpaid", other: "Other",
+  paternity: "Paternity", maternity: "Maternity", compassionate: "Compassionate", comp_off: "Comp-Off",
+};
 
 function ResolveRow({ request, onResolved }) {
   const [note, setNote] = useState("");

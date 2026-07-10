@@ -91,7 +91,7 @@ def create_employee(body: EmployeeCreate, user: dict = Depends(require_permissio
 
 
 @router.put("/{employee_id}")
-def update_employee(employee_id: str, body: EmployeeUpdate, user: dict = Depends(require_permission("employees.manage"))):
+def update_employee(employee_id: str, body: EmployeeUpdate, user: dict = Depends(require_permission("employees.manage", "policy.manage"))):
     _require_role_grant_allowed(user, body.role)
     updates = body.model_dump(exclude_unset=True, exclude={"password"})
     if "date_of_joining" in updates and updates["date_of_joining"] is not None:

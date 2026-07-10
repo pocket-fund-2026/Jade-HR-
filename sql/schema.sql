@@ -27,6 +27,10 @@ create table if not exists hr_employees (
     requires_selfie_checkin boolean not null default false,
     weekly_off_day          int not null default 6 check (weekly_off_day between 0 and 6), -- 0=Mon .. 6=Sun
     leave_approver_id       uuid references hr_employees(id),
+    -- Leave & Attendance Policy v1.1 applies to corporate roster staff only —
+    -- factory/warehouse/retail attendance & leave math is untouched by it.
+    employee_category       text not null default 'factory_retail' check (employee_category in ('corporate', 'factory_retail')),
+    standard_working_days_per_month numeric(4,1),
     created_at              timestamptz not null default now(),
     updated_at              timestamptz not null default now()
 );
@@ -101,7 +105,10 @@ create index if not exists idx_hr_disputes_status on hr_attendance_disputes (sta
 create table if not exists hr_leave_requests (
     id                uuid primary key default gen_random_uuid(),
     employee_id       uuid not null references hr_employees(id) on delete cascade,
-    leave_type        text not null check (leave_type in ('casual', 'sick', 'earned', 'unpaid', 'other')),
+    -- paternity/maternity/compassionate/comp_off are corporate-roster-only
+    -- leave types (Leave & Attendance Policy v1.1); 'earned' is also the
+    -- DB's home for what that policy calls Privilege Leave (PL).
+    leave_type        text not null check (leave_type in ('casual', 'sick', 'earned', 'unpaid', 'other', 'paternity', 'maternity', 'compassionate', 'comp_off')),
     start_date        date not null,
     end_date          date not null,
     reason            text not null,
@@ -116,6 +123,47 @@ create table if not exists hr_leave_requests (
 
 create index if not exists idx_hr_leave_requests_status on hr_leave_requests (status, created_at desc);
 create index if not exists idx_hr_leave_requests_employee on hr_leave_requests (employee_id, start_date);
+
+-- Company holiday calendar (corporate roster). A 'closed' day is paid like a
+-- weekoff instead of showing absent; open_statutory/open_till_4pm are listed
+-- for HR reference only — no automated attendance effect.
+create table if not exists hr_holidays (
+    id            uuid primary key default gen_random_uuid(),
+    holiday_date  date not null unique,
+    description   text not null,
+    day_type      text not null default 'closed' check (day_type in ('closed', 'open_statutory', 'open_till_4pm')),
+    remarks       text default '',
+    created_at    timestamptz not null default now()
+);
+
+-- Comp-Off SOP: earned only when a corporate employee works a weekly off or a
+-- declared (closed) holiday. Granting is a manual HR action, not auto-issued.
+create table if not exists hr_comp_off_ledger (
+    id            uuid primary key default gen_random_uuid(),
+    employee_id   uuid not null references hr_employees(id) on delete cascade,
+    earned_date   date not null,
+    units         numeric(2,1) not null check (units in (0.5, 1.0)),
+    expiry_date   date not null,
+    status        text not null default 'available' check (status in ('available', 'used', 'expired')),
+    used_in_leave_request_id uuid references hr_leave_requests(id),
+    granted_by    uuid references hr_employees(id),
+    created_at    timestamptz not null default now(),
+    unique (employee_id, earned_date)
+);
+
+create index if not exists idx_hr_comp_off_employee_status on hr_comp_off_ledger (employee_id, status);
+
+insert into hr_holidays (holiday_date, description, day_type, remarks) values
+    ('2026-01-01', 'New Year''s Day',   'closed',         'Store remain closed'),
+    ('2026-01-26', 'Republic Day',      'closed',         'Store remain closed'),
+    ('2026-03-04', 'Holi',              'closed',         'Store remain closed'),
+    ('2026-05-01', 'Labour Day',        'open_statutory', 'Store remain opened (Statutory Pay)'),
+    ('2026-08-15', 'Independence Day',  'open_statutory', 'Store remain opened (Statutory Pay)'),
+    ('2026-10-02', 'Gandhi Jayanti',    'open_statutory', 'Store remain opened (Statutory Pay)'),
+    ('2026-11-08', 'Diwali',            'closed',         'Store remain closed'),
+    ('2026-12-25', 'Christmas Day',     'open_till_4pm',  'Store remain opened till 4pm'),
+    ('2026-12-31', 'New Year''s Eve',   'open_till_4pm',  'Store remain opened till 4pm')
+on conflict (holiday_date) do nothing;
 
 -- One row per togglable admin-console capability. hr_can_access governs the
 -- 'hr' role only — 'accounts' always has full access and is the only role
@@ -138,7 +186,8 @@ insert into hr_permissions (permission_key, label, hr_can_access) values
     ('disputes.manage',  'View & resolve attendance disputes',                          true),
     ('leave.manage',     'View & resolve leave requests',                               true),
     ('biometric.view',   'View biometric sync status/log',                              true),
-    ('permissions.manage', 'Manage per-person access overrides for other HR logins',    false)
+    ('permissions.manage', 'Manage per-person access overrides for other HR logins',    false),
+    ('policy.manage', 'Manage the leave & attendance policy — holiday calendar, comp-off grants, per-employee working-days overrides', false)
 on conflict (permission_key) do nothing;
 
 -- hr_permissions controls defaults for the whole 'hr' role. This table lets
@@ -384,6 +433,8 @@ alter table hr_employee_profile enable row level security;
 alter table hr_employee_udf enable row level security;
 alter table hr_salary_structure enable row level security;
 alter table hr_permission_overrides enable row level security;
+alter table hr_holidays enable row level security;
+alter table hr_comp_off_ledger enable row level security;
 
 -- Selfie check-in photos for employees flagged with requires_selfie_checkin
 -- (private bucket; only the service_role backend reads/writes it).

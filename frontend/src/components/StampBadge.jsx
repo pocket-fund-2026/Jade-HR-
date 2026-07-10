@@ -13,6 +13,7 @@ const VARIANTS = {
   pending: "text-ochre-700",
   leave: "text-jade-600",
   weekoff: "text-ink/70",
+  holiday: "text-jade-600",
 };
 
 export default function StampBadge({ status, children }) {
