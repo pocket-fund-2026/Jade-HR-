@@ -217,3 +217,62 @@ class EmployeeProfileUpdate(BaseModel):
 
     # User Defined Fields — full list, replaces existing rows on save
     udfs: Optional[list[UDFEntry]] = None
+
+
+class SalaryStructureSave(BaseModel):
+    effective_date: date
+
+    # Manual Entry (Prorata)
+    me_basic: float = 0
+    me_hra: float = 0
+    me_conv: float = 0
+    me_other_allow: float = 0
+    me_monthly_bonus: float = 0
+    me_retention: float = 0
+    me_incentive: float = 0
+
+    # Earning (Calculated)
+    earn_basic: float = 0
+    earn_hra: float = 0
+    earn_conv: float = 0
+    earn_other_allow: float = 0
+    earn_ot_amt: float = 0
+    earn_arrear: float = 0
+    earn_bonus: float = 0
+    earn_leave_encash: float = 0
+    earn_monthly_bonus: float = 0
+    earn_performance_linked_pay: float = 0
+    earn_retention: float = 0
+    earn_incentive: float = 0
+    earn_ctc: float = 0
+    earn_total_arr: float = 0
+
+    # Deductions (Calculated)
+    ded_pf: float = 0
+    ded_pt: float = 0
+    ded_vpf: float = 0
+    ded_esic: float = 0
+    ded_tds: float = 0
+    ded_loan: float = 0
+    ded_advance: float = 0
+    ded_loan_int: float = 0
+    ded_lwf: float = 0
+    ded_other_ded: float = 0
+    ded_salary_advance: float = 0
+    ded_pf_arrear: float = 0
+
+    # Others (Calculated)
+    oth_pt_wages: float = 0
+    oth_lwf_wages: float = 0
+    oth_eps_wages: float = 0
+    oth_eps: float = 0
+    oth_epf: float = 0
+    oth_edli_charges: float = 0
+    oth_pf_admin_charges: float = 0
+    oth_edli_admin_charges: float = 0
+    oth_esic_wages: float = 0
+    oth_esic_employer: float = 0
+    oth_pf_wages: float = 0
+    oth_edli_wages: float = 0
+
+    salary_remarks: str = ""

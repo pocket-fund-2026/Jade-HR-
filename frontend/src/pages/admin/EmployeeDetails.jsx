@@ -222,6 +222,100 @@ const EMPTY_PROFILE = Object.fromEntries(
 );
 const EMPTY_FORM = { ...EMPTY_CORE, ...EMPTY_PROFILE, udfs: [] };
 
+// Salary Structure — versioned by effective date, a separate resource from
+// the fields above (see backend/routers/salary_structure.py).
+const SS_MANUAL_FIELDS = [
+  { k: "me_basic", l: "Basic" },
+  { k: "me_hra", l: "HRA" },
+  { k: "me_conv", l: "Conv" },
+  { k: "me_other_allow", l: "Other Allow" },
+  { k: "me_monthly_bonus", l: "Monthly Bonus" },
+  { k: "me_retention", l: "Retention" },
+  { k: "me_incentive", l: "Incentive" },
+];
+const SS_EARNING_FIELDS = [
+  { k: "earn_basic", l: "Basic" },
+  { k: "earn_hra", l: "HRA" },
+  { k: "earn_conv", l: "Conv" },
+  { k: "earn_other_allow", l: "Other Allow" },
+  { k: "earn_ot_amt", l: "OTAmt" },
+  { k: "earn_arrear", l: "Arrear" },
+  { k: "earn_bonus", l: "Bonus" },
+  { k: "earn_leave_encash", l: "Leave Encash" },
+  { k: "earn_monthly_bonus", l: "Monthly Bonus" },
+  { k: "earn_performance_linked_pay", l: "Performance Linked Pay (variable)" },
+  { k: "earn_retention", l: "Retention" },
+  { k: "earn_incentive", l: "Incentive" },
+  { k: "earn_ctc", l: "CTC" },
+  { k: "earn_total_arr", l: "TotalArr" },
+];
+const SS_DEDUCTIONS_FIELDS = [
+  { k: "ded_pf", l: "PF" },
+  { k: "ded_pt", l: "PT" },
+  { k: "ded_vpf", l: "VPF" },
+  { k: "ded_esic", l: "ESIC" },
+  { k: "ded_tds", l: "TDS" },
+  { k: "ded_loan", l: "Loan" },
+  { k: "ded_advance", l: "Advance" },
+  { k: "ded_loan_int", l: "Loan_Int" },
+  { k: "ded_lwf", l: "LWF" },
+  { k: "ded_other_ded", l: "OtherDed" },
+  { k: "ded_salary_advance", l: "Salary Advance" },
+  { k: "ded_pf_arrear", l: "PF_Arrear" },
+];
+const SS_OTHERS_FIELDS = [
+  { k: "oth_pt_wages", l: "PT Wages" },
+  { k: "oth_lwf_wages", l: "LWF Wages" },
+  { k: "oth_eps_wages", l: "EPS Wages" },
+  { k: "oth_eps", l: "EPS" },
+  { k: "oth_epf", l: "EPF" },
+  { k: "oth_edli_charges", l: "EDLI Charges" },
+  { k: "oth_pf_admin_charges", l: "PF Admin Charges" },
+  { k: "oth_edli_admin_charges", l: "EDLI Admin Charges" },
+  { k: "oth_esic_wages", l: "ESIC Wages" },
+  { k: "oth_esic_employer", l: "ESIC Employer" },
+  { k: "oth_pf_wages", l: "PF Wages" },
+  { k: "oth_edli_wages", l: "EDLI Wages" },
+];
+const SS_TABS = [
+  { key: "manual", label: "Manual Entry (Prorata)", fields: SS_MANUAL_FIELDS },
+  { key: "earning", label: "Earning (Calculated)", fields: SS_EARNING_FIELDS },
+  { key: "deductions", label: "Deductions (Calculated)", fields: SS_DEDUCTIONS_FIELDS },
+  { key: "others", label: "Others (Calculated)", fields: SS_OTHERS_FIELDS },
+];
+const EMPTY_SALARY_STRUCTURE = {
+  effective_date: new Date().toISOString().slice(0, 10),
+  ...Object.fromEntries(
+    [...SS_MANUAL_FIELDS, ...SS_EARNING_FIELDS, ...SS_DEDUCTIONS_FIELDS, ...SS_OTHERS_FIELDS].map((f) => [f.k, 0]),
+  ),
+  salary_remarks: "",
+};
+
+// Mirrors backend/routers/salary_structure.py's _compute_summary — client
+// side is just a live preview, the server recomputes authoritatively on save.
+function computeSalarySummary(f) {
+  const num = (k) => Number(f[k]) || 0;
+  const totalEarnings = [
+    "earn_basic", "earn_hra", "earn_conv", "earn_other_allow", "earn_ot_amt", "earn_arrear",
+    "earn_bonus", "earn_leave_encash", "earn_monthly_bonus", "earn_performance_linked_pay",
+    "earn_retention", "earn_incentive",
+  ].reduce((s, k) => s + num(k), 0);
+  const totalDeductions = [
+    "ded_pf", "ded_pt", "ded_vpf", "ded_esic", "ded_tds", "ded_loan", "ded_advance",
+    "ded_loan_int", "ded_lwf", "ded_other_ded", "ded_salary_advance", "ded_pf_arrear",
+  ].reduce((s, k) => s + num(k), 0);
+  const employerSide = ["oth_eps", "oth_epf", "oth_edli_charges", "oth_pf_admin_charges", "oth_edli_admin_charges", "oth_esic_employer"]
+    .reduce((s, k) => s + num(k), 0);
+  const ctcMonthly = totalEarnings + employerSide;
+  return {
+    totalEarnings,
+    totalDeductions,
+    netSalary: totalEarnings - totalDeductions,
+    ctcMonthly,
+    ctcYearly: ctcMonthly * 12,
+  };
+}
+
 function formatFullDate(value) {
   if (!value) return "—";
   return new Date(`${value}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
@@ -395,6 +489,261 @@ function UDFSection({ udfs, editing, onChange }) {
   );
 }
 
+function LineItemTable({ fields, form, editing, onChange }) {
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b border-ink/10 text-left">
+          <th className="py-2 pr-4 text-xs font-semibold uppercase tracking-wider text-ink/70">Description</th>
+          <th className="py-2 text-xs font-semibold uppercase tracking-wider text-ink/70">Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        {fields.map((f) => (
+          <tr key={f.k} className="border-b border-ink/[0.06] last:border-0">
+            <td className="py-2 pr-4 text-ink/80">{f.l}</td>
+            <td className="py-2">
+              {editing ? (
+                <input
+                  type="number"
+                  className="w-full max-w-[160px] rounded-sm border border-ink/15 bg-manila/40 px-2.5 py-1.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+                  value={form[f.k] ?? 0}
+                  onChange={(e) => onChange(f.k, Number(e.target.value))}
+                />
+              ) : (
+                <span className="font-nums text-ink">{formatINR(form[f.k] || 0)}</span>
+              )}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function SalaryStructureSection({ employeeId, dateOfJoining, canView, canEdit }) {
+  const [list, setList] = useState([]);
+  const [loadingList, setLoadingList] = useState(true);
+  const [mode, setMode] = useState("list");
+  const [record, setRecord] = useState(EMPTY_SALARY_STRUCTURE);
+  const [recordId, setRecordId] = useState(null);
+  const [subTab, setSubTab] = useState("manual");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const loadList = () => {
+    setLoadingList(true);
+    api.get(`/api/employees/${employeeId}/salary-structures`)
+      .then(({ data }) => setList(data))
+      .finally(() => setLoadingList(false));
+  };
+
+  useEffect(() => {
+    if (canView) loadList();
+  }, [employeeId, canView]);
+
+  const openNew = () => {
+    setRecord(EMPTY_SALARY_STRUCTURE);
+    setRecordId(null);
+    setSubTab("manual");
+    setError("");
+    setMode("edit");
+  };
+
+  const openExisting = (row) => {
+    setRecord({ ...EMPTY_SALARY_STRUCTURE, ...row });
+    setRecordId(row.id);
+    setSubTab("manual");
+    setError("");
+    setMode("edit");
+  };
+
+  const setField = (k, v) => setRecord((r) => ({ ...r, [k]: v }));
+
+  const save = async () => {
+    setError("");
+    if (dateOfJoining && record.effective_date < dateOfJoining) {
+      setError("Effective Date must be on or after the Date of Joining.");
+      return;
+    }
+    setSaving(true);
+    try {
+      if (recordId) {
+        await api.put(`/api/employees/${employeeId}/salary-structures/${recordId}`, record);
+      } else {
+        await api.post(`/api/employees/${employeeId}/salary-structures`, record);
+      }
+      setMode("list");
+      loadList();
+    } catch (err) {
+      setError(err.response?.data?.detail || "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!canView) {
+    return <p className="text-sm text-ink/70">Salary structure is managed by Accounts.</p>;
+  }
+
+  if (mode === "list") {
+    return (
+      <div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <p className="text-xs text-ink/70">Versioned by effective date — each row is the CTC breakdown in effect from that date forward.</p>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={openNew}
+              className="flex items-center gap-1.5 bg-ledger-800 text-manila px-3 py-2 rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors flex-shrink-0"
+            >
+              <Plus size={14} /> Add Salary Structure
+            </button>
+          )}
+        </div>
+        {loadingList ? (
+          <p className="text-sm text-ink/70">Loading…</p>
+        ) : list.length === 0 ? (
+          <p className="text-sm text-ink/70">No salary structure recorded yet.</p>
+        ) : (
+          <div className="bg-manila/30 rounded-sm overflow-hidden overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-ink/10 text-left">
+                  <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-ink/70">Effective Date</th>
+                  <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-ink/70">Total Earnings</th>
+                  <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-ink/70">Net Salary</th>
+                  <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-ink/70">CTC Monthly</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {list.map((row) => (
+                  <tr key={row.id} className="border-b border-ink/[0.06] last:border-0">
+                    <td className="px-3 py-2.5 font-nums text-ink">{formatFullDate(row.effective_date)}</td>
+                    <td className="px-3 py-2.5 font-nums text-ink/80">{formatINR(row.total_earnings)}</td>
+                    <td className="px-3 py-2.5 font-nums text-ink/80">{formatINR(row.net_salary)}</td>
+                    <td className="px-3 py-2.5 font-nums text-ink/80">{formatINR(row.ctc_monthly)}</td>
+                    <td className="px-3 py-2.5">
+                      <button
+                        type="button"
+                        onClick={() => openExisting(row)}
+                        className="text-jade-600 hover:text-jade-700 hover:underline text-xs font-medium"
+                      >
+                        {canEdit ? "Edit" : "View"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const summary = computeSalarySummary(record);
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setMode("list")}
+        className="inline-flex items-center gap-1.5 text-xs text-ink/70 hover:text-ink mb-4"
+      >
+        <ArrowLeft size={13} /> Back to Salary Structure list
+      </button>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        <div>
+          <label htmlFor="ss_effective_date" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Effective Date</label>
+          <input
+            id="ss_effective_date"
+            type="date"
+            disabled={!canEdit}
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 disabled:opacity-50"
+            value={record.effective_date}
+            onChange={(e) => setField("effective_date", e.target.value)}
+          />
+          <p className="text-[11px] text-ink/65 mt-1">
+            Should be on or after Joining Date{dateOfJoining ? ` (${formatFullDate(dateOfJoining)})` : ""}.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex overflow-x-auto border-b border-ink/10 mb-5">
+        {SS_TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setSubTab(t.key)}
+            className={`px-4 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap border-b-2 transition-colors ${
+              subTab === t.key ? "border-jade-500 text-ink" : "border-transparent text-ink/40 hover:text-ink/70"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {SS_TABS.filter((t) => t.key === subTab).map((t) => (
+        <LineItemTable key={t.key} fields={t.fields} form={record} editing={canEdit} onChange={setField} />
+      ))}
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-6 p-4 bg-manila/30 rounded-sm">
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-ink/70">Total Earnings</p>
+          <p className="font-nums text-ink font-semibold">{formatINR(summary.totalEarnings)}</p>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-ink/70">Total Deductions</p>
+          <p className="font-nums text-ink font-semibold">{formatINR(summary.totalDeductions)}</p>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-ink/70">Net Salary</p>
+          <p className="font-nums text-ink font-semibold">{formatINR(summary.netSalary)}</p>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-ink/70">CTC Monthly</p>
+          <p className="font-nums text-ink font-semibold">{formatINR(summary.ctcMonthly)}</p>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-ink/70">CTC Yearly</p>
+          <p className="font-nums text-ink font-semibold">{formatINR(summary.ctcYearly)}</p>
+        </div>
+      </div>
+
+      <div className="mt-5">
+        <label htmlFor="salary_remarks" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Salary Remarks</label>
+        <textarea
+          id="salary_remarks"
+          disabled={!canEdit}
+          className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 disabled:opacity-50 min-h-[70px]"
+          value={record.salary_remarks}
+          onChange={(e) => setField("salary_remarks", e.target.value)}
+        />
+      </div>
+
+      {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5 mt-4">{error}</p>}
+
+      {canEdit && (
+        <div className="flex justify-end gap-3 mt-5">
+          <button type="button" onClick={() => setMode("list")} className="text-sm text-ink/70 hover:text-ink px-4 py-2.5">Cancel</button>
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving}
+            className="bg-ledger-800 text-manila px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function EmployeeDetails() {
   const { id } = useParams();
   const isNew = !id;
@@ -521,6 +870,7 @@ export default function EmployeeDetails() {
     ...SECTIONS.map((s) => ({ key: s.key, label: s.label })),
     { key: "udf", label: "User Defined Fields" },
     { key: "salary", label: "Salary" },
+    ...(isNew ? [] : [{ key: "salary_structure", label: "Salary Structure" }]),
   ];
 
   if (loading) {
@@ -697,6 +1047,15 @@ export default function EmployeeDetails() {
             ) : (
               <p className="text-sm text-ink/70">Salary structure is managed by Accounts.</p>
             )
+          )}
+
+          {activeTab === "salary_structure" && !isNew && (
+            <SalaryStructureSection
+              employeeId={id}
+              dateOfJoining={form.date_of_joining}
+              canView={canViewSalary}
+              canEdit={canEditSalary}
+            />
           )}
         </div>
 
