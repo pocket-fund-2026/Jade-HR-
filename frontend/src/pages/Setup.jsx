@@ -30,8 +30,9 @@ export default function Setup() {
 
   const field = (label, key, opts = {}) => (
     <div>
-      <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1.5">{label}</label>
+      <label htmlFor={key} className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">{label}</label>
       <input
+        id={key}
         className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500"
         value={form[key]}
         onChange={set(key)}
@@ -52,7 +53,7 @@ export default function Setup() {
         <div className="bg-paper rounded-sm shadow-stamp px-8 pt-8 pb-7 border-t-4 border-ochre-500 rise-in">
           <form onSubmit={submit} className="space-y-5">
             {field("Admin Employee Code", "employee_code", { required: true })}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {field("First Name", "first_name", { required: true })}
               {field("Last Name", "last_name")}
             </div>

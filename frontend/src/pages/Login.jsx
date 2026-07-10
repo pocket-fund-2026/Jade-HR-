@@ -41,10 +41,11 @@ export default function Login() {
 
           <form onSubmit={submit} className="space-y-5">
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1.5">
+              <label htmlFor="employee_code" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">
                 Employee Code
               </label>
               <input
+                id="employee_code"
                 className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 font-nums text-ink placeholder:text-ink/30 focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500"
                 value={employeeCode}
                 onChange={(e) => setEmployeeCode(e.target.value)}
@@ -53,10 +54,11 @@ export default function Login() {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1.5">
+              <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">
                 Password
               </label>
               <input
+                id="password"
                 type="password"
                 className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500"
                 value={password}

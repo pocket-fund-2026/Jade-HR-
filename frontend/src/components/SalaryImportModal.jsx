@@ -67,12 +67,12 @@ export default function SalaryImportModal({ onClose, onImported }) {
   return (
     <div className="fixed inset-0 bg-ledger-900/60 flex items-center justify-center px-4 z-50">
       <div className="bg-paper rounded-sm shadow-stamp w-full max-w-lg p-6 border-t-4 border-jade-500 relative">
-        <button onClick={onClose} className="absolute top-4 right-4 text-ink/40 hover:text-ink transition-colors">
+        <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-ink/70 hover:text-ink transition-colors">
           <X size={18} />
         </button>
         <p className="text-xs font-semibold uppercase tracking-wider text-jade-600 mb-1">Bulk import</p>
         <p className="font-display text-lg text-ink mb-1">Salary structure</p>
-        <p className="text-xs text-ink/45 mb-5">
+        <p className="text-xs text-ink/70 mb-5">
           CSV columns: employee_code, basic, hra, conveyance, other_allowance.{" "}
           <button onClick={downloadTemplate} className="text-jade-600 hover:underline inline-flex items-center gap-1">
             <Download size={11} /> Download template
@@ -80,13 +80,13 @@ export default function SalaryImportModal({ onClose, onImported }) {
         </p>
 
         <label className="flex items-center gap-3 border border-dashed border-ink/25 rounded-sm px-4 py-4 cursor-pointer hover:border-jade-500 transition-colors">
-          <Upload size={18} className="text-ink/40" />
-          <span className="text-sm text-ink/60">{fileName || "Choose a CSV file…"}</span>
+          <Upload size={18} className="text-ink/70" />
+          <span className="text-sm text-ink/70">{fileName || "Choose a CSV file…"}</span>
           <input type="file" accept=".csv" onChange={handleFile} className="hidden" />
         </label>
 
         {rows && (
-          <p className="text-sm text-ink/60 mt-3">{rows.length} rows ready to import.</p>
+          <p className="text-sm text-ink/70 mt-3">{rows.length} rows ready to import.</p>
         )}
 
         {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5 mt-3">{error}</p>}
@@ -104,7 +104,7 @@ export default function SalaryImportModal({ onClose, onImported }) {
         )}
 
         <div className="flex justify-end gap-3 pt-5">
-          <button type="button" onClick={onClose} className="text-sm text-ink/50 hover:text-ink px-2">
+          <button type="button" onClick={onClose} className="text-sm text-ink/70 hover:text-ink px-2">
             Cancel
           </button>
           <button

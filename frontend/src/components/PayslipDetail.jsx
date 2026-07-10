@@ -27,13 +27,13 @@ export default function PayslipDetail({ summary }) {
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4 pb-5 border-b-2 border-ink/10 rise-in">
         <div>
           <p className="font-display text-ink text-xl leading-none">JADE by MK</p>
-          <p className="text-ink/45 text-xs mt-2 max-w-[260px] leading-snug">{OFFICE_ADDRESS}</p>
+          <p className="text-ink/70 text-xs mt-2 max-w-[260px] leading-snug">{OFFICE_ADDRESS}</p>
         </div>
         <div className="text-right">
           <p className="font-display text-ink text-lg leading-none">Payslip</p>
-          <p className="text-ink/40 text-xs font-nums mt-1.5">{payPeriodLabel(summary.year, summary.month)}</p>
+          <p className="text-ink/70 text-xs font-nums mt-1.5">{payPeriodLabel(summary.year, summary.month)}</p>
           <p className="text-ink font-medium text-sm mt-3">{summary.name}</p>
-          <p className="text-ink/40 text-xs font-nums mt-0.5">{summary.employee_code} &middot; {summary.location}</p>
+          <p className="text-ink/70 text-xs font-nums mt-0.5">{summary.employee_code} &middot; {summary.location}</p>
         </div>
       </div>
 
@@ -41,12 +41,12 @@ export default function PayslipDetail({ summary }) {
         <StatCard label="Present Days" value={`${summary.present_days}/${summary.days_in_month}`} />
         <StatCard label="Hours Worked" value={summary.total_hours_worked} />
         <StatCard label="OT Hours" value={summary.total_ot_hours} />
-        <StatCard label="OT Amount" value={formatINR(summary.ot_amount)} accent="text-ochre-500" />
+        <StatCard label="OT Amount" value={formatINR(summary.ot_amount)} accent="text-ochre-700" />
       </div>
 
       <div className="bg-paper rounded-sm shadow-card p-7 border-t-4 border-ochre-500">
-        <p className="text-xs font-semibold uppercase tracking-wider text-ochre-600 mb-1">Overtime calculation</p>
-        <p className="text-xs text-ink/35 mb-4 font-nums">
+        <p className="text-xs font-semibold uppercase tracking-wider text-ochre-700 mb-1">Overtime calculation</p>
+        <p className="text-xs text-ink/65 mb-4 font-nums">
           (Basic + HRA + Conveyance) &divide; days in month &divide; standard hours &times; OT hours
         </p>
         <div>
@@ -67,7 +67,7 @@ export default function PayslipDetail({ summary }) {
             value={formatINR(summary.per_hour_salary)}
           />
           <LedgerLine label="Total OT hours" value={summary.total_ot_hours} />
-          <LedgerLine label="OT amount" value={formatINR(summary.ot_amount)} strong accent="text-ochre-600" />
+          <LedgerLine label="OT amount" value={formatINR(summary.ot_amount)} strong accent="text-ochre-700" />
         </div>
       </div>
 
@@ -90,16 +90,16 @@ export default function PayslipDetail({ summary }) {
       </div>
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
-        <p className="px-5 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-ink/45">Daily attendance</p>
+        <p className="px-5 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-ink/70">Daily attendance</p>
         <table className="w-full text-sm mt-2">
           <thead className="text-left">
             <tr className="border-b-2 border-ink/10">
-              <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Date</th>
-              <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/45">In</th>
-              <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Out</th>
-              <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Hours</th>
-              <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/45">OT Hours</th>
-              <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Status</th>
+              <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Date</th>
+              <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">In</th>
+              <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Out</th>
+              <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Hours</th>
+              <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">OT Hours</th>
+              <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -112,7 +112,7 @@ export default function PayslipDetail({ summary }) {
                 </td>
                 <td className="px-5 py-2 font-nums text-ink/70">{formatTime(d.last_out)}</td>
                 <td className="px-5 py-2 font-nums">{d.hours_worked || "—"}</td>
-                <td className="px-5 py-2 font-nums text-ochre-600">{d.ot_hours || "—"}</td>
+                <td className="px-5 py-2 font-nums text-ochre-700">{d.ot_hours || "—"}</td>
                 <td className="px-5 py-2">
                   <StampBadge status={d.status}>{d.status}</StampBadge>
                 </td>

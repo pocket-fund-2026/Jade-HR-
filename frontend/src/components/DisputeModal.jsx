@@ -45,16 +45,17 @@ export default function DisputeModal({ date, onClose, onSubmitted }) {
   return (
     <div className="fixed inset-0 bg-ledger-900/60 flex items-center justify-center px-4 z-50">
       <div className="bg-paper rounded-sm shadow-stamp w-full max-w-md p-6 border-t-4 border-ochre-500 relative">
-        <button onClick={onClose} className="absolute top-4 right-4 text-ink/40 hover:text-ink transition-colors">
+        <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-ink/70 hover:text-ink transition-colors">
           <X size={18} />
         </button>
-        <p className="text-xs font-semibold uppercase tracking-wider text-ochre-600 mb-1">Report an attendance issue</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-ochre-700 mb-1">Report an attendance issue</p>
         <p className="font-display text-lg text-ink mb-5">{formatDate(date)}</p>
 
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1.5">What happened</label>
+            <label htmlFor="issue_type" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">What happened</label>
             <select
+              id="issue_type"
               className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
               value={issueType}
               onChange={(e) => setIssueType(e.target.value)}
@@ -66,11 +67,12 @@ export default function DisputeModal({ date, onClose, onSubmitted }) {
           </div>
 
           {(needsIn || needsOut) && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {needsIn && (
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1.5">Actual clock-in</label>
+                  <label htmlFor="claimed_in" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Actual clock-in</label>
                   <input
+                    id="claimed_in"
                     type="time"
                     className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
                     value={claimedIn}
@@ -80,8 +82,9 @@ export default function DisputeModal({ date, onClose, onSubmitted }) {
               )}
               {needsOut && (
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1.5">Actual clock-out</label>
+                  <label htmlFor="claimed_out" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Actual clock-out</label>
                   <input
+                    id="claimed_out"
                     type="time"
                     className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
                     value={claimedOut}
@@ -93,8 +96,9 @@ export default function DisputeModal({ date, onClose, onSubmitted }) {
           )}
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1.5">Explain what happened</label>
+            <label htmlFor="dispute_reason" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Explain what happened</label>
             <textarea
+              id="dispute_reason"
               className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 min-h-[80px]"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
@@ -105,7 +109,7 @@ export default function DisputeModal({ date, onClose, onSubmitted }) {
           {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
 
           <div className="flex justify-end gap-3 pt-1">
-            <button type="button" onClick={onClose} className="text-sm text-ink/50 hover:text-ink px-2">
+            <button type="button" onClick={onClose} className="text-sm text-ink/70 hover:text-ink px-2">
               Cancel
             </button>
             <button

@@ -234,8 +234,8 @@ function Field({ field, value, editing, onChange, extra }) {
   if (type === "static") {
     return (
       <div className={span}>
-        <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1.5">{label}</label>
-        <p className="text-sm text-ink/60 italic">{field.staticValue}</p>
+        <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">{label}</label>
+        <p className="text-sm text-ink/70 italic">{field.staticValue}</p>
       </div>
     );
   }
@@ -248,27 +248,30 @@ function Field({ field, value, editing, onChange, extra }) {
     else if (value === "" || value == null) display = "—";
     return (
       <div className={span}>
-        <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1.5">{label}</label>
+        <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">{label}</label>
         <p className="text-sm text-ink font-medium">{display}</p>
-        {hint && <p className="text-[11px] text-ink/35 mt-1">{hint}</p>}
+        {hint && <p className="text-[11px] text-ink/65 mt-1">{hint}</p>}
       </div>
     );
   }
 
   const baseClass = "w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500 disabled:opacity-50 disabled:bg-ink/5";
 
+  const inputId = `field-${field.k}`;
+
   if (type === "boolean") {
     return (
       <div className={`flex items-center gap-2 pt-6 ${span}`}>
         <input
+          id={inputId}
           type="checkbox"
           checked={!!value}
           onChange={(e) => onChange(e.target.checked)}
           className="w-4 h-4 accent-jade-600"
           {...extra}
         />
-        <label className="text-sm text-ink">{label}</label>
-        {hint && <span className="text-[11px] text-ink/35">({hint})</span>}
+        <label htmlFor={inputId} className="text-sm text-ink">{label}</label>
+        {hint && <span className="text-[11px] text-ink/65">({hint})</span>}
       </div>
     );
   }
@@ -276,8 +279,8 @@ function Field({ field, value, editing, onChange, extra }) {
   if (type === "select") {
     return (
       <div className={span}>
-        <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1.5">{label}</label>
-        <select className={baseClass} value={value || ""} onChange={(e) => onChange(e.target.value)} {...extra}>
+        <label htmlFor={inputId} className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">{label}</label>
+        <select id={inputId} className={baseClass} value={value || ""} onChange={(e) => onChange(e.target.value)} {...extra}>
           <option value="">—</option>
           {options.map((o) => <option key={o} value={o}>{o}</option>)}
         </select>
@@ -288,16 +291,17 @@ function Field({ field, value, editing, onChange, extra }) {
   if (type === "textarea") {
     return (
       <div className={span}>
-        <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1.5">{label}</label>
-        <textarea className={baseClass} rows={3} value={value || ""} onChange={(e) => onChange(e.target.value)} {...extra} />
+        <label htmlFor={inputId} className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">{label}</label>
+        <textarea id={inputId} className={baseClass} rows={3} value={value || ""} onChange={(e) => onChange(e.target.value)} {...extra} />
       </div>
     );
   }
 
   return (
     <div className={span}>
-      <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1.5">{label}</label>
+      <label htmlFor={inputId} className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">{label}</label>
       <input
+        id={inputId}
         type={type === "number" ? "number" : type === "date" ? "date" : "text"}
         className={`${baseClass} font-nums`}
         value={value ?? ""}
@@ -311,8 +315,8 @@ function Field({ field, value, editing, onChange, extra }) {
 function Group({ group, form, editing, onFieldChange }) {
   return (
     <div className={group.title ? "border-t border-ink/10 pt-6 mt-6 first:border-0 first:pt-0 first:mt-0" : ""}>
-      {group.title && <p className="text-xs font-semibold uppercase tracking-wider text-ochre-600 mb-4">{group.title}</p>}
-      <div className="grid grid-cols-2 gap-x-4 gap-y-5">
+      {group.title && <p className="text-xs font-semibold uppercase tracking-wider text-ochre-700 mb-4">{group.title}</p>}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-5">
         {group.fields.map((field) => (
           <Field
             key={field.k}
@@ -323,7 +327,7 @@ function Group({ group, form, editing, onFieldChange }) {
           />
         ))}
       </div>
-      {group.note && <p className="text-[11px] text-ink/35 mt-4 leading-relaxed">{group.note}</p>}
+      {group.note && <p className="text-[11px] text-ink/65 mt-4 leading-relaxed">{group.note}</p>}
     </div>
   );
 }
@@ -336,14 +340,14 @@ function UDFSection({ udfs, editing, onChange }) {
 
   if (!editing) {
     return list.length === 0 ? (
-      <p className="text-sm text-ink/40">No user defined fields.</p>
+      <p className="text-sm text-ink/70">No user defined fields.</p>
     ) : (
       <div className="bg-manila/30 rounded-sm overflow-hidden">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-ink/10 text-left">
-              <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-ink/45">UDF Name</th>
-              <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-ink/45">UDF Value</th>
+              <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-ink/70">UDF Name</th>
+              <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-ink/70">UDF Value</th>
             </tr>
           </thead>
           <tbody>
@@ -375,7 +379,7 @@ function UDFSection({ udfs, editing, onChange }) {
             value={u.udf_value}
             onChange={(e) => update(i, "udf_value", e.target.value)}
           />
-          <button type="button" onClick={() => remove(i)} className="text-ink/40 hover:text-rust-500 p-1">
+          <button type="button" onClick={() => remove(i)} aria-label="Remove field" className="text-ink/70 hover:text-rust-500 p-1">
             <X size={16} />
           </button>
         </div>
@@ -520,12 +524,12 @@ export default function EmployeeDetails() {
   ];
 
   if (loading) {
-    return <p className="text-ink/40">Loading ledger…</p>;
+    return <p className="text-ink/70">Loading ledger…</p>;
   }
 
   return (
     <div className="max-w-5xl">
-      <Link to="/admin/employees" className="inline-flex items-center gap-1.5 text-xs text-ink/45 hover:text-ink mb-3 transition-colors">
+      <Link to="/admin/employees" className="inline-flex items-center gap-1.5 text-xs text-ink/70 hover:text-ink mb-3 transition-colors">
         <ArrowLeft size={13} /> Back to Employees
       </Link>
 
@@ -533,10 +537,11 @@ export default function EmployeeDetails() {
         {/* Header: identity + account fields, always visible regardless of active tab */}
         <div className="p-7 border-b border-ink/10">
           {editing ? (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1.5">Employee Code (biometric ID)</label>
+                <label htmlFor="employee_code" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Employee Code (biometric ID)</label>
                 <input
+                  id="employee_code"
                   className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 disabled:opacity-50 disabled:bg-ink/5"
                   value={form.employee_code}
                   disabled={!isNew}
@@ -545,10 +550,11 @@ export default function EmployeeDetails() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1.5">
+                <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">
                   {isNew ? "Password" : "Reset Password (leave blank to keep)"}
                 </label>
                 <input
+                  id="password"
                   type="password"
                   className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
                   value={form.password}
@@ -557,8 +563,9 @@ export default function EmployeeDetails() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1.5">First Name</label>
+                <label htmlFor="first_name" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">First Name</label>
                 <input
+                  id="first_name"
                   className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
                   value={form.first_name}
                   required
@@ -566,8 +573,9 @@ export default function EmployeeDetails() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1.5">Last Name</label>
+                <label htmlFor="last_name" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Last Name</label>
                 <input
+                  id="last_name"
                   className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
                   value={form.last_name}
                   onChange={(e) => setField("last_name", e.target.value)}
@@ -578,7 +586,7 @@ export default function EmployeeDetails() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="font-display text-2xl text-ink">{form.first_name} {form.last_name}</h2>
-                <p className="text-xs text-ink/40 font-nums mt-0.5">{form.employee_code}</p>
+                <p className="text-xs text-ink/70 font-nums mt-0.5">{form.employee_code}</p>
               </div>
               <StampBadge status={form.is_active ? "active" : "inactive"}>
                 {form.is_active ? "Working" : "Inactive"}
@@ -597,7 +605,7 @@ export default function EmployeeDetails() {
               className={`px-4 py-3 text-xs font-semibold uppercase tracking-wider whitespace-nowrap border-b-2 transition-colors ${
                 activeTab === t.key
                   ? "border-jade-500 text-ink"
-                  : "border-transparent text-ink/40 hover:text-ink/70"
+                  : "border-transparent text-ink/70 hover:text-ink/70"
               }`}
             >
               {t.label}
@@ -612,14 +620,15 @@ export default function EmployeeDetails() {
                 if (group.fields.some((f) => f.t === "role")) {
                   return (
                     <div key={i}>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-5">
                         {group.fields.map((field) => {
                           if (field.t === "role") {
                             return (
                               <div key={field.k}>
-                                <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1.5">{field.l}</label>
+                                <label htmlFor={field.k} className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">{field.l}</label>
                                 {editing && canAssignRole ? (
                                   <select
+                                    id={field.k}
                                     className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
                                     value={form.role}
                                     onChange={(e) => setField("role", e.target.value)}
@@ -630,7 +639,7 @@ export default function EmployeeDetails() {
                                   <p className="text-sm text-ink font-medium">{ROLE_LABELS[form.role] || form.role}</p>
                                 )}
                                 {editing && !canAssignRole && (
-                                  <p className="text-[11px] text-ink/35 mt-1">Only Accounts can change this.</p>
+                                  <p className="text-[11px] text-ink/65 mt-1">Only Accounts can change this.</p>
                                 )}
                               </div>
                             );
@@ -638,9 +647,10 @@ export default function EmployeeDetails() {
                           if (field.t === "weekday") {
                             return (
                               <div key={field.k}>
-                                <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1.5">{field.l}</label>
+                                <label htmlFor={field.k} className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">{field.l}</label>
                                 {editing ? (
                                   <select
+                                    id={field.k}
                                     className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
                                     value={form.weekly_off_day}
                                     onChange={(e) => setField("weekly_off_day", Number(e.target.value))}
@@ -673,19 +683,19 @@ export default function EmployeeDetails() {
           {activeTab === "salary" && (
             canViewSalary ? (
               <div>
-                <p className="text-xs text-ink/40 mb-5">Used for OT calc: Total Salary = Basic + HRA + Conveyance, divided across days/hours in the month.</p>
-                <div className="grid grid-cols-3 gap-4">
+                <p className="text-xs text-ink/70 mb-5">Used for OT calc: Total Salary = Basic + HRA + Conveyance, divided across days/hours in the month.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <Field field={{ k: "basic", l: "Basic", t: "number" }} value={form.basic} editing={editing && canEditSalary} onChange={(v) => setField("basic", v)} />
                   <Field field={{ k: "hra", l: "HRA", t: "number" }} value={form.hra} editing={editing && canEditSalary} onChange={(v) => setField("hra", v)} />
                   <Field field={{ k: "conveyance", l: "Conveyance", t: "number" }} value={form.conveyance} editing={editing && canEditSalary} onChange={(v) => setField("conveyance", v)} />
                 </div>
-                <div className="grid grid-cols-2 gap-4 mt-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
                   <Field field={{ k: "other_allowance", l: "Other Allowance", t: "number" }} value={form.other_allowance} editing={editing && canEditSalary} onChange={(v) => setField("other_allowance", v)} />
                   <Field field={{ k: "standard_hours_per_day", l: "Standard Hours / Day", t: "number" }} value={form.standard_hours_per_day} editing={editing && canEditSalary} onChange={(v) => setField("standard_hours_per_day", v)} />
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-ink/40">Salary structure is managed by Accounts.</p>
+              <p className="text-sm text-ink/70">Salary structure is managed by Accounts.</p>
             )
           )}
         </div>
@@ -693,7 +703,7 @@ export default function EmployeeDetails() {
         {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5 mx-7 mb-4">{error}</p>}
 
         {/* Action bar */}
-        <div className="flex items-center justify-between px-7 py-5 border-t border-ink/10 bg-manila/20">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 sm:px-7 py-5 border-t border-ink/10 bg-manila/20">
           <div>
             {!editing && canManage && (
               <button type="button" onClick={deleteEmployee} className="flex items-center gap-1.5 text-sm text-rust-500 hover:text-rust-600 hover:underline">
@@ -701,10 +711,10 @@ export default function EmployeeDetails() {
               </button>
             )}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {!editing ? (
               <>
-                <Link to="/admin/employees" className="text-sm text-ink/60 hover:text-ink px-4 py-2.5">Back</Link>
+                <Link to="/admin/employees" className="text-sm text-ink/70 hover:text-ink px-4 py-2.5">Back</Link>
                 {canManage && (
                   <button
                     type="button"
@@ -717,7 +727,7 @@ export default function EmployeeDetails() {
               </>
             ) : (
               <>
-                <button type="button" onClick={cancel} className="text-sm text-ink/60 hover:text-ink px-4 py-2.5">Cancel</button>
+                <button type="button" onClick={cancel} className="text-sm text-ink/70 hover:text-ink px-4 py-2.5">Cancel</button>
                 <button
                   type="button"
                   disabled={saving}

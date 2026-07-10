@@ -65,15 +65,16 @@ export default function Payroll() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-6">
         <div>
           <h2 className="font-display text-2xl text-ink">Payroll &amp; OT</h2>
-          <p className="text-xs text-ink/40 font-nums mt-0.5">
+          <p className="text-xs text-ink/70 font-nums mt-0.5">
             OT = (Basic + HRA + Conveyance) &divide; days in month &divide; hours &times; OT hours
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <select
+            aria-label="Filter by location"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
@@ -98,49 +99,49 @@ export default function Payroll() {
         <table className="w-full text-sm">
           <thead className="text-left">
             <tr className="border-b-2 border-ink/10">
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Employee</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Base Day</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Present</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Weekoff</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">PL</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Absent</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Paid Days</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Late</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">On Time</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Gross (B+H+C)</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Per Day</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Per Hour</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">OT Hours</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">OT Amount</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Total Payable</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Base Day</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Present</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Weekoff</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">PL</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Absent</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Paid Days</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Late</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">On Time</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Gross (B+H+C)</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Per Day</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Per Hour</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">OT Hours</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">OT Amount</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Total Payable</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={16}>Loading ledger…</td></tr>
+              <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={16}>Loading ledger…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={16}>No employees match.</td></tr>
+              <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={16}>No employees match.</td></tr>
             ) : (
               filtered.map((r) => (
                 <tr key={r.employee_id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
                   <td className="px-5 py-3.5">
                     <span className="text-ink font-medium">{r.name}</span>
-                    <div className="text-xs text-ink/40 font-nums">{r.employee_code}</div>
+                    <div className="text-xs text-ink/70 font-nums">{r.employee_code}</div>
                   </td>
-                  <td className="px-5 py-3.5 font-nums text-ink/60">{r.days_in_month}</td>
+                  <td className="px-5 py-3.5 font-nums text-ink/70">{r.days_in_month}</td>
                   <td className="px-5 py-3.5 font-nums text-jade-700">{r.present_days}</td>
-                  <td className="px-5 py-3.5 font-nums text-ink/60">{r.weekoff_days}</td>
-                  <td className="px-5 py-3.5 font-nums text-ink/60">{r.pl_days}</td>
+                  <td className="px-5 py-3.5 font-nums text-ink/70">{r.weekoff_days}</td>
+                  <td className="px-5 py-3.5 font-nums text-ink/70">{r.pl_days}</td>
                   <td className="px-5 py-3.5 font-nums text-rust-500">{r.absent_days}</td>
                   <td className="px-5 py-3.5 font-nums font-semibold text-ink">{r.paid_days}</td>
                   <td className="px-5 py-3.5 font-nums text-rust-500">{r.late_days}</td>
                   <td className="px-5 py-3.5 font-nums text-jade-700">{r.on_time_days}</td>
                   <td className="px-5 py-3.5 font-nums">{formatINR(r.basic + r.hra + r.conveyance)}</td>
-                  <td className="px-5 py-3.5 font-nums text-ink/60">{formatINR(r.per_day_salary)}</td>
-                  <td className="px-5 py-3.5 font-nums text-ink/60">{formatINR(r.per_hour_salary)}</td>
+                  <td className="px-5 py-3.5 font-nums text-ink/70">{formatINR(r.per_day_salary)}</td>
+                  <td className="px-5 py-3.5 font-nums text-ink/70">{formatINR(r.per_hour_salary)}</td>
                   <td className="px-5 py-3.5 font-nums">{r.total_ot_hours}</td>
-                  <td className="px-5 py-3.5 font-nums font-semibold text-ochre-600">{formatINR(r.ot_amount)}</td>
+                  <td className="px-5 py-3.5 font-nums font-semibold text-ochre-700">{formatINR(r.ot_amount)}</td>
                   <td className="px-5 py-3.5 font-nums font-semibold text-ink">{formatINR(r.total_payable)}</td>
                   <td className="px-5 py-3.5">
                     <Link

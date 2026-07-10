@@ -22,7 +22,7 @@ function TrendTooltip({ active, payload }) {
   const point = payload[0].payload;
   return (
     <div className="bg-paper border border-ink/10 rounded-sm shadow-stamp px-3 py-2">
-      <p className="text-[11px] uppercase tracking-wider text-ink/40">{point.label}</p>
+      <p className="text-[11px] uppercase tracking-wider text-ink/70">{point.label}</p>
       <p className="font-nums text-ink font-semibold text-base mt-0.5 flex items-center gap-1.5">
         <span className="inline-block w-2.5 h-0.5 bg-ochre-500" />
         {point.ot_hours}h OT
@@ -39,19 +39,19 @@ export default function OtTrendChart({ data }) {
     <div className="bg-paper rounded-sm shadow-card p-6 border-t-4 border-ochre-500 mb-8">
       <div className="flex items-baseline justify-between gap-4 flex-wrap">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-ochre-600">OT Hours</p>
-          <p className="text-xs text-ink/40 mt-0.5">Last 6 pay periods</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-ochre-700">OT Hours</p>
+          <p className="text-xs text-ink/70 mt-0.5">Last 6 pay periods</p>
         </div>
         {total > 0 && (
           <p className="font-display text-2xl text-ink leading-none">
             {latest.ot_hours}
-            <span className="text-sm text-ink/40 ml-1.5 font-sans">this period</span>
+            <span className="text-sm text-ink/70 ml-1.5 font-sans">this period</span>
           </p>
         )}
       </div>
 
       {total === 0 ? (
-        <p className="text-sm text-ink/35 mt-6">Not enough history yet — this fills in as pay periods close.</p>
+        <p className="text-sm text-ink/65 mt-6">Not enough history yet — this fills in as pay periods close.</p>
       ) : (
         <div className="h-[180px] mt-4 -ml-2">
           <ResponsiveContainer width="100%" height="100%">

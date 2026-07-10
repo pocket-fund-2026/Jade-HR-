@@ -32,6 +32,9 @@ export default {
           400: "#DA9548",
           500: "#C97C2E",
           600: "#A6621F",
+          // 700 exists specifically for text — 500/600 read fine as fills/borders
+          // but fail WCAG AA (4.5:1) as text on manila/paper; 700 passes at ~5.2:1.
+          700: "#8B5219",
         },
       },
       fontFamily: {

@@ -55,12 +55,12 @@ export default function Employees() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div>
           <h2 className="font-display text-2xl text-ink">Employees</h2>
-          <p className="text-xs text-ink/40 font-nums mt-0.5">{employees.length} on the ledger</p>
+          <p className="text-xs text-ink/70 font-nums mt-0.5">{employees.length} on the ledger</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           {canEditSalary && (
             <button
               onClick={() => setShowImport(true)}
@@ -87,10 +87,11 @@ export default function Employees() {
         />
       )}
 
-      <div className="flex gap-3 mb-4">
-        <div className="relative max-w-xs flex-1">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/30" />
+      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+        <div className="relative sm:max-w-xs flex-1">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/65" />
           <input
+            aria-label="Search employees by name or code"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search name or code"
@@ -98,6 +99,7 @@ export default function Employees() {
           />
         </div>
         <select
+          aria-label="Filter by location"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
           className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
@@ -113,22 +115,22 @@ export default function Employees() {
         <table className="w-full text-sm">
           <thead className="text-left">
             <tr className="border-b-2 border-ink/10">
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Name</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Code</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Location</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Designation</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Name</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Code</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Location</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Designation</th>
               {canViewSalary && (
-                <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Gross (B+H+C)</th>
+                <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Gross (B+H+C)</th>
               )}
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Status</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Status</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={7}>Loading ledger…</td></tr>
+              <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={7}>Loading ledger…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={7}>No employees match.</td></tr>
+              <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={7}>No employees match.</td></tr>
             ) : (
               pageItems.map((e) => (
                 <tr key={e.id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
@@ -137,11 +139,11 @@ export default function Employees() {
                       {e.first_name} {e.last_name}
                     </Link>
                   </td>
-                  <td className="px-5 py-3.5 text-ink/50 font-nums">{e.employee_code}</td>
+                  <td className="px-5 py-3.5 text-ink/70 font-nums">{e.employee_code}</td>
                   <td className="px-5 py-3.5 text-ink/70">{e.location || "—"}</td>
                   <td className="px-5 py-3.5 text-ink/70">
                     {e.designation || "—"}
-                    {e.department && <div className="text-xs text-ink/40 mt-0.5">{e.department}</div>}
+                    {e.department && <div className="text-xs text-ink/70 mt-0.5">{e.department}</div>}
                   </td>
                   {canViewSalary && (
                     <td className="px-5 py-3.5 font-nums">{formatINR(Number(e.basic) + Number(e.hra) + Number(e.conveyance))}</td>
@@ -167,8 +169,8 @@ export default function Employees() {
       </div>
 
       {!loading && filtered.length > 0 && (
-        <div className="flex items-center justify-between mt-4">
-          <p className="text-xs text-ink/40 font-nums">
+        <div className="flex flex-wrap items-center justify-between gap-3 mt-4">
+          <p className="text-xs text-ink/70 font-nums">
             Showing {(pageSafe - 1) * PAGE_SIZE + 1}–{Math.min(pageSafe * PAGE_SIZE, filtered.length)} of {filtered.length}
           </p>
           <div className="flex items-center gap-2">
@@ -179,7 +181,7 @@ export default function Employees() {
             >
               <ChevronLeft size={14} /> Prev
             </button>
-            <span className="text-xs text-ink/50 font-nums px-2">Page {pageSafe} of {totalPages}</span>
+            <span className="text-xs text-ink/70 font-nums px-2">Page {pageSafe} of {totalPages}</span>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={pageSafe >= totalPages}

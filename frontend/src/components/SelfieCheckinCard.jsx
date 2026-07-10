@@ -103,7 +103,7 @@ export default function SelfieCheckinCard() {
       <div className="flex items-center justify-between mb-3">
         <p className="text-xs font-semibold uppercase tracking-wider text-jade-700">Selfie check-in</p>
         {mode === "idle" && punches.length > 0 && (
-          <span className="text-xs text-ink/40">
+          <span className="text-xs text-ink/70">
             {punches.map((p, i) => (
               <span key={i}>{i > 0 && " · "}{p.punch_direction === "IN" ? "In" : "Out"} {formatTime(p.punch_time)}</span>
             ))}
@@ -132,7 +132,7 @@ export default function SelfieCheckinCard() {
             >
               <Camera size={15} /> Capture
             </button>
-            <button onClick={cancel} className="flex items-center gap-2 text-sm text-ink/50 hover:text-ink px-2">
+            <button onClick={cancel} className="flex items-center gap-2 text-sm text-ink/70 hover:text-ink px-2">
               <X size={15} /> Cancel
             </button>
           </div>
@@ -153,7 +153,7 @@ export default function SelfieCheckinCard() {
             <button
               onClick={retake}
               disabled={mode === "submitting"}
-              className="flex items-center gap-2 text-sm text-ink/50 hover:text-ink px-2"
+              className="flex items-center gap-2 text-sm text-ink/70 hover:text-ink px-2"
             >
               <RotateCcw size={15} /> Retake
             </button>
@@ -167,8 +167,8 @@ export default function SelfieCheckinCard() {
             <span className="stamp stamp-land text-jade-600 text-sm px-3 py-1.5 flex-shrink-0">
               {justPunched.direction === "IN" ? "Checked In" : "Checked Out"}
             </span>
-            <span className="font-nums text-ink/50 text-sm">{formatTime(justPunched.time)}</span>
-            <span className="ml-auto text-xs text-ink/30 group-hover:text-ink/50 transition-colors">Tap to dismiss</span>
+            <span className="font-nums text-ink/70 text-sm">{formatTime(justPunched.time)}</span>
+            <span className="ml-auto text-xs text-ink/65 group-hover:text-ink/70 transition-colors">Tap to dismiss</span>
           </div>
         </button>
       )}

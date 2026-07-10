@@ -50,7 +50,7 @@ export default function LeaveRequestModal({ onClose, onSubmitted }) {
   return (
     <div className="fixed inset-0 bg-ledger-900/60 flex items-center justify-center px-4 z-50">
       <div className="bg-paper rounded-sm shadow-stamp w-full max-w-md p-6 border-t-4 border-jade-500 relative">
-        <button onClick={onClose} className="absolute top-4 right-4 text-ink/40 hover:text-ink transition-colors">
+        <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-ink/70 hover:text-ink transition-colors">
           <X size={18} />
         </button>
         <p className="text-xs font-semibold uppercase tracking-wider text-jade-600 mb-1">Request leave</p>
@@ -58,8 +58,9 @@ export default function LeaveRequestModal({ onClose, onSubmitted }) {
 
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1.5">Leave type</label>
+            <label htmlFor="leave_type" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Leave type</label>
             <select
+              id="leave_type"
               className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
               value={leaveType}
               onChange={(e) => setLeaveType(e.target.value)}
@@ -72,8 +73,9 @@ export default function LeaveRequestModal({ onClose, onSubmitted }) {
 
           {leaveType === "other" && (
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ochre-600 mb-1.5">Please specify</label>
+              <label htmlFor="leave_remark" className="block text-xs font-semibold uppercase tracking-wider text-ochre-700 mb-1.5">Please specify</label>
               <input
+                id="leave_remark"
                 type="text"
                 required
                 placeholder="e.g. Bereavement, compensatory off, jury duty…"
@@ -84,10 +86,11 @@ export default function LeaveRequestModal({ onClose, onSubmitted }) {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1.5">From</label>
+              <label htmlFor="leave_start" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">From</label>
               <input
+                id="leave_start"
                 type="date"
                 required
                 className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
@@ -96,8 +99,9 @@ export default function LeaveRequestModal({ onClose, onSubmitted }) {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1.5">To</label>
+              <label htmlFor="leave_end" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">To</label>
               <input
+                id="leave_end"
                 type="date"
                 required
                 className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
@@ -108,8 +112,9 @@ export default function LeaveRequestModal({ onClose, onSubmitted }) {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1.5">Reason</label>
+            <label htmlFor="leave_reason" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Reason</label>
             <textarea
+              id="leave_reason"
               className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 min-h-[70px]"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
@@ -120,7 +125,7 @@ export default function LeaveRequestModal({ onClose, onSubmitted }) {
           {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
 
           <div className="flex justify-end gap-3 pt-1">
-            <button type="button" onClick={onClose} className="text-sm text-ink/50 hover:text-ink px-2">
+            <button type="button" onClick={onClose} className="text-sm text-ink/70 hover:text-ink px-2">
               Cancel
             </button>
             <button

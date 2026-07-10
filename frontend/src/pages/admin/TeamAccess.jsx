@@ -60,7 +60,7 @@ export default function TeamAccess() {
         <ShieldCheck size={20} className="text-jade-600" />
         <h2 className="font-display text-2xl text-ink">Team Access</h2>
       </div>
-      <p className="text-sm text-ink/50 mb-6">
+      <p className="text-sm text-ink/70 mb-6">
         Control what the HR role can see and do in the admin console. Accounts ({user?.name}) always has full
         access — these toggles only affect HR logins.
       </p>
@@ -69,13 +69,13 @@ export default function TeamAccess() {
 
       <div className="bg-paper rounded-sm shadow-card divide-y divide-ink/[0.06]">
         {loading ? (
-          <p className="px-5 py-8 text-ink/40 text-center text-sm">Loading permissions…</p>
+          <p className="px-5 py-8 text-ink/70 text-center text-sm">Loading permissions…</p>
         ) : (
           rows.map((r) => (
             <div key={r.permission_key} className="flex items-center justify-between gap-4 px-5 py-4">
               <div>
                 <p className="text-sm text-ink font-medium">{r.label}</p>
-                <p className="text-xs text-ink/40 font-nums mt-0.5">{r.permission_key}</p>
+                <p className="text-xs text-ink/70 font-nums mt-0.5">{r.permission_key}</p>
               </div>
               <Toggle
                 checked={r.hr_can_access}
@@ -87,7 +87,7 @@ export default function TeamAccess() {
         )}
       </div>
 
-      <div className="flex items-start gap-2 mt-5 text-xs text-ink/40">
+      <div className="flex items-start gap-2 mt-5 text-xs text-ink/70">
         <Lock size={13} className="mt-0.5 flex-shrink-0" />
         <p>
           Only Accounts can view or change this page, and only Accounts can promote someone into the HR or

@@ -24,7 +24,7 @@ const CONSOLE_ROLES = ["accounts", "hr"];
 function PageFallback() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-manila">
-      <p className="font-display text-ink/40 text-lg">Opening the ledger…</p>
+      <p className="font-display text-ink/70 text-lg">Opening the ledger…</p>
     </div>
   );
 }

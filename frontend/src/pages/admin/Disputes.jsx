@@ -39,13 +39,13 @@ function ResolveRow({ dispute, onResolved }) {
     <tr className="border-b border-ink/[0.06] last:border-0 align-top">
       <td className="px-5 py-3.5">
         <span className="text-ink font-medium">{employee?.first_name} {employee?.last_name}</span>
-        <div className="text-xs text-ink/40 font-nums">{employee?.employee_code}</div>
+        <div className="text-xs text-ink/70 font-nums">{employee?.employee_code}</div>
       </td>
       <td className="px-5 py-3.5 text-ink/70">{employee?.location || "—"}</td>
       <td className="px-5 py-3.5 font-nums text-ink/70">{formatDate(dispute.date)}</td>
       <td className="px-5 py-3.5 max-w-xs">
         <p className="text-ink/70">{dispute.reason}</p>
-        <p className="text-xs text-ink/40 mt-0.5 uppercase tracking-wide">{dispute.issue_type.replace(/_/g, " ")}</p>
+        <p className="text-xs text-ink/70 mt-0.5 uppercase tracking-wide">{dispute.issue_type.replace(/_/g, " ")}</p>
       </td>
       <td className="px-5 py-3.5">
         <div className="flex gap-2">
@@ -53,14 +53,14 @@ function ResolveRow({ dispute, onResolved }) {
             type="time"
             value={firstIn}
             onChange={(e) => setFirstIn(e.target.value)}
-            placeholder="In"
+            aria-label="Actual clock-in" placeholder="In"
             className="w-24 rounded-sm border border-ink/15 bg-manila/40 px-2 py-1.5 text-xs font-nums focus:outline-none focus:ring-2 focus:ring-jade-500"
           />
           <input
             type="time"
             value={lastOut}
             onChange={(e) => setLastOut(e.target.value)}
-            placeholder="Out"
+            aria-label="Actual clock-out" placeholder="Out"
             className="w-24 rounded-sm border border-ink/15 bg-manila/40 px-2 py-1.5 text-xs font-nums focus:outline-none focus:ring-2 focus:ring-jade-500"
           />
         </div>
@@ -118,12 +118,13 @@ export default function Disputes() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div>
           <h2 className="font-display text-2xl text-ink">Attendance Disputes</h2>
-          <p className="text-xs text-ink/40 font-nums mt-0.5">Employee-reported missed punches</p>
+          <p className="text-xs text-ink/70 font-nums mt-0.5">Employee-reported missed punches</p>
         </div>
         <select
+          aria-label="Filter by location"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
           className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
@@ -141,7 +142,7 @@ export default function Disputes() {
             key={t.key}
             onClick={() => setTab(t.key)}
             className={`px-4 py-2 rounded-sm text-sm font-medium transition-colors ${
-              tab === t.key ? "bg-ledger-800 text-manila" : "bg-paper text-ink/50 hover:text-ink"
+              tab === t.key ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"
             }`}
           >
             {t.label}
@@ -153,20 +154,20 @@ export default function Disputes() {
         <table className="w-full text-sm">
           <thead className="text-left">
             <tr className="border-b-2 border-ink/10">
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Employee</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Location</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Date</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Issue</th>
-              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Confirm times</th>}
-              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Action</th>}
-              {tab !== "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Status</th>}
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Location</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Date</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Issue</th>
+              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Confirm times</th>}
+              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Action</th>}
+              {tab !== "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Status</th>}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={6}>Loading ledger…</td></tr>
+              <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={6}>Loading ledger…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={6}>No {tab} disputes.</td></tr>
+              <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={6}>No {tab} disputes.</td></tr>
             ) : tab === "pending" ? (
               filtered.map((d) => <ResolveRow key={d.id} dispute={d} onResolved={load} />)
             ) : (
@@ -174,7 +175,7 @@ export default function Disputes() {
                 <tr key={d.id} className="border-b border-ink/[0.06] last:border-0">
                   <td className="px-5 py-3.5">
                     <span className="text-ink font-medium">{d.hr_employees?.first_name} {d.hr_employees?.last_name}</span>
-                    <div className="text-xs text-ink/40 font-nums">{d.hr_employees?.employee_code}</div>
+                    <div className="text-xs text-ink/70 font-nums">{d.hr_employees?.employee_code}</div>
                   </td>
                   <td className="px-5 py-3.5 text-ink/70">{d.hr_employees?.location || "—"}</td>
                   <td className="px-5 py-3.5 font-nums text-ink/70">{formatDate(d.date)}</td>

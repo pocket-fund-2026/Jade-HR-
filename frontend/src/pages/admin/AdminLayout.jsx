@@ -119,7 +119,7 @@ export default function AdminLayout() {
           <img src="/jade-logo.png" alt="" className="w-7 h-7" />
           <span className="font-display text-manila text-lg leading-none">JADE HR</span>
         </div>
-        <button onClick={() => setMobileOpen(true)} className="text-manila p-1">
+        <button onClick={() => setMobileOpen(true)} aria-label="Open menu" className="text-manila p-1">
           <Menu size={22} />
         </button>
       </div>
@@ -129,7 +129,7 @@ export default function AdminLayout() {
         <div className="md:hidden fixed inset-0 z-40 flex">
           <div className="absolute inset-0 bg-ledger-900/60" onClick={() => setMobileOpen(false)} />
           <aside className="relative w-64 h-screen bg-ledger-800 flex flex-col">
-            <button onClick={() => setMobileOpen(false)} className="absolute top-5 right-4 text-manila/70">
+            <button onClick={() => setMobileOpen(false)} aria-label="Close menu" className="absolute top-5 right-4 text-manila/70">
               <X size={20} />
             </button>
             <SidebarContent user={user} can={can} logout={logout} pendingCounts={pendingCounts} onNavigate={() => setMobileOpen(false)} />
