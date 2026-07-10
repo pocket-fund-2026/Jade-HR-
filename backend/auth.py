@@ -58,7 +58,47 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     return employee
 
 
-def require_admin(user: dict = Depends(get_current_user)) -> dict:
-    if user["role"] != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+CONSOLE_ROLES = ("accounts", "hr")
+
+
+def require_console(user: dict = Depends(get_current_user)) -> dict:
+    """Any admin-console user (accounts or hr) — endpoint itself decides finer-grained access."""
+    if user["role"] not in CONSOLE_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin console access required")
     return user
+
+
+def require_accounts(user: dict = Depends(get_current_user)) -> dict:
+    if user["role"] != "accounts":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accounts access required")
+    return user
+
+
+def get_hr_permissions() -> dict[str, bool]:
+    """permission_key -> whether the 'hr' role currently has that capability."""
+    resp = supabase.table("hr_permissions").select("permission_key,hr_can_access").execute()
+    return {row["permission_key"]: row["hr_can_access"] for row in resp.data}
+
+
+def user_can(user: dict, *permission_keys: str) -> bool:
+    """True if user's role grants any of the given permission keys.
+    'accounts' always passes. 'hr' is checked against hr_permissions."""
+    if user["role"] == "accounts":
+        return True
+    if user["role"] != "hr":
+        return False
+    granted = get_hr_permissions()
+    return any(granted.get(key, False) for key in permission_keys)
+
+
+def require_permission(*permission_keys: str):
+    """Dependency factory: accounts always pass; hr must have at least one of the given keys."""
+
+    def dep(user: dict = Depends(get_current_user)) -> dict:
+        if user["role"] not in CONSOLE_ROLES:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin console access required")
+        if not user_can(user, *permission_keys):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not permitted — ask Accounts for access")
+        return user
+
+    return dep

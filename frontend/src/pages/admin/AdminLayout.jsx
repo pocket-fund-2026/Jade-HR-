@@ -1,4 +1,4 @@
-import { Flag, LayoutDashboard, LogOut, Menu, Plane, Receipt, Users, X } from "lucide-react";
+import { Flag, LayoutDashboard, LogOut, Menu, Plane, Receipt, Shield, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
@@ -9,24 +9,32 @@ const POLL_MS = 25000;
 
 const navItems = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/admin/employees", label: "Employees", icon: Users },
-  { to: "/admin/payroll", label: "Payroll & OT", icon: Receipt },
-  { to: "/admin/disputes", label: "Disputes", icon: Flag, badgeKey: "disputes" },
-  { to: "/admin/leave", label: "Leave", icon: Plane, badgeKey: "leave" },
+  { to: "/admin/employees", label: "Employees", icon: Users, permission: "employees.view" },
+  { to: "/admin/payroll", label: "Payroll & OT", icon: Receipt, permission: "payroll.view" },
+  { to: "/admin/disputes", label: "Disputes", icon: Flag, badgeKey: "disputes", permission: "disputes.manage" },
+  { to: "/admin/leave", label: "Leave", icon: Plane, badgeKey: "leave", permission: "leave.manage" },
+  { to: "/admin/team-access", label: "Team Access", icon: Shield, accountsOnly: true },
 ];
 
-function SidebarContent({ user, logout, pendingCounts, onNavigate }) {
+function SidebarContent({ user, can, logout, pendingCounts, onNavigate }) {
+  const visibleItems = navItems.filter(({ permission, accountsOnly }) => {
+    if (accountsOnly) return user?.role === "accounts";
+    if (permission) return can(permission);
+    return true;
+  });
   return (
     <>
       <div className="px-6 py-6 relative flex items-center gap-3">
         <img src="/jade-logo.png" alt="" className="w-9 h-9 flex-shrink-0" />
         <div>
           <p className="font-display text-manila text-xl leading-none">JADE HR</p>
-          <p className="text-manila/40 text-[11px] uppercase tracking-[0.2em] mt-1.5">Admin Ledger</p>
+          <p className="text-manila/40 text-[11px] uppercase tracking-[0.2em] mt-1.5">
+            {user?.role === "accounts" ? "Accounts Ledger" : "HR Ledger"}
+          </p>
         </div>
       </div>
       <nav className="flex-1 px-3 py-2 space-y-1 relative">
-        {navItems.map(({ to, label, icon: Icon, end, badgeKey }) => (
+        {visibleItems.map(({ to, label, icon: Icon, end, badgeKey }) => (
           <NavLink
             key={to}
             to={to}
@@ -70,18 +78,20 @@ function SidebarContent({ user, logout, pendingCounts, onNavigate }) {
 }
 
 export default function AdminLayout() {
-  const { user, logout } = useAuth();
+  const { user, can, logout } = useAuth();
   const [pendingDisputes, setPendingDisputes] = useState([]);
   const [pendingLeave, setPendingLeave] = useState([]);
   const [mobileOpen, setMobileOpen] = useState(false);
   const pendingCounts = { disputes: pendingDisputes.length, leave: pendingLeave.length };
+  const canDisputes = can("disputes.manage");
+  const canLeave = can("leave.manage");
 
   useEffect(() => {
     let cancelled = false;
     const poll = () => {
       Promise.all([
-        api.get("/api/disputes", { params: { status: "pending" } }),
-        api.get("/api/leave-requests", { params: { status: "pending" } }),
+        canDisputes ? api.get("/api/disputes", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
+        canLeave ? api.get("/api/leave-requests", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
       ])
         .then(([disputesRes, leaveRes]) => {
           if (cancelled) return;
@@ -93,14 +103,14 @@ export default function AdminLayout() {
     poll();
     const interval = setInterval(poll, POLL_MS);
     return () => { cancelled = true; clearInterval(interval); };
-  }, []);
+  }, [canDisputes, canLeave]);
 
   return (
     <div className="min-h-screen flex bg-manila">
       {/* Desktop sidebar — always visible */}
       <aside className="hidden md:flex w-60 bg-ledger-800 flex-col relative flex-shrink-0">
         <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
-        <SidebarContent user={user} logout={logout} pendingCounts={pendingCounts} />
+        <SidebarContent user={user} can={can} logout={logout} pendingCounts={pendingCounts} />
       </aside>
 
       {/* Mobile top bar */}
@@ -122,7 +132,7 @@ export default function AdminLayout() {
             <button onClick={() => setMobileOpen(false)} className="absolute top-5 right-4 text-manila/70">
               <X size={20} />
             </button>
-            <SidebarContent user={user} logout={logout} pendingCounts={pendingCounts} onNavigate={() => setMobileOpen(false)} />
+            <SidebarContent user={user} can={can} logout={logout} pendingCounts={pendingCounts} onNavigate={() => setMobileOpen(false)} />
           </aside>
         </div>
       )}

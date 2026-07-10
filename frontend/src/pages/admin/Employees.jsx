@@ -5,9 +5,13 @@ import { Link } from "react-router-dom";
 import SalaryImportModal from "../../components/SalaryImportModal.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
+import { useAuth } from "../../lib/auth.jsx";
 import { formatINR } from "../../lib/format.js";
 
 export default function Employees() {
+  const { can } = useAuth();
+  const canViewSalary = can("salary.view", "salary.edit");
+  const canEditSalary = can("salary.edit");
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -46,13 +50,15 @@ export default function Employees() {
           <p className="text-xs text-ink/40 font-nums mt-0.5">{employees.length} on the ledger</p>
         </div>
         <div className="flex gap-3">
-          <button
-            onClick={() => setShowImport(true)}
-            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-4 py-2.5 rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
-          >
-            <Upload size={16} />
-            Import Salaries
-          </button>
+          {canEditSalary && (
+            <button
+              onClick={() => setShowImport(true)}
+              className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-4 py-2.5 rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
+            >
+              <Upload size={16} />
+              Import Salaries
+            </button>
+          )}
           <Link
             to="/admin/employees/new"
             className="flex items-center gap-2 bg-ledger-800 text-manila px-4 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
@@ -100,7 +106,9 @@ export default function Employees() {
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Code</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Location</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Designation</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Gross (B+H+C)</th>
+              {canViewSalary && (
+                <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Gross (B+H+C)</th>
+              )}
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Status</th>
               <th></th>
             </tr>
@@ -124,7 +132,9 @@ export default function Employees() {
                     {e.designation || "—"}
                     {e.department && <div className="text-xs text-ink/40 mt-0.5">{e.department}</div>}
                   </td>
-                  <td className="px-5 py-3.5 font-nums">{formatINR(Number(e.basic) + Number(e.hra) + Number(e.conveyance))}</td>
+                  {canViewSalary && (
+                    <td className="px-5 py-3.5 font-nums">{formatINR(Number(e.basic) + Number(e.hra) + Number(e.conveyance))}</td>
+                  )}
                   <td className="px-5 py-3.5">
                     <StampBadge status={e.is_active ? "active" : "inactive"}>
                       {e.is_active ? "Working" : "Inactive"}
@@ -135,7 +145,7 @@ export default function Employees() {
                       to={`/admin/employees/${e.id}`}
                       className="flex items-center gap-1.5 text-jade-600 hover:text-jade-700 hover:underline text-xs font-medium"
                     >
-                      <Pencil size={12} /> Edit salary
+                      <Pencil size={12} /> {canEditSalary ? "Edit salary" : "Edit"}
                     </Link>
                   </td>
                 </tr>

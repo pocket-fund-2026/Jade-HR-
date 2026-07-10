@@ -3,10 +3,21 @@ import { createContext, useContext, useEffect, useState } from "react";
 import api from "./api";
 
 const AuthContext = createContext(null);
+const CONSOLE_ROLES = ["accounts", "hr"];
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+  const [permissions, setPermissions] = useState({});
   const [loading, setLoading] = useState(true);
+
+  const loadPermissions = async () => {
+    try {
+      const { data } = await api.get("/api/permissions");
+      setPermissions(Object.fromEntries(data.map((p) => [p.permission_key, p.hr_can_access])));
+    } catch {
+      setPermissions({});
+    }
+  };
 
   const loadMe = async () => {
     const token = localStorage.getItem("jade_hr_token");
@@ -17,6 +28,7 @@ export function AuthProvider({ children }) {
     try {
       const { data } = await api.get("/api/auth/me");
       setUser(data);
+      if (CONSOLE_ROLES.includes(data.role)) await loadPermissions();
     } catch {
       localStorage.removeItem("jade_hr_token");
     } finally {
@@ -40,10 +52,19 @@ export function AuthProvider({ children }) {
     localStorage.removeItem("jade_hr_token");
     localStorage.removeItem("jade_hr_role");
     setUser(null);
+    setPermissions({});
+  };
+
+  // accounts always has full access; hr is gated per-key by what accounts has granted.
+  const can = (...keys) => {
+    if (!user) return false;
+    if (user.role === "accounts") return true;
+    if (user.role !== "hr") return false;
+    return keys.some((k) => permissions[k]);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, permissions, can, reloadPermissions: loadPermissions }}>
       {children}
     </AuthContext.Provider>
   );

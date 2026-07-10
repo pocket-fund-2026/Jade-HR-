@@ -2,7 +2,7 @@ from datetime import date, datetime, time, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from auth import get_current_user, require_admin
+from auth import CONSOLE_ROLES, get_current_user, require_permission, user_can
 from config import IST
 from database import supabase
 from payroll import compute_monthly_summary, pay_period_bounds
@@ -114,7 +114,7 @@ def _get_active_employee(employee_id: str) -> dict:
 def payroll_for_month(
     year: int = Query(...),
     month: int = Query(..., ge=1, le=12),
-    admin: dict = Depends(require_admin),
+    user: dict = Depends(require_permission("payroll.view")),
 ):
     employees = supabase.table("hr_employees").select("*").eq("is_active", True).execute().data
     punches_by_employee = _fetch_all_punches_by_employee(year, month)
@@ -138,8 +138,9 @@ def payroll_for_employee(
     month: int = Query(..., ge=1, le=12),
     user: dict = Depends(get_current_user),
 ):
-    if user["role"] != "admin" and user["id"] != employee_id:
-        raise HTTPException(status_code=403, detail="Not authorized")
+    if user["id"] != employee_id:
+        if user["role"] not in CONSOLE_ROLES or not user_can(user, "payroll.view"):
+            raise HTTPException(status_code=403, detail="Not authorized")
     employee = _get_active_employee(employee_id)
     punches = _fetch_punch_times(employee["employee_code"], year, month)
     overrides = _fetch_overrides(employee_id, year, month)

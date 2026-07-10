@@ -67,7 +67,8 @@ def me(user: dict = Depends(get_current_user)):
 
 @router.post("/bootstrap-admin")
 def bootstrap_admin(body: BootstrapAdminRequest):
-    """Creates the first admin account. Only works while hr_employees is empty."""
+    """Creates the first account, as 'accounts' (full access, controls what HR
+    can see). Only works while hr_employees is empty."""
     existing = supabase.table("hr_employees").select("id").limit(1).execute()
     if existing.data:
         raise HTTPException(status_code=403, detail="Setup already completed — an account already exists")
@@ -76,7 +77,7 @@ def bootstrap_admin(body: BootstrapAdminRequest):
         "employee_code": body.employee_code,
         "first_name": body.first_name,
         "last_name": body.last_name,
-        "role": "admin",
+        "role": "accounts",
         "password_hash": hash_password(body.password),
         "basic": 0,
         "hra": 0,
@@ -85,4 +86,4 @@ def bootstrap_admin(body: BootstrapAdminRequest):
     inserted = supabase.table("hr_employees").insert(row).execute()
     employee = inserted.data[0]
     token = create_access_token(employee)
-    return {"access_token": token, "token_type": "bearer", "role": "admin"}
+    return {"access_token": token, "token_type": "bearer", "role": "accounts"}

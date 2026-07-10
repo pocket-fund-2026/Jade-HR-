@@ -17,7 +17,7 @@ export default function Login() {
     setBusy(true);
     try {
       const role = await login(employeeCode, password);
-      navigate(role === "admin" ? "/admin" : "/employee");
+      navigate(role === "accounts" || role === "hr" ? "/admin" : "/employee");
     } catch (err) {
       setError(err.response?.data?.detail || "That code and password don't match our records.");
     } finally {

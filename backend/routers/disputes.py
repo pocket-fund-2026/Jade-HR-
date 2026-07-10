@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from auth import get_current_user, require_admin
+from auth import get_current_user, require_permission
 from database import supabase
 from models import DisputeCreate, DisputeResolve
 
@@ -36,7 +36,7 @@ def my_disputes(user: dict = Depends(get_current_user)):
 
 
 @router.get("/disputes")
-def list_disputes(status: str | None = Query(None), admin: dict = Depends(require_admin)):
+def list_disputes(status: str | None = Query(None), admin: dict = Depends(require_permission("disputes.manage"))):
     query = supabase.table("hr_attendance_disputes").select(
         "*, hr_employees!hr_attendance_disputes_employee_id_fkey(first_name,last_name,employee_code,location)"
     )
@@ -47,7 +47,7 @@ def list_disputes(status: str | None = Query(None), admin: dict = Depends(requir
 
 
 @router.put("/disputes/{dispute_id}")
-def resolve_dispute(dispute_id: str, body: DisputeResolve, admin: dict = Depends(require_admin)):
+def resolve_dispute(dispute_id: str, body: DisputeResolve, admin: dict = Depends(require_permission("disputes.manage"))):
     dispute_resp = supabase.table("hr_attendance_disputes").select("*").eq("id", dispute_id).maybe_single().execute()
     dispute = dispute_resp.data
     if not dispute:

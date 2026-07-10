@@ -106,3 +106,7 @@ class LeaveResolve(BaseModel):
 
 class SelfieCheckinRequest(BaseModel):
     photo_base64: str  # may be a data: URL or raw base64
+
+
+class PermissionUpdate(BaseModel):
+    hr_can_access: bool

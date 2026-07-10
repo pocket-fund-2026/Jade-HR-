@@ -11,10 +11,13 @@ import Employees from "./pages/admin/Employees.jsx";
 import Leave from "./pages/admin/Leave.jsx";
 import Payroll from "./pages/admin/Payroll.jsx";
 import PayrollDetail from "./pages/admin/PayrollDetail.jsx";
+import TeamAccess from "./pages/admin/TeamAccess.jsx";
 import EmployeeLayout from "./pages/employee/EmployeeLayout.jsx";
 import EmployeeDashboard from "./pages/employee/Dashboard.jsx";
 
-function Protected({ role, children }) {
+const CONSOLE_ROLES = ["accounts", "hr"];
+
+function Protected({ roles, children }) {
   const { user, loading } = useAuth();
   if (loading) {
     return (
@@ -24,9 +27,24 @@ function Protected({ role, children }) {
     );
   }
   if (!user) return <Navigate to="/login" replace />;
-  if (role && user.role !== role) {
-    return <Navigate to={user.role === "admin" ? "/admin" : "/employee"} replace />;
+  if (roles && !roles.includes(user.role)) {
+    return <Navigate to={CONSOLE_ROLES.includes(user.role) ? "/admin" : "/employee"} replace />;
   }
+  return children;
+}
+
+// Gates a section behind an hr_permissions key — accounts always passes.
+// Used both for whole pages (Payroll, Disputes, Leave) and the accounts-only
+// Team Access settings page.
+function RequirePermission({ anyOf, children }) {
+  const { can } = useAuth();
+  if (!can(...anyOf)) return <Navigate to="/admin" replace />;
+  return children;
+}
+
+function RequireAccounts({ children }) {
+  const { user } = useAuth();
+  if (user?.role !== "accounts") return <Navigate to="/admin" replace />;
   return children;
 }
 
@@ -40,25 +58,26 @@ export default function App() {
         <Route
           path="/admin"
           element={
-            <Protected role="admin">
+            <Protected roles={CONSOLE_ROLES}>
               <AdminLayout />
             </Protected>
           }
         >
           <Route index element={<Dashboard />} />
-          <Route path="employees" element={<Employees />} />
-          <Route path="employees/new" element={<EmployeeForm />} />
-          <Route path="employees/:id" element={<EmployeeForm />} />
-          <Route path="payroll" element={<Payroll />} />
-          <Route path="payroll/:id" element={<PayrollDetail />} />
-          <Route path="disputes" element={<Disputes />} />
-          <Route path="leave" element={<Leave />} />
+          <Route path="employees" element={<RequirePermission anyOf={["employees.view"]}><Employees /></RequirePermission>} />
+          <Route path="employees/new" element={<RequirePermission anyOf={["employees.manage"]}><EmployeeForm /></RequirePermission>} />
+          <Route path="employees/:id" element={<RequirePermission anyOf={["employees.view"]}><EmployeeForm /></RequirePermission>} />
+          <Route path="payroll" element={<RequirePermission anyOf={["payroll.view"]}><Payroll /></RequirePermission>} />
+          <Route path="payroll/:id" element={<RequirePermission anyOf={["payroll.view"]}><PayrollDetail /></RequirePermission>} />
+          <Route path="disputes" element={<RequirePermission anyOf={["disputes.manage"]}><Disputes /></RequirePermission>} />
+          <Route path="leave" element={<RequirePermission anyOf={["leave.manage"]}><Leave /></RequirePermission>} />
+          <Route path="team-access" element={<RequireAccounts><TeamAccess /></RequireAccounts>} />
         </Route>
 
         <Route
           path="/employee"
           element={
-            <Protected role="employee">
+            <Protected roles={["employee"]}>
               <EmployeeLayout />
             </Protected>
           }

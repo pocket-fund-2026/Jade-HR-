@@ -6,6 +6,7 @@ import MonthPicker from "../../components/MonthPicker.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import StatCard from "../../components/StatCard.jsx";
 import api from "../../lib/api.js";
+import { useAuth } from "../../lib/auth.jsx";
 import { formatINR } from "../../lib/format.js";
 
 // recharts is a heavy dependency (~380KB) — split out of the main bundle
@@ -25,36 +26,53 @@ function shiftPeriod(year, month, delta) {
 }
 
 export default function Dashboard() {
+  const { can } = useAuth();
+  const canPayroll = can("payroll.view");
+  const canBiometric = can("biometric.view");
+  const canEmployees = can("employees.view");
+
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(canPayroll);
   const [error, setError] = useState("");
   const [lastSync, setLastSync] = useState(null);
   const [dismissed, setDismissed] = useState(false);
   const [location, setLocation] = useState("all");
+  const [employeeCount, setEmployeeCount] = useState(null);
 
   const { pendingDisputes = [], pendingLeave = [] } = useOutletContext() || {};
 
   useEffect(() => {
+    if (!canPayroll) return;
     setLoading(true);
     api
       .get("/api/payroll", { params: { year, month } })
       .then(({ data }) => setRows(data))
       .catch(() => setError("Could not load payroll summary"))
       .finally(() => setLoading(false));
-  }, [year, month]);
+  }, [year, month, canPayroll]);
 
   useEffect(() => {
+    if (!canBiometric) return;
     api
       .get("/api/biometric/sync-log")
       .then(({ data }) => setLastSync(data[0] || null))
       .catch(() => {});
-  }, []);
+  }, [canBiometric]);
+
+  useEffect(() => {
+    if (canPayroll || !canEmployees) return;
+    api
+      .get("/api/employees")
+      .then(({ data }) => setEmployeeCount(data.filter((e) => e.is_active).length))
+      .catch(() => {});
+  }, [canPayroll, canEmployees]);
 
   const [trendRaw, setTrendRaw] = useState([]);
 
   useEffect(() => {
+    if (!canPayroll) return;
     const periods = Array.from({ length: 6 }, (_, i) => shiftPeriod(year, month, -(5 - i)));
     Promise.all(
       periods.map(([y, m]) =>
@@ -65,7 +83,7 @@ export default function Dashboard() {
     )
       .then(setTrendRaw)
       .catch(() => setTrendRaw([]));
-  }, [year, month]);
+  }, [year, month, canPayroll]);
 
   const seenAt = localStorage.getItem(SEEN_KEY) || "1970-01-01";
   const newDisputes = pendingDisputes.filter((d) => d.created_at > seenAt);
@@ -109,25 +127,29 @@ export default function Dashboard() {
     <div>
       <div className="flex items-center justify-between mb-1">
         <h2 className="font-display text-2xl text-ink">Dashboard</h2>
-        <div className="flex items-center gap-3">
-          <select
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
-          >
-            <option value="all">All locations</option>
-            {locations.map((loc) => (
-              <option key={loc} value={loc}>{loc}</option>
-            ))}
-          </select>
-          <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
-        </div>
+        {canPayroll && (
+          <div className="flex items-center gap-3">
+            <select
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+            >
+              <option value="all">All locations</option>
+              {locations.map((loc) => (
+                <option key={loc} value={loc}>{loc}</option>
+              ))}
+            </select>
+            <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
+          </div>
+        )}
       </div>
-      <p className="text-xs text-ink/40 font-nums mb-6">
-        {lastSync
-          ? `Last biometric sync ${new Date(lastSync.run_at).toLocaleString("en-IN")} — ${lastSync.inserted} new punches`
-          : "No biometric sync has run yet."}
-      </p>
+      {canBiometric && (
+        <p className="text-xs text-ink/40 font-nums mb-6">
+          {lastSync
+            ? `Last biometric sync ${new Date(lastSync.run_at).toLocaleString("en-IN")} — ${lastSync.inserted} new punches`
+            : "No biometric sync has run yet."}
+        </p>
+      )}
 
       {hasNew && (
         <div className="bg-ochre-50 border border-ochre-400/40 rounded-sm px-4 py-3 mb-6 flex items-start gap-3">
@@ -154,58 +176,74 @@ export default function Dashboard() {
 
       {error && <p className="text-sm text-rust-500 mb-4 border-l-2 border-rust-500 pl-2.5">{error}</p>}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 stagger-rise">
-        <StatCard label="Active Employees" value={filtered.length} />
-        <StatCard label="Total OT Hours" value={totals.otHours.toFixed(1)} />
-        <StatCard label="Total OT Amount" value={formatINR(totals.otAmount)} accent="text-ochre-500" />
-        <StatCard label="Total Payable" value={formatINR(totals.payable)} accent="text-jade-600" />
-      </div>
+      {canPayroll ? (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 stagger-rise">
+            <StatCard label="Active Employees" value={filtered.length} />
+            <StatCard label="Total OT Hours" value={totals.otHours.toFixed(1)} />
+            <StatCard label="Total OT Amount" value={formatINR(totals.otAmount)} accent="text-ochre-500" />
+            <StatCard label="Total Payable" value={formatINR(totals.payable)} accent="text-jade-600" />
+          </div>
 
-      {trend.length > 0 && (
-        <Suspense fallback={<div className="rounded-sm mb-8 h-[284px] bg-ink/[0.03]" />}>
-          <OtTrendChart data={trend} />
-        </Suspense>
-      )}
+          {trend.length > 0 && (
+            <Suspense fallback={<div className="rounded-sm mb-8 h-[284px] bg-ink/[0.03]" />}>
+              <OtTrendChart data={trend} />
+            </Suspense>
+          )}
 
-      <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="text-left">
-            <tr className="border-b-2 border-ink/10">
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Employee</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Present</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Absent</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">OT Hours</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">OT Amount</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Total Payable</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={6}>Loading ledger…</td></tr>
-            ) : filtered.length === 0 ? (
-              <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={6}>No employees match.</td></tr>
-            ) : (
-              filtered.map((r) => (
-                <tr key={r.employee_id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
-                  <td className="px-5 py-3.5">
-                    <Link to={`/admin/payroll/${r.employee_id}?year=${year}&month=${month}`} className="text-ink hover:text-jade-600 font-medium transition-colors">
-                      {r.name}
-                    </Link>
-                    <div className="text-xs text-ink/40 font-nums">{r.employee_code}</div>
-                  </td>
-                  <td className="px-5 py-3.5 font-nums">{r.present_days}/{r.days_in_month}</td>
-                  <td className="px-5 py-3.5 font-nums">
-                    {r.absent_days > 0 ? <StampBadge status="absent">{r.absent_days} absent</StampBadge> : <span className="text-ink/30">—</span>}
-                  </td>
-                  <td className="px-5 py-3.5 font-nums">{r.total_ot_hours}</td>
-                  <td className="px-5 py-3.5 font-nums text-ochre-600">{formatINR(r.ot_amount)}</td>
-                  <td className="px-5 py-3.5 font-nums font-semibold text-ink">{formatINR(r.total_payable)}</td>
+          <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left">
+                <tr className="border-b-2 border-ink/10">
+                  <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Employee</th>
+                  <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Present</th>
+                  <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Absent</th>
+                  <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">OT Hours</th>
+                  <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">OT Amount</th>
+                  <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/45">Total Payable</th>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={6}>Loading ledger…</td></tr>
+                ) : filtered.length === 0 ? (
+                  <tr><td className="px-5 py-8 text-ink/40 text-center" colSpan={6}>No employees match.</td></tr>
+                ) : (
+                  filtered.map((r) => (
+                    <tr key={r.employee_id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
+                      <td className="px-5 py-3.5">
+                        <Link to={`/admin/payroll/${r.employee_id}?year=${year}&month=${month}`} className="text-ink hover:text-jade-600 font-medium transition-colors">
+                          {r.name}
+                        </Link>
+                        <div className="text-xs text-ink/40 font-nums">{r.employee_code}</div>
+                      </td>
+                      <td className="px-5 py-3.5 font-nums">{r.present_days}/{r.days_in_month}</td>
+                      <td className="px-5 py-3.5 font-nums">
+                        {r.absent_days > 0 ? <StampBadge status="absent">{r.absent_days} absent</StampBadge> : <span className="text-ink/30">—</span>}
+                      </td>
+                      <td className="px-5 py-3.5 font-nums">{r.total_ot_hours}</td>
+                      <td className="px-5 py-3.5 font-nums text-ochre-600">{formatINR(r.ot_amount)}</td>
+                      <td className="px-5 py-3.5 font-nums font-semibold text-ink">{formatINR(r.total_payable)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : (
+        <>
+          {canEmployees && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 stagger-rise">
+              <StatCard label="Active Employees" value={employeeCount ?? "—"} />
+            </div>
+          )}
+          <div className="bg-paper rounded-sm shadow-card px-6 py-10 text-center">
+            <p className="text-sm text-ink/50">Payroll &amp; OT figures are managed by Accounts.</p>
+            <p className="text-xs text-ink/35 mt-1">Use Disputes and Leave in the sidebar for pending approvals.</p>
+          </div>
+        </>
+      )}
     </div>
   );
 }

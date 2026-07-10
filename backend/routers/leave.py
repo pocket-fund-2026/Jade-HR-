@@ -3,7 +3,7 @@ from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from auth import get_current_user, require_admin
+from auth import get_current_user, require_permission
 from database import supabase
 from models import LeaveRequestCreate, LeaveResolve
 from payroll import pay_period_bounds
@@ -74,7 +74,7 @@ def my_leave_balance(user: dict = Depends(get_current_user)):
 
 
 @router.get("/leave-requests")
-def list_leave_requests(status: str | None = Query(None), admin: dict = Depends(require_admin)):
+def list_leave_requests(status: str | None = Query(None), admin: dict = Depends(require_permission("leave.manage"))):
     query = supabase.table("hr_leave_requests").select(
         "*, hr_employees!hr_leave_requests_employee_id_fkey(first_name,last_name,employee_code,location)"
     )
@@ -85,7 +85,7 @@ def list_leave_requests(status: str | None = Query(None), admin: dict = Depends(
 
 
 @router.put("/leave-requests/{request_id}")
-def resolve_leave_request(request_id: str, body: LeaveResolve, admin: dict = Depends(require_admin)):
+def resolve_leave_request(request_id: str, body: LeaveResolve, admin: dict = Depends(require_permission("leave.manage"))):
     existing = supabase.table("hr_leave_requests").select("*").eq("id", request_id).maybe_single().execute()
     leave_request = existing.data
     if not leave_request:

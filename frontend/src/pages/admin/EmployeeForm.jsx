@@ -3,6 +3,9 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import api from "../../lib/api.js";
+import { useAuth } from "../../lib/auth.jsx";
+
+const ROLE_LABELS = { employee: "Employee", hr: "HR", accounts: "Accounts" };
 
 const empty = {
   employee_code: "",
@@ -30,6 +33,10 @@ export default function EmployeeForm() {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
+  const { user, can } = useAuth();
+  const canViewSalary = can("salary.view", "salary.edit");
+  const canEditSalary = can("salary.edit");
+  const canAssignRole = user?.role === "accounts";
   const [form, setForm] = useState(empty);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -95,7 +102,24 @@ export default function EmployeeForm() {
       <form onSubmit={submit} className="bg-paper rounded-sm shadow-card p-7 space-y-7 border-t-4 border-jade-500">
         <div className="grid grid-cols-2 gap-4">
           {field("Employee Code (biometric ID)", "employee_code", "text", isEdit ? { disabled: true } : { required: true })}
-          {field("Role", "role")}
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1.5">Role</label>
+            <select
+              className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 disabled:opacity-50 disabled:bg-ink/5"
+              value={form.role}
+              disabled={!canAssignRole}
+              onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
+            >
+              {canAssignRole
+                ? Object.entries(ROLE_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))
+                : <option value={form.role}>{ROLE_LABELS[form.role] || form.role}</option>}
+            </select>
+            {!canAssignRole && (
+              <p className="text-xs text-ink/40 mt-1">Only Accounts can change HR/Accounts console roles.</p>
+            )}
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           {field("First Name", "first_name", "text", { required: true })}
@@ -110,32 +134,39 @@ export default function EmployeeForm() {
           {field("Date of Joining", "date_of_joining", "date")}
         </div>
 
-        <div className="border-t border-ink/10 pt-6">
-          <p className="text-xs font-semibold uppercase tracking-wider text-ochre-600 mb-4">Salary structure — used for OT calc</p>
-          <div className="grid grid-cols-3 gap-4">
-            {field("Basic", "basic", "number")}
-            {field("HRA", "hra", "number")}
-            {field("Conveyance", "conveyance", "number")}
-          </div>
-          <div className="grid grid-cols-2 gap-4 mt-4">
-            {field("Other Allowance", "other_allowance", "number")}
-            {field("Standard Hours / Day", "standard_hours_per_day", "number", { step: "0.5" })}
-          </div>
-          <div className="grid grid-cols-2 gap-4 mt-4">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1.5">Weekly Off Day</label>
-              <select
-                className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
-                value={form.weekly_off_day}
-                onChange={(e) => setForm((f) => ({ ...f, weekly_off_day: Number(e.target.value) }))}
-              >
-                {DAY_NAMES.map((name, i) => (
-                  <option key={i} value={i}>{name}</option>
-                ))}
-              </select>
+        {canViewSalary ? (
+          <div className="border-t border-ink/10 pt-6">
+            <p className="text-xs font-semibold uppercase tracking-wider text-ochre-600 mb-4">Salary structure — used for OT calc</p>
+            <div className="grid grid-cols-3 gap-4">
+              {field("Basic", "basic", "number", { disabled: !canEditSalary })}
+              {field("HRA", "hra", "number", { disabled: !canEditSalary })}
+              {field("Conveyance", "conveyance", "number", { disabled: !canEditSalary })}
+            </div>
+            <div className="grid grid-cols-2 gap-4 mt-4">
+              {field("Other Allowance", "other_allowance", "number", { disabled: !canEditSalary })}
+              {field("Standard Hours / Day", "standard_hours_per_day", "number", { step: "0.5", disabled: !canEditSalary })}
+            </div>
+            <div className="grid grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1.5">Weekly Off Day</label>
+                <select
+                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 disabled:opacity-50 disabled:bg-ink/5"
+                  value={form.weekly_off_day}
+                  disabled={!canEditSalary}
+                  onChange={(e) => setForm((f) => ({ ...f, weekly_off_day: Number(e.target.value) }))}
+                >
+                  {DAY_NAMES.map((name, i) => (
+                    <option key={i} value={i}>{name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="border-t border-ink/10 pt-6">
+            <p className="text-xs text-ink/40">Salary structure is managed by Accounts.</p>
+          </div>
+        )}
 
         <div className="border-t border-ink/10 pt-6 grid grid-cols-2 gap-4">
           {field("Phone", "phone")}

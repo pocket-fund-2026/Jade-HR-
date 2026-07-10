@@ -20,7 +20,7 @@ create table if not exists hr_employees (
     phone                   text default '',
     email                   text default '',
     password_hash           text not null,
-    role                    text not null default 'employee' check (role in ('admin', 'employee')),
+    role                    text not null default 'employee' check (role in ('accounts', 'hr', 'employee')),
     is_active               boolean not null default true,
     failed_login_count      int not null default 0,
     locked_until            timestamptz,
@@ -114,6 +114,29 @@ create table if not exists hr_leave_requests (
 create index if not exists idx_hr_leave_requests_status on hr_leave_requests (status, created_at desc);
 create index if not exists idx_hr_leave_requests_employee on hr_leave_requests (employee_id, start_date);
 
+-- One row per togglable admin-console capability. hr_can_access governs the
+-- 'hr' role only — 'accounts' always has full access and is the only role
+-- that can write to this table (enforced in the backend, not RLS, same as
+-- every other hr_* table).
+create table if not exists hr_permissions (
+    permission_key  text primary key,
+    label           text not null,
+    hr_can_access   boolean not null default true,
+    updated_by      uuid references hr_employees(id),
+    updated_at      timestamptz not null default now()
+);
+
+insert into hr_permissions (permission_key, label, hr_can_access) values
+    ('employees.view',   'View employee directory',                                    true),
+    ('employees.manage', 'Create / edit / deactivate employees',                       true),
+    ('salary.view',      'View salary figures (Basic/HRA/Conveyance/Other, payslips)',  false),
+    ('salary.edit',      'Edit salary structure / bulk salary import',                  false),
+    ('payroll.view',     'View Payroll & OT section and payroll figures on Dashboard',  false),
+    ('disputes.manage',  'View & resolve attendance disputes',                          true),
+    ('leave.manage',     'View & resolve leave requests',                               true),
+    ('biometric.view',   'View biometric sync status/log',                              true)
+on conflict (permission_key) do nothing;
+
 -- Default-deny RLS: the backend connects with the service_role key, which
 -- bypasses RLS entirely. This only stops the publishable/anon key (exposed
 -- client-side) from reading/writing this data — salary figures and password
@@ -124,6 +147,7 @@ alter table hr_sync_log enable row level security;
 alter table hr_attendance_overrides enable row level security;
 alter table hr_attendance_disputes enable row level security;
 alter table hr_leave_requests enable row level security;
+alter table hr_permissions enable row level security;
 
 -- Selfie check-in photos for employees flagged with requires_selfie_checkin
 -- (private bucket; only the service_role backend reads/writes it).

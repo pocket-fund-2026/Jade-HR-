@@ -2,7 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends
 
-from auth import require_admin
+from auth import require_console, require_permission
 from config import IST, SERIAL_TO_LOCATION
 from database import supabase
 from models import BiometricPunch
@@ -11,7 +11,7 @@ router = APIRouter(prefix="/api/biometric", tags=["biometric"])
 
 
 @router.post("/ingest")
-def ingest(records: list[BiometricPunch], admin: dict = Depends(require_admin)):
+def ingest(records: list[BiometricPunch], admin: dict = Depends(require_console)):
     rows = []
     dates = []
 
@@ -61,7 +61,7 @@ def ingest(records: list[BiometricPunch], admin: dict = Depends(require_admin)):
 
 
 @router.get("/sync-log")
-def sync_log(admin: dict = Depends(require_admin)):
+def sync_log(admin: dict = Depends(require_permission("biometric.view"))):
     resp = (
         supabase.table("hr_sync_log")
         .select("*")
