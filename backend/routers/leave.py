@@ -3,7 +3,8 @@ from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from auth import get_current_user, require_permission
+import email_service
+from auth import get_current_user, require_permission, user_can
 from database import maybe_single_data, supabase
 from models import LeaveRequestCreate, LeaveResolve
 from payroll import pay_period_bounds
@@ -31,6 +32,20 @@ def create_leave_request(body: LeaveRequestCreate, user: dict = Depends(get_curr
         "reason": body.reason,
     }
     inserted = supabase.table("hr_leave_requests").insert(row).execute()
+
+    approver_email = ""
+    if user.get("leave_approver_id"):
+        approver_resp = (
+            supabase.table("hr_employees").select("email").eq("id", user["leave_approver_id"]).maybe_single().execute()
+        )
+        approver = maybe_single_data(approver_resp)
+        approver_email = (approver or {}).get("email", "")
+    employee_name = f"{user['first_name']} {user.get('last_name', '')}".strip()
+    email_service.notify_leave_submitted(
+        employee_name, body.leave_type, body.start_date.isoformat(), body.end_date.isoformat(), body.reason,
+        approver_email, email_service.HR_NOTIFY_EMAIL,
+    )
+
     return inserted.data[0]
 
 
@@ -84,12 +99,45 @@ def list_leave_requests(status: str | None = Query(None), admin: dict = Depends(
     return resp.data
 
 
+@router.get("/me/team-leave-requests")
+def my_team_leave_requests(status: str | None = Query(None), user: dict = Depends(get_current_user)):
+    """Leave requests from anyone who lists this user as their leave
+    approver — a scoped view, not a role. Any employee can hit this; it's
+    naturally empty for someone nobody reports to."""
+    reports_resp = supabase.table("hr_employees").select("id").eq("leave_approver_id", user["id"]).execute()
+    report_ids = [r["id"] for r in reports_resp.data]
+    if not report_ids:
+        return []
+
+    query = (
+        supabase.table("hr_leave_requests")
+        .select("*, hr_employees!hr_leave_requests_employee_id_fkey(first_name,last_name,employee_code,location)")
+        .in_("employee_id", report_ids)
+    )
+    if status:
+        query = query.eq("status", status)
+    resp = query.order("created_at", desc=True).execute()
+    return resp.data
+
+
+def _is_leave_approver(user: dict, leave_request: dict) -> bool:
+    if user_can(user, "leave.manage"):
+        return True
+    employee_resp = (
+        supabase.table("hr_employees").select("leave_approver_id").eq("id", leave_request["employee_id"]).maybe_single().execute()
+    )
+    employee = maybe_single_data(employee_resp)
+    return bool(employee and employee.get("leave_approver_id") == user["id"])
+
+
 @router.put("/leave-requests/{request_id}")
-def resolve_leave_request(request_id: str, body: LeaveResolve, admin: dict = Depends(require_permission("leave.manage"))):
+def resolve_leave_request(request_id: str, body: LeaveResolve, user: dict = Depends(get_current_user)):
     existing = supabase.table("hr_leave_requests").select("*").eq("id", request_id).maybe_single().execute()
     leave_request = maybe_single_data(existing)
     if not leave_request:
         raise HTTPException(status_code=404, detail="Leave request not found")
+    if not _is_leave_approver(user, leave_request):
+        raise HTTPException(status_code=403, detail="Not authorized to resolve this leave request")
     if leave_request["status"] != "pending":
         raise HTTPException(status_code=409, detail="Leave request already resolved")
     if body.action not in ("approve", "reject"):
@@ -98,9 +146,20 @@ def resolve_leave_request(request_id: str, body: LeaveResolve, admin: dict = Dep
     supabase.table("hr_leave_requests").update({
         "status": "approved" if body.action == "approve" else "rejected",
         "admin_note": body.admin_note,
-        "resolved_by": admin["id"],
+        "resolved_by": user["id"],
         "resolved_at": datetime.now(timezone.utc).isoformat(),
     }).eq("id", request_id).execute()
+
+    if body.action == "approve":
+        employee_resp = (
+            supabase.table("hr_employees").select("email,first_name,last_name").eq("id", leave_request["employee_id"]).maybe_single().execute()
+        )
+        employee = maybe_single_data(employee_resp) or {}
+        employee_name = f"{employee.get('first_name', '')} {employee.get('last_name', '')}".strip()
+        email_service.notify_leave_approved(
+            employee.get("email", ""), employee_name, leave_request["leave_type"],
+            leave_request["start_date"], leave_request["end_date"],
+        )
 
     return {"ok": True}
 

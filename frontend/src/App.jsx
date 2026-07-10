@@ -18,6 +18,7 @@ const PayrollDetail = lazy(() => import("./pages/admin/PayrollDetail.jsx"));
 const TeamAccess = lazy(() => import("./pages/admin/TeamAccess.jsx"));
 const EmployeeLayout = lazy(() => import("./pages/employee/EmployeeLayout.jsx"));
 const EmployeeDashboard = lazy(() => import("./pages/employee/Dashboard.jsx"));
+const TeamLeave = lazy(() => import("./pages/employee/TeamLeave.jsx"));
 
 const CONSOLE_ROLES = ["accounts", "hr"];
 
@@ -90,6 +91,7 @@ export default function App() {
             }
           >
             <Route index element={<EmployeeDashboard />} />
+            <Route path="team-leave" element={<TeamLeave />} />
             <Route path="*" element={<Navigate to="/employee" replace />} />
           </Route>
 

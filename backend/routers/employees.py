@@ -80,6 +80,7 @@ def create_employee(body: EmployeeCreate, user: dict = Depends(require_permissio
 
     row = body.model_dump(exclude={"password"})
     row["date_of_joining"] = row["date_of_joining"].isoformat() if row["date_of_joining"] else None
+    row["leave_approver_id"] = row["leave_approver_id"] or None
     row["password_hash"] = hash_password(body.password)
     if not user_can(user, "salary.edit"):
         for field in SALARY_FIELDS:
@@ -95,6 +96,8 @@ def update_employee(employee_id: str, body: EmployeeUpdate, user: dict = Depends
     updates = body.model_dump(exclude_unset=True, exclude={"password"})
     if "date_of_joining" in updates and updates["date_of_joining"] is not None:
         updates["date_of_joining"] = updates["date_of_joining"].isoformat()
+    if "leave_approver_id" in updates:
+        updates["leave_approver_id"] = updates["leave_approver_id"] or None
     if body.password:
         updates["password_hash"] = hash_password(body.password)
     if not user_can(user, "salary.edit"):

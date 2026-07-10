@@ -62,6 +62,8 @@ def login(body: LoginRequest):
 def me(user: dict = Depends(get_current_user)):
     user.pop("password_hash", None)
     user.pop("_claims", None)
+    reports_resp = supabase.table("hr_employees").select("id").eq("leave_approver_id", user["id"]).limit(1).execute()
+    user["is_leave_approver"] = bool(reports_resp.data)
     return user
 
 

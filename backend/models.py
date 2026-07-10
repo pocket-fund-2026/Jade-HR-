@@ -34,6 +34,7 @@ class EmployeeCreate(BaseModel):
     email: str = ""
     role: str = "employee"
     requires_selfie_checkin: bool = False
+    leave_approver_id: Optional[str] = None
     password: str
 
 
@@ -55,6 +56,7 @@ class EmployeeUpdate(BaseModel):
     role: Optional[str] = None
     is_active: Optional[bool] = None
     requires_selfie_checkin: Optional[bool] = None
+    leave_approver_id: Optional[str] = None
     password: Optional[str] = None
 
 
@@ -148,6 +150,7 @@ class EmployeeProfileUpdate(BaseModel):
     shift_group: Optional[str] = None
     ess_role: Optional[str] = None
     head_of_department: Optional[bool] = None
+    reporting_to: Optional[str] = None
 
     # Dates
     date_of_birth: Optional[date] = None

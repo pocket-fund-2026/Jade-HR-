@@ -60,6 +60,8 @@ const SECTIONS = [
           { k: "_attendance_cycle", l: "Attendance Cycle", t: "static", staticValue: "23rd (previous month) – 22nd (current month)" },
           { k: "ess_role", l: "ESS Role", t: "text" },
           { k: "head_of_department", l: "Head of Department", t: "boolean" },
+          { k: "reporting_to", l: "Reporting To", t: "text" },
+          { k: "leave_approver_id", l: "Leave Approver", t: "approver", core: true },
           { k: "role", l: "Console Role", t: "role", core: true },
         ],
       },
@@ -214,6 +216,7 @@ const EMPTY_CORE = {
   location: "Madhu Estate, Mumbai", date_of_joining: "", basic: 0, hra: 0, conveyance: 0,
   other_allowance: 0, standard_hours_per_day: 8, weekly_off_day: 6, phone: "", email: "",
   role: "employee", password: "", requires_selfie_checkin: false, is_active: true,
+  leave_approver_id: "",
 };
 const EMPTY_PROFILE = Object.fromEntries(
   SECTIONS.flatMap((s) => s.groups.flatMap((g) => g.fields))
@@ -760,6 +763,18 @@ export default function EmployeeDetails() {
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [employeesList, setEmployeesList] = useState([]);
+
+  useEffect(() => {
+    api.get("/api/employees").then(({ data }) => {
+      setEmployeesList(
+        data
+          .filter((e) => e.is_active)
+          .map((e) => ({ id: e.id, employee_code: e.employee_code, name: `${e.first_name} ${e.last_name || ""}`.trim() }))
+          .sort((a, b) => a.name.localeCompare(b.name)),
+      );
+    });
+  }, [canManage]);
 
   const load = () => {
     setLoading(true);
@@ -1020,6 +1035,29 @@ export default function EmployeeDetails() {
                                   </select>
                                 ) : (
                                   <p className="text-sm text-ink font-medium">{DAY_NAMES[form.weekly_off_day]}</p>
+                                )}
+                              </div>
+                            );
+                          }
+                          if (field.t === "approver") {
+                            const current = employeesList.find((e) => e.id === form.leave_approver_id);
+                            return (
+                              <div key={field.k}>
+                                <label htmlFor={field.k} className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">{field.l}</label>
+                                {editing ? (
+                                  <select
+                                    id={field.k}
+                                    className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+                                    value={form.leave_approver_id || ""}
+                                    onChange={(e) => setField("leave_approver_id", e.target.value)}
+                                  >
+                                    <option value="">— None —</option>
+                                    {employeesList.map((e) => (
+                                      <option key={e.id} value={e.id}>{e.name} ({e.employee_code})</option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <p className="text-sm text-ink font-medium">{current ? `${current.name} (${current.employee_code})` : "—"}</p>
                                 )}
                               </div>
                             );

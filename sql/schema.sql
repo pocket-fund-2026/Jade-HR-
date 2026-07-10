@@ -26,9 +26,12 @@ create table if not exists hr_employees (
     locked_until            timestamptz,
     requires_selfie_checkin boolean not null default false,
     weekly_off_day          int not null default 6 check (weekly_off_day between 0 and 6), -- 0=Mon .. 6=Sun
+    leave_approver_id       uuid references hr_employees(id),
     created_at              timestamptz not null default now(),
     updated_at              timestamptz not null default now()
 );
+
+create index if not exists idx_hr_employees_leave_approver on hr_employees (leave_approver_id);
 
 create table if not exists hr_biometric_punches (
     id               bigserial primary key,
@@ -174,6 +177,7 @@ create table if not exists hr_employee_profile (
     shift_group                text default '',
     ess_role                   text default 'Self',
     head_of_department         boolean not null default false,
+    reporting_to               text default '',
 
     -- Dates (date_of_joining lives on hr_employees)
     date_of_birth               date,
