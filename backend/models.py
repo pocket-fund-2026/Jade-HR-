@@ -133,6 +133,10 @@ class HolidayCreate(BaseModel):
     remarks: str = ""
 
 
+class PasswordReset(BaseModel):
+    password: str
+
+
 class CompOffGrant(BaseModel):
     employee_id: str
     earned_date: date

@@ -1,7 +1,8 @@
-import { ArrowLeft, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeft, KeyRound, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
+import PasswordResetModal from "../../components/PasswordResetModal.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
 import { useAuth } from "../../lib/auth.jsx";
@@ -760,12 +761,17 @@ export default function EmployeeDetails() {
   const navigate = useNavigate();
   const { user, can } = useAuth();
   const canManage = can("employees.manage");
+  // Deliberately broader than canManage: lets a policy.manage-only login
+  // (Nimit, Rushikesh) reset a password without unlocking full record
+  // editing (name/department/designation/active-status stay employees.manage-only).
+  const canResetPassword = can("employees.manage", "policy.manage");
   const canViewSalary = can("salary.view", "salary.edit");
   const canEditSalary = can("salary.edit");
   const canAssignRole = user?.role === "accounts";
 
   const [form, setForm] = useState(EMPTY_FORM);
   const [mode, setMode] = useState(isNew ? "edit" : "view");
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [activeTab, setActiveTab] = useState("personal");
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
@@ -1131,6 +1137,15 @@ export default function EmployeeDetails() {
             {!editing ? (
               <>
                 <Link to="/admin/employees" className="text-sm text-ink/70 hover:text-ink px-4 py-2.5">Back</Link>
+                {!isNew && canResetPassword && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordReset(true)}
+                    className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-4 py-2.5 rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
+                  >
+                    <KeyRound size={14} /> Reset Password
+                  </button>
+                )}
                 {canManage && (
                   <button
                     type="button"
@@ -1173,6 +1188,15 @@ export default function EmployeeDetails() {
           </div>
         </div>
       </div>
+
+      {showPasswordReset && (
+        <PasswordResetModal
+          employeeId={id}
+          employeeName={`${form.first_name} ${form.last_name || ""}`.trim()}
+          onClose={() => setShowPasswordReset(false)}
+          onDone={() => setShowPasswordReset(false)}
+        />
+      )}
     </div>
   );
 }

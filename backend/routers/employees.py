@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from auth import CONSOLE_ROLES, get_current_user, hash_password, require_permission, user_can
 from database import maybe_single_data, supabase
-from models import EmployeeCreate, EmployeeUpdate, SalaryImportRequest
+from models import EmployeeCreate, EmployeeUpdate, PasswordReset, SalaryImportRequest
 
 router = APIRouter(prefix="/api/employees", tags=["employees"])
 
@@ -111,6 +111,24 @@ def update_employee(employee_id: str, body: EmployeeUpdate, user: dict = Depends
     if not resp.data:
         raise HTTPException(status_code=404, detail="Employee not found")
     return _sanitize(resp.data[0], user)
+
+
+@router.put("/{employee_id}/password")
+def reset_password(employee_id: str, body: PasswordReset, user: dict = Depends(require_permission("employees.manage", "policy.manage"))):
+    """Deliberately narrower than update_employee: lets a policy.manage-only
+    login (e.g. Nimit, Rushikesh) reset anyone's password without also
+    unlocking editing of their name/department/designation/active-status."""
+    if len(body.password) < 4:
+        raise HTTPException(status_code=400, detail="Password must be at least 4 characters")
+    resp = (
+        supabase.table("hr_employees")
+        .update({"password_hash": hash_password(body.password), "failed_login_count": 0, "locked_until": None})
+        .eq("id", employee_id)
+        .execute()
+    )
+    if not resp.data:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    return {"ok": True}
 
 
 @router.delete("/{employee_id}")
