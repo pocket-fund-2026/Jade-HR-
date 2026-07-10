@@ -28,7 +28,10 @@ export function AuthProvider({ children }) {
     try {
       const { data } = await api.get("/api/auth/me");
       setUser(data);
-      if (CONSOLE_ROLES.includes(data.role)) await loadPermissions();
+      // Don't block first render on this — nav items gated by a permission
+      // just default to hidden for the instant it takes to arrive, then
+      // pop in. Saves a full extra network round-trip before anything paints.
+      if (CONSOLE_ROLES.includes(data.role)) loadPermissions();
     } catch {
       localStorage.removeItem("jade_hr_token");
     } finally {

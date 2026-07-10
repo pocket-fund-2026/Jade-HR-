@@ -172,7 +172,7 @@ def main():
         print(f"ERROR pushing to jade-hr: {e}", file=sys.stderr)
         sys.exit(1)
 
-    print(f"  Done — inserted={result['inserted']}  skipped={result['skipped']}  total={result['total']}")
+    print(f"  Done — inserted={result['inserted']}  skipped={result['skipped']}  total={result['total']}  auto_provisioned={result.get('auto_provisioned', 0)}")
     print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] Sync complete")
 
 

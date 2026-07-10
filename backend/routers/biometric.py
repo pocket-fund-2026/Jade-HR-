@@ -1,13 +1,55 @@
+import secrets
 from datetime import datetime
 
 from fastapi import APIRouter, Depends
 
-from auth import require_console, require_permission
+from auth import hash_password, require_console, require_permission
 from config import IST, SERIAL_TO_LOCATION
 from database import supabase
 from models import BiometricPunch
 
 router = APIRouter(prefix="/api/biometric", tags=["biometric"])
+
+
+def _auto_provision_employees(rows: list[dict]) -> int:
+    """A punch from an employee_code jade-hr has never seen shouldn't just be
+    silently dropped from payroll — create a bare-minimum, active record so
+    the attendance counts from day one. employee_roster_sync.py's nightly
+    run fills in the real name/DOJ the next time it sees this code in
+    SmartOffice's employee master (it PUTs onto any existing employee_code,
+    auto-provisioned or not)."""
+    location_by_code = {}
+    for row in rows:
+        location_by_code.setdefault(row["employee_code"], row["device_location"])
+    if not location_by_code:
+        return 0
+
+    existing = (
+        supabase.table("hr_employees")
+        .select("employee_code")
+        .in_("employee_code", list(location_by_code.keys()))
+        .execute()
+        .data
+    )
+    missing = set(location_by_code) - {e["employee_code"] for e in existing}
+    if not missing:
+        return 0
+
+    new_rows = [
+        {
+            "employee_code": code,
+            "first_name": code,
+            "last_name": "(auto-added from biometric)",
+            "location": location_by_code[code],
+            "role": "employee",
+            "password_hash": hash_password(secrets.token_urlsafe(24)),
+            "is_active": True,
+        }
+        for code in missing
+    ]
+    # ignore_duplicates guards a race with a concurrent ingest call for the same code.
+    supabase.table("hr_employees").upsert(new_rows, on_conflict="employee_code", ignore_duplicates=True).execute()
+    return len(new_rows)
 
 
 @router.post("/ingest")
@@ -36,6 +78,8 @@ def ingest(records: list[BiometricPunch], admin: dict = Depends(require_console)
             "device_location": SERIAL_TO_LOCATION.get(serial, "Unknown"),
         })
 
+    auto_provisioned = _auto_provision_employees(rows)
+
     inserted = 0
     if rows:
         # ON CONFLICT (employee_code, punch_time) DO NOTHING — only newly
@@ -57,7 +101,7 @@ def ingest(records: list[BiometricPunch], admin: dict = Depends(require_console)
         "status": "ok",
     }).execute()
 
-    return {"total": len(records), "inserted": inserted, "skipped": skipped}
+    return {"total": len(records), "inserted": inserted, "skipped": skipped, "auto_provisioned": auto_provisioned}
 
 
 @router.get("/sync-log")

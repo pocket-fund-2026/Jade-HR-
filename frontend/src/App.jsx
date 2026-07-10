@@ -1,31 +1,37 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { AuthProvider, useAuth } from "./lib/auth.jsx";
 import Login from "./pages/Login.jsx";
 import Setup from "./pages/Setup.jsx";
-import AdminLayout from "./pages/admin/AdminLayout.jsx";
-import Dashboard from "./pages/admin/Dashboard.jsx";
-import Disputes from "./pages/admin/Disputes.jsx";
-import EmployeeDetails from "./pages/admin/EmployeeDetails.jsx";
-import Employees from "./pages/admin/Employees.jsx";
-import Leave from "./pages/admin/Leave.jsx";
-import Payroll from "./pages/admin/Payroll.jsx";
-import PayrollDetail from "./pages/admin/PayrollDetail.jsx";
-import TeamAccess from "./pages/admin/TeamAccess.jsx";
-import EmployeeLayout from "./pages/employee/EmployeeLayout.jsx";
-import EmployeeDashboard from "./pages/employee/Dashboard.jsx";
+
+// Route-level code splitting: most logins are the 285 self-service employees,
+// who should never have to download the admin console's JS (or vice versa).
+const AdminLayout = lazy(() => import("./pages/admin/AdminLayout.jsx"));
+const Dashboard = lazy(() => import("./pages/admin/Dashboard.jsx"));
+const Disputes = lazy(() => import("./pages/admin/Disputes.jsx"));
+const EmployeeDetails = lazy(() => import("./pages/admin/EmployeeDetails.jsx"));
+const Employees = lazy(() => import("./pages/admin/Employees.jsx"));
+const Leave = lazy(() => import("./pages/admin/Leave.jsx"));
+const Payroll = lazy(() => import("./pages/admin/Payroll.jsx"));
+const PayrollDetail = lazy(() => import("./pages/admin/PayrollDetail.jsx"));
+const TeamAccess = lazy(() => import("./pages/admin/TeamAccess.jsx"));
+const EmployeeLayout = lazy(() => import("./pages/employee/EmployeeLayout.jsx"));
+const EmployeeDashboard = lazy(() => import("./pages/employee/Dashboard.jsx"));
 
 const CONSOLE_ROLES = ["accounts", "hr"];
 
+function PageFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-manila">
+      <p className="font-display text-ink/40 text-lg">Opening the ledger…</p>
+    </div>
+  );
+}
+
 function Protected({ roles, children }) {
   const { user, loading } = useAuth();
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-manila">
-        <p className="font-display text-ink/40 text-lg">Opening the ledger…</p>
-      </div>
-    );
-  }
+  if (loading) return <PageFallback />;
   if (!user) return <Navigate to="/login" replace />;
   if (roles && !roles.includes(user.role)) {
     return <Navigate to={CONSOLE_ROLES.includes(user.role) ? "/admin" : "/employee"} replace />;
@@ -51,43 +57,45 @@ function RequireAccounts({ children }) {
 export default function App() {
   return (
     <AuthProvider>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/setup" element={<Setup />} />
+      <Suspense fallback={<PageFallback />}>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/setup" element={<Setup />} />
 
-        <Route
-          path="/admin"
-          element={
-            <Protected roles={CONSOLE_ROLES}>
-              <AdminLayout />
-            </Protected>
-          }
-        >
-          <Route index element={<Dashboard />} />
-          <Route path="employees" element={<RequirePermission anyOf={["employees.view"]}><Employees /></RequirePermission>} />
-          <Route path="employees/new" element={<RequirePermission anyOf={["employees.manage"]}><EmployeeDetails /></RequirePermission>} />
-          <Route path="employees/:id" element={<RequirePermission anyOf={["employees.view"]}><EmployeeDetails /></RequirePermission>} />
-          <Route path="payroll" element={<RequirePermission anyOf={["payroll.view"]}><Payroll /></RequirePermission>} />
-          <Route path="payroll/:id" element={<RequirePermission anyOf={["payroll.view"]}><PayrollDetail /></RequirePermission>} />
-          <Route path="disputes" element={<RequirePermission anyOf={["disputes.manage"]}><Disputes /></RequirePermission>} />
-          <Route path="leave" element={<RequirePermission anyOf={["leave.manage"]}><Leave /></RequirePermission>} />
-          <Route path="team-access" element={<RequireAccounts><TeamAccess /></RequireAccounts>} />
-        </Route>
+          <Route
+            path="/admin"
+            element={
+              <Protected roles={CONSOLE_ROLES}>
+                <AdminLayout />
+              </Protected>
+            }
+          >
+            <Route index element={<Dashboard />} />
+            <Route path="employees" element={<RequirePermission anyOf={["employees.view"]}><Employees /></RequirePermission>} />
+            <Route path="employees/new" element={<RequirePermission anyOf={["employees.manage"]}><EmployeeDetails /></RequirePermission>} />
+            <Route path="employees/:id" element={<RequirePermission anyOf={["employees.view"]}><EmployeeDetails /></RequirePermission>} />
+            <Route path="payroll" element={<RequirePermission anyOf={["payroll.view"]}><Payroll /></RequirePermission>} />
+            <Route path="payroll/:id" element={<RequirePermission anyOf={["payroll.view"]}><PayrollDetail /></RequirePermission>} />
+            <Route path="disputes" element={<RequirePermission anyOf={["disputes.manage"]}><Disputes /></RequirePermission>} />
+            <Route path="leave" element={<RequirePermission anyOf={["leave.manage"]}><Leave /></RequirePermission>} />
+            <Route path="team-access" element={<RequireAccounts><TeamAccess /></RequireAccounts>} />
+          </Route>
 
-        <Route
-          path="/employee"
-          element={
-            <Protected roles={["employee"]}>
-              <EmployeeLayout />
-            </Protected>
-          }
-        >
-          <Route index element={<EmployeeDashboard />} />
-          <Route path="*" element={<Navigate to="/employee" replace />} />
-        </Route>
+          <Route
+            path="/employee"
+            element={
+              <Protected roles={["employee"]}>
+                <EmployeeLayout />
+              </Protected>
+            }
+          >
+            <Route index element={<EmployeeDashboard />} />
+            <Route path="*" element={<Navigate to="/employee" replace />} />
+          </Route>
 
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </Suspense>
     </AuthProvider>
   );
 }
