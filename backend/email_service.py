@@ -1,24 +1,35 @@
 """
 JADE HR outbound email — leave-request notifications.
 
-Configured via env vars (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD,
-EMAIL_FROM). Not yet configured in production as of this writing — every
-send function checks is_configured() first and no-ops (logs and returns)
-rather than raising, so the leave workflow itself never breaks because
-email isn't set up yet.
+Sends via the Resend HTTP API (https://resend.com) as tina@jadecouture.com.
+The jadecouture.com domain is already verified in Resend (DKIM + SPF both
+verified as of 2026-07-13) — Google Workspace's admin policy blocks SMTP
+App Passwords for this mailbox, so we go through Resend's API instead of
+raw SMTP against smtp.gmail.com.
+
+Configured via env vars:
+  RESEND_API_KEY   — required; Resend API key (starts with "re_")
+  EMAIL_FROM       — optional; defaults to tina@jadecouture.com
+  HR_NOTIFY_EMAIL  — optional; defaults to nimit.b@jadecouture.com
+
+Not configured -> is_configured() is False -> every send function no-ops
+(logs and returns) rather than raising, so the leave workflow itself never
+breaks because email isn't set up.
+
+Uses stdlib urllib only (no new dependency on requests/httpx) — a plain
+HTTPS POST to https://api.resend.com/emails.
 """
 
+import json
 import logging
 import os
-import smtplib
-from email.message import EmailMessage
+import urllib.error
+import urllib.request
 
 logger = logging.getLogger("jade_hr.email")
 
-SMTP_HOST = os.environ.get("SMTP_HOST", "")
-SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
-SMTP_USER = os.environ.get("SMTP_USER", "")
-SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+RESEND_API_URL = "https://api.resend.com/emails"
 EMAIL_FROM = os.environ.get("EMAIL_FROM", "tina@jadecouture.com")
 # HR notify recipient — nimit.b@jadecouture.com (Head-HR) by default, since
 # no one currently holds the hr console role in production; override via env
@@ -27,7 +38,7 @@ HR_NOTIFY_EMAIL = os.environ.get("HR_NOTIFY_EMAIL", "nimit.b@jadecouture.com")
 
 
 def is_configured() -> bool:
-    return bool(SMTP_HOST and SMTP_USER and SMTP_PASSWORD)
+    return bool(RESEND_API_KEY)
 
 
 def send_email(to: str, subject: str, body: str) -> bool:
@@ -37,18 +48,30 @@ def send_email(to: str, subject: str, body: str) -> bool:
         logger.info("Email not configured — skipping send to %s: %s", to, subject)
         return False
 
-    msg = EmailMessage()
-    msg["Subject"] = subject
-    msg["From"] = EMAIL_FROM
-    msg["To"] = to
-    msg.set_content(body)
+    payload = {
+        "from": f"Tina at JADE HR <{EMAIL_FROM}>",
+        "to": [to],
+        "subject": subject,
+        "text": body,
+    }
+    req = urllib.request.Request(
+        RESEND_API_URL,
+        data=json.dumps(payload).encode(),
+        headers={
+            "Authorization": f"Bearer {RESEND_API_KEY}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+        method="POST",
+    )
 
     try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.send_message(msg)
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            resp.read()
         return True
+    except urllib.error.HTTPError as e:
+        logger.error("Resend send to %s failed: HTTP %s %s", to, e.code, e.read().decode(errors="replace"))
+        return False
     except Exception:
         logger.exception("Failed to send email to %s", to)
         return False
