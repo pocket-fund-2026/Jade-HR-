@@ -54,9 +54,9 @@ def test_group_punches_by_day_uses_ist_calendar_not_utc():
 
 
 def test_late_grace_boundary_is_exclusive():
-    # Exactly 10:10 IST counts as on time; a second later is late.
-    on_time = datetime(2026, 1, 5, 10, 10, 0, tzinfo=IST)
-    late = datetime(2026, 1, 5, 10, 10, 1, tzinfo=IST)
+    # Exactly 10:11 IST counts as on time; a second later is late.
+    on_time = datetime(2026, 1, 5, 10, 11, 0, tzinfo=IST)
+    late = datetime(2026, 1, 5, 10, 11, 1, tzinfo=IST)
     out = datetime(2026, 1, 5, 18, 0, tzinfo=IST)
 
     rows_on_time = compute_daily_attendance(2026, 1, [on_time, out], 8, weekly_off_day=6)
@@ -118,11 +118,17 @@ def test_compute_monthly_summary_ot_formula_matches_documented_example():
 
     assert summary["days_in_month"] == 31
     assert summary["total_ot_hours"] == 2.0
+    # OT's per-day/per-hour divisor always uses the full monthly rate
+    # (26,800 = 16,000 + 9,600 + 1,200), never the prorated actual below.
     assert summary["per_day_salary"] == 864.52  # 26800 / 31
     assert summary["per_hour_salary"] == 108.06  # per_day_salary / 8
     assert summary["ot_amount"] == 216.13  # unrounded per_hour_salary * 2h, then rounded
-    assert summary["gross_salary"] == 26800.0
-    assert summary["total_payable"] == 27016.13
+    # Only 1 present day + 4 weekoffs in this otherwise-empty period ->
+    # paid_days = 5, so Basic/HRA/Conveyance are prorated to 5/31 of rate.
+    assert summary["paid_days"] == 5.0
+    assert summary["basic"] == 2580.65  # 16000 * 5/31
+    assert summary["gross_salary"] == 4322.59  # 2580.65 + 1548.39 + 193.55
+    assert summary["total_payable"] == 4538.72  # gross_salary + ot_amount (no deductions apply)
 
 
 def _late_punch(y, m, d, hour=11):
@@ -139,8 +145,9 @@ def test_red_card_and_lop_only_apply_to_corporate_roster():
     corporate_summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 1, punches)
     assert corporate_summary["late_mark_count"] == 5
     assert corporate_summary["red_card"] is True
-    # First 2 late marks are free; the 3rd, 4th, 5th are each 1/2 day LOP.
-    assert corporate_summary["lop_half_days"] == 3
+    # First 3 late marks are free (full daily hours were still completed
+    # each time); the 4th and 5th are each 1/2 day LOP.
+    assert corporate_summary["lop_half_days"] == 2
 
     factory_summary = compute_monthly_summary(EMPLOYEE, 2026, 1, punches)
     assert factory_summary["late_mark_count"] == 0
@@ -156,8 +163,40 @@ def test_after_noon_arrival_is_lop_regardless_of_late_mark_count():
     assert summary["lop_half_days"] == 1  # would normally be free (1st late mark) but after-noon overrides that
 
 
+def test_late_arrival_without_completed_daily_hours_is_not_free():
+    # Arrives late (1st late mark, normally free within the 3-mark
+    # allowance) but leaves early, falling short of the 8h standard for
+    # that day -> LOP anyway, since the allowance is conditional on
+    # completing the prescribed daily working hours.
+    punches = [datetime(2026, 1, 5, 11, 0, tzinfo=IST), datetime(2026, 1, 5, 17, 0, tzinfo=IST)]  # 6h worked
+    summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 1, punches)
+    assert summary["late_mark_count"] == 1
+    assert summary["lop_half_days"] == 1
+
+
+def test_saturday_shift_hours_override_for_shortened_shift():
+    # 2026-01-03 is a Saturday. An employee on the "10:00 AM - 6:30 PM"
+    # time_slot gets a shortened 10:00 AM - 3:00 PM (5h) Saturday instead of
+    # their usual weekday standard, so a 6-hour Saturday already has 1h OT.
+    punch_in = datetime(2026, 1, 3, 10, 0, tzinfo=IST)
+    punch_out = datetime(2026, 1, 3, 16, 0, tzinfo=IST)  # 6h worked
+
+    rows_shortened = compute_daily_attendance(
+        2026, 1, [punch_in, punch_out], 8, weekly_off_day=6, time_slot="10:00 AM – 6:30 PM",
+    )
+    row_shortened = next(r for r in rows_shortened if r["date"] == "2026-01-03")
+    assert row_shortened["hours_worked"] == 6.0
+    assert row_shortened["ot_hours"] == 1.0  # 6h - 5h Saturday standard
+
+    # A different (or no) time_slot keeps the normal 8h weekday standard —
+    # the same 6h Saturday shows no OT.
+    rows_normal = compute_daily_attendance(2026, 1, [punch_in, punch_out], 8, weekly_off_day=6)
+    row_normal = next(r for r in rows_normal if r["date"] == "2026-01-03")
+    assert row_normal["ot_hours"] == 0.0
+
+
 def test_closed_holiday_is_paid_for_corporate_only():
-    holidays = {date(2026, 1, 1): {"day_type": "closed", "description": "New Year's Day"}}
+    holidays = [{"holiday_date": "2026-01-01", "day_type": "closed", "description": "New Year's Day", "location": None}]
 
     corporate_summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 1, [], holidays=holidays)
     corporate_jan1 = next(r for r in corporate_summary["daily"] if r["date"] == "2026-01-01")
@@ -166,6 +205,40 @@ def test_closed_holiday_is_paid_for_corporate_only():
     factory_summary = compute_monthly_summary(EMPLOYEE, 2026, 1, [], holidays=holidays)
     factory_jan1 = next(r for r in factory_summary["daily"] if r["date"] == "2026-01-01")
     assert factory_jan1["status"] == "absent"  # Jan 1 2026 is a Thursday, not their Sunday weekoff
+
+
+def test_day_off_holiday_is_paid_same_as_closed():
+    holidays = [{"holiday_date": "2026-01-01", "day_type": "day_off", "description": "Extra day off", "location": None}]
+
+    corporate_summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 1, [], holidays=holidays)
+    corporate_jan1 = next(r for r in corporate_summary["daily"] if r["date"] == "2026-01-01")
+    assert corporate_jan1["status"] == "holiday"
+
+    factory_summary = compute_monthly_summary(EMPLOYEE, 2026, 1, [], holidays=holidays)
+    factory_jan1 = next(r for r in factory_summary["daily"] if r["date"] == "2026-01-01")
+    assert factory_jan1["status"] == "absent"  # day_off, like closed, is corporate-roster only
+
+
+def test_holiday_location_only_applies_to_matching_employees():
+    # CORPORATE_EMPLOYEE is at "Madhu Estate, Mumbai" — a Delhi-only holiday
+    # must not apply to them, but a "Mumbai" or "HQ" one must.
+    delhi_only = [{"holiday_date": "2026-01-01", "day_type": "closed", "description": "Delhi holiday", "location": "Delhi"}]
+    not_applied = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 1, [], holidays=delhi_only)
+    jan1 = next(r for r in not_applied["daily"] if r["date"] == "2026-01-01")
+    assert jan1["status"] == "absent"
+
+    for location in ("Mumbai", "HQ"):
+        holidays = [{"holiday_date": "2026-01-01", "day_type": "closed", "description": "test", "location": location}]
+        summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 1, [], holidays=holidays)
+        jan1 = next(r for r in summary["daily"] if r["date"] == "2026-01-01")
+        assert jan1["status"] == "holiday", f"expected location={location!r} to apply"
+
+
+def test_anniversary_holiday_never_affects_attendance():
+    holidays = [{"holiday_date": "2026-01-01", "day_type": "anniversary", "description": "JADE Anniversary", "location": None}]
+    summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 1, [], holidays=holidays)
+    jan1 = next(r for r in summary["daily"] if r["date"] == "2026-01-01")
+    assert jan1["status"] == "absent"  # not "holiday" — anniversaries are informational only
 
 
 def test_standard_working_days_per_month_overrides_the_per_day_rate_divisor():

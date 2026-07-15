@@ -57,14 +57,27 @@ const SECTIONS = [
           { k: "shift_category", l: "Shift Category", t: "text" },
           { k: "holiday_group", l: "Holiday Group", t: "text" },
           { k: "shift_group", l: "Shift Group", t: "text" },
+          {
+            k: "time_slot", l: "Time Slot", t: "select",
+            options: ["10:00 AM – 6:30 PM", "10:00 AM – 7:00 PM", "11:00 AM – 8:00 PM", "Flexible", "Intern (10:00 AM – 6:00 PM)"],
+            hint: "\"10:00 AM – 6:30 PM\" automatically gets a shortened Saturday of 10:00 AM – 3:00 PM in payroll/attendance calculations — no separate setting needed.",
+          },
+          {
+            k: "saturday_extended_hours", l: "Saturday Extended Hours", t: "boolean",
+            hint: "Only meaningful for the Intern time slot — extends this employee's Saturday to 10:00 AM – 7:00 PM instead of 10:00 AM – 6:00 PM",
+          },
           { k: "weekly_off_day", l: "Weekly Off", t: "weekday", core: true },
           { k: "_attendance_cycle", l: "Attendance Cycle", t: "static", staticValue: "23rd (previous month) – 22nd (current month)" },
           { k: "ess_role", l: "ESS Role", t: "text" },
           { k: "head_of_department", l: "Head of Department", t: "boolean" },
-          { k: "reporting_to", l: "Reporting To", t: "text" },
+          { k: "reporting_to_id", l: "Reporting To", t: "approver", hint: "Also grants leave-approval rights for this employee's reports, same as being their Leave Approver" },
           { k: "leave_approver_id", l: "Leave Approver", t: "approver", core: true },
           { k: "employee_category", l: "Employee Category", t: "select", options: ["corporate", "factory_retail"], core: true, hint: "Corporate roster staff are covered by the Leave & Attendance Policy v1.1 (Red Card/LOP, holiday calendar, PL/Paternity/Maternity/Compassionate/Comp-Off leave)" },
           { k: "standard_working_days_per_month", l: "Standard Working Days / Month", t: "number", core: true, hint: "Overrides the pay-period length used to compute per-day salary — leave blank to use the default (~30–31 days)" },
+          { k: "payment_mode", l: "Payment Mode", t: "select", options: ["Bank Transfer", "Cheque", "Cash"] },
+          { k: "bank_name", l: "Bank Name", t: "text" },
+          { k: "bank_account_no", l: "Bank Account No", t: "text" },
+          { k: "bank_ifsc", l: "Bank IFSC", t: "text" },
           { k: "role", l: "Console Role", t: "role", core: true },
         ],
       },
@@ -93,7 +106,7 @@ const SECTIONS = [
           { k: "scheduled_exit_date", l: "Scheduled Exit Date", t: "date" },
           { k: "exit_date", l: "Exit Date", t: "date" },
           { k: "settlement_date", l: "Settlement Date", t: "date" },
-          { k: "reason_of_leaving", l: "Reason Of Leaving", t: "select", options: ["Resign", "Termination", "Retirement", "Contract End", "Absconding", "Other"] },
+          { k: "reason_of_leaving", l: "Reason Of Leaving", t: "select", options: ["Resign", "Termination", "Retirement", "Death", "Disablement", "Contract End", "Absconding", "Other"], hint: "Death/Disablement waives the Gratuity Act's 5-year service requirement on the Gratuity report" },
           { k: "employee_status", l: "Employee Status", t: "select", options: ["Active", "Inactive", "On Notice", "Exited"] },
         ],
       },
@@ -222,9 +235,11 @@ const PROFILE_KEYS = SECTIONS.flatMap((s) => s.groups.flatMap((g) => g.fields))
 const EMPTY_CORE = {
   employee_code: "", first_name: "", last_name: "", designation: "", department: "",
   location: "Madhu Estate, Mumbai", date_of_joining: "", basic: 0, hra: 0, conveyance: 0,
-  other_allowance: 0, standard_hours_per_day: 8, weekly_off_day: 6, phone: "", email: "",
+  other_allowance: 0, monthly_bonus: 0, retention: 0, incentive: 0, standing_loan_emi: 0,
+  standard_hours_per_day: 8, weekly_off_day: 6, phone: "", email: "",
   role: "employee", password: "", requires_selfie_checkin: false, is_active: true,
   leave_approver_id: "", employee_category: "factory_retail", standard_working_days_per_month: "",
+  is_intern: false, ot_applicable: true,
 };
 const EMPTY_PROFILE = Object.fromEntries(
   SECTIONS.flatMap((s) => s.groups.flatMap((g) => g.fields))
@@ -261,10 +276,10 @@ const SS_EARNING_FIELDS = [
   { k: "earn_total_arr", l: "TotalArr" },
 ];
 const SS_DEDUCTIONS_FIELDS = [
-  { k: "ded_pf", l: "PF" },
-  { k: "ded_pt", l: "PT" },
+  { k: "ded_pf", l: "PF", computed: true },
+  { k: "ded_pt", l: "PT", computed: true },
   { k: "ded_vpf", l: "VPF" },
-  { k: "ded_esic", l: "ESIC" },
+  { k: "ded_esic", l: "ESIC", computed: true },
   { k: "ded_tds", l: "TDS" },
   { k: "ded_loan", l: "Loan" },
   { k: "ded_advance", l: "Advance" },
@@ -275,18 +290,18 @@ const SS_DEDUCTIONS_FIELDS = [
   { k: "ded_pf_arrear", l: "PF_Arrear" },
 ];
 const SS_OTHERS_FIELDS = [
-  { k: "oth_pt_wages", l: "PT Wages" },
+  { k: "oth_pt_wages", l: "PT Wages", computed: true },
   { k: "oth_lwf_wages", l: "LWF Wages" },
-  { k: "oth_eps_wages", l: "EPS Wages" },
-  { k: "oth_eps", l: "EPS" },
-  { k: "oth_epf", l: "EPF" },
-  { k: "oth_edli_charges", l: "EDLI Charges" },
-  { k: "oth_pf_admin_charges", l: "PF Admin Charges" },
+  { k: "oth_eps_wages", l: "EPS Wages", computed: true },
+  { k: "oth_eps", l: "EPS", computed: true },
+  { k: "oth_epf", l: "EPF", computed: true },
+  { k: "oth_edli_charges", l: "EDLI Charges", computed: true },
+  { k: "oth_pf_admin_charges", l: "PF Admin Charges", computed: true },
   { k: "oth_edli_admin_charges", l: "EDLI Admin Charges" },
-  { k: "oth_esic_wages", l: "ESIC Wages" },
-  { k: "oth_esic_employer", l: "ESIC Employer" },
-  { k: "oth_pf_wages", l: "PF Wages" },
-  { k: "oth_edli_wages", l: "EDLI Wages" },
+  { k: "oth_esic_wages", l: "ESIC Wages", computed: true },
+  { k: "oth_esic_employer", l: "ESIC Employer", computed: true },
+  { k: "oth_pf_wages", l: "PF Wages", computed: true },
+  { k: "oth_edli_wages", l: "EDLI Wages", computed: true },
 ];
 const SS_TABS = [
   { key: "manual", label: "Manual Entry (Prorata)", fields: SS_MANUAL_FIELDS },
@@ -301,6 +316,116 @@ const EMPTY_SALARY_STRUCTURE = {
   ),
   salary_remarks: "",
 };
+
+// PF/ESIC national rates — mirrors backend/statutory.py. Client side is just
+// a live preview; the server recomputes and overwrites these on save.
+const PF_EMPLOYEE_RATE = 0.12;
+const PF_EMPLOYER_RATE = 0.12;
+const EPS_RATE = 0.0833;
+const EPS_WAGE_CEILING = 15000;
+const EDLI_RATE = 0.005;
+const EDLI_WAGE_CEILING = 15000;
+const PF_ADMIN_RATE = 0.005;
+const ESIC_EMPLOYEE_RATE = 0.0075;
+const ESIC_EMPLOYER_RATE = 0.0325;
+const ESIC_WAGE_CEILING = 21000;
+const ESIC_WAGE_KEYS = [
+  "earn_basic", "earn_hra", "earn_conv", "earn_other_allow", "earn_bonus",
+  "earn_leave_encash", "earn_monthly_bonus", "earn_performance_linked_pay",
+  "earn_retention", "earn_incentive",
+];
+const round2 = (n) => Math.round(n * 100) / 100;
+
+// PT — state-specific, mirrors backend/statutory.py's location_to_state/compute_pt.
+const LOCATION_STATE = {
+  "Madhu Estate, Mumbai": "maharashtra",
+  "Pedder Road, Mumbai": "maharashtra",
+  "Mehrauli (Ambawatta), Delhi": "delhi",
+  "Emporio, Delhi": "delhi",
+  "Ahmedabad": "gujarat",
+  "Kolkata": "west_bengal",
+};
+
+function locationToState(location) {
+  if (location in LOCATION_STATE) return LOCATION_STATE[location];
+  const loc = (location || "").toLowerCase();
+  if (loc.includes("mumbai")) return "maharashtra";
+  if (loc.includes("delhi")) return "delhi";
+  if (loc.includes("ahmedabad")) return "gujarat";
+  if (loc.includes("kolkata")) return "west_bengal";
+  return null;
+}
+
+function computePt(grossWages, state, gender, month) {
+  if (state === "maharashtra") {
+    const isWoman = (gender || "").toLowerCase() === "female";
+    const threshold = isWoman ? 25000 : 7500;
+    if (grossWages <= threshold) return 0;
+    if (!isWoman && grossWages <= 10000) return 175;
+    return month === 2 ? 300 : 200;
+  }
+  if (state === "gujarat") return grossWages > 12000 ? 200 : 0;
+  if (state === "west_bengal") {
+    if (grossWages <= 10000) return 0;
+    if (grossWages <= 15000) return 110;
+    if (grossWages <= 25000) return 130;
+    if (grossWages <= 40000) return 150;
+    return 200;
+  }
+  return 0;
+}
+
+// PF/ESIC/PT are auto-calculated from the employee's Compliances flags and
+// can't be hand-edited — forced to 0 when the flag is off. Mirrors
+// backend/routers/salary_structure.py's _apply_statutory.
+function computeStatutoryPreview(record, compliance) {
+  let pf = {
+    ded_pf: 0, oth_pf_wages: 0, oth_eps_wages: 0, oth_eps: 0,
+    oth_epf: 0, oth_edli_wages: 0, oth_edli_charges: 0, oth_pf_admin_charges: 0,
+  };
+  if (compliance.pfApplicable) {
+    const wageBase = Number(record.earn_basic) || 0;
+    const pfGrossLimit = Number(compliance.pfGrossLimit) || 0;
+    const cappedWage = pfGrossLimit ? Math.min(wageBase, pfGrossLimit) : wageBase;
+    const epsWage = Math.min(cappedWage, EPS_WAGE_CEILING);
+    const edliWage = Math.min(cappedWage, EDLI_WAGE_CEILING);
+    const eps = compliance.epsApplicable ? round2(epsWage * EPS_RATE) : 0;
+    const employerPfTotal = round2(cappedWage * PF_EMPLOYER_RATE);
+    pf = {
+      ded_pf: round2(cappedWage * PF_EMPLOYEE_RATE),
+      oth_pf_wages: round2(cappedWage),
+      oth_eps_wages: round2(epsWage),
+      oth_eps: eps,
+      oth_epf: round2(employerPfTotal - eps),
+      oth_edli_wages: round2(edliWage),
+      oth_edli_charges: round2(edliWage * EDLI_RATE),
+      oth_pf_admin_charges: round2(cappedWage * PF_ADMIN_RATE),
+    };
+  }
+
+  const grossWages = ESIC_WAGE_KEYS.reduce((s, k) => s + (Number(record[k]) || 0), 0);
+
+  let esic = { ded_esic: 0, oth_esic_wages: 0, oth_esic_employer: 0 };
+  if (compliance.esicApplicable && grossWages > 0 && grossWages <= ESIC_WAGE_CEILING) {
+    esic = {
+      ded_esic: round2(grossWages * ESIC_EMPLOYEE_RATE),
+      oth_esic_wages: round2(grossWages),
+      oth_esic_employer: round2(grossWages * ESIC_EMPLOYER_RATE),
+    };
+  }
+
+  let pt = { ded_pt: 0, oth_pt_wages: 0 };
+  if (compliance.ptApplicable) {
+    const state = locationToState(compliance.location);
+    const month = record.effective_date ? new Date(`${record.effective_date}T00:00:00`).getMonth() + 1 : new Date().getMonth() + 1;
+    pt = {
+      ded_pt: computePt(grossWages, state, compliance.gender, month),
+      oth_pt_wages: round2(grossWages),
+    };
+  }
+
+  return { ...pf, ...esic, ...pt };
+}
 
 // Mirrors backend/routers/salary_structure.py's _compute_summary — client
 // side is just a live preview, the server recomputes authoritatively on save.
@@ -512,9 +637,14 @@ function LineItemTable({ fields, form, editing, onChange }) {
       <tbody>
         {fields.map((f) => (
           <tr key={f.k} className="border-b border-ink/[0.06] last:border-0">
-            <td className="py-2 pr-4 text-ink/80">{f.l}</td>
+            <td className="py-2 pr-4 text-ink/80">
+              {f.l}
+              {f.computed && (
+                <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-jade-600 bg-jade-50 border border-jade-500/30 rounded-sm px-1 py-0.5">Auto</span>
+              )}
+            </td>
             <td className="py-2">
-              {editing ? (
+              {editing && !f.computed ? (
                 <input
                   type="number"
                   className="w-full max-w-[160px] rounded-sm border border-ink/15 bg-manila/40 px-2.5 py-1.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
@@ -532,7 +662,7 @@ function LineItemTable({ fields, form, editing, onChange }) {
   );
 }
 
-function SalaryStructureSection({ employeeId, dateOfJoining, canView, canEdit }) {
+function SalaryStructureSection({ employeeId, dateOfJoining, canView, canEdit, pfApplicable, epsApplicable, pfGrossLimit, esicApplicable, ptApplicable, location, gender }) {
   const [list, setList] = useState([]);
   const [loadingList, setLoadingList] = useState(true);
   const [mode, setMode] = useState("list");
@@ -619,7 +749,7 @@ function SalaryStructureSection({ employeeId, dateOfJoining, canView, canEdit })
         ) : (
           <div className="bg-manila/30 rounded-sm overflow-hidden overflow-x-auto">
             <table className="w-full text-sm">
-              <thead>
+              <thead className="sticky top-0 z-10 bg-manila">
                 <tr className="border-b border-ink/10 text-left">
                   <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-ink/70">Effective Date</th>
                   <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-ink/70">Total Earnings</th>
@@ -654,7 +784,9 @@ function SalaryStructureSection({ employeeId, dateOfJoining, canView, canEdit })
     );
   }
 
-  const summary = computeSalarySummary(record);
+  const statutoryPreview = computeStatutoryPreview(record, { pfApplicable, epsApplicable, pfGrossLimit, esicApplicable, ptApplicable, location, gender });
+  const displayRecord = { ...record, ...statutoryPreview };
+  const summary = computeSalarySummary(displayRecord);
 
   return (
     <div>
@@ -699,7 +831,7 @@ function SalaryStructureSection({ employeeId, dateOfJoining, canView, canEdit })
       </div>
 
       {SS_TABS.filter((t) => t.key === subTab).map((t) => (
-        <LineItemTable key={t.key} fields={t.fields} form={record} editing={canEdit} onChange={setField} />
+        <LineItemTable key={t.key} fields={t.fields} form={displayRecord} editing={canEdit} onChange={setField} />
       ))}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-6 p-4 bg-manila/30 rounded-sm">
@@ -765,7 +897,10 @@ export default function EmployeeDetails() {
   // (Nimit, Rushikesh) reset a password without unlocking full record
   // editing (name/department/designation/active-status stay employees.manage-only).
   const canResetPassword = can("employees.manage", "policy.manage");
-  const canViewSalary = can("salary.view", "salary.edit");
+  // salary.edit deliberately does NOT imply salary.view — HR can be granted
+  // the ability to set salary figures without being able to see anyone's
+  // existing pay (see backend/routers/employees.py's _sanitize).
+  const canViewSalary = can("salary.view");
   const canEditSalary = can("salary.edit");
   const canAssignRole = user?.role === "accounts";
 
@@ -1054,7 +1189,7 @@ export default function EmployeeDetails() {
                             );
                           }
                           if (field.t === "approver") {
-                            const current = employeesList.find((e) => e.id === form.leave_approver_id);
+                            const current = employeesList.find((e) => e.id === form[field.k]);
                             return (
                               <div key={field.k}>
                                 <label htmlFor={field.k} className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">{field.l}</label>
@@ -1062,8 +1197,8 @@ export default function EmployeeDetails() {
                                   <select
                                     id={field.k}
                                     className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
-                                    value={form.leave_approver_id || ""}
-                                    onChange={(e) => setField("leave_approver_id", e.target.value)}
+                                    value={form[field.k] || ""}
+                                    onChange={(e) => setField(field.k, e.target.value)}
                                   >
                                     <option value="">— None —</option>
                                     {employeesList.map((e) => (
@@ -1106,6 +1241,15 @@ export default function EmployeeDetails() {
                   <Field field={{ k: "other_allowance", l: "Other Allowance", t: "number" }} value={form.other_allowance} editing={editing && canEditSalary} onChange={(v) => setField("other_allowance", v)} />
                   <Field field={{ k: "standard_hours_per_day", l: "Standard Hours / Day", t: "number" }} value={form.standard_hours_per_day} editing={editing && canEditSalary} onChange={(v) => setField("standard_hours_per_day", v)} />
                 </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-5">
+                  <Field field={{ k: "monthly_bonus", l: "Monthly Bonus", t: "number" }} value={form.monthly_bonus} editing={editing && canEditSalary} onChange={(v) => setField("monthly_bonus", v)} />
+                  <Field field={{ k: "retention", l: "Retention", t: "number" }} value={form.retention} editing={editing && canEditSalary} onChange={(v) => setField("retention", v)} />
+                  <Field field={{ k: "incentive", l: "Incentive", t: "number" }} value={form.incentive} editing={editing && canEditSalary} onChange={(v) => setField("incentive", v)} />
+                  <Field
+                    field={{ k: "standing_loan_emi", l: "Standing Loan EMI", t: "number", hint: "Fixed monthly deduction, every period, regardless of attendance — until changed back to 0" }}
+                    value={form.standing_loan_emi} editing={editing && canEditSalary} onChange={(v) => setField("standing_loan_emi", v)}
+                  />
+                </div>
               </div>
             ) : (
               <p className="text-sm text-ink/70">Salary structure is managed by Accounts.</p>
@@ -1118,6 +1262,13 @@ export default function EmployeeDetails() {
               dateOfJoining={form.date_of_joining}
               canView={canViewSalary}
               canEdit={canEditSalary}
+              pfApplicable={form.pf_applicable}
+              epsApplicable={form.eps_applicable}
+              pfGrossLimit={form.pf_gross_limit}
+              esicApplicable={form.esic_applicable}
+              ptApplicable={form.pt_applicable}
+              location={form.location}
+              gender={form.gender}
             />
           )}
         </div>
@@ -1126,11 +1277,35 @@ export default function EmployeeDetails() {
 
         {/* Action bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 sm:px-7 py-5 border-t border-ink/10 bg-manila/20">
-          <div>
+          <div className="flex flex-wrap items-center gap-5">
             {!editing && canManage && (
               <button type="button" onClick={deleteEmployee} className="flex items-center gap-1.5 text-sm text-rust-500 hover:text-rust-600 hover:underline">
                 <Trash2 size={14} /> Delete
               </button>
+            )}
+            {!isNew && (
+              <>
+                <label className={`flex items-center gap-2 text-sm text-ink ${editing ? "cursor-pointer" : "opacity-70"}`}>
+                  <input
+                    type="checkbox"
+                    checked={!!form.is_intern}
+                    disabled={!editing}
+                    onChange={(e) => setField("is_intern", e.target.checked)}
+                    className="rounded border-ink/30 text-jade-600 focus:ring-jade-500"
+                  />
+                  Intern
+                </label>
+                <label className={`flex items-center gap-2 text-sm text-ink ${editing ? "cursor-pointer" : "opacity-70"}`}>
+                  <input
+                    type="checkbox"
+                    checked={form.ot_applicable !== false}
+                    disabled={!editing}
+                    onChange={(e) => setField("ot_applicable", e.target.checked)}
+                    className="rounded border-ink/30 text-jade-600 focus:ring-jade-500"
+                  />
+                  OT Applicable
+                </label>
+              </>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-3">

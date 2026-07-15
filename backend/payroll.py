@@ -17,9 +17,23 @@ from collections import defaultdict
 from datetime import date, datetime, time, timedelta
 
 from config import IST
+from statutory import ZERO_ESIC, ZERO_PF, compute_esic, compute_lwf, compute_pf, compute_pt, location_to_state
 
-# Grace period: clocking in by 10:10 AM IST counts as on time.
-LATE_GRACE = time(10, 10)
+# Grace period: clocking in by 10:11 AM IST counts as on time.
+LATE_GRACE = time(10, 11)
+
+# Employees on this time_slot (hr_employee_profile.time_slot) get a shortened
+# Saturday — 10:00 AM - 3:00 PM (5h) — instead of their usual weekday
+# standard_hours_per_day, per JADE HR's Jul 2026 Saturday-hours change.
+SATURDAY_SHIFT_HOURS = {
+    "10:00 AM – 6:30 PM": 5.0,
+}
+
+
+def _standard_hours_for_day(d: date, standard_hours_per_day: float, time_slot: str | None) -> float:
+    if d.weekday() == 5 and time_slot in SATURDAY_SHIFT_HOURS:
+        return SATURDAY_SHIFT_HOURS[time_slot]
+    return standard_hours_per_day
 
 
 def pay_period_bounds(year: int, month: int) -> tuple[date, date]:
@@ -52,9 +66,37 @@ def group_punches_by_day(punch_times: list[datetime]) -> dict[date, list[datetim
     return by_day
 
 
-def _apply_override(d: date, override: dict, standard_hours_per_day: float) -> dict:
+def _holiday_applies(holiday_location: str | None, employee_location: str | None) -> bool:
+    """None = applies everywhere. "HQ" = Madhu Estate, Mumbai specifically
+    (head office, distinct from JADE's other Mumbai store). Anything else
+    is a city name, fuzzy-matched the same way statutory.py's
+    location_to_state does (hr_employees.location isn't DB-constrained to
+    a fixed list, so exact-match would silently miss real store names)."""
+    if not holiday_location:
+        return True
+    if holiday_location == "HQ":
+        return employee_location == "Madhu Estate, Mumbai"
+    return holiday_location.lower() in (employee_location or "").lower()
+
+
+def _holidays_for_employee(all_holidays: list[dict], employee_location: str | None) -> dict[date, dict]:
+    """Resolves the location-tagged holiday rows down to the single
+    dict[date, dict] compute_daily_attendance expects, for one employee.
+    Sorted so a more specific match (HQ, then a named city) overwrites a
+    company-wide (location=None) row for the same date, if both exist."""
+    specificity = {None: 0, "HQ": 2}
+    ordered = sorted(all_holidays, key=lambda h: specificity.get(h.get("location"), 1))
+    return {
+        date.fromisoformat(h["holiday_date"]): h
+        for h in ordered
+        if _holiday_applies(h.get("location"), employee_location)
+    }
+
+
+def _apply_override(d: date, override: dict, standard_hours_per_day: float, time_slot: str | None = None) -> dict:
     status = override["status_override"]
     first_in, last_out = override.get("first_in"), override.get("last_out")
+    day_standard = _standard_hours_for_day(d, standard_hours_per_day, time_slot)
 
     hours_worked = ot_hours = 0.0
     first_in_iso = last_out_iso = None
@@ -63,13 +105,13 @@ def _apply_override(d: date, override: dict, standard_hours_per_day: float) -> d
         start = datetime.combine(d, first_in, tzinfo=IST)
         end = datetime.combine(d, last_out, tzinfo=IST)
         hours_worked = max(0.0, (end - start).total_seconds() / 3600.0)
-        ot_hours = max(0.0, hours_worked - standard_hours_per_day)
+        ot_hours = max(0.0, hours_worked - day_standard)
         first_in_iso, last_out_iso = start.isoformat(), end.isoformat()
         late = first_in > LATE_GRACE
     elif status == "present":
-        hours_worked = standard_hours_per_day
+        hours_worked = day_standard
     elif status == "half_day":
-        hours_worked = standard_hours_per_day / 2
+        hours_worked = day_standard / 2
 
     return {
         "date": d.isoformat(),
@@ -96,6 +138,7 @@ def compute_daily_attendance(
     weekly_off_day: int = 6,
     holidays: dict[date, dict] | None = None,
     is_corporate: bool = False,
+    time_slot: str | None = None,
 ) -> list[dict]:
     """One row per day in the pay period (23rd of prior month - 22nd of this month).
 
@@ -123,12 +166,12 @@ def compute_daily_attendance(
     d = start
     while d <= end:
         if d in overrides:
-            rows.append(_apply_override(d, overrides[d], standard_hours_per_day))
+            rows.append(_apply_override(d, overrides[d], standard_hours_per_day, time_slot))
             d += timedelta(days=1)
             continue
 
         punches = by_day.get(d, [])
-        is_closed_holiday = is_corporate and holidays.get(d, {}).get("day_type") == "closed"
+        is_closed_holiday = is_corporate and holidays.get(d, {}).get("day_type") in ("closed", "day_off")
 
         if not punches:
             if d in leaves:
@@ -169,8 +212,9 @@ def compute_daily_attendance(
 
         first_in = punches[0]
         last_out = punches[-1]
+        day_standard = _standard_hours_for_day(d, standard_hours_per_day, time_slot)
         hours_worked = max(0.0, (last_out - first_in).total_seconds() / 3600.0)
-        ot_hours = max(0.0, hours_worked - standard_hours_per_day)
+        ot_hours = max(0.0, hours_worked - day_standard)
         first_in_local = first_in.astimezone(IST).time()
 
         row = {
@@ -193,14 +237,20 @@ def compute_daily_attendance(
     return rows
 
 
-def _apply_late_coming_policy(daily: list[dict]) -> tuple[int, bool]:
-    """Corporate-roster-only (Leave & Attendance Policy v1.1, section 4):
-    first 2 late arrivals in the cycle are free; the 3rd onward — or any
-    arrival after 12:00 PM regardless of count — is a ½ day LOP. 5+ late
-    marks in the cycle is a Red Card: any leave day not already
-    admin-corrected becomes LOP too (section 4 exception for a documented
-    medical emergency is a manual call — use the existing attendance-
-    override mechanism to restore a specific day).
+def _apply_late_coming_policy(
+    daily: list[dict], standard_hours_per_day: float, time_slot: str | None = None
+) -> tuple[int, bool]:
+    """Corporate-roster-only (Leave & Attendance Policy v1.1, section 4, as
+    revised Jul 2026): first 3 late arrivals in the cycle are free, provided
+    the employee still completed their full prescribed daily working hours
+    that day (that day's standard — Saturday-shortened for shifts in
+    SATURDAY_SHIFT_HOURS); a late arrival that falls short of its day's
+    standard hours is never free, even within the first 3. The 4th late
+    arrival onward — or any arrival after 12:00 PM regardless of count — is
+    a ½ day LOP. 5+ late marks in the cycle is a Red Card: any leave day not
+    already admin-corrected becomes LOP too (section 4 exception for a
+    documented medical emergency is a manual call — use the existing
+    attendance-override mechanism to restore a specific day).
 
     Mutates `daily` in place (tags lop_half_day / red_card_lop) and returns
     (late_mark_count, red_card).
@@ -209,7 +259,9 @@ def _apply_late_coming_policy(daily: list[dict]) -> tuple[int, bool]:
     for r in daily:
         if r["status"] == "present" and r.get("late"):
             late_ordinal += 1
-            if r.get("after_noon") or late_ordinal >= 3:
+            day_standard = _standard_hours_for_day(date.fromisoformat(r["date"]), standard_hours_per_day, time_slot)
+            shortfall = r["hours_worked"] < day_standard
+            if r.get("after_noon") or late_ordinal >= 4 or shortfall:
                 r["lop_half_day"] = True
 
     red_card = late_ordinal >= 5
@@ -221,6 +273,42 @@ def _apply_late_coming_policy(daily: list[dict]) -> tuple[int, bool]:
     return late_ordinal, red_card
 
 
+def fy_label_for_month(year: int, month: int) -> str:
+    """India's financial year runs April-March; e.g. (2026, 7) and (2027, 2)
+    both fall in FY '2026-27'. Mirrors the tds/bonus/gratuity modules'
+    'financial_year' convention."""
+    start_year = year if month >= 4 else year - 1
+    return f"{start_year}-{str(start_year + 1)[2:]}"
+
+
+def fy_month_labels(financial_year: str) -> list[tuple[int, int]]:
+    """financial_year like '2026-27' -> the 12 pay-period (year,month) labels
+    from April through March."""
+    start_year = int(financial_year.split("-")[0])
+    end_year = start_year + 1
+    return [(start_year, m) for m in range(4, 13)] + [(end_year, m) for m in range(1, 4)]
+
+
+def applicable_fy_months(employee: dict, financial_year: str) -> list[tuple[int, int]]:
+    """FY month labels this employee actually draws salary for — bounded by
+    Date of Joining (a label's pay period must end on/after DOJ) and, if
+    known, an exit date (a label's pay period must start on/before it)."""
+    labels = fy_month_labels(financial_year)
+    doj = employee.get("date_of_joining")
+    doj_date = date.fromisoformat(doj) if doj else None
+    exit_str = employee.get("exit_date")
+    exit_date = date.fromisoformat(exit_str) if exit_str else None
+    result = []
+    for (y, m) in labels:
+        start, end = pay_period_bounds(y, m)
+        if doj_date and end < doj_date:
+            continue
+        if exit_date and start > exit_date:
+            continue
+        result.append((y, m))
+    return result
+
+
 def compute_monthly_summary(
     employee: dict,
     year: int,
@@ -228,17 +316,25 @@ def compute_monthly_summary(
     punch_times: list[datetime],
     overrides: dict[date, dict] | None = None,
     leaves: dict[date, str] | None = None,
-    holidays: dict[date, dict] | None = None,
+    holidays: list[dict] | None = None,
+    monthly_tds: float = 0.0,
 ) -> dict:
     standard_hours = float(employee.get("standard_hours_per_day") or 8)
     weekly_off_day = int(employee.get("weekly_off_day") if employee.get("weekly_off_day") is not None else 6)
     is_corporate = employee.get("employee_category") == "corporate"
+    time_slot = employee.get("time_slot")
+    # Anniversaries are informational only — never a closure/early-close
+    # day, so they must never affect attendance/OT/pay.
+    holidays = [h for h in (holidays or []) if h.get("day_type") != "anniversary"]
+    holidays_for_employee = _holidays_for_employee(holidays, employee.get("location"))
     daily = compute_daily_attendance(
         year, month, punch_times, standard_hours, overrides, leaves, weekly_off_day,
-        holidays=holidays, is_corporate=is_corporate,
+        holidays=holidays_for_employee, is_corporate=is_corporate, time_slot=time_slot,
     )
 
-    late_mark_count, red_card = _apply_late_coming_policy(daily) if is_corporate else (0, False)
+    late_mark_count, red_card = (
+        _apply_late_coming_policy(daily, standard_hours, time_slot) if is_corporate else (0, False)
+    )
 
     present_days = sum(1 for r in daily if r["status"] == "present")
     absent_days = sum(1 for r in daily if r["status"] == "absent")
@@ -251,24 +347,72 @@ def compute_monthly_summary(
     lop_half_days = sum(1 for r in daily if r.get("lop_half_day"))
     pl_days = leave_days - unpaid_leave_days - red_card_lop_leave_days
     paid_days = present_days + weekoff_days + holiday_days + pl_days + 0.5 * half_days - 0.5 * lop_half_days
+    # Payslip "WithoutPayDays" — the complement of paid_days over total_days:
+    # full absences, unpaid/red-card-lop leave (excluded from pl_days above),
+    # and the unpaid halves of half-days and late-coming/Red Card LOP days.
+    without_pay_days = absent_days + unpaid_leave_days + red_card_lop_leave_days + 0.5 * (half_days + lop_half_days)
     late_days = sum(1 for r in daily if r["status"] == "present" and r.get("late"))
     on_time_days = present_days - late_days
     total_hours_worked = round(sum(r["hours_worked"] for r in daily), 2)
     total_ot_hours = round(sum(r["ot_hours"] for r in daily), 2)
 
-    basic = float(employee.get("basic") or 0)
-    hra = float(employee.get("hra") or 0)
-    conveyance = float(employee.get("conveyance") or 0)
-    other_allowance = float(employee.get("other_allowance") or 0)
+    # "Rate" = the employee's full monthly figure (hr_employees.basic etc,
+    # unprorated) — used as-is for the OT per-day/per-hour divisor (OT is a
+    # top-up on top of a full month's rate, not the prorated actual). The
+    # plain (non-"_rate") names below are what's actually earned/paid this
+    # period: the rate scaled by attendance (paid_days ÷ days in the pay
+    # period), matching how Accounts' own salary register prorates Basic/
+    # HRA/Conveyance/Other Allowance/Incentive for partial-attendance months.
+    basic_rate = float(employee.get("basic") or 0)
+    hra_rate = float(employee.get("hra") or 0)
+    conveyance_rate = float(employee.get("conveyance") or 0)
+    other_allowance_rate = float(employee.get("other_allowance") or 0)
+    monthly_bonus_rate = float(employee.get("monthly_bonus") or 0)
+    retention_rate = float(employee.get("retention") or 0)
+    incentive_rate = float(employee.get("incentive") or 0)
+    # A fixed monthly EMI, deducted in full regardless of attendance —
+    # unlike Basic/HRA/etc above, never prorated by paid_days.
+    ded_standing_loan = round(float(employee.get("standing_loan_emi") or 0), 2)
 
-    gross_for_ot = basic + hra + conveyance
     total_days = days_in_month(year, month)
+    proration = paid_days / total_days if total_days else 0.0
+    basic = round(basic_rate * proration, 2)
+    hra = round(hra_rate * proration, 2)
+    conveyance = round(conveyance_rate * proration, 2)
+    other_allowance = round(other_allowance_rate * proration, 2)
+    monthly_bonus = round(monthly_bonus_rate * proration, 2)
+    retention = round(retention_rate * proration, 2)
+    incentive = round(incentive_rate * proration, 2)
+
+    if employee.get("pf_applicable"):
+        pf_gross_limit = float(employee.get("pf_gross_limit") or 0)
+        pf = compute_pf(basic, pf_gross_limit, bool(employee.get("eps_applicable")))
+    else:
+        pf = ZERO_PF
+
+    esic_gross_wages = basic + hra + conveyance + other_allowance + monthly_bonus + retention + incentive
+    esic = compute_esic(esic_gross_wages) if employee.get("esic_applicable") else ZERO_ESIC
+    ded_pf = pf["ded_pf"]
+    ded_esic = esic["ded_esic"]
+
+    state = location_to_state(employee.get("location"))
+    ded_pt = round(compute_pt(esic_gross_wages, state, employee.get("gender"), month), 2) if employee.get("pt_applicable") else 0.0
+    lwf = compute_lwf(state, month) if employee.get("lwf_applicable") else {"ded_lwf": 0.0, "oth_lwf_wages": 0.0}
+    ded_lwf = lwf["ded_lwf"]
+
+    # OT divisor always uses the full monthly rate, never the prorated actual
+    # (a partial-attendance month doesn't change what an hour of OT is worth).
+    rate_gross_for_ot = basic_rate + hra_rate + conveyance_rate
     # Nimit-style per-employee override: divide by a fixed working-days/month
     # figure instead of the calendar length of the pay period.
     rate_divisor = float(employee.get("standard_working_days_per_month") or 0) or total_days
-    per_day_salary = gross_for_ot / rate_divisor if rate_divisor else 0
+    per_day_salary = rate_gross_for_ot / rate_divisor if rate_divisor else 0
     per_hour_salary = per_day_salary / standard_hours if standard_hours else 0
-    ot_amount = per_hour_salary * total_ot_hours
+    ot_amount = per_hour_salary * total_ot_hours if employee.get("ot_applicable", True) else 0.0
+    # Informational only — red-card/half-day LOP is already reflected in the
+    # reduced `paid_days` used to prorate Basic/HRA/Conveyance/Other
+    # Allowance/Incentive above, so it must NOT also be subtracted from
+    # gross/total_payable below or it would be double-deducted.
     lop_amount = per_day_salary * (0.5 * lop_half_days + red_card_lop_leave_days)
 
     period_start, period_end = pay_period_bounds(year, month)
@@ -278,6 +422,24 @@ def compute_monthly_summary(
         "employee_code": employee["employee_code"],
         "name": f"{employee['first_name']} {employee.get('last_name', '')}".strip(),
         "location": employee.get("location", ""),
+        "designation": employee.get("designation", ""),
+        "department": employee.get("department", ""),
+        "date_of_joining": employee.get("date_of_joining"),
+        "exit_date": employee.get("exit_date"),
+        "pan_no": employee.get("pan_no", ""),
+        "uan_no": employee.get("uan_no", ""),
+        "aadhar_no": employee.get("aadhar_no", ""),
+        "pf_no": employee.get("pf_no", ""),
+        "esic_no": employee.get("esic_no", ""),
+        "payment_mode": employee.get("payment_mode", ""),
+        "bank_name": employee.get("bank_name", ""),
+        "bank_account_no": employee.get("bank_account_no", ""),
+        "bank_ifsc": employee.get("bank_ifsc", ""),
+        "employee_category": employee.get("employee_category", ""),
+        "gender": employee.get("gender", ""),
+        "date_of_birth": employee.get("date_of_birth"),
+        "grade": employee.get("grade", ""),
+        "cost_center": employee.get("cost_center", ""),
         "year": year,
         "month": month,
         "period_start": period_start.isoformat(),
@@ -296,16 +458,55 @@ def compute_monthly_summary(
         "red_card": red_card,
         "lop_half_days": lop_half_days,
         "lop_amount": round(lop_amount, 2),
+        "without_pay_days": round(without_pay_days, 1),
         "total_hours_worked": total_hours_worked,
         "total_ot_hours": total_ot_hours,
         "basic": round(basic, 2),
         "hra": round(hra, 2),
         "conveyance": round(conveyance, 2),
         "other_allowance": round(other_allowance, 2),
+        "monthly_bonus": round(monthly_bonus, 2),
+        "retention": round(retention, 2),
+        "incentive": round(incentive, 2),
+        # Full monthly rate behind each prorated figure above (hr_employees'
+        # flat value, unscaled by attendance) — the payslip/salary-register
+        # "(Rate)" columns.
+        "basic_rate": round(basic_rate, 2),
+        "hra_rate": round(hra_rate, 2),
+        "conveyance_rate": round(conveyance_rate, 2),
+        "other_allowance_rate": round(other_allowance_rate, 2),
+        "monthly_bonus_rate": round(monthly_bonus_rate, 2),
+        "retention_rate": round(retention_rate, 2),
+        "incentive_rate": round(incentive_rate, 2),
+        # CTC is the standing monthly rate — Incentive is variable/discretionary
+        # and belongs only in its own column and in TotalErn, never folded in here.
+        "ctc": round(basic_rate + hra_rate + conveyance_rate + other_allowance_rate, 2),
         "per_day_salary": round(per_day_salary, 2),
         "per_hour_salary": round(per_hour_salary, 2),
         "ot_amount": round(ot_amount, 2),
-        "gross_salary": round(gross_for_ot + other_allowance, 2),
-        "total_payable": round(gross_for_ot + other_allowance + ot_amount - lop_amount, 2),
+        "ded_pf": ded_pf,
+        "ded_esic": ded_esic,
+        "ded_pt": ded_pt,
+        "ded_lwf": ded_lwf,
+        "ded_tds": round(monthly_tds, 2),
+        "ded_standing_loan": ded_standing_loan,
+        # Employer-side statutory breakdown — not part of the employee's own
+        # deductions/take-home, exposed for the PF/ESIC/LWF report/challan pages.
+        "pf_wages": pf["oth_pf_wages"],
+        "eps_wages": pf["oth_eps_wages"],
+        "edli_wages": pf["oth_edli_wages"],
+        "pf_employer_eps": pf["oth_eps"],
+        "pf_employer_epf": pf["oth_epf"],
+        "pf_edli_charges": pf["oth_edli_charges"],
+        "pf_admin_charges": pf["oth_pf_admin_charges"],
+        "esic_wages": esic["oth_esic_wages"],
+        "esic_employer": esic["oth_esic_employer"],
+        "lwf_employer": lwf["oth_lwf_wages"],
+        "gross_salary": round(basic + hra + conveyance + other_allowance + monthly_bonus + retention + incentive, 2),
+        "total_payable": round(
+            basic + hra + conveyance + other_allowance + monthly_bonus + retention + incentive
+            + ot_amount - ded_pf - ded_esic - ded_pt - ded_lwf - monthly_tds - ded_standing_loan,
+            2,
+        ),
         "daily": daily,
     }
