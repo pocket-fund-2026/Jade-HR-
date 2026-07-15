@@ -91,6 +91,25 @@ a:focus-visible, button:focus-visible {
   }
 }
 
+/* Rendered letter body (Letters.jsx) — the HTML comes from an HR-editable
+   template, so give its plain tags (p/ol/ul/table) reasonable spacing
+   rather than relying on Tailwind's preflight reset, which zeroes them. */
+.letter-doc p, .letter-doc ol, .letter-doc ul {
+  margin-bottom: 0.85em;
+}
+.letter-doc ol, .letter-doc ul {
+  padding-left: 1.5em;
+}
+.letter-doc ol { list-style: decimal; }
+.letter-doc ul { list-style: disc; }
+.letter-doc table {
+  margin-bottom: 0.85em;
+}
+.letter-doc td, .letter-doc th {
+  border: 1px solid rgba(22, 48, 42, 0.25);
+  padding: 6px 10px;
+}
+
 /* Payslip printing — hide chrome, drop the dark ledger panel to a bordered
    light one so it doesn't waste ink, force color backgrounds to render. */
 @media print {

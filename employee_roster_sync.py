@@ -24,7 +24,7 @@ import os
 import sys
 import urllib.error
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timezone
 
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -42,13 +42,14 @@ _AES_IV = b"absf1245mm12wsdf"
 
 # SmartOffice department name -> (jade-hr location, password prefix).
 # Keep in sync with backend/config.py's SERIAL_TO_LOCATION.
+# "Kolkatta" was removed 2026-07-11 — its team was removed from jade-hr, so
+# this must never sync/recreate Kolkata employees again.
 DEPARTMENTS = {
     "Mumbai-Madhu Estate Staff": ("Madhu Estate, Mumbai", "Madhu"),
     "Mumbai Pedder Road": ("Pedder Road, Mumbai", "Jade"),
     "Delhi Mehrauli Store": ("Mehrauli (Ambawatta), Delhi", "Jade"),
     "Delhi Emporio Store": ("Emporio, Delhi", "Jade"),
     "Ahmedabad Retail Store": ("Ahmedabad", "Jade"),
-    "Kolkatta": ("Kolkata", "Jade"),
 }
 
 JADE_HR_URL = os.environ.get("JADE_HR_URL", "https://jade-hr.vercel.app")
@@ -119,6 +120,14 @@ def _api(token: str, method: str, path: str, body=None):
         return resp.status, json.loads(resp.read())
 
 
+# A "Working" match resets this to 0; each consecutive miss increments it.
+# Reaching this threshold means the employee_code has been completely absent
+# from the SmartOffice export (not just marked resigned — that's the
+# is_working PUT above) for that many consecutive nightly runs, so a single
+# bad/truncated export can't wipe out real active employees.
+REMOVED_FROM_BIOMETRICS_THRESHOLD = 2
+
+
 def reconcile(csv_text: str, token: str):
     rows = list(csv.DictReader(io.StringIO(csv_text)))
     # employee_code -> (master row, location, password_prefix), across all known departments
@@ -131,7 +140,8 @@ def reconcile(csv_text: str, token: str):
     _, existing = _api(token, "GET", "/api/employees")
     existing_by_code = {e["employee_code"]: e for e in existing}
 
-    updated = deactivated = created = unmatched = 0
+    updated = deactivated = created = unmatched = permanently_deleted = 0
+    now_iso = datetime.now(timezone.utc).isoformat()
 
     for code, emp in existing_by_code.items():
         if code == JADE_HR_USER:
@@ -139,12 +149,27 @@ def reconcile(csv_text: str, token: str):
         entry = tracked.get(code)
         if not entry:
             unmatched += 1
+            # Only rank-and-file employees who've been confirmed present in a
+            # past export are eligible — never console (hr/accounts) logins,
+            # and never someone this sync has never actually matched (they
+            # may simply not be a SmartOffice-tracked role at all).
+            if emp.get("role") == "employee" and emp.get("roster_last_seen_at"):
+                streak = (emp.get("roster_unmatched_streak") or 0) + 1
+                if streak >= REMOVED_FROM_BIOMETRICS_THRESHOLD:
+                    status, _ = _api(token, "DELETE", f"/api/employees/{emp['id']}/permanent")
+                    if status == 200:
+                        permanently_deleted += 1
+                else:
+                    _api(token, "PUT", f"/api/employees/{emp['id']}", {"roster_unmatched_streak": streak})
             continue
         master, location, _ = entry
         parts = master["EmployeeName"].strip().split(" ", 1)
         first, last = parts[0], (parts[1] if len(parts) > 1 else "")
         is_working = master["Status"] == "Working"
-        body = {"first_name": first, "last_name": last, "is_active": is_working, "location": location}
+        body = {
+            "first_name": first, "last_name": last, "is_active": is_working, "location": location,
+            "roster_last_seen_at": now_iso, "roster_unmatched_streak": 0,
+        }
         doj = master.get("DOJ", "")
         if doj and doj not in ("1900-01-01", "3000-01-01", ""):
             body["date_of_joining"] = doj
@@ -172,7 +197,10 @@ def reconcile(csv_text: str, token: str):
         if status == 200:
             created += 1
 
-    return {"updated": updated, "deactivated": deactivated, "created": created, "unmatched": unmatched}
+    return {
+        "updated": updated, "deactivated": deactivated, "created": created,
+        "unmatched": unmatched, "permanently_deleted": permanently_deleted,
+    }
 
 
 def main():
@@ -207,6 +235,7 @@ def main():
     print(f"  Updated: {result['updated']} (of which deactivated: {result['deactivated']})")
     print(f"  Created: {result['created']}")
     print(f"  Unmatched (not found in any tracked department's master): {result['unmatched']}")
+    print(f"  Permanently deleted (missing {REMOVED_FROM_BIOMETRICS_THRESHOLD}+ consecutive runs): {result['permanently_deleted']}")
     print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] Roster sync complete")
 
 

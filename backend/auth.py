@@ -1,3 +1,4 @@
+import time
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
@@ -74,17 +75,52 @@ def require_accounts(user: dict = Depends(get_current_user)) -> dict:
     return user
 
 
+# require_permission() runs on nearly every hr-role request, and previously
+# hit Supabase twice per call (role defaults + overrides) with no caching —
+# on top of the identity lookup in get_current_user, that was 3 sequential
+# network round-trips before an endpoint's own logic even started, on every
+# page and every poll. These rarely change, so a short TTL cache removes 2
+# of those 3 round-trips almost all of the time. Writes in routers/permissions.py
+# call invalidate_permission_cache() so admin changes still apply immediately
+# rather than waiting out the TTL.
+_PERMISSION_CACHE_TTL = 30  # seconds
+_hr_permissions_cache: dict[str, bool] | None = None
+_hr_permissions_cache_at = 0.0
+_override_cache: dict[str, tuple[float, dict[str, bool]]] = {}
+
+
+def invalidate_permission_cache(employee_id: str | None = None) -> None:
+    global _hr_permissions_cache, _hr_permissions_cache_at
+    _hr_permissions_cache = None
+    _hr_permissions_cache_at = 0.0
+    if employee_id is None:
+        _override_cache.clear()
+    else:
+        _override_cache.pop(employee_id, None)
+
+
 def get_hr_permissions() -> dict[str, bool]:
     """permission_key -> whether the 'hr' role currently has that capability."""
-    resp = supabase.table("hr_permissions").select("permission_key,hr_can_access").execute()
-    return {row["permission_key"]: row["hr_can_access"] for row in resp.data}
+    global _hr_permissions_cache, _hr_permissions_cache_at
+    now = time.monotonic()
+    if _hr_permissions_cache is None or now - _hr_permissions_cache_at > _PERMISSION_CACHE_TTL:
+        resp = supabase.table("hr_permissions").select("permission_key,hr_can_access").execute()
+        _hr_permissions_cache = {row["permission_key"]: row["hr_can_access"] for row in resp.data}
+        _hr_permissions_cache_at = now
+    return _hr_permissions_cache
 
 
 def get_permission_overrides(employee_id: str) -> dict[str, bool]:
     """permission_key -> explicit grant/deny for one specific hr-role person,
     layered on top of (and taking priority over) the role-wide default."""
+    now = time.monotonic()
+    cached = _override_cache.get(employee_id)
+    if cached is not None and now - cached[0] <= _PERMISSION_CACHE_TTL:
+        return cached[1]
     resp = supabase.table("hr_permission_overrides").select("permission_key,granted").eq("employee_id", employee_id).execute()
-    return {row["permission_key"]: row["granted"] for row in resp.data}
+    overrides = {row["permission_key"]: row["granted"] for row in resp.data}
+    _override_cache[employee_id] = (now, overrides)
+    return overrides
 
 
 def user_can(user: dict, *permission_keys: str) -> bool:

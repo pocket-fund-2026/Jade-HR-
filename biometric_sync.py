@@ -39,13 +39,15 @@ SMARTOFFICE_URL = os.environ.get(
 # own key never worked, see module docstring.
 SMARTOFFICE_API_KEY = os.environ.get("SMARTOFFICE_API_KEY", "120612082520")
 # Keep in sync with backend/config.py's SERIAL_TO_LOCATION.
+# Kolkata's device serial (CK5O223960664) was removed 2026-07-11 — its team
+# was removed from jade-hr and must never be re-synced (the ingest endpoint
+# also hard-rejects it independently, in backend/config.py's EXCLUDED_SERIALS).
 ALL_JADE_SERIALS = ",".join([
     "C2696422DF0E2832",  # Madhu Estate, Mumbai
     "C2684450831C3B32",  # Pedder Road, Mumbai
     "C26238441B160C2E",  # Mehrauli (Ambawatta), Delhi
     "C2600831C32B1034",  # Emporio, Delhi
     "C2625841D724172A",  # Ahmedabad
-    "CK5O223960664",     # Kolkata
 ])
 DEVICE_SERIALS = set(filter(None, os.environ.get("DEVICE_SERIALS", ALL_JADE_SERIALS).split(",")))
 

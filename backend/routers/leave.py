@@ -45,6 +45,41 @@ def _pl_accrued_to_date(date_of_joining: str | None, today: date, year: int) -> 
     return min(24, max(0, months_elapsed) * 2)
 
 
+def earned_leave_balance_as_of(employee: dict, as_of: date) -> float:
+    """Unused 'earned' (Privilege) leave balance as of a specific date — for
+    Full & Final leave encashment. Only 'earned' leave is encashable here
+    (matches common practice — casual/sick lapse, not paid out). Corporate
+    roster accrues 2 days/month (capped 24/yr, via _pl_accrued_to_date);
+    everyone else gets the flat 15/yr allocation available in full from
+    Jan 1 (or date of joining if later), matching my_leave_balance's
+    existing non-corporate behavior — not further prorated here."""
+    is_corporate = employee.get("employee_category") == "corporate"
+    doj = employee.get("date_of_joining")
+    year = as_of.year
+
+    if is_corporate:
+        allocated = _pl_accrued_to_date(doj, as_of, year)
+    else:
+        allocated = 15
+        if doj:
+            doj_date = date.fromisoformat(doj)
+            if doj_date.year > year or doj_date > as_of:
+                allocated = 0
+
+    resp = (
+        supabase.table("hr_leave_requests")
+        .select("start_date,end_date")
+        .eq("employee_id", employee["id"])
+        .eq("leave_type", "earned")
+        .eq("status", "approved")
+        .gte("start_date", f"{year}-01-01")
+        .lte("start_date", as_of.isoformat())
+        .execute()
+    )
+    used = sum(_days_in_range(r["start_date"], r["end_date"]) for r in resp.data)
+    return max(0, allocated - used)
+
+
 def _comp_off_available(employee_id: str) -> float:
     today_iso = datetime.now(timezone.utc).date().isoformat()
     resp = (
@@ -117,17 +152,21 @@ def create_leave_request(body: LeaveRequestCreate, user: dict = Depends(get_curr
     }
     inserted = supabase.table("hr_leave_requests").insert(row).execute()
 
-    approver_email = ""
+    approver_ids = set()
     if user.get("leave_approver_id"):
-        approver_resp = (
-            supabase.table("hr_employees").select("email").eq("id", user["leave_approver_id"]).maybe_single().execute()
-        )
-        approver = maybe_single_data(approver_resp)
-        approver_email = (approver or {}).get("email", "")
+        approver_ids.add(user["leave_approver_id"])
+    profile_resp = supabase.table("hr_employee_profile").select("reporting_to_id").eq("employee_id", user["id"]).maybe_single().execute()
+    profile = maybe_single_data(profile_resp)
+    if profile and profile.get("reporting_to_id"):
+        approver_ids.add(profile["reporting_to_id"])
+    approver_emails = set()
+    if approver_ids:
+        approvers_resp = supabase.table("hr_employees").select("email").in_("id", list(approver_ids)).execute()
+        approver_emails = {a["email"] for a in approvers_resp.data if a.get("email")}
     employee_name = f"{user['first_name']} {user.get('last_name', '')}".strip()
     email_service.notify_leave_submitted(
         employee_name, body.leave_type, body.start_date.isoformat(), body.end_date.isoformat(), body.reason,
-        approver_email, email_service.HR_NOTIFY_EMAIL,
+        approver_emails, email_service.HR_NOTIFY_EMAIL,
     )
 
     return inserted.data[0]
@@ -147,6 +186,101 @@ def my_leave_requests(user: dict = Depends(get_current_user)):
     if unseen_resolved:
         supabase.table("hr_leave_requests").update({"seen_by_employee": True}).in_("id", unseen_resolved).execute()
     return resp.data
+
+
+def _pl_ledger_from_rows(employee: dict, year: int, month: int, leave_rows: list[dict]) -> dict:
+    """Pure computation half of the PL ledger, given this employee's already-
+    fetched approved 'earned' leave rows (start_date/end_date) covering at
+    least day-before-period-start through period-end. Split out so the bulk
+    path (pl_ledger_for_period_bulk) can fetch once for every employee
+    instead of once per employee."""
+    doj = employee.get("date_of_joining")
+    period_start, period_end = pay_period_bounds(year, month)
+    day_before_start = period_start - timedelta(days=1)
+
+    accrued_at_start = _pl_accrued_to_date(doj, day_before_start, day_before_start.year)
+    accrued_at_end = _pl_accrued_to_date(doj, period_end, period_end.year)
+    credit = max(0, accrued_at_end - accrued_at_start)
+
+    used_before = used_within = 0
+    for r in leave_rows:
+        days = _days_in_range(r["start_date"], r["end_date"])
+        if r["start_date"] < period_start.isoformat():
+            used_before += days
+        else:
+            used_within += days
+
+    opening = accrued_at_start - used_before
+    debit = used_within
+    closing = opening + credit - debit
+    return {"opening": opening, "debit": debit, "credit": credit, "closing": closing}
+
+
+def pl_ledger_for_period(employee: dict, year: int, month: int) -> dict | None:
+    """Opening/Debit/Credit/Closing for Privilege Leave (PL) over one pay
+    period — the leave-ledger row on the printed payslip. Corporate roster
+    only: PL's 2-days/month accrual is that policy's; other leave types are
+    flat annual allocations with no meaningful monthly ledger to show.
+
+    Known limitation: like my_leave_balance, PL accrual resets each calendar
+    year, and this doesn't carry a balance across that boundary. For most
+    pay periods (fully within one calendar year) opening/debit/credit/closing
+    are exact. For the Dec23-Jan22 period specifically (the one pay period
+    that straddles Jan 1), the opening balance and this period's credit are
+    approximations — an employee's ledger is fully accurate every month
+    except that one.
+
+    Single-employee path — does its own query. For a list of employees, use
+    pl_ledger_for_period_bulk instead (one query for everyone, not N)."""
+    if employee.get("employee_category") != "corporate":
+        return None
+
+    period_start, period_end = pay_period_bounds(year, month)
+    day_before_start = period_start - timedelta(days=1)
+    resp = (
+        supabase.table("hr_leave_requests")
+        .select("start_date,end_date")
+        .eq("employee_id", employee["id"])
+        .eq("leave_type", "earned")
+        .eq("status", "approved")
+        .gte("start_date", f"{day_before_start.year}-01-01")
+        .lte("start_date", period_end.isoformat())
+        .execute()
+    )
+    return _pl_ledger_from_rows(employee, year, month, resp.data)
+
+
+def pl_ledger_for_period_bulk(employees: list[dict], year: int, month: int) -> dict[str, dict | None]:
+    """Same as pl_ledger_for_period, for every employee in one request — one
+    bulk query instead of one-per-employee (this is what /api/payroll, which
+    already bulk-fetches punches/overrides/leaves the same way, must use;
+    N sequential per-employee queries here was the dominant cost of that
+    endpoint for a 200+ employee roster)."""
+    corporate = [e for e in employees if e.get("employee_category") == "corporate"]
+    if not corporate:
+        return {e["id"]: None for e in employees}
+
+    period_start, period_end = pay_period_bounds(year, month)
+    day_before_start = period_start - timedelta(days=1)
+    corporate_ids = [e["id"] for e in corporate]
+    resp = (
+        supabase.table("hr_leave_requests")
+        .select("employee_id,start_date,end_date")
+        .in_("employee_id", corporate_ids)
+        .eq("leave_type", "earned")
+        .eq("status", "approved")
+        .gte("start_date", f"{day_before_start.year}-01-01")
+        .lte("start_date", period_end.isoformat())
+        .execute()
+    )
+    rows_by_employee: dict[str, list[dict]] = defaultdict(list)
+    for r in resp.data:
+        rows_by_employee[r["employee_id"]].append(r)
+
+    ledgers: dict[str, dict | None] = {e["id"]: None for e in employees}
+    for e in corporate:
+        ledgers[e["id"]] = _pl_ledger_from_rows(e, year, month, rows_by_employee.get(e["id"], []))
+    return ledgers
 
 
 @router.get("/me/leave-balance")
@@ -205,10 +339,11 @@ def list_leave_requests(status: str | None = Query(None), admin: dict = Depends(
 @router.get("/me/team-leave-requests")
 def my_team_leave_requests(status: str | None = Query(None), user: dict = Depends(get_current_user)):
     """Leave requests from anyone who lists this user as their leave
-    approver — a scoped view, not a role. Any employee can hit this; it's
-    naturally empty for someone nobody reports to."""
-    reports_resp = supabase.table("hr_employees").select("id").eq("leave_approver_id", user["id"]).execute()
-    report_ids = [r["id"] for r in reports_resp.data]
+    approver OR their reporting manager — a scoped view, not a role. Any
+    employee can hit this; it's naturally empty for someone nobody reports to."""
+    direct_resp = supabase.table("hr_employees").select("id").eq("leave_approver_id", user["id"]).execute()
+    reporting_resp = supabase.table("hr_employee_profile").select("employee_id").eq("reporting_to_id", user["id"]).execute()
+    report_ids = list({r["id"] for r in direct_resp.data} | {r["employee_id"] for r in reporting_resp.data})
     if not report_ids:
         return []
 
@@ -230,7 +365,17 @@ def _is_leave_approver(user: dict, leave_request: dict) -> bool:
         supabase.table("hr_employees").select("leave_approver_id").eq("id", leave_request["employee_id"]).maybe_single().execute()
     )
     employee = maybe_single_data(employee_resp)
-    return bool(employee and employee.get("leave_approver_id") == user["id"])
+    if employee and employee.get("leave_approver_id") == user["id"]:
+        return True
+    profile_resp = (
+        supabase.table("hr_employee_profile")
+        .select("reporting_to_id")
+        .eq("employee_id", leave_request["employee_id"])
+        .maybe_single()
+        .execute()
+    )
+    profile = maybe_single_data(profile_resp)
+    return bool(profile and profile.get("reporting_to_id") == user["id"])
 
 
 @router.put("/leave-requests/{request_id}")

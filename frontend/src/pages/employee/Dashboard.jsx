@@ -2,14 +2,13 @@ import { Bell, Flag, Plane, Printer, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import DisputeModal from "../../components/DisputeModal.jsx";
-import LedgerLine from "../../components/LedgerLine.jsx";
 import LeaveRequestModal from "../../components/LeaveRequestModal.jsx";
 import MonthPicker from "../../components/MonthPicker.jsx";
+import PayslipDetail from "../../components/PayslipDetail.jsx";
 import SelfieCheckinCard from "../../components/SelfieCheckinCard.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
-import StatCard from "../../components/StatCard.jsx";
 import api from "../../lib/api.js";
-import { formatDate, formatINR, formatTime } from "../../lib/format.js";
+import { formatDate, formatTime } from "../../lib/format.js";
 
 const today = new Date();
 const LEAVE_LABELS = {
@@ -108,39 +107,8 @@ export default function Dashboard() {
               taken during a Red Card cycle is treated as Loss of Pay unless corrected by HR.
             </div>
           )}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6 stagger-rise">
-            <StatCard label="Present Days" value={`${summary.present_days}/${summary.days_in_month}`} />
-            <StatCard label="Absent Days" value={summary.absent_days} />
-            <StatCard label="Hours Worked" value={summary.total_hours_worked} />
-            <StatCard label="OT Hours" value={summary.total_ot_hours} accent="text-ochre-700" />
-            <StatCard label="OT Amount" value={formatINR(summary.ot_amount)} accent="text-ochre-700" />
-          </div>
-
-          <div className="bg-paper rounded-sm shadow-card p-6 mb-6 border-t-4 border-ochre-500">
-            <p className="text-xs font-semibold uppercase tracking-wider text-ochre-700 mb-4">Overtime calculation</p>
-            <LedgerLine label="Basic" value={formatINR(summary.basic)} />
-            <LedgerLine label="HRA" value={formatINR(summary.hra)} />
-            <LedgerLine label="Conveyance" value={formatINR(summary.conveyance)} />
-            <LedgerLine label="Total salary" value={formatINR(summary.basic + summary.hra + summary.conveyance)} strong />
-            <div className="mt-3">
-              <LedgerLine label="Per day salary" value={formatINR(summary.per_day_salary)} />
-              <LedgerLine label="Per hour salary" value={formatINR(summary.per_hour_salary)} />
-              <LedgerLine label="Total OT hours" value={summary.total_ot_hours} />
-              <LedgerLine label="OT amount" value={formatINR(summary.ot_amount)} strong accent="text-ochre-700" />
-            </div>
-            {summary.lop_amount > 0 && (
-              <div className="mt-3">
-                <LedgerLine label={`Loss of Pay (${summary.lop_half_days} late-mark half-day${summary.lop_half_days === 1 ? "" : "s"})`} value={`− ${formatINR(summary.lop_amount)}`} strong accent="text-rust-500" />
-              </div>
-            )}
-          </div>
-
-          <div className="bg-ledger-800 rounded-sm shadow-card p-6 relative overflow-hidden mb-6">
-            <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
-            <div className="relative flex justify-between items-baseline">
-              <span className="font-display text-manila text-base">Total payable this month</span>
-              <span className="font-nums font-semibold text-2xl text-manila">{formatINR(summary.total_payable)}</span>
-            </div>
+          <div className="mb-6">
+            <PayslipDetail summary={summary} showDailyAttendance={false} />
           </div>
 
           <div className="bg-paper rounded-sm shadow-card p-5 mb-6">
@@ -168,7 +136,7 @@ export default function Dashboard() {
           <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
             <p className="px-5 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-ink/70">Daily attendance</p>
             <table className="w-full text-sm mt-2">
-              <thead className="text-left">
+              <thead className="text-left sticky top-0 z-10 bg-paper">
                 <tr className="border-b-2 border-ink/10">
                   <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Date</th>
                   <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">In</th>

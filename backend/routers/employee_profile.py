@@ -59,6 +59,9 @@ def update_employee_profile(
         if date_field in updates and updates[date_field] is not None:
             updates[date_field] = updates[date_field].isoformat()
 
+    if "reporting_to_id" in updates:
+        updates["reporting_to_id"] = updates["reporting_to_id"] or None
+
     if updates:
         updates["employee_id"] = employee_id
         updates["updated_at"] = datetime.now(timezone.utc).isoformat()

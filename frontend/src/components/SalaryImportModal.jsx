@@ -4,7 +4,7 @@ import { useState } from "react";
 import api from "../lib/api.js";
 import { parseCsv } from "../lib/csv.js";
 
-const TEMPLATE = "employee_code,basic,hra,conveyance,other_allowance\n14006,16000,9600,1200,0\n";
+const TEMPLATE = "employee_code,basic,hra,conveyance,other_allowance,incentive\n14006,16000,9600,1200,0,0\n";
 
 export default function SalaryImportModal({ onClose, onImported }) {
   const [rows, setRows] = useState(null);
@@ -22,7 +22,7 @@ export default function SalaryImportModal({ onClose, onImported }) {
     const text = await file.text();
     const parsed = parseCsv(text);
     if (!parsed.length || !("employee_code" in parsed[0])) {
-      setError("CSV must have an 'employee_code' column (plus basic, hra, conveyance, other_allowance).");
+      setError("CSV must have an 'employee_code' column (plus basic, hra, conveyance, other_allowance, incentive).");
       setRows(null);
       return;
     }
@@ -40,6 +40,7 @@ export default function SalaryImportModal({ onClose, onImported }) {
           hra: Number(r.hra) || 0,
           conveyance: Number(r.conveyance) || 0,
           other_allowance: Number(r.other_allowance) || 0,
+          incentive: Number(r.incentive) || 0,
         })),
       };
       const { data } = await api.post("/api/employees/bulk-salary", payload);
@@ -73,7 +74,7 @@ export default function SalaryImportModal({ onClose, onImported }) {
         <p className="text-xs font-semibold uppercase tracking-wider text-jade-600 mb-1">Bulk import</p>
         <p className="font-display text-lg text-ink mb-1">Salary structure</p>
         <p className="text-xs text-ink/70 mb-5">
-          CSV columns: employee_code, basic, hra, conveyance, other_allowance.{" "}
+          CSV columns: employee_code, basic, hra, conveyance, other_allowance, incentive.{" "}
           <button onClick={downloadTemplate} className="text-jade-600 hover:underline inline-flex items-center gap-1">
             <Download size={11} /> Download template
           </button>

@@ -1,4 +1,4 @@
-import { Bell, X } from "lucide-react";
+import { Bell, Cake, X } from "lucide-react";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 
@@ -7,14 +7,19 @@ import StampBadge from "../../components/StampBadge.jsx";
 import StatCard from "../../components/StatCard.jsx";
 import api from "../../lib/api.js";
 import { useAuth } from "../../lib/auth.jsx";
-import { formatINR } from "../../lib/format.js";
+import { daysUntilAnnualDate, formatDate, formatINR } from "../../lib/format.js";
 
 // recharts is a heavy dependency (~380KB) — split out of the main bundle
 // the same way Payroll.jsx lazy-imports xlsx for its Excel export.
 const OtTrendChart = lazy(() => import("../../components/OtTrendChart.jsx"));
 
 const today = new Date();
+const todayIso = today.toISOString().slice(0, 10);
 const SEEN_KEY = "jade_hr_admin_notif_seen_at";
+// Dismissal is by calendar date, not a growing "seen" set like disputes/leave
+// above — a birthday banner should reappear each new day it's still true,
+// not stay silenced forever after the first dismiss.
+const BIRTHDAY_DISMISS_KEY = "jade_hr_birthday_dismissed_date";
 const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function shiftPeriod(year, month, delta) {
@@ -40,6 +45,8 @@ export default function Dashboard() {
   const [dismissed, setDismissed] = useState(false);
   const [location, setLocation] = useState("all");
   const [employeeCount, setEmployeeCount] = useState(null);
+  const [birthdays, setBirthdays] = useState([]);
+  const [birthdayDismissed, setBirthdayDismissed] = useState(localStorage.getItem(BIRTHDAY_DISMISS_KEY) === todayIso);
 
   const { pendingDisputes = [], pendingLeave = [] } = useOutletContext() || {};
 
@@ -69,6 +76,11 @@ export default function Dashboard() {
       .catch(() => {});
   }, [canPayroll, canEmployees]);
 
+  useEffect(() => {
+    if (!canEmployees) return;
+    api.get("/api/employees/birthdays").then(({ data }) => setBirthdays(data)).catch(() => {});
+  }, [canEmployees]);
+
   const [trendRaw, setTrendRaw] = useState([]);
 
   useEffect(() => {
@@ -93,6 +105,19 @@ export default function Dashboard() {
   const dismiss = () => {
     localStorage.setItem(SEEN_KEY, new Date().toISOString());
     setDismissed(true);
+  };
+
+  const activeBirthdays = birthdays.filter((b) => b.is_active && b.date_of_birth);
+  const todaysBirthdays = activeBirthdays.filter((b) => daysUntilAnnualDate(b.date_of_birth) === 0);
+  const upcomingBirthdays = useMemo(
+    () => [...activeBirthdays].sort((a, b) => daysUntilAnnualDate(a.date_of_birth) - daysUntilAnnualDate(b.date_of_birth)).slice(0, 5),
+    [birthdays],
+  );
+  const showBirthdayBanner = !birthdayDismissed && todaysBirthdays.length > 0;
+
+  const dismissBirthday = () => {
+    localStorage.setItem(BIRTHDAY_DISMISS_KEY, todayIso);
+    setBirthdayDismissed(true);
   };
 
   const locations = useMemo(
@@ -175,6 +200,52 @@ export default function Dashboard() {
         </div>
       )}
 
+      {showBirthdayBanner && (
+        <div className="fixed inset-0 bg-ledger-900/60 flex items-center justify-center px-4 z-50">
+          <div className="bg-paper rounded-sm shadow-stamp w-full max-w-sm p-7 border-t-4 border-jade-500 relative text-center">
+            <button onClick={dismissBirthday} aria-label="Close" className="absolute top-4 right-4 text-ink/70 hover:text-ink transition-colors">
+              <X size={18} />
+            </button>
+            <div className="w-14 h-14 rounded-full bg-jade-500/15 flex items-center justify-center mx-auto mb-4">
+              <Cake size={26} className="text-jade-700" />
+            </div>
+            <p className="font-display text-lg text-ink mb-1">
+              {todaysBirthdays.length > 1 ? "Birthdays today!" : "Birthday today!"}
+            </p>
+            <p className="text-sm text-ink/70">
+              {todaysBirthdays.map((b) => b.name).join(", ")}
+            </p>
+            <button
+              onClick={dismissBirthday}
+              className="mt-6 bg-ledger-800 text-manila px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+
+      {upcomingBirthdays.length > 0 && (
+        <div className="bg-paper rounded-sm shadow-card px-5 py-4 mb-6">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70 mb-3 flex items-center gap-1.5">
+            <Cake size={13} /> Upcoming Birthdays (HQ)
+          </p>
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
+            {upcomingBirthdays.map((b) => {
+              const days = daysUntilAnnualDate(b.date_of_birth);
+              return (
+                <div key={b.employee_id} className="text-sm">
+                  <span className="text-ink font-medium">{b.name}</span>
+                  <span className="text-ink/60 ml-1.5 font-nums text-xs">
+                    {formatDate(b.date_of_birth)} · {days === 0 ? "today" : days === 1 ? "tomorrow" : `in ${days}d`}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {error && <p className="text-sm text-rust-500 mb-4 border-l-2 border-rust-500 pl-2.5">{error}</p>}
 
       {canPayroll ? (
@@ -194,7 +265,7 @@ export default function Dashboard() {
 
           <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="text-left">
+              <thead className="text-left sticky top-0 z-10 bg-paper">
                 <tr className="border-b-2 border-ink/10">
                   <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
                   <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Present</th>

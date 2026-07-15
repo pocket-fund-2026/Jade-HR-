@@ -1,19 +1,35 @@
-import { CalendarDays, Clock3, Plus, X } from "lucide-react";
+import { Cake, CalendarDays, Clock3, Pencil, Plus, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import api from "../../lib/api.js";
-import { formatDate } from "../../lib/format.js";
+import { daysUntilAnnualDate, formatDate } from "../../lib/format.js";
 
 const DAY_TYPE_LABELS = {
   closed: "Store closed",
+  day_off: "Day Off (paid, same as store closed)",
   open_statutory: "Open (statutory pay)",
-  open_till_4pm: "Open till 4pm",
+  open_till_4pm: "Open till a set time",
+  open_normal: "Open (no special pay)",
+  anniversary: "Anniversary (informational only)",
 };
 
-function HolidayCalendar({ holidays, onAdd, onRemove, adding }) {
+const LOCATION_OPTIONS = [
+  { value: "", label: "All Locations" },
+  { value: "Mumbai", label: "Mumbai" },
+  { value: "Delhi", label: "Delhi" },
+  { value: "Ahmedabad", label: "Ahmedabad" },
+  { value: "HQ", label: "HQ (Madhu Estate only)" },
+];
+
+const today = new Date();
+const YEAR_OPTIONS = [today.getFullYear() - 1, today.getFullYear(), today.getFullYear() + 1, today.getFullYear() + 2];
+
+function HolidayCalendar({ holidays, onAdd, onRemove, adding, year, onYearChange, locationFilter, onLocationFilterChange }) {
   const [date, setDate] = useState("");
   const [description, setDescription] = useState("");
   const [dayType, setDayType] = useState("closed");
+  const [location, setLocation] = useState("");
+  const [closeTime, setCloseTime] = useState("16:00");
   const [remarks, setRemarks] = useState("");
   const [error, setError] = useState("");
 
@@ -21,8 +37,15 @@ function HolidayCalendar({ holidays, onAdd, onRemove, adding }) {
     e.preventDefault();
     setError("");
     try {
-      await onAdd({ holiday_date: date, description, day_type: dayType, remarks });
-      setDate(""); setDescription(""); setRemarks(""); setDayType("closed");
+      await onAdd({
+        holiday_date: date,
+        description,
+        day_type: dayType,
+        remarks,
+        location: location || null,
+        close_time: dayType === "open_till_4pm" ? closeTime : null,
+      });
+      setDate(""); setDescription(""); setRemarks(""); setDayType("closed"); setLocation(""); setCloseTime("16:00");
     } catch (err) {
       setError(err.response?.data?.detail || "Could not add — try again");
     }
@@ -31,8 +54,10 @@ function HolidayCalendar({ holidays, onAdd, onRemove, adding }) {
   return (
     <div>
       <p className="text-sm text-ink/70 mb-4">
-        Company holiday calendar for corporate staff. A "Store closed" day is paid like a weekly off instead of
-        showing absent — the other two are for reference only.
+        Company holiday calendar for corporate staff, editable per store. Leave Location as "All Locations" for a
+        holiday that applies everywhere; pick a city or "HQ" (Madhu Estate specifically) to scope it to just that
+        store. A "Store closed" day is paid like a weekly off instead of showing absent — "Anniversary" entries are
+        informational only and never affect attendance or pay.
       </p>
 
       <form onSubmit={submit} className="bg-paper rounded-sm shadow-card p-5 mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -48,12 +73,26 @@ function HolidayCalendar({ holidays, onAdd, onRemove, adding }) {
             className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
         </div>
         <div>
+          <label htmlFor="holiday_location" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Location</label>
+          <select id="holiday_location" value={location} onChange={(e) => setLocation(e.target.value)}
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
+            {LOCATION_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+        <div>
           <label htmlFor="holiday_type" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Type</label>
           <select id="holiday_type" value={dayType} onChange={(e) => setDayType(e.target.value)}
             className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
             {Object.entries(DAY_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </div>
+        {dayType === "open_till_4pm" && (
+          <div>
+            <label htmlFor="holiday_close_time" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Closing Time</label>
+            <input id="holiday_close_time" type="time" value={closeTime} onChange={(e) => setCloseTime(e.target.value)}
+              className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+          </div>
+        )}
         <div>
           <label htmlFor="holiday_remarks" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Remarks</label>
           <input id="holiday_remarks" type="text" value={remarks} onChange={(e) => setRemarks(e.target.value)}
@@ -69,16 +108,36 @@ function HolidayCalendar({ holidays, onAdd, onRemove, adding }) {
         </div>
       </form>
 
+      <div className="flex flex-wrap items-center gap-3 mb-3">
+        <select value={year} onChange={(e) => onYearChange(Number(e.target.value))}
+          className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
+          {YEAR_OPTIONS.map((y) => <option key={y} value={y}>{y}</option>)}
+        </select>
+        <select value={locationFilter} onChange={(e) => onLocationFilterChange(e.target.value)}
+          className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
+          <option value="">All Locations</option>
+          {LOCATION_OPTIONS.filter((o) => o.value).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      </div>
+
       <div className="bg-paper rounded-sm shadow-card divide-y divide-ink/[0.06]">
         {holidays.length === 0 ? (
-          <p className="px-5 py-8 text-ink/70 text-center text-sm">No holidays recorded yet.</p>
+          <p className="px-5 py-8 text-ink/70 text-center text-sm">No holidays recorded for this filter.</p>
         ) : (
           holidays.map((h) => (
             <div key={h.id} className="flex items-center justify-between gap-4 px-5 py-3.5">
               <div>
-                <p className="text-sm text-ink font-medium">{h.description}</p>
+                <p className="text-sm text-ink font-medium">
+                  {h.description}
+                  {h.location && (
+                    <span className="ml-2 text-[10px] font-semibold uppercase tracking-wider text-jade-700 bg-jade-500/15 rounded-full px-2 py-0.5 align-middle">
+                      {h.location}
+                    </span>
+                  )}
+                </p>
                 <p className="text-xs text-ink/70 mt-0.5">
-                  {formatDate(h.holiday_date)} · {DAY_TYPE_LABELS[h.day_type]}
+                  {formatDate(h.holiday_date)} · {DAY_TYPE_LABELS[h.day_type] || h.day_type}
+                  {h.close_time && ` (${h.close_time.slice(0, 5)})`}
                   {h.remarks && ` · ${h.remarks}`}
                 </p>
               </div>
@@ -89,6 +148,113 @@ function HolidayCalendar({ holidays, onAdd, onRemove, adding }) {
           ))
         )}
       </div>
+    </div>
+  );
+}
+
+function BirthdayRow({ b, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [dob, setDob] = useState(b.date_of_birth || "");
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await onSave(b.employee_id, dob);
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const days = b.date_of_birth ? daysUntilAnnualDate(b.date_of_birth) : null;
+
+  return (
+    <div className="flex items-center justify-between gap-4 px-5 py-3.5">
+      <div>
+        <p className="text-sm text-ink font-medium">{b.name}</p>
+        <p className="text-xs text-ink/70 mt-0.5">
+          {b.employee_code}{b.department && ` · ${b.department}`}
+          {b.date_of_birth && ` · ${formatDate(b.date_of_birth)}`}
+        </p>
+      </div>
+      <div className="flex items-center gap-3">
+        {editing ? (
+          <>
+            <input type="date" value={dob} onChange={(e) => setDob(e.target.value)}
+              className="rounded-sm border border-ink/15 bg-manila/40 px-2 py-1.5 text-xs font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+            <button onClick={save} disabled={saving || !dob} className="text-xs font-semibold text-jade-600 hover:underline disabled:opacity-50">Save</button>
+            <button onClick={() => setEditing(false)} aria-label="Cancel" className="text-ink/40 hover:text-ink">
+              <X size={14} />
+            </button>
+          </>
+        ) : (
+          <>
+            {days !== null && (
+              <span className={`flex items-center gap-1 text-xs font-semibold uppercase tracking-wide ${days === 0 ? "text-jade-600" : "text-ink/70"}`}>
+                {days === 0 && <Cake size={12} />}
+                {days === 0 ? "Today!" : days === 1 ? "Tomorrow" : `in ${days} days`}
+              </span>
+            )}
+            <button onClick={() => setEditing(true)} aria-label="Edit birthday" className="text-ink/40 hover:text-jade-600">
+              <Pencil size={14} />
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Birthdays() {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = () => {
+    setLoading(true);
+    api.get("/api/employees/birthdays").then(({ data }) => setRows(data.filter((r) => r.is_active))).finally(() => setLoading(false));
+  };
+
+  useEffect(load, []);
+
+  const saveDob = async (employeeId, dob) => {
+    await api.put(`/api/employees/${employeeId}/profile`, { date_of_birth: dob });
+    load();
+  };
+
+  const withDob = useMemo(
+    () => [...rows].filter((r) => r.date_of_birth).sort((a, b) => daysUntilAnnualDate(a.date_of_birth) - daysUntilAnnualDate(b.date_of_birth)),
+    [rows],
+  );
+  const missingDob = useMemo(
+    () => [...rows].filter((r) => !r.date_of_birth).sort((a, b) => a.name.localeCompare(b.name)),
+    [rows],
+  );
+
+  if (loading) return <p className="text-ink/70 text-sm">Loading…</p>;
+
+  return (
+    <div>
+      <p className="text-sm text-ink/70 mb-4">
+        Upcoming birthdays for the HQ team (Madhu Estate, Mumbai), soonest first. Click the pencil to add or correct
+        anyone's date of birth — this is the same field shown on their Employee Details page.
+      </p>
+      <div className="bg-paper rounded-sm shadow-card divide-y divide-ink/[0.06] mb-6">
+        {withDob.length === 0 ? (
+          <p className="px-5 py-8 text-ink/70 text-center text-sm">No birthdays on file yet.</p>
+        ) : (
+          withDob.map((b) => <BirthdayRow key={b.employee_id} b={b} onSave={saveDob} />)
+        )}
+      </div>
+
+      {missingDob.length > 0 && (
+        <>
+          <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-2">Missing date of birth ({missingDob.length})</p>
+          <div className="bg-paper rounded-sm shadow-card divide-y divide-ink/[0.06]">
+            {missingDob.map((b) => <BirthdayRow key={b.employee_id} b={b} onSave={saveDob} />)}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -195,8 +361,11 @@ export default function Policy() {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
+  const [year, setYear] = useState(today.getFullYear());
+  const [locationFilter, setLocationFilter] = useState("");
 
-  const loadHolidays = () => api.get("/api/holidays").then(({ data }) => setHolidays(data));
+  const loadHolidays = (y = year, loc = locationFilter) =>
+    api.get("/api/holidays", { params: { year: y, location: loc || undefined } }).then(({ data }) => setHolidays(data));
 
   useEffect(() => {
     Promise.all([
@@ -204,6 +373,8 @@ export default function Policy() {
       api.get("/api/employees").then(({ data }) => setEmployees(data)),
     ]).finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { loadHolidays(year, locationFilter); }, [year, locationFilter]);
 
   const corporateEmployees = useMemo(
     () =>
@@ -249,14 +420,23 @@ export default function Policy() {
           className={`flex items-center gap-1.5 px-4 py-2 rounded-sm text-sm font-medium transition-colors ${tab === "compoff" ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}>
           <Clock3 size={14} /> Comp-Off
         </button>
+        <button onClick={() => setTab("birthdays")}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-sm text-sm font-medium transition-colors ${tab === "birthdays" ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}>
+          <Cake size={14} /> Birthdays
+        </button>
       </div>
 
       {loading ? (
         <p className="text-ink/70 text-sm">Loading…</p>
       ) : tab === "holidays" ? (
-        <HolidayCalendar holidays={holidays} onAdd={addHoliday} onRemove={removeHoliday} adding={adding} />
-      ) : (
+        <HolidayCalendar
+          holidays={holidays} onAdd={addHoliday} onRemove={removeHoliday} adding={adding}
+          year={year} onYearChange={setYear} locationFilter={locationFilter} onLocationFilterChange={setLocationFilter}
+        />
+      ) : tab === "compoff" ? (
         <CompOffGrant corporateEmployees={corporateEmployees} />
+      ) : (
+        <Birthdays />
       )}
     </div>
   );

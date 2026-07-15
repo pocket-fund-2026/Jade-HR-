@@ -1,4 +1,4 @@
-import { LogOut, Users } from "lucide-react";
+import { LogOut, Receipt, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
@@ -46,20 +46,20 @@ export default function EmployeeLayout() {
             Sign out
           </button>
         </div>
-        {user?.is_leave_approver && (
-          <div className="max-w-4xl mx-auto px-6 relative">
-            <nav className="flex gap-1 -mb-px">
-              <NavLink
-                to="/employee"
-                end
-                className={({ isActive }) =>
-                  `px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                    isActive ? "border-manila text-manila" : "border-transparent text-manila/50 hover:text-manila/80"
-                  }`
-                }
-              >
-                My Dashboard
-              </NavLink>
+        <div className="max-w-4xl mx-auto px-6 relative">
+          <nav className="flex gap-1 -mb-px">
+            <NavLink
+              to="/employee"
+              end
+              className={({ isActive }) =>
+                `px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                  isActive ? "border-manila text-manila" : "border-transparent text-manila/50 hover:text-manila/80"
+                }`
+              }
+            >
+              My Dashboard
+            </NavLink>
+            {user?.is_leave_approver && (
               <NavLink
                 to="/employee/team-leave"
                 className={({ isActive }) =>
@@ -76,9 +76,20 @@ export default function EmployeeLayout() {
                   </span>
                 )}
               </NavLink>
-            </nav>
-          </div>
-        )}
+            )}
+            <NavLink
+              to="/employee/tax-declaration"
+              className={({ isActive }) =>
+                `flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                  isActive ? "border-manila text-manila" : "border-transparent text-manila/50 hover:text-manila/80"
+                }`
+              }
+            >
+              <Receipt size={14} />
+              Tax Declaration
+            </NavLink>
+          </nav>
+        </div>
       </header>
       <main className="max-w-4xl mx-auto px-6 py-8">
         <Outlet context={{ pendingTeamLeave, refreshTeamLeaveBadge: () => setPendingTeamLeave((n) => n) }} />

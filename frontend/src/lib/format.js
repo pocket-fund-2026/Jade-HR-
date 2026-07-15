@@ -15,6 +15,29 @@ export function formatDate(iso) {
   return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", timeZone: IST });
 }
 
+export function formatFullDate(iso) {
+  if (!iso) return "-";
+  return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: IST });
+}
+
+const MONTH_NAMES_LONG = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+// "5th May 2025" — matches the prose style JADE's letters are written in
+// (as opposed to formatFullDate's "05 May 2025" tabular style).
+export function formatOrdinalDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const day = d.getDate();
+  const suffix = day % 10 === 1 && day !== 11 ? "st"
+    : day % 10 === 2 && day !== 12 ? "nd"
+    : day % 10 === 3 && day !== 13 ? "rd"
+    : "th";
+  return `${day}${suffix} ${MONTH_NAMES_LONG[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 export function formatTime(iso) {
   if (!iso) return "-";
   return new Date(iso).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: IST });
@@ -30,4 +53,17 @@ export function payPeriodLabel(year, month) {
   const prevMonth = month === 1 ? 12 : month - 1;
   const prevYear = month === 1 ? year - 1 : year;
   return `${SHORT_MONTHS[prevMonth - 1]} 23 – ${SHORT_MONTHS[month - 1]} 22, ${year}`;
+}
+
+// Days until the next occurrence of this date's month/day, ignoring the
+// year (wraps to next year once this year's date has passed) — used for
+// birthday countdowns on the Dashboard, Policy > Birthdays, and the
+// birthday-today notification banner.
+export function daysUntilAnnualDate(isoDate) {
+  const [, month, day] = isoDate.split("-").map(Number);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  let next = new Date(today.getFullYear(), month - 1, day);
+  if (next < today) next = new Date(today.getFullYear() + 1, month - 1, day);
+  return Math.round((next - today) / 86400000);
 }

@@ -2,7 +2,14 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from auth import get_hr_permissions, get_permission_overrides, require_accounts, require_console, require_permissions_manage
+from auth import (
+    get_hr_permissions,
+    get_permission_overrides,
+    invalidate_permission_cache,
+    require_accounts,
+    require_console,
+    require_permissions_manage,
+)
 from database import supabase
 from models import BulkOverrideRequest, PermissionUpdate
 
@@ -44,6 +51,7 @@ def update_permission(permission_key: str, body: PermissionUpdate, user: dict = 
     )
     if not resp.data:
         raise HTTPException(status_code=404, detail="Unknown permission key")
+    invalidate_permission_cache()
     return resp.data[0]
 
 
@@ -69,12 +77,14 @@ def set_override(employee_id: str, permission_key: str, body: PermissionUpdate, 
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
     resp = supabase.table("hr_permission_overrides").upsert(row, on_conflict="employee_id,permission_key").execute()
+    invalidate_permission_cache(employee_id)
     return resp.data[0]
 
 
 @router.delete("/overrides/{employee_id}/{permission_key}")
 def clear_override(employee_id: str, permission_key: str, user: dict = Depends(require_permissions_manage)):
     supabase.table("hr_permission_overrides").delete().eq("employee_id", employee_id).eq("permission_key", permission_key).execute()
+    invalidate_permission_cache(employee_id)
     return {"ok": True}
 
 
@@ -96,4 +106,6 @@ def bulk_set_overrides(body: BulkOverrideRequest, user: dict = Depends(require_p
     if not rows:
         return {"updated": 0}
     supabase.table("hr_permission_overrides").upsert(rows, on_conflict="employee_id,permission_key").execute()
+    for eid in body.employee_ids:
+        invalidate_permission_cache(eid)
     return {"updated": len(rows)}

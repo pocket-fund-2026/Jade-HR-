@@ -31,5 +31,10 @@ SERIAL_TO_LOCATION = {
     "C26238441B160C2E": "Mehrauli (Ambawatta), Delhi",
     "C2600831C32B1034": "Emporio, Delhi",
     "C2625841D724172A": "Ahmedabad",
-    "CK5O223960664": "Kolkata",
 }
+
+# Kolkata's team was removed from jade-hr on 2026-07-11 — its device serial
+# must never ingest punches again (auto-provisioning would silently recreate
+# blank employee stubs the next time this serial's data syncs). Enforced in
+# routers/biometric.py's ingest() regardless of what biometric_sync.py sends.
+EXCLUDED_SERIALS = {"CK5O223960664"}

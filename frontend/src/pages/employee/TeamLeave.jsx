@@ -127,7 +127,7 @@ export default function TeamLeave() {
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="text-left">
+          <thead className="text-left sticky top-0 z-10 bg-paper">
             <tr className="border-b-2 border-ink/10">
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Type</th>

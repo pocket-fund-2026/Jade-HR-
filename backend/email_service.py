@@ -77,14 +77,19 @@ def send_email(to: str, subject: str, body: str) -> bool:
         return False
 
 
-def notify_leave_submitted(employee_name: str, leave_type: str, start_date: str, end_date: str, reason: str, approver_email: str, hr_email: str) -> None:
+def notify_leave_submitted(
+    employee_name: str, leave_type: str, start_date: str, end_date: str, reason: str,
+    approver_emails: set[str], hr_email: str,
+) -> None:
+    """approver_emails may hold both the employee's Leave Approver and their
+    Reporting To manager (if different people) — both get notified."""
     subject = f"Leave request from {employee_name} ({start_date} to {end_date})"
     body = (
         f"{employee_name} has submitted a {leave_type} leave request for {start_date} to {end_date}.\n\n"
         f"Reason: {reason}\n\n"
         f"Review it in the JADE HR console: https://jade-hr.vercel.app/employee\n"
     )
-    for recipient in {approver_email, hr_email}:
+    for recipient in {*approver_emails, hr_email}:
         if recipient:
             send_email(recipient, subject, body)
 

@@ -1,17 +1,21 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from auth import CONSOLE_ROLES, get_current_user, hash_password, require_permission, user_can
+from auth import CONSOLE_ROLES, get_current_user, hash_password, require_accounts, require_permission, user_can
 from database import maybe_single_data, supabase
 from models import EmployeeCreate, EmployeeUpdate, PasswordReset, SalaryImportRequest
 
 router = APIRouter(prefix="/api/employees", tags=["employees"])
 
-SALARY_FIELDS = ("basic", "hra", "conveyance", "other_allowance")
+SALARY_FIELDS = ("basic", "hra", "conveyance", "other_allowance", "monthly_bonus", "retention", "incentive")
 
 
-def _sanitize(employee: dict, user: dict) -> dict:
+def _sanitize(employee: dict, can_view_salary: bool) -> dict:
     employee.pop("password_hash", None)
-    if not user_can(user, "salary.view", "salary.edit"):
+    # salary.edit deliberately does NOT imply salary.view here — HR can be
+    # granted the ability to set salary figures (bulk import, new hires)
+    # without being able to see anyone's existing pay; only salary.view
+    # (accounts always, or a per-person override) shows the actual numbers.
+    if not can_view_salary:
         for field in SALARY_FIELDS:
             employee.pop(field, None)
     return employee
@@ -20,12 +24,46 @@ def _sanitize(employee: dict, user: dict) -> dict:
 @router.get("")
 def list_employees(user: dict = Depends(require_permission("employees.view"))):
     resp = supabase.table("hr_employees").select("*").order("first_name").execute()
-    return [_sanitize(e, user) for e in resp.data]
+    # Compute once per request, not once per employee — user_can() re-queries
+    # hr_permissions/hr_permission_overrides for any non-"accounts" role, so
+    # calling it inside the loop turned a single request into 2x the
+    # employee count in extra Supabase round-trips (~450 for 223 employees).
+    can_view_salary = user_can(user, "salary.view")
+    return [_sanitize(e, can_view_salary) for e in resp.data]
+
+
+@router.get("/birthdays")
+def list_birthdays(user: dict = Depends(require_permission("employees.view"))):
+    """Bulk join, not one profile fetch per employee — date_of_birth lives
+    on hr_employee_profile, not hr_employees, so this can't just reuse
+    list_employees' response. HQ (Madhu Estate, Mumbai) only, by design —
+    not the retail/warehouse roster."""
+    employees = (
+        supabase.table("hr_employees")
+        .select("id,employee_code,first_name,last_name,department,location,is_active")
+        .eq("location", "Madhu Estate, Mumbai")
+        .execute()
+        .data
+    )
+    profiles = supabase.table("hr_employee_profile").select("employee_id,date_of_birth").execute().data
+    dob_by_employee = {p["employee_id"]: p["date_of_birth"] for p in profiles if p.get("date_of_birth")}
+    return [
+        {
+            "employee_id": e["id"],
+            "employee_code": e["employee_code"],
+            "name": f"{e['first_name']} {e.get('last_name', '')}".strip(),
+            "department": e.get("department", ""),
+            "location": e.get("location", ""),
+            "is_active": e["is_active"],
+            "date_of_birth": dob_by_employee.get(e["id"]),
+        }
+        for e in employees
+    ]
 
 
 @router.post("/bulk-salary")
 def bulk_import_salary(body: SalaryImportRequest, user: dict = Depends(require_permission("salary.edit"))):
-    """Set Basic/HRA/Conveyance/Other for many employees at once, matched by employee_code."""
+    """Set Basic/HRA/Conveyance/Other/Incentive for many employees at once, matched by employee_code."""
     existing = supabase.table("hr_employees").select("id,employee_code").execute().data
     id_by_code = {e["employee_code"]: e["id"] for e in existing}
 
@@ -40,6 +78,7 @@ def bulk_import_salary(body: SalaryImportRequest, user: dict = Depends(require_p
             "hra": row.hra,
             "conveyance": row.conveyance,
             "other_allowance": row.other_allowance,
+            "incentive": row.incentive,
         }).eq("id", emp_id).execute()
         updated.append(row.employee_code)
 
@@ -63,7 +102,7 @@ def get_employee(employee_id: str, user: dict = Depends(get_current_user)):
     data = maybe_single_data(resp)
     if not data:
         raise HTTPException(status_code=404, detail="Employee not found")
-    return _sanitize(data, user)
+    return _sanitize(data, user_can(user, "salary.view"))
 
 
 @router.post("")
@@ -87,7 +126,7 @@ def create_employee(body: EmployeeCreate, user: dict = Depends(require_permissio
             row[field] = 0
 
     inserted = supabase.table("hr_employees").insert(row).execute()
-    return _sanitize(inserted.data[0], user)
+    return _sanitize(inserted.data[0], user_can(user, "salary.view"))
 
 
 @router.put("/{employee_id}")
@@ -96,6 +135,8 @@ def update_employee(employee_id: str, body: EmployeeUpdate, user: dict = Depends
     updates = body.model_dump(exclude_unset=True, exclude={"password"})
     if "date_of_joining" in updates and updates["date_of_joining"] is not None:
         updates["date_of_joining"] = updates["date_of_joining"].isoformat()
+    if "roster_last_seen_at" in updates and updates["roster_last_seen_at"] is not None:
+        updates["roster_last_seen_at"] = updates["roster_last_seen_at"].isoformat()
     if "leave_approver_id" in updates:
         updates["leave_approver_id"] = updates["leave_approver_id"] or None
     if body.password:
@@ -110,7 +151,7 @@ def update_employee(employee_id: str, body: EmployeeUpdate, user: dict = Depends
     resp = supabase.table("hr_employees").update(updates).eq("id", employee_id).execute()
     if not resp.data:
         raise HTTPException(status_code=404, detail="Employee not found")
-    return _sanitize(resp.data[0], user)
+    return _sanitize(resp.data[0], user_can(user, "salary.view"))
 
 
 @router.put("/{employee_id}/password")
@@ -142,4 +183,21 @@ def deactivate_employee(employee_id: str, user: dict = Depends(require_permissio
     )
     if not resp.data:
         raise HTTPException(status_code=404, detail="Employee not found")
+    return {"ok": True}
+
+
+@router.delete("/{employee_id}/permanent")
+def permanently_delete_employee(employee_id: str, user: dict = Depends(require_accounts)):
+    """Irreversible — cascades every payroll/attendance/leave/salary-structure
+    row via the FK ON DELETE CASCADE constraints, plus biometric punches
+    (linked only by employee_code, not a FK, so cleaned up explicitly here).
+    Accounts-only, unlike the soft-delete above. Reserved for
+    employee_roster_sync.py's removed-from-biometrics cleanup — every other
+    removal path in the app is deliberately the soft delete instead."""
+    resp = supabase.table("hr_employees").select("employee_code").eq("id", employee_id).maybe_single().execute()
+    data = maybe_single_data(resp)
+    if not data:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    supabase.table("hr_biometric_punches").delete().eq("employee_code", data["employee_code"]).execute()
+    supabase.table("hr_employees").delete().eq("id", employee_id).execute()
     return {"ok": True}

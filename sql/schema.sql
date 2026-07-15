@@ -16,6 +16,9 @@ create table if not exists hr_employees (
     hra                     numeric(12,2) not null default 0,
     conveyance              numeric(12,2) not null default 0,
     other_allowance         numeric(12,2) not null default 0,
+    monthly_bonus           numeric(12,2) not null default 0,
+    retention               numeric(12,2) not null default 0,
+    incentive               numeric(12,2) not null default 0,
     standard_hours_per_day  numeric(4,2) not null default 8,
     phone                   text default '',
     email                   text default '',
@@ -31,6 +34,9 @@ create table if not exists hr_employees (
     -- factory/warehouse/retail attendance & leave math is untouched by it.
     employee_category       text not null default 'factory_retail' check (employee_category in ('corporate', 'factory_retail')),
     standard_working_days_per_month numeric(4,1),
+    -- Consecutive nightly-roster-sync misses — see sql/012_roster_removal_tracking.sql.
+    roster_last_seen_at     timestamptz,
+    roster_unmatched_streak int not null default 0,
     created_at              timestamptz not null default now(),
     updated_at              timestamptz not null default now()
 );
@@ -241,6 +247,8 @@ create table if not exists hr_employee_profile (
     shift_category             text default '',
     holiday_group              text default '',
     shift_group                text default '',
+    time_slot                  text default '',
+    saturday_extended_hours    boolean not null default false,
     ess_role                   text default 'Self',
     head_of_department         boolean not null default false,
     reporting_to               text default '',
@@ -308,6 +316,10 @@ create table if not exists hr_employee_profile (
     pt_applicable                   boolean not null default false,
     lwf_registration                text default '',
     lwf_applicable                  boolean not null default false,
+    payment_mode                    text default 'Bank Transfer',
+    bank_name                       text default '',
+    bank_account_no                 text default '',
+    bank_ifsc                       text default '',
 
     -- Other Details
     identification_mark             text default '',
@@ -418,6 +430,26 @@ create table if not exists hr_salary_structure (
 create index if not exists idx_hr_salary_structure_employee
     on hr_salary_structure (employee_id, effective_date desc);
 
+-- Employee income-tax declarations (regime choice, HRA/rent, Old-regime
+-- deductions) feeding the TDS engine — see backend/tds.py and sql/014.
+create table if not exists hr_tax_declarations (
+    id                    uuid primary key default gen_random_uuid(),
+    employee_id           uuid not null references hr_employees(id) on delete cascade,
+    financial_year        text not null,  -- e.g. '2026-27' (India FY: 1 Apr - 31 Mar)
+    regime                text not null default 'new' check (regime in ('old', 'new')),
+    rent_paid_annual      numeric(12,2) not null default 0,
+    landlord_pan          text default '',
+    section_80c           numeric(12,2) not null default 0,
+    section_80d           numeric(12,2) not null default 0,
+    home_loan_interest    numeric(12,2) not null default 0,
+    other_deductions      numeric(12,2) not null default 0,
+    declared_at           timestamptz not null default now(),
+    updated_at            timestamptz not null default now(),
+    unique (employee_id, financial_year)
+);
+
+create index if not exists idx_hr_tax_declarations_employee on hr_tax_declarations (employee_id, financial_year);
+
 -- Default-deny RLS: the backend connects with the service_role key, which
 -- bypasses RLS entirely. This only stops the publishable/anon key (exposed
 -- client-side) from reading/writing this data — salary figures and password
@@ -435,6 +467,7 @@ alter table hr_salary_structure enable row level security;
 alter table hr_permission_overrides enable row level security;
 alter table hr_holidays enable row level security;
 alter table hr_comp_off_ledger enable row level security;
+alter table hr_tax_declarations enable row level security;
 
 -- Selfie check-in photos for employees flagged with requires_selfie_checkin
 -- (private bucket; only the service_role backend reads/writes it).

@@ -12,7 +12,10 @@ const PAGE_SIZE = 20;
 
 export default function Employees() {
   const { can } = useAuth();
-  const canViewSalary = can("salary.view", "salary.edit");
+  // salary.edit deliberately does NOT imply salary.view — HR can be granted
+  // the ability to set salary figures without being able to see anyone's
+  // existing pay (see backend/routers/employees.py's _sanitize).
+  const canViewSalary = can("salary.view");
   const canEditSalary = can("salary.edit");
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -113,7 +116,7 @@ export default function Employees() {
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="text-left">
+          <thead className="text-left sticky top-0 z-10 bg-paper">
             <tr className="border-b-2 border-ink/10">
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Name</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Code</th>
@@ -138,6 +141,11 @@ export default function Employees() {
                     <Link to={`/admin/employees/${e.id}`} className="text-ink hover:text-jade-600 font-medium transition-colors">
                       {e.first_name} {e.last_name}
                     </Link>
+                    {e.is_intern && (
+                      <span className="ml-2 text-[10px] font-semibold uppercase tracking-wider text-ochre-700 bg-ochre-500/15 rounded-full px-2 py-0.5 align-middle">
+                        Intern
+                      </span>
+                    )}
                   </td>
                   <td className="px-5 py-3.5 text-ink/70 font-nums">{e.employee_code}</td>
                   <td className="px-5 py-3.5 text-ink/70">{e.location || "—"}</td>
