@@ -1,4 +1,4 @@
-import { CalendarDays, Flag, LayoutDashboard, LogOut, Menu, Plane, Receipt, Shield, Users, X } from "lucide-react";
+import { CalendarDays, CalendarPlus, ClipboardList, FileBarChart, FileText, Flag, LayoutDashboard, LogOut, Menu, Plane, Receipt, Shield, Stamp, UserPlus, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
@@ -10,9 +10,16 @@ const POLL_MS = 25000;
 const navItems = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/admin/employees", label: "Employees", icon: Users, permission: "employees.view" },
+  { to: "/admin/onboarding", label: "Onboarding", icon: UserPlus, badgeKey: "onboarding", permission: "onboarding.manage" },
   { to: "/admin/payroll", label: "Payroll & OT", icon: Receipt, permission: "payroll.view" },
+  { to: "/admin/reports", label: "Reports", icon: FileBarChart, permission: "payroll.view" },
   { to: "/admin/disputes", label: "Disputes", icon: Flag, badgeKey: "disputes", permission: "disputes.manage" },
   { to: "/admin/leave", label: "Leave", icon: Plane, badgeKey: "leave", permission: "leave.manage" },
+  { to: "/admin/leave-entry", label: "Leave Entry", icon: ClipboardList, permission: "leave.manage" },
+  { to: "/admin/my-leave", label: "My Leave", icon: CalendarPlus },
+  { to: "/admin/my-payslip", label: "My Payslip", icon: Receipt },
+  { to: "/admin/payslip-approvals", label: "Payslip Approvals", icon: Stamp, badgeKey: "payslipApprovals", permission: "payslip_approvals.manage" },
+  { to: "/admin/letters", label: "Letters", icon: FileText, permission: ["letters.generate", "letters.manage"] },
   { to: "/admin/policy", label: "Leave Policy", icon: CalendarDays, permission: ["employees.manage", "policy.manage"] },
   { to: "/admin/team-access", label: "Team Access", icon: Shield, permission: "permissions.manage" },
 ];
@@ -78,10 +85,17 @@ export default function AdminLayout() {
   const { user, can, logout } = useAuth();
   const [pendingDisputes, setPendingDisputes] = useState([]);
   const [pendingLeave, setPendingLeave] = useState([]);
+  const [pendingPayslipApprovals, setPendingPayslipApprovals] = useState([]);
+  const [pendingOnboarding, setPendingOnboarding] = useState([]);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const pendingCounts = { disputes: pendingDisputes.length, leave: pendingLeave.length };
+  const pendingCounts = {
+    disputes: pendingDisputes.length, leave: pendingLeave.length,
+    payslipApprovals: pendingPayslipApprovals.length, onboarding: pendingOnboarding.length,
+  };
   const canDisputes = can("disputes.manage");
   const canLeave = can("leave.manage");
+  const canPayslipApprovals = can("payslip_approvals.manage");
+  const canOnboarding = can("onboarding.manage");
 
   useEffect(() => {
     let cancelled = false;
@@ -89,18 +103,22 @@ export default function AdminLayout() {
       Promise.all([
         canDisputes ? api.get("/api/disputes", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
         canLeave ? api.get("/api/leave-requests", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
+        canPayslipApprovals ? api.get("/api/payslip-approvals", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
+        canOnboarding ? api.get("/api/onboarding/submissions", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
       ])
-        .then(([disputesRes, leaveRes]) => {
+        .then(([disputesRes, leaveRes, payslipApprovalsRes, onboardingRes]) => {
           if (cancelled) return;
           setPendingDisputes(disputesRes.data);
           setPendingLeave(leaveRes.data);
+          setPendingPayslipApprovals(payslipApprovalsRes.data);
+          setPendingOnboarding(onboardingRes.data);
         })
         .catch(() => {});
     };
     poll();
     const interval = setInterval(poll, POLL_MS);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [canDisputes, canLeave]);
+  }, [canDisputes, canLeave, canPayslipApprovals, canOnboarding]);
 
   return (
     <div className="h-screen flex bg-manila overflow-hidden">
