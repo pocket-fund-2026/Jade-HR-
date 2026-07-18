@@ -1,6 +1,7 @@
-import { Bell, Flag, Plane, Printer, X } from "lucide-react";
+import { Bell, Briefcase, Flag, Plane, Printer, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import AbsenceRequestModal from "../../components/AbsenceRequestModal.jsx";
 import DisputeModal from "../../components/DisputeModal.jsx";
 import LeaveRequestModal from "../../components/LeaveRequestModal.jsx";
 import MonthPicker from "../../components/MonthPicker.jsx";
@@ -23,9 +24,11 @@ export default function Dashboard() {
   const [disputes, setDisputes] = useState([]);
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [leaveBalance, setLeaveBalance] = useState([]);
+  const [absenceRequests, setAbsenceRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [disputeDate, setDisputeDate] = useState(null);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [showAbsenceModal, setShowAbsenceModal] = useState(false);
   const [dismissedNotice, setDismissedNotice] = useState(false);
 
   const load = () => {
@@ -35,12 +38,14 @@ export default function Dashboard() {
       api.get("/api/me/disputes"),
       api.get("/api/me/leave-requests"),
       api.get("/api/me/leave-balance"),
+      api.get("/api/me/absence-requests"),
     ])
-      .then(([payroll, disputesRes, leaveRes, balanceRes]) => {
+      .then(([payroll, disputesRes, leaveRes, balanceRes, absenceRes]) => {
         setSummary(payroll.data);
         setDisputes(disputesRes.data);
         setLeaveRequests(leaveRes.data);
         setLeaveBalance(balanceRes.data);
+        setAbsenceRequests(absenceRes.data);
         setDismissedNotice(false);
       })
       .finally(() => setLoading(false));
@@ -114,12 +119,20 @@ export default function Dashboard() {
           <div className="bg-paper rounded-sm shadow-card p-5 mb-6">
             <div className="flex items-center justify-between mb-4">
               <p className="text-xs font-semibold uppercase tracking-wider text-ink/70">Leave balance ({today.getFullYear()})</p>
-              <button
-                onClick={() => setShowLeaveModal(true)}
-                className="flex items-center gap-1.5 bg-jade-600 text-white px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-jade-700 transition-colors"
-              >
-                <Plane size={13} /> Request Leave
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowLeaveModal(true)}
+                  className="flex items-center gap-1.5 bg-jade-600 text-white px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-jade-700 transition-colors"
+                >
+                  <Plane size={13} /> Request Leave
+                </button>
+                <button
+                  onClick={() => setShowAbsenceModal(true)}
+                  className="flex items-center gap-1.5 bg-paper border border-ink/15 text-ink px-3 py-1.5 rounded-sm text-xs font-semibold hover:border-jade-500 transition-colors"
+                >
+                  <Briefcase size={13} /> Report Work Absence
+                </button>
+              </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {leaveBalance.filter((b) => !["unpaid", "maternity", "compassionate"].includes(b.leave_type)).map((b) => (
@@ -226,6 +239,28 @@ export default function Dashboard() {
               </table>
             </div>
           )}
+
+          {absenceRequests.length > 0 && (
+            <div className="bg-paper rounded-sm shadow-card overflow-hidden mt-6">
+              <p className="px-5 pt-4 pb-3 text-xs font-semibold uppercase tracking-wider text-ink/70">My work absence requests</p>
+              <table className="w-full text-sm">
+                <tbody>
+                  {absenceRequests.map((a) => (
+                    <tr key={a.id} className="border-t border-ink/[0.06]">
+                      <td className="px-5 py-3 font-nums text-ink/70 w-40">{formatDate(a.start_date)}–{formatDate(a.end_date)}</td>
+                      <td className="px-5 py-3 text-ink/70 w-24 font-nums">{a.number_of_days} day{a.number_of_days === 1 ? "" : "s"}</td>
+                      <td className="px-5 py-3 text-ink/70">{a.details}</td>
+                      <td className="px-5 py-3 text-ink/70">{a.approver_name}</td>
+                      <td className="px-5 py-3">
+                        <StampBadge status={a.status}>{a.status}</StampBadge>
+                        {a.admin_note && <div className="text-xs text-ink/70 mt-1">{a.admin_note}</div>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -240,6 +275,12 @@ export default function Dashboard() {
         <LeaveRequestModal
           onClose={() => setShowLeaveModal(false)}
           onSubmitted={() => { setShowLeaveModal(false); load(); }}
+        />
+      )}
+      {showAbsenceModal && (
+        <AbsenceRequestModal
+          onClose={() => setShowAbsenceModal(false)}
+          onSubmitted={() => { setShowAbsenceModal(false); load(); }}
         />
       )}
     </div>

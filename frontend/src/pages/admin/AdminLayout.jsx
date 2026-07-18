@@ -1,4 +1,4 @@
-import { CalendarDays, CalendarPlus, ClipboardList, FileBarChart, FileText, Flag, LayoutDashboard, LogOut, Menu, Plane, Receipt, Shield, Stamp, UserPlus, Users, X } from "lucide-react";
+import { Briefcase, CalendarDays, CalendarPlus, ClipboardList, FileBarChart, FileText, Flag, LayoutDashboard, LogOut, Menu, Plane, Receipt, Shield, Stamp, UserPlus, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
@@ -15,6 +15,7 @@ const navItems = [
   { to: "/admin/reports", label: "Reports", icon: FileBarChart, permission: "payroll.view" },
   { to: "/admin/disputes", label: "Disputes", icon: Flag, badgeKey: "disputes", permission: "disputes.manage" },
   { to: "/admin/leave", label: "Leave", icon: Plane, badgeKey: "leave", permission: "leave.manage" },
+  { to: "/admin/work-absence", label: "Work Absence", icon: Briefcase, badgeKey: "workAbsence", permission: "absence.manage" },
   { to: "/admin/leave-entry", label: "Leave Entry", icon: ClipboardList, permission: "leave.manage" },
   { to: "/admin/my-leave", label: "My Leave", icon: CalendarPlus },
   { to: "/admin/my-payslip", label: "My Payslip", icon: Receipt },
@@ -87,15 +88,18 @@ export default function AdminLayout() {
   const [pendingLeave, setPendingLeave] = useState([]);
   const [pendingPayslipApprovals, setPendingPayslipApprovals] = useState([]);
   const [pendingOnboarding, setPendingOnboarding] = useState([]);
+  const [pendingWorkAbsence, setPendingWorkAbsence] = useState([]);
   const [mobileOpen, setMobileOpen] = useState(false);
   const pendingCounts = {
     disputes: pendingDisputes.length, leave: pendingLeave.length,
     payslipApprovals: pendingPayslipApprovals.length, onboarding: pendingOnboarding.length,
+    workAbsence: pendingWorkAbsence.length,
   };
   const canDisputes = can("disputes.manage");
   const canLeave = can("leave.manage");
   const canPayslipApprovals = can("payslip_approvals.manage");
   const canOnboarding = can("onboarding.manage");
+  const canWorkAbsence = can("absence.manage");
 
   useEffect(() => {
     let cancelled = false;
@@ -105,20 +109,22 @@ export default function AdminLayout() {
         canLeave ? api.get("/api/leave-requests", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
         canPayslipApprovals ? api.get("/api/payslip-approvals", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
         canOnboarding ? api.get("/api/onboarding/submissions", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
+        canWorkAbsence ? api.get("/api/absence-requests", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
       ])
-        .then(([disputesRes, leaveRes, payslipApprovalsRes, onboardingRes]) => {
+        .then(([disputesRes, leaveRes, payslipApprovalsRes, onboardingRes, workAbsenceRes]) => {
           if (cancelled) return;
           setPendingDisputes(disputesRes.data);
           setPendingLeave(leaveRes.data);
           setPendingPayslipApprovals(payslipApprovalsRes.data);
           setPendingOnboarding(onboardingRes.data);
+          setPendingWorkAbsence(workAbsenceRes.data);
         })
         .catch(() => {});
     };
     poll();
     const interval = setInterval(poll, POLL_MS);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [canDisputes, canLeave, canPayslipApprovals, canOnboarding]);
+  }, [canDisputes, canLeave, canPayslipApprovals, canOnboarding, canWorkAbsence]);
 
   return (
     <div className="h-screen flex bg-manila overflow-hidden">

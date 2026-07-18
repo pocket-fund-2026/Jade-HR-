@@ -44,6 +44,7 @@ const LumpsumReport = lazy(() => import("./pages/admin/reports/LumpsumReport.jsx
 const AttendanceReport = lazy(() => import("./pages/admin/reports/AttendanceReport.jsx"));
 const TeamAccess = lazy(() => import("./pages/admin/TeamAccess.jsx"));
 const OnboardingReview = lazy(() => import("./pages/admin/Onboarding.jsx"));
+const WorkAbsence = lazy(() => import("./pages/admin/WorkAbsence.jsx"));
 const EmployeeLayout = lazy(() => import("./pages/employee/EmployeeLayout.jsx"));
 const EmployeeDashboard = lazy(() => import("./pages/employee/Dashboard.jsx"));
 const TeamLeave = lazy(() => import("./pages/employee/TeamLeave.jsx"));
@@ -123,6 +124,7 @@ export default function App() {
             <Route path="reports/attendance" element={<RequirePermission anyOf={["payroll.view"]}><AttendanceReport /></RequirePermission>} />
             <Route path="disputes" element={<RequirePermission anyOf={["disputes.manage"]}><Disputes /></RequirePermission>} />
             <Route path="leave" element={<RequirePermission anyOf={["leave.manage"]}><Leave /></RequirePermission>} />
+            <Route path="work-absence" element={<RequirePermission anyOf={["absence.manage"]}><WorkAbsence /></RequirePermission>} />
             <Route path="leave-entry" element={<RequirePermission anyOf={["leave.manage"]}><LeaveEntry /></RequirePermission>} />
             <Route path="my-leave" element={<MyLeave />} />
             <Route path="my-payslip" element={<MyPayslip />} />

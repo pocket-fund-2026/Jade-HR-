@@ -103,3 +103,33 @@ def notify_leave_approved(employee_email: str, employee_name: str, leave_type: s
         f"Your {leave_type} leave request for {start_date} to {end_date} has been approved.\n"
     )
     send_email(employee_email, subject, body)
+
+
+def notify_absence_submitted(
+    employee_name: str, department: str, start_date: str, end_date: str,
+    number_of_days: float, details: str, approver_email: str, hr_email: str,
+) -> None:
+    subject = f"Work absence request from {employee_name} ({start_date} to {end_date})"
+    body = (
+        f"{employee_name} ({department}) has submitted a work-related absence request for "
+        f"{start_date} to {end_date} ({number_of_days} day{'s' if number_of_days != 1 else ''}).\n\n"
+        f"Details: {details}\n\n"
+        f"Review it in the JADE HR console: https://jade-hr.vercel.app/admin/work-absence\n"
+    )
+    for recipient in {approver_email, hr_email}:
+        if recipient:
+            send_email(recipient, subject, body)
+
+
+def notify_absence_resolved(
+    employee_email: str, employee_name: str, status: str, start_date: str, end_date: str, admin_note: str,
+) -> None:
+    if not employee_email:
+        return
+    subject = f"Your work absence request has been {status}"
+    body = (
+        f"Hi {employee_name},\n\n"
+        f"Your work-related absence request for {start_date} to {end_date} has been {status}.\n"
+        + (f"\nNote: {admin_note}\n" if admin_note else "")
+    )
+    send_email(employee_email, subject, body)

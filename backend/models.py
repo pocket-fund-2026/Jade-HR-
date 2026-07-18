@@ -218,6 +218,7 @@ class EmployeeProfileUpdate(BaseModel):
     head_of_department: Optional[bool] = None
     reporting_to: Optional[str] = None
     reporting_to_id: Optional[str] = None  # actual employee reference — also grants leave-approval rights
+    reporting_to_email: Optional[str] = None  # for the work-absence form's approver notification, may not have a jade-hr login
 
     # Dates
     date_of_birth: Optional[date] = None
@@ -475,3 +476,27 @@ class LumpsumSave(BaseModel):
     ded_other_ded: float = 0
     ded_salary_advance: float = 0
     ded_pf_arrear: float = 0
+
+
+class AbsenceUpload(BaseModel):
+    filename: str
+    content_base64: str  # may be a data: URL or raw base64
+    content_type: str = "application/octet-stream"
+
+
+class AbsenceRequestCreate(BaseModel):
+    department: str = ""
+    start_date: date
+    end_date: date
+    number_of_days: float
+    details: str
+    approver_name: str
+    approver_email: str
+    attachment_path: Optional[str] = None
+    attachment_filename: Optional[str] = None
+    save_approver: bool = True  # persist approver_name/email onto the employee's profile for next time
+
+
+class AbsenceResolve(BaseModel):
+    action: str  # approve | reject
+    admin_note: str = ""
