@@ -1,4 +1,5 @@
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -8,7 +9,7 @@ from bonus import BONUS_MIN_RATE, compute_bonus
 from database import maybe_single_data, supabase
 from gratuity import compute_gratuity
 from payroll import compute_monthly_summary, fy_month_labels, pay_period_bounds
-from routers.leave import earned_leave_balance_as_of, fetch_all_approved_leaves_by_employee, fetch_approved_leaves
+from routers.leave import fetch_all_approved_leaves_by_employee, fetch_approved_leaves, paid_leave_balance_as_of
 from routers.payroll import (
     _all_summaries_for_month, _fetch_all_compliance_profiles, _fetch_all_overrides_by_employee,
     _fetch_all_punches_by_employee, _fetch_holidays, _fetch_overrides, _fetch_punch_times,
@@ -30,15 +31,21 @@ def ctc_as_per_salary(
     plus employer PF/ESIC/LWF) that the "CTC As Per Payslip" report derives
     from actual monthly figures via /api/payroll/range."""
     as_of = as_of or date.today()
-    employees = supabase.table("hr_employees").select("id,employee_code,first_name,last_name,location").eq("is_active", True).execute().data
-    structures = (
-        supabase.table("hr_salary_structure")
-        .select("employee_id,effective_date,ctc_monthly,ctc_yearly,net_salary,total_earnings")
-        .lte("effective_date", as_of.isoformat())
-        .order("effective_date", desc=True)
-        .execute()
-        .data
-    )
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        employees_future = pool.submit(
+            lambda: supabase.table("hr_employees")
+            .select("id,employee_code,first_name,last_name,location").eq("is_active", True).execute().data
+        )
+        structures_future = pool.submit(
+            lambda: supabase.table("hr_salary_structure")
+            .select("employee_id,effective_date,ctc_monthly,ctc_yearly,net_salary,total_earnings")
+            .lte("effective_date", as_of.isoformat())
+            .order("effective_date", desc=True)
+            .execute()
+            .data
+        )
+        employees = employees_future.result()
+        structures = structures_future.result()
     latest_by_employee = {}
     for s in structures:
         latest_by_employee.setdefault(s["employee_id"], s)
@@ -116,18 +123,17 @@ def full_and_final_employees(user: dict = Depends(require_permission("payroll.vi
     """Every employee — active or exited — so a settlement can be previewed
     for anyone, not just those already marked as leaving. Exit-related
     fields are included so the picker can show status at a glance."""
-    employees = (
-        supabase.table("hr_employees")
-        .select("id,employee_code,first_name,last_name,location,is_active")
-        .execute()
-        .data
-    )
-    profiles = (
-        supabase.table("hr_employee_profile")
-        .select("employee_id,exit_date,scheduled_exit_date,employee_status")
-        .execute()
-        .data
-    )
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        employees_future = pool.submit(
+            lambda: supabase.table("hr_employees")
+            .select("id,employee_code,first_name,last_name,location,is_active").execute().data
+        )
+        profiles_future = pool.submit(
+            lambda: supabase.table("hr_employee_profile")
+            .select("employee_id,exit_date,scheduled_exit_date,employee_status").execute().data
+        )
+        employees = employees_future.result()
+        profiles = profiles_future.result()
     profile_by_id = {p["employee_id"]: p for p in profiles}
     rows = []
     for e in employees:
@@ -167,12 +173,18 @@ def full_and_final(employee_id: str, user: dict = Depends(require_permission("pa
     400 — mirrors how /api/reports/gratuity already treats active
     employees, and lets this be previewed before anyone has actually
     resigned."""
-    resp = supabase.table("hr_employees").select("*").eq("id", employee_id).maybe_single().execute()
-    employee = maybe_single_data(resp)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        employee_future = pool.submit(
+            lambda: supabase.table("hr_employees").select("*").eq("id", employee_id).maybe_single().execute()
+        )
+        profile_future = pool.submit(
+            lambda: supabase.table("hr_employee_profile")
+            .select("*").eq("employee_id", employee_id).maybe_single().execute()
+        )
+        employee = maybe_single_data(employee_future.result())
+        profile = maybe_single_data(profile_future.result()) or {}
     if not employee:
         raise HTTPException(status_code=404, detail="Employee not found")
-    profile_resp = supabase.table("hr_employee_profile").select("*").eq("employee_id", employee_id).maybe_single().execute()
-    profile = maybe_single_data(profile_resp) or {}
     merged = {**employee, **profile}
 
     exit_date_str = profile.get("exit_date") or profile.get("scheduled_exit_date")
@@ -180,12 +192,18 @@ def full_and_final(employee_id: str, user: dict = Depends(require_permission("pa
     reference_date = date.fromisoformat(exit_date_str) if exit_date_str else date.today()
     period_year, period_month = _pay_period_for_date(reference_date)
 
-    punches = _fetch_punch_times(employee["employee_code"], period_year, period_month)
-    overrides = _fetch_overrides(employee_id, period_year, period_month)
-    leaves = fetch_approved_leaves(employee_id, period_year, period_month)
-    last_payslip = compute_monthly_summary(merged, period_year, period_month, punches, overrides, leaves, _fetch_holidays())
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        punches_future = pool.submit(_fetch_punch_times, employee["employee_code"], period_year, period_month)
+        overrides_future = pool.submit(_fetch_overrides, employee_id, period_year, period_month)
+        leaves_future = pool.submit(fetch_approved_leaves, employee_id, period_year, period_month)
+        holidays_future = pool.submit(_fetch_holidays)
+        punches = punches_future.result()
+        overrides = overrides_future.result()
+        leaves = leaves_future.result()
+        holidays = holidays_future.result()
+    last_payslip = compute_monthly_summary(merged, period_year, period_month, punches, overrides, leaves, holidays)
 
-    leave_balance = earned_leave_balance_as_of(merged, reference_date)
+    leave_balance = paid_leave_balance_as_of(merged, reference_date)
     leave_encashment = round(leave_balance * last_payslip["per_day_salary"], 2)
 
     service_start_str = profile.get("gratuity_date") or employee.get("date_of_joining")
@@ -223,8 +241,15 @@ def full_and_final(employee_id: str, user: dict = Depends(require_permission("pa
 
 @router.get("/tds-projection")
 def tds_projection_report(financial_year: str = Query(...), user: dict = Depends(require_permission("payroll.view"))):
-    employees = supabase.table("hr_employees").select("*").eq("is_active", True).execute().data
-    decl_resp = supabase.table("hr_tax_declarations").select("*").eq("financial_year", financial_year).execute()
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        employees_future = pool.submit(
+            lambda: supabase.table("hr_employees").select("*").eq("is_active", True).execute().data
+        )
+        decl_future = pool.submit(
+            lambda: supabase.table("hr_tax_declarations").select("*").eq("financial_year", financial_year).execute()
+        )
+        employees = employees_future.result()
+        decl_resp = decl_future.result()
     declarations = {d["employee_id"]: d for d in decl_resp.data}
     today = date.today()
     results = []
@@ -238,6 +263,32 @@ def tds_projection_report(financial_year: str = Query(...), user: dict = Depends
             **projection,
         })
     return results
+
+
+def _month_bonus_contributions(y: int, m: int, employees: list[dict], holidays: dict[date, dict]) -> dict[str, tuple[float, float]]:
+    """One FY month's (paid_days, basic_wage) contribution per eligible
+    employee — the 3 bulk fetches below are independent (different tables),
+    same pattern as _all_summaries_for_month."""
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        punches_future = pool.submit(_fetch_all_punches_by_employee, y, m)
+        overrides_future = pool.submit(_fetch_all_overrides_by_employee, y, m)
+        leaves_future = pool.submit(fetch_all_approved_leaves_by_employee, y, m)
+        punches_by_employee = punches_future.result()
+        overrides_by_employee = overrides_future.result()
+        leaves_by_employee = leaves_future.result()
+
+    _, period_end = pay_period_bounds(y, m)
+    contributions: dict[str, tuple[float, float]] = {}
+    for emp in employees:
+        doj = emp.get("date_of_joining")
+        if doj and period_end < date.fromisoformat(doj):
+            continue
+        punches = punches_by_employee.get(emp["employee_code"], [])
+        overrides = overrides_by_employee.get(emp["id"], {})
+        leaves = leaves_by_employee.get(emp["id"], {})
+        summary = compute_monthly_summary(emp, y, m, punches, overrides, leaves, holidays)
+        contributions[emp["id"]] = (summary["paid_days"], summary["basic"])
+    return contributions
 
 
 @router.get("/bonus")
@@ -265,22 +316,19 @@ def bonus_report(
     months_by_employee: dict[str, int] = defaultdict(int)
     monthly_wage_by_employee: dict[str, dict[int, float]] = defaultdict(lambda: {m: 0.0 for (_, m) in month_labels})
 
-    for (y, m) in month_labels:
-        punches_by_employee = _fetch_all_punches_by_employee(y, m)
-        overrides_by_employee = _fetch_all_overrides_by_employee(y, m)
-        leaves_by_employee = fetch_all_approved_leaves_by_employee(y, m)
-        _, period_end = pay_period_bounds(y, m)
-        for emp in employees:
-            doj = emp.get("date_of_joining")
-            if doj and period_end < date.fromisoformat(doj):
-                continue
-            punches = punches_by_employee.get(emp["employee_code"], [])
-            overrides = overrides_by_employee.get(emp["id"], {})
-            leaves = leaves_by_employee.get(emp["id"], {})
-            summary = compute_monthly_summary(emp, y, m, punches, overrides, leaves, holidays)
-            paid_days_by_employee[emp["id"]] += summary["paid_days"]
-            months_by_employee[emp["id"]] += 1
-            monthly_wage_by_employee[emp["id"]][m] += summary["basic"]
+    # Each FY month is an independent bulk fetch+compute — was previously one
+    # month at a time, so a full-year report paid ~12x a single month's wait.
+    # Capped at 4 concurrent months since each month itself opens its own
+    # 3-way pool above, mirroring payroll_for_range's identical tradeoff.
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        month_contributions = list(
+            pool.map(lambda ym: _month_bonus_contributions(ym[0], ym[1], employees, holidays), month_labels)
+        )
+    for (y, m), contributions in zip(month_labels, month_contributions):
+        for emp_id, (paid_days, basic_wage) in contributions.items():
+            paid_days_by_employee[emp_id] += paid_days
+            months_by_employee[emp_id] += 1
+            monthly_wage_by_employee[emp_id][m] += basic_wage
 
     results = []
     for emp in employees:
@@ -310,15 +358,21 @@ def bonus_report(
 def attendance_report(
     year: int = Query(...),
     month: int = Query(..., ge=1, le=12),
-    user: dict = Depends(require_permission("payroll.view")),
+    user: dict = Depends(require_permission("payroll.view", "attendance.view")),
 ):
     """Full pay-period daily attendance grid, every active employee — the
     same per-day rows the payslip's own daily breakdown uses (see
     payroll.py's compute_daily_attendance), just not dropped before return
     the way the bulk /api/payroll response is (keep_daily=True)."""
-    employees = supabase.table("hr_employees").select("*").eq("is_active", True).execute().data
-    profiles_by_employee = _fetch_all_compliance_profiles()
-    holidays = _fetch_holidays()
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        employees_future = pool.submit(
+            lambda: supabase.table("hr_employees").select("*").eq("is_active", True).execute().data
+        )
+        profiles_future = pool.submit(_fetch_all_compliance_profiles)
+        holidays_future = pool.submit(_fetch_holidays)
+        employees = employees_future.result()
+        profiles_by_employee = profiles_future.result()
+        holidays = holidays_future.result()
     summaries = _all_summaries_for_month(employees, profiles_by_employee, holidays, year, month, keep_daily=True)
     return [
         {
@@ -342,12 +396,14 @@ def gratuity_report(as_of: date | None = Query(None), user: dict = Depends(requi
     it's evaluated as of that date instead. Death/Disablement in
     reason_of_leaving waives the 5-year rule per Sec 4(1)'s proviso."""
     as_of = as_of or date.today()
-    employees = supabase.table("hr_employees").select("*").execute().data
-    profile_resp = (
-        supabase.table("hr_employee_profile")
-        .select("employee_id,gratuity_date,exit_date,reason_of_leaving,employee_status")
-        .execute()
-    )
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        employees_future = pool.submit(lambda: supabase.table("hr_employees").select("*").execute().data)
+        profile_future = pool.submit(
+            lambda: supabase.table("hr_employee_profile")
+            .select("employee_id,gratuity_date,exit_date,reason_of_leaving,employee_status").execute()
+        )
+        employees = employees_future.result()
+        profile_resp = profile_future.result()
     profiles = {p["employee_id"]: p for p in profile_resp.data}
 
     results = []

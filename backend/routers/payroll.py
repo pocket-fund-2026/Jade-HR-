@@ -389,12 +389,21 @@ def payroll_for_employee(
         if user["role"] not in CONSOLE_ROLES or not user_can(user, "payroll.view"):
             raise HTTPException(status_code=403, detail="Not authorized")
     employee = _get_active_employee(employee_id)
-    punches = _fetch_punch_times(employee["employee_code"], year, month)
-    overrides = _fetch_overrides(employee_id, year, month)
-    leaves = fetch_approved_leaves(employee_id, year, month)
-    monthly_tds = _monthly_tds(employee, year, month)
-    summary = compute_monthly_summary(employee, year, month, punches, overrides, leaves, _fetch_holidays(), monthly_tds)
-    summary["pl_ledger"] = pl_ledger_for_period(employee, year, month)
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        punches_future = pool.submit(_fetch_punch_times, employee["employee_code"], year, month)
+        overrides_future = pool.submit(_fetch_overrides, employee_id, year, month)
+        leaves_future = pool.submit(fetch_approved_leaves, employee_id, year, month)
+        holidays_future = pool.submit(_fetch_holidays)
+        pl_ledger_future = pool.submit(pl_ledger_for_period, employee, year, month)
+        monthly_tds_future = pool.submit(_monthly_tds, employee, year, month)
+        punches = punches_future.result()
+        overrides = overrides_future.result()
+        leaves = leaves_future.result()
+        holidays = holidays_future.result()
+        pl_ledger = pl_ledger_future.result()
+        monthly_tds = monthly_tds_future.result()
+    summary = compute_monthly_summary(employee, year, month, punches, overrides, leaves, holidays, monthly_tds)
+    summary["pl_ledger"] = pl_ledger
     return summary
 
 
@@ -405,10 +414,19 @@ def my_payroll(
     user: dict = Depends(get_current_user),
 ):
     employee = {**user, **_fetch_compliance_profile(user["id"])}
-    punches = _fetch_punch_times(employee["employee_code"], year, month)
-    overrides = _fetch_overrides(employee["id"], year, month)
-    leaves = fetch_approved_leaves(employee["id"], year, month)
-    monthly_tds = _monthly_tds(employee, year, month)
-    summary = compute_monthly_summary(employee, year, month, punches, overrides, leaves, _fetch_holidays(), monthly_tds)
-    summary["pl_ledger"] = pl_ledger_for_period(employee, year, month)
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        punches_future = pool.submit(_fetch_punch_times, employee["employee_code"], year, month)
+        overrides_future = pool.submit(_fetch_overrides, employee["id"], year, month)
+        leaves_future = pool.submit(fetch_approved_leaves, employee["id"], year, month)
+        holidays_future = pool.submit(_fetch_holidays)
+        pl_ledger_future = pool.submit(pl_ledger_for_period, employee, year, month)
+        monthly_tds_future = pool.submit(_monthly_tds, employee, year, month)
+        punches = punches_future.result()
+        overrides = overrides_future.result()
+        leaves = leaves_future.result()
+        holidays = holidays_future.result()
+        pl_ledger = pl_ledger_future.result()
+        monthly_tds = monthly_tds_future.result()
+    summary = compute_monthly_summary(employee, year, month, punches, overrides, leaves, holidays, monthly_tds)
+    summary["pl_ledger"] = pl_ledger
     return summary

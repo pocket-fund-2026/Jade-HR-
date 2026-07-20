@@ -186,7 +186,7 @@ export default function TeamAccess() {
   };
 
   const loadHrEmployees = () => {
-    api.get("/api/employees").then(({ data }) => {
+    api.get("/api/employees", { params: { lite: true } }).then(({ data }) => {
       setHrEmployees(
         data
           .filter((e) => e.role === "hr" && e.is_active)

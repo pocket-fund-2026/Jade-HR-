@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -62,8 +63,17 @@ def login(body: LoginRequest):
 def me(user: dict = Depends(get_current_user)):
     user.pop("password_hash", None)
     user.pop("_claims", None)
-    direct_resp = supabase.table("hr_employees").select("id").eq("leave_approver_id", user["id"]).limit(1).execute()
-    reporting_resp = supabase.table("hr_employee_profile").select("employee_id").eq("reporting_to_id", user["id"]).limit(1).execute()
+    # Two independent tables — fires on ~every page load across the whole
+    # console, so it's worth collapsing to one round-trip's wait instead of two.
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        direct_future = pool.submit(
+            lambda: supabase.table("hr_employees").select("id").eq("leave_approver_id", user["id"]).limit(1).execute()
+        )
+        reporting_future = pool.submit(
+            lambda: supabase.table("hr_employee_profile").select("employee_id").eq("reporting_to_id", user["id"]).limit(1).execute()
+        )
+        direct_resp = direct_future.result()
+        reporting_resp = reporting_future.result()
     user["is_leave_approver"] = bool(direct_resp.data or reporting_resp.data)
     return user
 

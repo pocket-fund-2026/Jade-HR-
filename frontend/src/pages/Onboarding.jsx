@@ -21,9 +21,7 @@ const EMPTY_FORM = {
   designation: "", department: "", kra: "",
   requires_personal_email: false, requires_oms_login: false,
   place_of_work: LOCATIONS[0], timings_and_days: "",
-  basic: "", hra: "", conveyance: "", other_allowance: "", monthly_ctc: "",
-  signatory_name: "", signatory_designation: "", signatory_email: "",
-  approver_name: "", approver_email: "", signature_confirmed: false,
+  signature_confirmed: false,
 };
 
 function fileToBase64(file) {
@@ -179,11 +177,6 @@ export default function Onboarding() {
         date_of_birth: form.date_of_birth || null,
         date_of_joining: form.date_of_joining || null,
         date_of_offer_letter: form.date_of_offer_letter || null,
-        basic: Number(form.basic) || 0,
-        hra: Number(form.hra) || 0,
-        conveyance: Number(form.conveyance) || 0,
-        other_allowance: Number(form.other_allowance) || 0,
-        monthly_ctc: Number(form.monthly_ctc) || 0,
       };
       await api.post("/api/onboarding/submit", payload);
       setDone(true);
@@ -215,7 +208,7 @@ export default function Onboarding() {
       <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
       <div className="relative max-w-3xl mx-auto px-4 py-12">
         <div className="text-center mb-8">
-          <img src="/jade-logo.png" alt="" className="w-12 h-12 mx-auto mb-3" />
+          <img src="/jade-logo.png" alt="" className="w-24 h-24 mx-auto mb-3" />
           <p className="font-display text-manila text-2xl">New Joinee Details</p>
           <p className="text-manila/50 text-sm mt-1">Please fill in your details to complete your joining formalities with JADE</p>
         </div>
@@ -276,20 +269,7 @@ export default function Onboarding() {
             <TextField label="Timings + Days" placeholder="e.g. 10:00 AM - 6:30 PM, Mon-Sat" value={form.timings_and_days} onChange={set("timings_and_days")} required />
           </Section>
 
-          <Section title="Compensation">
-            <TextField label="Basic" type="number" value={form.basic} onChange={set("basic")} required />
-            <TextField label="HRA" type="number" value={form.hra} onChange={set("hra")} required />
-            <TextField label="Conveyance" type="number" value={form.conveyance} onChange={set("conveyance")} required />
-            <TextField label="Other Allowance" type="number" value={form.other_allowance} onChange={set("other_allowance")} required />
-            <TextField label="Monthly CTC" type="number" value={form.monthly_ctc} onChange={set("monthly_ctc")} required span />
-          </Section>
-
-          <Section title="Authorization">
-            <TextField label="Full Name of Authorized Signatory" value={form.signatory_name} onChange={set("signatory_name")} required />
-            <TextField label="Designation of Authorized Signatory" value={form.signatory_designation} onChange={set("signatory_designation")} required />
-            <TextField label="Email of Authorized Signatory" type="email" value={form.signatory_email} onChange={set("signatory_email")} required />
-            <TextField label="Approver Name" value={form.approver_name} onChange={set("approver_name")} required />
-            <TextField label="Approver Email" type="email" value={form.approver_email} onChange={set("approver_email")} required />
+          <Section title="Confirmation">
             <CheckboxField
               label="I confirm the details above are accurate to the best of my knowledge"
               checked={form.signature_confirmed}

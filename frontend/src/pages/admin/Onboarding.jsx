@@ -1,8 +1,10 @@
 import { ArrowLeft, Check, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useOutletContext } from "react-router-dom";
 
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
+import { useAuth } from "../../lib/auth.jsx";
 
 const TABS = [
   { key: "pending", label: "Pending" },
@@ -37,7 +39,7 @@ function DetailGroup({ title, children }) {
   );
 }
 
-function SubmissionDetail({ id, onBack, onResolved }) {
+function SubmissionDetail({ id, onBack, onResolved, canViewSalary }) {
   const [submission, setSubmission] = useState(null);
   const [employeeCode, setEmployeeCode] = useState("");
   const [password, setPassword] = useState("");
@@ -125,11 +127,13 @@ function SubmissionDetail({ id, onBack, onResolved }) {
           )}
         </div>
 
-        <DetailGroup title="Bank">
-          <DetailField label="Bank Name and Branch" value={submission.bank_name} />
-          <DetailField label="Account No" value={submission.bank_account_no} />
-          <DetailField label="IFSC" value={submission.bank_ifsc} />
-        </DetailGroup>
+        {canViewSalary && (
+          <DetailGroup title="Bank">
+            <DetailField label="Bank Name and Branch" value={submission.bank_name} />
+            <DetailField label="Account No" value={submission.bank_account_no} />
+            <DetailField label="IFSC" value={submission.bank_ifsc} />
+          </DetailGroup>
+        )}
 
         <div>
           <h4 className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-2">Documents</h4>
@@ -141,19 +145,21 @@ function SubmissionDetail({ id, onBack, onResolved }) {
             <DocLink label="Aadhar Card — Front" url={submission.aadhar_front_url} />
             <DocLink label="Aadhar Card — Back" url={submission.aadhar_back_url} />
             <DocLink label="PAN Card" url={submission.pan_card_url} />
-            {(submission.salary_slip_urls || []).map((u, i) => (
+            {canViewSalary && (submission.salary_slip_urls || []).map((u, i) => (
               <DocLink key={i} label={`Salary Slip ${i + 1}`} url={u} />
             ))}
           </div>
         </div>
 
-        <DetailGroup title="Compensation (self-reported)">
-          <DetailField label="Basic" value={submission.basic} />
-          <DetailField label="HRA" value={submission.hra} />
-          <DetailField label="Conveyance" value={submission.conveyance} />
-          <DetailField label="Other Allowance" value={submission.other_allowance} />
-          <DetailField label="Monthly CTC" value={submission.monthly_ctc} />
-        </DetailGroup>
+        {canViewSalary && (
+          <DetailGroup title="Compensation (self-reported)">
+            <DetailField label="Basic" value={submission.basic} />
+            <DetailField label="HRA" value={submission.hra} />
+            <DetailField label="Conveyance" value={submission.conveyance} />
+            <DetailField label="Other Allowance" value={submission.other_allowance} />
+            <DetailField label="Monthly CTC" value={submission.monthly_ctc} />
+          </DetailGroup>
+        )}
 
         <DetailGroup title="Authorization">
           <DetailField label="Signatory" value={submission.signatory_name} />
@@ -240,17 +246,31 @@ function SubmissionDetail({ id, onBack, onResolved }) {
 }
 
 export default function Onboarding() {
+  const { can } = useAuth();
+  // Compensation figures + bank details are as sensitive here as anywhere
+  // else in the app — gated by the same salary.view permission (see
+  // backend/routers/onboarding.py's SENSITIVE_SUBMISSION_FIELDS).
+  const canViewSalary = can("salary.view");
+  const { pendingOnboarding: layoutPending, pendingLoaded } = useOutletContext() || {};
+  const hasLayoutData = pendingLoaded && layoutPending !== undefined;
   const [tab, setTab] = useState("pending");
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState(() => (hasLayoutData ? layoutPending : []));
+  const [loading, setLoading] = useState(!hasLayoutData);
   const [selectedId, setSelectedId] = useState(null);
+  const skipNextLoad = useRef(hasLayoutData);
 
   const load = () => {
     setLoading(true);
     api.get("/api/onboarding/submissions", { params: { status: tab } }).then(({ data }) => setRows(data)).finally(() => setLoading(false));
   };
 
-  useEffect(load, [tab]);
+  useEffect(() => {
+    if (skipNextLoad.current) {
+      skipNextLoad.current = false;
+      return;
+    }
+    load();
+  }, [tab]);
 
   if (selectedId) {
     return (
@@ -258,6 +278,7 @@ export default function Onboarding() {
         id={selectedId}
         onBack={() => setSelectedId(null)}
         onResolved={() => { setSelectedId(null); load(); }}
+        canViewSalary={canViewSalary}
       />
     );
   }

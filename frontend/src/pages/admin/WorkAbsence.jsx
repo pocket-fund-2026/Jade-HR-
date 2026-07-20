@@ -1,5 +1,6 @@
 import { Check, Paperclip, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useOutletContext } from "react-router-dom";
 
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
@@ -83,10 +84,13 @@ function ResolveRow({ request, onResolved }) {
 const POLL_MS = 20000;
 
 export default function WorkAbsence() {
+  const { pendingWorkAbsence: layoutPending, pendingLoaded } = useOutletContext() || {};
+  const hasLayoutData = pendingLoaded && layoutPending !== undefined;
   const [tab, setTab] = useState("pending");
-  const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [requests, setRequests] = useState(() => (hasLayoutData ? layoutPending : []));
+  const [loading, setLoading] = useState(!hasLayoutData);
   const [location, setLocation] = useState("all");
+  const skipNextLoad = useRef(hasLayoutData);
 
   const load = (silent) => {
     if (!silent) setLoading(true);
@@ -94,7 +98,11 @@ export default function WorkAbsence() {
   };
 
   useEffect(() => {
-    load();
+    if (skipNextLoad.current) {
+      skipNextLoad.current = false;
+    } else {
+      load();
+    }
     if (tab !== "pending") return;
     const interval = setInterval(() => load(true), POLL_MS);
     return () => clearInterval(interval);

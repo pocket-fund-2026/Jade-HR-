@@ -9,12 +9,17 @@ import PayslipDetail from "../../components/PayslipDetail.jsx";
 import SelfieCheckinCard from "../../components/SelfieCheckinCard.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
-import { formatDate, formatTime } from "../../lib/format.js";
+import { formatDate, formatHoursMins, formatTime } from "../../lib/format.js";
+import { LEAVE_LABELS } from "../../lib/leaveTypes.js";
 
 const today = new Date();
-const LEAVE_LABELS = {
-  casual: "Casual", sick: "Sick", earned: "Privilege (PL)", unpaid: "Unpaid", other: "Other",
-  paternity: "Paternity", maternity: "Maternity", compassionate: "Compassionate", comp_off: "Comp-Off",
+const DAY_TYPE_LABELS = {
+  closed: "Store closed",
+  day_off: "Day Off (paid, same as store closed)",
+  open_statutory: "Open (statutory pay)",
+  open_till_4pm: "Open till a set time",
+  open_normal: "Open (no special pay)",
+  anniversary: "Anniversary (informational only)",
 };
 
 export default function Dashboard() {
@@ -25,6 +30,7 @@ export default function Dashboard() {
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [leaveBalance, setLeaveBalance] = useState([]);
   const [absenceRequests, setAbsenceRequests] = useState([]);
+  const [holidays, setHolidays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [disputeDate, setDisputeDate] = useState(null);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
@@ -39,13 +45,15 @@ export default function Dashboard() {
       api.get("/api/me/leave-requests"),
       api.get("/api/me/leave-balance"),
       api.get("/api/me/absence-requests"),
+      api.get("/api/me/holidays", { params: { year: today.getFullYear() } }),
     ])
-      .then(([payroll, disputesRes, leaveRes, balanceRes, absenceRes]) => {
+      .then(([payroll, disputesRes, leaveRes, balanceRes, absenceRes, holidaysRes]) => {
         setSummary(payroll.data);
         setDisputes(disputesRes.data);
         setLeaveRequests(leaveRes.data);
         setLeaveBalance(balanceRes.data);
         setAbsenceRequests(absenceRes.data);
+        setHolidays(holidaysRes.data);
         setDismissedNotice(false);
       })
       .finally(() => setLoading(false));
@@ -141,9 +149,33 @@ export default function Dashboard() {
                   <p className="font-nums text-lg text-ink mt-0.5">
                     {b.remaining} <span className="text-ink/65 text-sm">/ {b.allocated}</span>
                   </p>
+                  {b.leave_type === "paid" && b.carried_forward > 0 && (
+                    <p className="text-[10px] text-ink/50 mt-0.5">
+                      incl. {Math.round(b.carried_forward * 10) / 10} carried forward
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
+          </div>
+
+          <div className="bg-paper rounded-sm shadow-card p-5 mb-6">
+            <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-4">Holidays ({today.getFullYear()})</p>
+            {holidays.length === 0 ? (
+              <p className="text-sm text-ink/70">No holidays scheduled for {today.getFullYear()}.</p>
+            ) : (
+              <table className="w-full text-sm">
+                <tbody>
+                  {holidays.map((h) => (
+                    <tr key={h.id} className="border-t border-ink/[0.06] first:border-0">
+                      <td className="py-2 pr-4 font-nums text-ink/70 w-24">{formatDate(h.holiday_date)}</td>
+                      <td className="py-2 pr-4 text-ink">{h.description}</td>
+                      <td className="py-2 text-ink/70">{DAY_TYPE_LABELS[h.day_type] || h.day_type}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
 
           <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
@@ -169,7 +201,7 @@ export default function Dashboard() {
                       {d.lop_half_day && <span className="ml-1.5 text-[10px] font-sans font-semibold text-rust-500 uppercase tracking-wide">½ LOP</span>}
                     </td>
                     <td className="px-5 py-2.5 font-nums text-ink/70">{formatTime(d.last_out)}</td>
-                    <td className="px-5 py-2.5 font-nums">{d.hours_worked || "—"}</td>
+                    <td className="px-5 py-2.5 font-nums">{d.hours_worked ? formatHoursMins(d.hours_worked) : "—"}</td>
                     <td className="px-5 py-2.5">
                       <StampBadge status={d.status}>
                         {d.status === "leave"

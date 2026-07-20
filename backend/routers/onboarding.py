@@ -3,7 +3,8 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from auth import hash_password, require_permission
+import email_service
+from auth import hash_password, require_permission, user_can
 from database import maybe_single_data, supabase
 from models import OnboardingResolve, OnboardingSubmissionCreate, OnboardingUpload
 
@@ -15,6 +16,14 @@ BUCKET = "onboarding-documents"
 MAX_UPLOAD_BYTES = 4 * 1024 * 1024
 
 DATE_FIELDS = ("date_of_birth", "date_of_joining", "date_of_offer_letter")
+
+# Compensation + bank fields — gated by salary.view the same way
+# routers/employees.py's SALARY_FIELDS are; the salary-slip uploads are
+# just as sensitive so their signed URLs are withheld alongside these.
+SENSITIVE_SUBMISSION_FIELDS = (
+    "basic", "hra", "conveyance", "other_allowance", "monthly_ctc",
+    "bank_name", "bank_account_no", "bank_ifsc",
+)
 
 
 @router.post("/upload")
@@ -53,6 +62,7 @@ def submit_onboarding(body: OnboardingSubmissionCreate):
     row["status"] = "pending"
     row["submitted_at"] = datetime.now(timezone.utc).isoformat()
     inserted = supabase.table("hr_onboarding_submissions").insert(row).execute()
+    email_service.notify_onboarding_submitted(row, email_service.HR_NOTIFY_EMAIL)
     return {"id": inserted.data[0]["id"]}
 
 
@@ -66,13 +76,24 @@ def _signed_url(path: str | None) -> str | None:
         return None
 
 
-def _with_signed_urls(submission: dict) -> dict:
+def _with_signed_urls(submission: dict, include_salary_slips: bool = True) -> dict:
     submission["aadhar_front_url"] = _signed_url(submission.get("aadhar_front_path"))
     submission["aadhar_back_url"] = _signed_url(submission.get("aadhar_back_path"))
     submission["pan_card_url"] = _signed_url(submission.get("pan_card_path"))
     submission["salary_slip_urls"] = [
         u for u in (_signed_url(p) for p in submission.get("salary_slip_paths") or []) if u
-    ]
+    ] if include_salary_slips else []
+    return submission
+
+
+def _sanitize_submission(submission: dict, user: dict) -> dict:
+    # No self-view exception here — a submission isn't a logged-in employee
+    # yet, just a candidate record; only salary.view unlocks the compensation
+    # figures and bank details, same as everywhere else in this app.
+    if not user_can(user, "salary.view"):
+        for field in SENSITIVE_SUBMISSION_FIELDS:
+            submission.pop(field, None)
+        submission.pop("salary_slip_paths", None)
     return submission
 
 
@@ -94,7 +115,9 @@ def get_submission(submission_id: str, user: dict = Depends(require_permission("
     submission = maybe_single_data(resp)
     if not submission:
         raise HTTPException(status_code=404, detail="Submission not found")
-    return _with_signed_urls(submission)
+    can_view_salary = user_can(user, "salary.view")
+    submission = _with_signed_urls(submission, include_salary_slips=can_view_salary)
+    return _sanitize_submission(submission, user)
 
 
 def _create_employee_from_submission(submission: dict, body: OnboardingResolve) -> str:

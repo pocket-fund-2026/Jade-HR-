@@ -370,7 +370,7 @@ export default function Policy() {
   useEffect(() => {
     Promise.all([
       loadHolidays(),
-      api.get("/api/employees").then(({ data }) => setEmployees(data)),
+      api.get("/api/employees", { params: { lite: true } }).then(({ data }) => setEmployees(data)),
     ]).finally(() => setLoading(false));
   }, []);
 

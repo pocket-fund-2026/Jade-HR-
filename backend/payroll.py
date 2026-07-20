@@ -24,16 +24,38 @@ LATE_GRACE = time(10, 11)
 
 # Employees on this time_slot (hr_employee_profile.time_slot) get a shortened
 # Saturday — 10:00 AM - 3:00 PM (5h) — instead of their usual weekday
-# standard_hours_per_day, per JADE HR's Jul 2026 Saturday-hours change.
+# standard_hours_per_day, per JADE HR's Jul 2026 Saturday-hours change. This
+# still governs the late-coming/LOP policy's "completed the day's prescribed
+# hours" check below — OT itself no longer uses it (see SATURDAY_OT_CUTOFF).
 SATURDAY_SHIFT_HOURS = {
     "10:00 AM – 6:30 PM": 5.0,
 }
+
+# Company-wide Jul 2026 policy: on Saturdays, every employee's standard time
+# runs until 3:00 PM IST regardless of time_slot — only hours actually worked
+# with a clock time past this count as OT, not just hours in excess of some
+# threshold (so a late Saturday arrival who works past 3pm still earns OT for
+# that portion, and one who leaves before 3pm earns none regardless of when
+# they arrived).
+SATURDAY_OT_CUTOFF = time(15, 0)
 
 
 def _standard_hours_for_day(d: date, standard_hours_per_day: float, time_slot: str | None) -> float:
     if d.weekday() == 5 and time_slot in SATURDAY_SHIFT_HOURS:
         return SATURDAY_SHIFT_HOURS[time_slot]
     return standard_hours_per_day
+
+
+def _ot_hours(d: date, start: datetime, end: datetime, day_standard: float) -> float:
+    """OT for one worked span. Saturdays use the fixed 3pm clock cutoff
+    above for every employee; every other day is hours worked beyond that
+    day's standard (day_standard — Saturday-shortened for the late-coming
+    policy's own purposes, but irrelevant to OT now)."""
+    if d.weekday() == 5:
+        cutoff = datetime.combine(d, SATURDAY_OT_CUTOFF, tzinfo=IST)
+        return max(0.0, (end - max(start, cutoff)).total_seconds() / 3600.0)
+    hours_worked = max(0.0, (end - start).total_seconds() / 3600.0)
+    return max(0.0, hours_worked - day_standard)
 
 
 def pay_period_bounds(year: int, month: int) -> tuple[date, date]:
@@ -105,7 +127,7 @@ def _apply_override(d: date, override: dict, standard_hours_per_day: float, time
         start = datetime.combine(d, first_in, tzinfo=IST)
         end = datetime.combine(d, last_out, tzinfo=IST)
         hours_worked = max(0.0, (end - start).total_seconds() / 3600.0)
-        ot_hours = max(0.0, hours_worked - day_standard)
+        ot_hours = _ot_hours(d, start, end, day_standard)
         first_in_iso, last_out_iso = start.isoformat(), end.isoformat()
         late = first_in > LATE_GRACE
     elif status == "present":
@@ -214,7 +236,7 @@ def compute_daily_attendance(
         last_out = punches[-1]
         day_standard = _standard_hours_for_day(d, standard_hours_per_day, time_slot)
         hours_worked = max(0.0, (last_out - first_in).total_seconds() / 3600.0)
-        ot_hours = max(0.0, hours_worked - day_standard)
+        ot_hours = _ot_hours(d, first_in, last_out, day_standard)
         first_in_local = first_in.astimezone(IST).time()
 
         row = {

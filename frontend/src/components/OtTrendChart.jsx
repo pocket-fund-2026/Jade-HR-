@@ -1,5 +1,7 @@
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
+import { formatHoursMins } from "../lib/format.js";
+
 // OT hours already reads as ochre everywhere else in the app (StatCard
 // accents, StampBadge "ot"/"pending") — a trend of the same measure keeps
 // that hue, not a new one.
@@ -25,7 +27,7 @@ function TrendTooltip({ active, payload }) {
       <p className="text-[11px] uppercase tracking-wider text-ink/70">{point.label}</p>
       <p className="font-nums text-ink font-semibold text-base mt-0.5 flex items-center gap-1.5">
         <span className="inline-block w-2.5 h-0.5 bg-ochre-500" />
-        {point.ot_hours}h OT
+        {formatHoursMins(point.ot_hours)} OT
       </p>
     </div>
   );
@@ -44,7 +46,7 @@ export default function OtTrendChart({ data }) {
         </div>
         {total > 0 && (
           <p className="font-display text-2xl text-ink leading-none">
-            {latest.ot_hours}
+            {formatHoursMins(latest.ot_hours)}
             <span className="text-sm text-ink/70 ml-1.5 font-sans">this period</span>
           </p>
         )}

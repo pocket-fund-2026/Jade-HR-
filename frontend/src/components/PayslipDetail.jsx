@@ -3,7 +3,7 @@ import { Printer } from "lucide-react";
 import LedgerLine from "./LedgerLine.jsx";
 import StampBadge from "./StampBadge.jsx";
 import StatCard from "./StatCard.jsx";
-import { formatDate, formatFullDate, formatINR, formatTime, payPeriodLabel } from "../lib/format.js";
+import { formatDate, formatFullDate, formatHoursMins, formatINR, formatTime, payPeriodLabel } from "../lib/format.js";
 
 const OFFICE_ADDRESS = "101 Raheja Xion, Dr. Ambedkar Road, Byculla (East), Mumbai 400027, India";
 
@@ -128,8 +128,8 @@ export default function PayslipDetail({ summary, showDailyAttendance = true }) {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 stagger-rise">
-        <StatCard label="Hours Worked" value={summary.total_hours_worked} />
-        <StatCard label="OT Hours" value={summary.total_ot_hours} accent="text-ochre-700" />
+        <StatCard label="Hours Worked" value={formatHoursMins(summary.total_hours_worked)} />
+        <StatCard label="OT Hours" value={formatHoursMins(summary.total_ot_hours)} accent="text-ochre-700" />
         <StatCard label="OT Amount" value={formatINR(summary.ot_amount)} accent="text-ochre-700" />
       </div>
 
@@ -155,7 +155,7 @@ export default function PayslipDetail({ summary, showDailyAttendance = true }) {
             sub="per day ÷ standard hours"
             value={formatINR(summary.per_hour_salary)}
           />
-          <LedgerLine label="Total OT hours" value={summary.total_ot_hours} />
+          <LedgerLine label="Total OT hours" value={formatHoursMins(summary.total_ot_hours)} />
           <LedgerLine label="OT amount" value={formatINR(summary.ot_amount)} strong accent="text-ochre-700" />
         </div>
       </div>
@@ -222,8 +222,8 @@ export default function PayslipDetail({ summary, showDailyAttendance = true }) {
                     {d.late && <span className="ml-1.5 text-[10px] font-sans font-semibold text-rust-500 uppercase tracking-wide">Late</span>}
                   </td>
                   <td className="px-5 py-2 font-nums text-ink/70">{formatTime(d.last_out)}</td>
-                  <td className="px-5 py-2 font-nums">{d.hours_worked || "—"}</td>
-                  <td className="px-5 py-2 font-nums text-ochre-700">{d.ot_hours || "—"}</td>
+                  <td className="px-5 py-2 font-nums">{d.hours_worked ? formatHoursMins(d.hours_worked) : "—"}</td>
+                  <td className="px-5 py-2 font-nums text-ochre-700">{d.ot_hours ? formatHoursMins(d.ot_hours) : "—"}</td>
                   <td className="px-5 py-2">
                     <StampBadge status={d.status}>{d.status}</StampBadge>
                   </td>

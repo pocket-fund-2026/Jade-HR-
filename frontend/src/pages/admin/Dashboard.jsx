@@ -1,4 +1,4 @@
-import { Bell, Cake, X } from "lucide-react";
+import { Bell, Cake, FileSpreadsheet, X } from "lucide-react";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 
@@ -6,8 +6,9 @@ import MonthPicker from "../../components/MonthPicker.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import StatCard from "../../components/StatCard.jsx";
 import api from "../../lib/api.js";
+import { exportAttendanceExcel, exportAttendanceTimingsExcel } from "../../lib/attendanceExport.js";
 import { useAuth } from "../../lib/auth.jsx";
-import { daysUntilAnnualDate, formatDate, formatINR } from "../../lib/format.js";
+import { daysUntilAnnualDate, formatDate, formatHoursMins, formatINR } from "../../lib/format.js";
 
 // recharts is a heavy dependency (~380KB) — split out of the main bundle
 // the same way Payroll.jsx lazy-imports xlsx for its Excel export.
@@ -35,6 +36,7 @@ export default function Dashboard() {
   const canPayroll = can("payroll.view");
   const canBiometric = can("biometric.view");
   const canEmployees = can("employees.view");
+  const canAttendance = can("attendance.view") && !canPayroll;
 
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
@@ -47,6 +49,8 @@ export default function Dashboard() {
   const [employeeCount, setEmployeeCount] = useState(null);
   const [birthdays, setBirthdays] = useState([]);
   const [birthdayDismissed, setBirthdayDismissed] = useState(localStorage.getItem(BIRTHDAY_DISMISS_KEY) === todayIso);
+  const [attendanceRows, setAttendanceRows] = useState([]);
+  const [attendanceLoading, setAttendanceLoading] = useState(canAttendance);
 
   const { pendingDisputes = [], pendingLeave = [] } = useOutletContext() || {};
 
@@ -61,6 +65,16 @@ export default function Dashboard() {
   }, [year, month, canPayroll]);
 
   useEffect(() => {
+    if (!canAttendance) return;
+    setAttendanceLoading(true);
+    api
+      .get("/api/reports/attendance", { params: { year, month } })
+      .then(({ data }) => setAttendanceRows(data))
+      .catch(() => {})
+      .finally(() => setAttendanceLoading(false));
+  }, [year, month, canAttendance]);
+
+  useEffect(() => {
     if (!canBiometric) return;
     api
       .get("/api/biometric/sync-log")
@@ -71,7 +85,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (canPayroll || !canEmployees) return;
     api
-      .get("/api/employees")
+      .get("/api/employees", { params: { lite: true } })
       .then(({ data }) => setEmployeeCount(data.filter((e) => e.is_active).length))
       .catch(() => {});
   }, [canPayroll, canEmployees]);
@@ -252,7 +266,7 @@ export default function Dashboard() {
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 stagger-rise">
             <StatCard label="Active Employees" value={filtered.length} />
-            <StatCard label="Total OT Hours" value={totals.otHours.toFixed(1)} />
+            <StatCard label="Total OT Hours" value={formatHoursMins(totals.otHours)} />
             <StatCard label="Total OT Amount" value={formatINR(totals.otAmount)} accent="text-ochre-700" />
             <StatCard label="Total Payable" value={formatINR(totals.payable)} accent="text-jade-600" />
           </div>
@@ -293,7 +307,7 @@ export default function Dashboard() {
                       <td className="px-5 py-3.5 font-nums">
                         {r.absent_days > 0 ? <StampBadge status="absent">{r.absent_days} absent</StampBadge> : <span className="text-ink/65">—</span>}
                       </td>
-                      <td className="px-5 py-3.5 font-nums">{r.total_ot_hours}</td>
+                      <td className="px-5 py-3.5 font-nums">{formatHoursMins(r.total_ot_hours)}</td>
                       <td className="px-5 py-3.5 font-nums text-ochre-700">{formatINR(r.ot_amount)}</td>
                       <td className="px-5 py-3.5 font-nums font-semibold text-ink">{formatINR(r.total_payable)}</td>
                     </tr>
@@ -308,6 +322,38 @@ export default function Dashboard() {
           {canEmployees && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 stagger-rise">
               <StatCard label="Active Employees" value={employeeCount ?? "—"} />
+            </div>
+          )}
+          {canAttendance && (
+            <div className="bg-paper rounded-sm shadow-card px-6 py-5 mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-ink">Attendance</p>
+                  <p className="text-xs text-ink/70 mt-0.5">
+                    Export the full attendance sheet for every active employee.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
+                  <button
+                    onClick={() => exportAttendanceExcel(attendanceRows, year, month)}
+                    disabled={!attendanceRows.length}
+                    className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
+                  >
+                    <FileSpreadsheet size={15} /> {attendanceLoading ? "Loading…" : "Export Excel"}
+                  </button>
+                  <button
+                    onClick={() => exportAttendanceTimingsExcel(attendanceRows, year, month)}
+                    disabled={!attendanceRows.length}
+                    className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
+                  >
+                    <FileSpreadsheet size={15} /> {attendanceLoading ? "Loading…" : "Export Timings (Datewise)"}
+                  </button>
+                  <Link to="/admin/reports/attendance" className="text-xs text-jade-700 hover:underline font-medium whitespace-nowrap">
+                    View full sheet
+                  </Link>
+                </div>
+              </div>
             </div>
           )}
           <div className="bg-paper rounded-sm shadow-card px-6 py-10 text-center">

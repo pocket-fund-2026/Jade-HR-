@@ -9,13 +9,22 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [permissions, setPermissions] = useState({});
   const [loading, setLoading] = useState(true);
+  // Starts true so RequirePermission (App.jsx) can tell "hr role, permission
+  // not loaded yet" apart from "hr role, permission checked and denied" —
+  // without this, a direct nav/hard-refresh onto a gated route reads the
+  // still-empty `permissions` object as denied and bounces to /admin before
+  // the fetch below resolves, even for a permission the caller actually has.
+  const [permissionsLoading, setPermissionsLoading] = useState(true);
 
   const loadPermissions = async () => {
+    setPermissionsLoading(true);
     try {
       const { data } = await api.get("/api/permissions/me");
       setPermissions(data);
     } catch {
       setPermissions({});
+    } finally {
+      setPermissionsLoading(false);
     }
   };
 
@@ -23,6 +32,7 @@ export function AuthProvider({ children }) {
     const token = localStorage.getItem("jade_hr_token");
     if (!token) {
       setLoading(false);
+      setPermissionsLoading(false);
       return;
     }
     try {
@@ -32,8 +42,10 @@ export function AuthProvider({ children }) {
       // just default to hidden for the instant it takes to arrive, then
       // pop in. Saves a full extra network round-trip before anything paints.
       if (CONSOLE_ROLES.includes(data.role)) loadPermissions();
+      else setPermissionsLoading(false);
     } catch {
       localStorage.removeItem("jade_hr_token");
+      setPermissionsLoading(false);
     } finally {
       setLoading(false);
     }
@@ -56,6 +68,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem("jade_hr_role");
     setUser(null);
     setPermissions({});
+    setPermissionsLoading(true);
   };
 
   // accounts always has full access; hr is gated per-key by what accounts has granted.
@@ -67,7 +80,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, permissions, can, reloadPermissions: loadPermissions }}>
+    <AuthContext.Provider value={{ user, loading, permissionsLoading, login, logout, permissions, can, reloadPermissions: loadPermissions }}>
       {children}
     </AuthContext.Provider>
   );

@@ -3,26 +3,13 @@ import { useState } from "react";
 
 import api from "../lib/api.js";
 import { useAuth } from "../lib/auth.jsx";
-
-export const LEAVE_LABELS = {
-  casual: "Casual Leave",
-  sick: "Sick Leave",
-  earned: "Privilege Leave (PL)",
-  unpaid: "Unpaid Leave",
-  other: "Other",
-  paternity: "Paternity Leave",
-  maternity: "Maternity Leave",
-  compassionate: "Compassionate Leave",
-  comp_off: "Comp-Off",
-};
-
-const CORPORATE_ONLY_TYPES = new Set(["paternity", "maternity", "compassionate", "comp_off"]);
+import { LEAVE_LABELS, selectableLeaveTypes } from "../lib/leaveTypes.js";
 
 export default function LeaveRequestModal({ onClose, onSubmitted }) {
   const { user } = useAuth();
   const isCorporate = user?.employee_category === "corporate";
-  const availableTypes = Object.keys(LEAVE_LABELS).filter((t) => isCorporate || !CORPORATE_ONLY_TYPES.has(t));
-  const [leaveType, setLeaveType] = useState("casual");
+  const availableTypes = selectableLeaveTypes(isCorporate);
+  const [leaveType, setLeaveType] = useState("paid");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [reason, setReason] = useState("");

@@ -11,17 +11,128 @@ from payroll import pay_period_bounds
 
 router = APIRouter(prefix="/api", tags=["leave"])
 
-# Fixed annual allocations, enforced in code rather than a balances table.
-# Unpaid leave has no cap. Corporate-roster staff (Leave & Attendance Policy
-# v1.1) get a richer structure — 'earned' is that policy's Privilege Leave
-# (PL): 24/yr accrued pro-rata, gated for the first 3 months of employment.
-# Everyone else keeps the pre-policy flat allocations untouched.
-LEAVE_ALLOCATIONS = {"casual": 12, "sick": 12, "earned": 15}
-CORPORATE_LEAVE_ALLOCATIONS = {"casual": 12, "sick": 12, "earned": 24, "paternity": 3}
+# Jul 2026 policy: Casual/Sick/Earned are discontinued as separate leave
+# types, replaced company-wide (corporate and factory/retail alike) by one
+# unified Paid Leave pool — 24/yr, accrued 2/mo same as the old 'earned'
+# formula (_pl_accrued_to_date), gated for the first 3 months of employment.
+# Unused balance carries into the next calendar year up to a location cap;
+# anything beyond the cap expires (see _carry_forward_cap/get_carried_forward
+# below). 'casual'/'sick'/'earned' remain valid historical leave_type values
+# (old requests still display correctly) but are no longer offered for new
+# requests — DEPRECATED_LEAVE_TYPES / MERGED_PAID_LEAVE_TYPES below exist so
+# a transition-year employee's usage already booked under an old type label
+# still draws down the same unified pool, rather than getting a second,
+# double-counted allocation under 'paid'.
+PAID_LEAVE_ANNUAL_CAP = 24
+PAID_LEAVE_POLICY_START_YEAR = 2026  # first leave_year the carry-forward pool exists; no prior pool to carry in
+CARRY_FORWARD_CAP_HQ = 15
+CARRY_FORWARD_CAP_RETAIL = 7
+HQ_LOCATION = "Madhu Estate, Mumbai"  # exact-match convention already used for holidays (payroll.py's _holiday_applies)
+PATERNITY_ALLOCATION = 3
+DEPRECATED_LEAVE_TYPES = ("casual", "sick", "earned")
+MERGED_PAID_LEAVE_TYPES = ("paid",) + DEPRECATED_LEAVE_TYPES
 CORPORATE_ONLY_TYPES = {"paternity", "maternity", "compassionate", "comp_off"}
 PL_PROBATION_DAYS = 91  # ~3 months
 COMP_OFF_MAX_DAYS_PER_REQUEST = 2
 COMP_OFF_VALIDITY_DAYS = 120
+
+
+def _carry_forward_cap(location: str | None) -> float:
+    return CARRY_FORWARD_CAP_HQ if location == HQ_LOCATION else CARRY_FORWARD_CAP_RETAIL
+
+
+def _compute_carry_forward(prior_carried_forward: float, prior_accrued: float, prior_used: float, cap: float) -> float:
+    """Pure math for how much of a prior leave-year's unused Paid Leave
+    carries into the next year: whatever's left (never negative), capped by
+    location. Split out from get_carried_forward's DB read/write so this —
+    the actual money-relevant formula — is unit-testable without a live
+    Supabase connection, matching this codebase's existing test style."""
+    prior_remaining = max(0.0, prior_carried_forward + prior_accrued - prior_used)
+    return round(min(prior_remaining, cap), 2)
+
+
+def _paid_leave_used(employee_id: str, year: int, as_of: date | None = None) -> float:
+    """Approved-leave days this calendar year across every merged paid-leave
+    type label (see MERGED_PAID_LEAVE_TYPES) — not just 'paid' — so a
+    transition-year employee's casual/sick/earned usage still draws down the
+    same unified pool instead of getting counted twice."""
+    resp = (
+        supabase.table("hr_leave_requests")
+        .select("start_date,end_date")
+        .eq("employee_id", employee_id)
+        .in_("leave_type", list(MERGED_PAID_LEAVE_TYPES))
+        .eq("status", "approved")
+        .gte("start_date", f"{year}-01-01")
+        .lte("start_date", (as_of or date(year, 12, 31)).isoformat())
+        .execute()
+    )
+    return sum(_days_in_range(r["start_date"], r["end_date"]) for r in resp.data)
+
+
+def get_carried_forward(employee: dict, year: int) -> float:
+    """Locked opening carry-forward for one employee's leave_year, persisted
+    in hr_leave_balances the first time this year is ever read (so it can't
+    silently drift later if an old year's requests are edited). Recurses one
+    year at a time back to PAID_LEAVE_POLICY_START_YEAR, the base case with
+    no prior pool to carry from."""
+    if year <= PAID_LEAVE_POLICY_START_YEAR:
+        return 0.0
+
+    existing = (
+        supabase.table("hr_leave_balances")
+        .select("carried_forward")
+        .eq("employee_id", employee["id"])
+        .eq("leave_year", year)
+        .maybe_single()
+        .execute()
+    )
+    row = maybe_single_data(existing)
+    if row is not None:
+        return float(row["carried_forward"])
+
+    prior_carried_forward = get_carried_forward(employee, year - 1)
+    prior_accrued = _pl_accrued_to_date(employee.get("date_of_joining"), date(year - 1, 12, 31), year - 1)
+    prior_used = _paid_leave_used(employee["id"], year - 1)
+    carried_forward = _compute_carry_forward(
+        prior_carried_forward, prior_accrued, prior_used, _carry_forward_cap(employee.get("location")),
+    )
+
+    # Don't lock this in until the prior leave-year has actually finished —
+    # e.g. a Full & Final settlement for someone with a 2027 scheduled exit
+    # date, computed today in mid-2026, must not freeze a carry-forward
+    # derived from an incomplete 2026 (still-accruing, still-usable) balance.
+    # Keep recomputing live on every call until the year is genuinely over,
+    # then lock it exactly once.
+    if date.today() <= date(year - 1, 12, 31):
+        return carried_forward
+
+    inserted = (
+        supabase.table("hr_leave_balances")
+        .upsert(
+            {"employee_id": employee["id"], "leave_year": year, "carried_forward": carried_forward},
+            on_conflict="employee_id,leave_year",
+        )
+        .execute()
+    )
+    return float(inserted.data[0]["carried_forward"]) if inserted.data else carried_forward
+
+
+def paid_leave_allocated_to_date(employee: dict, as_of: date) -> float:
+    """This leave-year's running Paid Leave entitlement as of a date: last
+    year's locked carry-forward, plus this year's accrual to date (2/mo,
+    capped 24/yr — same formula the old corporate-only 'earned' policy used,
+    now applied company-wide)."""
+    return get_carried_forward(employee, as_of.year) + _pl_accrued_to_date(employee.get("date_of_joining"), as_of, as_of.year)
+
+
+def paid_leave_balance_as_of(employee: dict, as_of: date) -> float:
+    """Unused Paid Leave balance as of a specific date — used for Full &
+    Final leave encashment and the Leave Ledger Report's opening balance.
+    Replaces the old earned-only calculation now that Casual/Sick/Earned
+    are merged into this one pool."""
+    allocated = paid_leave_allocated_to_date(employee, as_of)
+    used = _paid_leave_used(employee["id"], as_of.year, as_of)
+    return max(0.0, round(allocated - used, 2))
 
 
 def _days_in_range(start: str, end: str) -> int:
@@ -43,41 +154,6 @@ def _pl_accrued_to_date(date_of_joining: str | None, today: date, year: int) -> 
         return 0
     months_elapsed = (reference.year - accrual_start.year) * 12 + reference.month - accrual_start.month + 1
     return min(24, max(0, months_elapsed) * 2)
-
-
-def earned_leave_balance_as_of(employee: dict, as_of: date) -> float:
-    """Unused 'earned' (Privilege) leave balance as of a specific date — for
-    Full & Final leave encashment. Only 'earned' leave is encashable here
-    (matches common practice — casual/sick lapse, not paid out). Corporate
-    roster accrues 2 days/month (capped 24/yr, via _pl_accrued_to_date);
-    everyone else gets the flat 15/yr allocation available in full from
-    Jan 1 (or date of joining if later), matching my_leave_balance's
-    existing non-corporate behavior — not further prorated here."""
-    is_corporate = employee.get("employee_category") == "corporate"
-    doj = employee.get("date_of_joining")
-    year = as_of.year
-
-    if is_corporate:
-        allocated = _pl_accrued_to_date(doj, as_of, year)
-    else:
-        allocated = 15
-        if doj:
-            doj_date = date.fromisoformat(doj)
-            if doj_date.year > year or doj_date > as_of:
-                allocated = 0
-
-    resp = (
-        supabase.table("hr_leave_requests")
-        .select("start_date,end_date")
-        .eq("employee_id", employee["id"])
-        .eq("leave_type", "earned")
-        .eq("status", "approved")
-        .gte("start_date", f"{year}-01-01")
-        .lte("start_date", as_of.isoformat())
-        .execute()
-    )
-    used = sum(_days_in_range(r["start_date"], r["end_date"]) for r in resp.data)
-    return max(0, allocated - used)
 
 
 def _comp_off_available(employee_id: str) -> float:
@@ -109,13 +185,18 @@ def _consume_comp_off(employee_id: str, days_needed: float, leave_request_id: st
     if sum(float(r["units"]) for r in resp.data) < days_needed - 1e-9:
         return False
     remaining = days_needed
+    consumed_ids = []
     for entry in resp.data:
         if remaining <= 1e-9:
             break
+        consumed_ids.append(entry["id"])
+        remaining -= float(entry["units"])
+    # Every consumed row gets the identical update — one batched call
+    # instead of one round-trip per ledger entry.
+    if consumed_ids:
         supabase.table("hr_comp_off_ledger").update({
             "status": "used", "used_in_leave_request_id": leave_request_id,
-        }).eq("id", entry["id"]).execute()
-        remaining -= float(entry["units"])
+        }).in_("id", consumed_ids).execute()
     return True
 
 
@@ -126,16 +207,22 @@ def create_leave_request(body: LeaveRequestCreate, user: dict = Depends(get_curr
     is_corporate = user.get("employee_category") == "corporate"
     requested_days = _days_in_range(body.start_date.isoformat(), body.end_date.isoformat())
 
+    if body.leave_type in DEPRECATED_LEAVE_TYPES:
+        raise HTTPException(status_code=400, detail="This leave type is no longer offered — use Paid Leave instead")
+
     if body.leave_type in CORPORATE_ONLY_TYPES and not is_corporate:
         raise HTTPException(status_code=403, detail="This leave type is only available to corporate staff")
 
-    if body.leave_type == "earned" and is_corporate:
+    if body.leave_type == "paid":
         doj = user.get("date_of_joining")
         if doj and (date.today() - date.fromisoformat(doj)).days < PL_PROBATION_DAYS:
             raise HTTPException(
                 status_code=400,
-                detail="Privilege Leave is available after 3 months from your date of joining",
+                detail="Paid Leave is available after 3 months from your date of joining",
             )
+        remaining = paid_leave_balance_as_of(user, date.today())
+        if requested_days > remaining:
+            raise HTTPException(status_code=400, detail=f"Not enough Paid Leave balance — {remaining} day(s) remaining")
 
     if body.leave_type == "comp_off":
         if requested_days > COMP_OFF_MAX_DAYS_PER_REQUEST:
@@ -189,18 +276,22 @@ def my_leave_requests(user: dict = Depends(get_current_user)):
 
 
 def _pl_ledger_from_rows(employee: dict, year: int, month: int, leave_rows: list[dict]) -> dict:
-    """Pure computation half of the PL ledger, given this employee's already-
-    fetched approved 'earned' leave rows (start_date/end_date) covering at
-    least day-before-period-start through period-end. Split out so the bulk
-    path (pl_ledger_for_period_bulk) can fetch once for every employee
-    instead of once per employee."""
+    """Pure computation half of the Paid Leave ledger, given this employee's
+    already-fetched approved leave rows (start_date/end_date, any merged
+    type — see MERGED_PAID_LEAVE_TYPES) covering at least day-before-period-
+    start through period-end. Split out so the bulk path
+    (pl_ledger_for_period_bulk) can fetch once for every employee instead of
+    once per employee."""
     doj = employee.get("date_of_joining")
+    location = employee.get("location")
     period_start, period_end = pay_period_bounds(year, month)
     day_before_start = period_start - timedelta(days=1)
 
     accrued_at_start = _pl_accrued_to_date(doj, day_before_start, day_before_start.year)
     accrued_at_end = _pl_accrued_to_date(doj, period_end, period_end.year)
-    credit = max(0, accrued_at_end - accrued_at_start)
+    carry_at_start = get_carried_forward(employee, day_before_start.year) if day_before_start.year > PAID_LEAVE_POLICY_START_YEAR else 0.0
+    carry_at_end = get_carried_forward(employee, period_end.year) if period_end.year > PAID_LEAVE_POLICY_START_YEAR else 0.0
+    credit = max(0, (accrued_at_end + carry_at_end) - (accrued_at_start + carry_at_start))
 
     used_before = used_within = 0
     for r in leave_rows:
@@ -210,38 +301,32 @@ def _pl_ledger_from_rows(employee: dict, year: int, month: int, leave_rows: list
         else:
             used_within += days
 
-    opening = accrued_at_start - used_before
+    opening = accrued_at_start + carry_at_start - used_before
     debit = used_within
     closing = opening + credit - debit
     return {"opening": opening, "debit": debit, "credit": credit, "closing": closing}
 
 
-def pl_ledger_for_period(employee: dict, year: int, month: int) -> dict | None:
-    """Opening/Debit/Credit/Closing for Privilege Leave (PL) over one pay
-    period — the leave-ledger row on the printed payslip. Corporate roster
-    only: PL's 2-days/month accrual is that policy's; other leave types are
-    flat annual allocations with no meaningful monthly ledger to show.
+def pl_ledger_for_period(employee: dict, year: int, month: int) -> dict:
+    """Opening/Debit/Credit/Closing for Paid Leave over one pay period — the
+    leave-ledger row on the printed payslip. Company-wide since the Jul 2026
+    merge (previously corporate-roster only).
 
-    Known limitation: like my_leave_balance, PL accrual resets each calendar
-    year, and this doesn't carry a balance across that boundary. For most
-    pay periods (fully within one calendar year) opening/debit/credit/closing
-    are exact. For the Dec23-Jan22 period specifically (the one pay period
-    that straddles Jan 1), the opening balance and this period's credit are
-    approximations — an employee's ledger is fully accurate every month
-    except that one.
+    Known limitation: like my_leave_balance, this doesn't perfectly reconcile
+    across the Dec23-Jan22 pay period specifically (the one period that
+    straddles Jan 1 — both the accrual-year AND the leave-year carry-forward
+    roll over mid-period) — an employee's ledger is fully accurate every
+    month except that one, same caveat as before the merge.
 
     Single-employee path — does its own query. For a list of employees, use
     pl_ledger_for_period_bulk instead (one query for everyone, not N)."""
-    if employee.get("employee_category") != "corporate":
-        return None
-
     period_start, period_end = pay_period_bounds(year, month)
     day_before_start = period_start - timedelta(days=1)
     resp = (
         supabase.table("hr_leave_requests")
         .select("start_date,end_date")
         .eq("employee_id", employee["id"])
-        .eq("leave_type", "earned")
+        .in_("leave_type", list(MERGED_PAID_LEAVE_TYPES))
         .eq("status", "approved")
         .gte("start_date", f"{day_before_start.year}-01-01")
         .lte("start_date", period_end.isoformat())
@@ -250,24 +335,23 @@ def pl_ledger_for_period(employee: dict, year: int, month: int) -> dict | None:
     return _pl_ledger_from_rows(employee, year, month, resp.data)
 
 
-def pl_ledger_for_period_bulk(employees: list[dict], year: int, month: int) -> dict[str, dict | None]:
+def pl_ledger_for_period_bulk(employees: list[dict], year: int, month: int) -> dict[str, dict]:
     """Same as pl_ledger_for_period, for every employee in one request — one
     bulk query instead of one-per-employee (this is what /api/payroll, which
     already bulk-fetches punches/overrides/leaves the same way, must use;
     N sequential per-employee queries here was the dominant cost of that
     endpoint for a 200+ employee roster)."""
-    corporate = [e for e in employees if e.get("employee_category") == "corporate"]
-    if not corporate:
-        return {e["id"]: None for e in employees}
+    if not employees:
+        return {}
 
     period_start, period_end = pay_period_bounds(year, month)
     day_before_start = period_start - timedelta(days=1)
-    corporate_ids = [e["id"] for e in corporate]
+    employee_ids = [e["id"] for e in employees]
     resp = (
         supabase.table("hr_leave_requests")
         .select("employee_id,start_date,end_date")
-        .in_("employee_id", corporate_ids)
-        .eq("leave_type", "earned")
+        .in_("employee_id", employee_ids)
+        .in_("leave_type", list(MERGED_PAID_LEAVE_TYPES))
         .eq("status", "approved")
         .gte("start_date", f"{day_before_start.year}-01-01")
         .lte("start_date", period_end.isoformat())
@@ -277,17 +361,27 @@ def pl_ledger_for_period_bulk(employees: list[dict], year: int, month: int) -> d
     for r in resp.data:
         rows_by_employee[r["employee_id"]].append(r)
 
-    ledgers: dict[str, dict | None] = {e["id"]: None for e in employees}
-    for e in corporate:
-        ledgers[e["id"]] = _pl_ledger_from_rows(e, year, month, rows_by_employee.get(e["id"], []))
-    return ledgers
+    return {e["id"]: _pl_ledger_from_rows(e, year, month, rows_by_employee.get(e["id"], [])) for e in employees}
 
 
 @router.get("/me/leave-balance")
 def my_leave_balance(user: dict = Depends(get_current_user)):
-    year = datetime.now(timezone.utc).year
     today = datetime.now(timezone.utc).date()
+    year = today.year
     is_corporate = user.get("employee_category") == "corporate"
+
+    allocated = paid_leave_allocated_to_date(user, today)
+    carried_forward = get_carried_forward(user, year)
+    used_paid = _paid_leave_used(user["id"], year, today)
+
+    balances = [{
+        "leave_type": "paid",
+        "allocated": round(allocated, 2),
+        "carried_forward": round(carried_forward, 2),
+        "used": used_paid,
+        "remaining": round(max(0.0, allocated - used_paid), 2),
+    }]
+
     resp = (
         supabase.table("hr_leave_requests")
         .select("leave_type,start_date,end_date")
@@ -301,14 +395,12 @@ def my_leave_balance(user: dict = Depends(get_current_user)):
     for r in resp.data:
         used[r["leave_type"]] += _days_in_range(r["start_date"], r["end_date"])
 
-    allocations = dict(CORPORATE_LEAVE_ALLOCATIONS if is_corporate else LEAVE_ALLOCATIONS)
     if is_corporate:
-        allocations["earned"] = _pl_accrued_to_date(user.get("date_of_joining"), today, year)
-
-    balances = [
-        {"leave_type": t, "allocated": allocated, "used": used.get(t, 0), "remaining": allocated - used.get(t, 0)}
-        for t, allocated in allocations.items()
-    ]
+        pat_used = used.get("paternity", 0)
+        balances.append({
+            "leave_type": "paternity", "allocated": PATERNITY_ALLOCATION,
+            "used": pat_used, "remaining": PATERNITY_ALLOCATION - pat_used,
+        })
 
     uncapped = ["unpaid", "other"] + (["maternity", "compassionate"] if is_corporate else [])
     balances += [{"leave_type": t, "allocated": None, "used": used.get(t, 0), "remaining": None} for t in uncapped]

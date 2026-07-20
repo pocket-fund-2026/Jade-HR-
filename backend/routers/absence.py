@@ -36,14 +36,17 @@ def upload_attachment(body: AbsenceUpload, user: dict = Depends(get_current_user
     return {"path": path, "filename": body.filename}
 
 
-def _signed_url(path: str | None) -> str | None:
-    if not path:
-        return None
+def _signed_urls(paths: list[str | None]) -> dict[str, str | None]:
+    """One batched Storage call for every row's attachment instead of a
+    signed-URL round-trip per row."""
+    unique_paths = [p for p in dict.fromkeys(paths) if p]
+    if not unique_paths:
+        return {}
     try:
-        resp = supabase.storage.from_(BUCKET).create_signed_url(path, 3600)
-        return resp.get("signedURL") or resp.get("signed_url")
+        results = supabase.storage.from_(BUCKET).create_signed_urls(unique_paths, 3600)
+        return {r["path"]: (r.get("signedURL") or r.get("signedUrl")) for r in results if not r.get("error")}
     except Exception:
-        return None
+        return {}
 
 
 @router.post("/api/me/absence-requests")
@@ -98,8 +101,9 @@ def my_absence_requests(user: dict = Depends(get_current_user)):
         .order("created_at", desc=True)
         .execute()
     )
+    urls = _signed_urls([r.get("attachment_path") for r in resp.data])
     for r in resp.data:
-        r["attachment_url"] = _signed_url(r.get("attachment_path"))
+        r["attachment_url"] = urls.get(r.get("attachment_path"))
     return resp.data
 
 
@@ -111,8 +115,9 @@ def list_absence_requests(status: str | None = None, user: dict = Depends(requir
     if status:
         query = query.eq("status", status)
     resp = query.order("created_at", desc=True).execute()
+    urls = _signed_urls([r.get("attachment_path") for r in resp.data])
     for r in resp.data:
-        r["attachment_url"] = _signed_url(r.get("attachment_path"))
+        r["attachment_url"] = urls.get(r.get("attachment_path"))
     return resp.data
 
 

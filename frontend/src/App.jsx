@@ -6,49 +6,72 @@ import Login from "./pages/Login.jsx";
 import Onboarding from "./pages/Onboarding.jsx";
 import Setup from "./pages/Setup.jsx";
 
+// Vite fingerprints each lazy chunk's filename per build. A tab left open
+// across a deploy holds stale filenames — the dynamic import() 404s and
+// that page just never renders until the user manually refreshes. Retry
+// once via a full reload (which re-fetches index.html and the current
+// chunk graph) before giving up for real.
+const CHUNK_RELOAD_KEY = "jade_hr_chunk_reload";
+function lazyWithReload(importer) {
+  return lazy(async () => {
+    try {
+      const mod = await importer();
+      sessionStorage.removeItem(CHUNK_RELOAD_KEY);
+      return mod;
+    } catch (err) {
+      if (!sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
+        sessionStorage.setItem(CHUNK_RELOAD_KEY, "1");
+        window.location.reload();
+        return new Promise(() => {}); // reload takes over before this matters
+      }
+      throw err;
+    }
+  });
+}
+
 // Route-level code splitting: most logins are the 285 self-service employees,
 // who should never have to download the admin console's JS (or vice versa).
-const AdminLayout = lazy(() => import("./pages/admin/AdminLayout.jsx"));
-const Dashboard = lazy(() => import("./pages/admin/Dashboard.jsx"));
-const Disputes = lazy(() => import("./pages/admin/Disputes.jsx"));
-const EmployeeDetails = lazy(() => import("./pages/admin/EmployeeDetails.jsx"));
-const Employees = lazy(() => import("./pages/admin/Employees.jsx"));
-const Leave = lazy(() => import("./pages/admin/Leave.jsx"));
-const LeaveEntry = lazy(() => import("./pages/admin/LeaveEntry.jsx"));
-const MyLeave = lazy(() => import("./pages/admin/MyLeave.jsx"));
-const MyPayslip = lazy(() => import("./pages/admin/MyPayslip.jsx"));
-const PayslipApprovals = lazy(() => import("./pages/admin/PayslipApprovals.jsx"));
-const Letters = lazy(() => import("./pages/admin/Letters.jsx"));
-const Payroll = lazy(() => import("./pages/admin/Payroll.jsx"));
-const PayrollDetail = lazy(() => import("./pages/admin/PayrollDetail.jsx"));
-const Policy = lazy(() => import("./pages/admin/Policy.jsx"));
-const Reports = lazy(() => import("./pages/admin/Reports.jsx"));
-const SalarySheetReport = lazy(() => import("./pages/admin/reports/SalarySheetReport.jsx"));
-const YearlySalaryReport = lazy(() => import("./pages/admin/reports/YearlySalaryReport.jsx"));
-const CtcAsPerSalaryReport = lazy(() => import("./pages/admin/reports/CtcAsPerSalaryReport.jsx"));
-const CtcAsPerPayslipReport = lazy(() => import("./pages/admin/reports/CtcAsPerPayslipReport.jsx"));
-const ArrearDetailsReport = lazy(() => import("./pages/admin/reports/ArrearDetailsReport.jsx"));
-const FullAndFinalReport = lazy(() => import("./pages/admin/reports/FullAndFinalReport.jsx"));
-const AccountsJvReport = lazy(() => import("./pages/admin/reports/AccountsJvReport.jsx"));
-const BankTransferReport = lazy(() => import("./pages/admin/reports/BankTransferReport.jsx"));
-const HeadCountReport = lazy(() => import("./pages/admin/reports/HeadCountReport.jsx"));
-const PfReport = lazy(() => import("./pages/admin/reports/PfReport.jsx"));
-const EsicReport = lazy(() => import("./pages/admin/reports/EsicReport.jsx"));
-const PtReport = lazy(() => import("./pages/admin/reports/PtReport.jsx"));
-const LwfReport = lazy(() => import("./pages/admin/reports/LwfReport.jsx"));
-const TdsProjectionReport = lazy(() => import("./pages/admin/reports/TdsProjectionReport.jsx"));
-const BonusReport = lazy(() => import("./pages/admin/reports/BonusReport.jsx"));
-const GratuityReport = lazy(() => import("./pages/admin/reports/GratuityReport.jsx"));
-const LeaveLedgerReport = lazy(() => import("./pages/admin/reports/LeaveLedgerReport.jsx"));
-const LumpsumReport = lazy(() => import("./pages/admin/reports/LumpsumReport.jsx"));
-const AttendanceReport = lazy(() => import("./pages/admin/reports/AttendanceReport.jsx"));
-const TeamAccess = lazy(() => import("./pages/admin/TeamAccess.jsx"));
-const OnboardingReview = lazy(() => import("./pages/admin/Onboarding.jsx"));
-const WorkAbsence = lazy(() => import("./pages/admin/WorkAbsence.jsx"));
-const EmployeeLayout = lazy(() => import("./pages/employee/EmployeeLayout.jsx"));
-const EmployeeDashboard = lazy(() => import("./pages/employee/Dashboard.jsx"));
-const TeamLeave = lazy(() => import("./pages/employee/TeamLeave.jsx"));
-const TaxDeclaration = lazy(() => import("./pages/employee/TaxDeclaration.jsx"));
+const AdminLayout = lazyWithReload(() => import("./pages/admin/AdminLayout.jsx"));
+const Dashboard = lazyWithReload(() => import("./pages/admin/Dashboard.jsx"));
+const Disputes = lazyWithReload(() => import("./pages/admin/Disputes.jsx"));
+const EmployeeDetails = lazyWithReload(() => import("./pages/admin/EmployeeDetails.jsx"));
+const Employees = lazyWithReload(() => import("./pages/admin/Employees.jsx"));
+const Leave = lazyWithReload(() => import("./pages/admin/Leave.jsx"));
+const LeaveEntry = lazyWithReload(() => import("./pages/admin/LeaveEntry.jsx"));
+const MyLeave = lazyWithReload(() => import("./pages/admin/MyLeave.jsx"));
+const MyPayslip = lazyWithReload(() => import("./pages/admin/MyPayslip.jsx"));
+const PayslipApprovals = lazyWithReload(() => import("./pages/admin/PayslipApprovals.jsx"));
+const Letters = lazyWithReload(() => import("./pages/admin/Letters.jsx"));
+const Payroll = lazyWithReload(() => import("./pages/admin/Payroll.jsx"));
+const PayrollDetail = lazyWithReload(() => import("./pages/admin/PayrollDetail.jsx"));
+const Policy = lazyWithReload(() => import("./pages/admin/Policy.jsx"));
+const Reports = lazyWithReload(() => import("./pages/admin/Reports.jsx"));
+const SalarySheetReport = lazyWithReload(() => import("./pages/admin/reports/SalarySheetReport.jsx"));
+const YearlySalaryReport = lazyWithReload(() => import("./pages/admin/reports/YearlySalaryReport.jsx"));
+const CtcAsPerSalaryReport = lazyWithReload(() => import("./pages/admin/reports/CtcAsPerSalaryReport.jsx"));
+const CtcAsPerPayslipReport = lazyWithReload(() => import("./pages/admin/reports/CtcAsPerPayslipReport.jsx"));
+const ArrearDetailsReport = lazyWithReload(() => import("./pages/admin/reports/ArrearDetailsReport.jsx"));
+const FullAndFinalReport = lazyWithReload(() => import("./pages/admin/reports/FullAndFinalReport.jsx"));
+const AccountsJvReport = lazyWithReload(() => import("./pages/admin/reports/AccountsJvReport.jsx"));
+const BankTransferReport = lazyWithReload(() => import("./pages/admin/reports/BankTransferReport.jsx"));
+const HeadCountReport = lazyWithReload(() => import("./pages/admin/reports/HeadCountReport.jsx"));
+const PfReport = lazyWithReload(() => import("./pages/admin/reports/PfReport.jsx"));
+const EsicReport = lazyWithReload(() => import("./pages/admin/reports/EsicReport.jsx"));
+const PtReport = lazyWithReload(() => import("./pages/admin/reports/PtReport.jsx"));
+const LwfReport = lazyWithReload(() => import("./pages/admin/reports/LwfReport.jsx"));
+const TdsProjectionReport = lazyWithReload(() => import("./pages/admin/reports/TdsProjectionReport.jsx"));
+const BonusReport = lazyWithReload(() => import("./pages/admin/reports/BonusReport.jsx"));
+const GratuityReport = lazyWithReload(() => import("./pages/admin/reports/GratuityReport.jsx"));
+const LeaveLedgerReport = lazyWithReload(() => import("./pages/admin/reports/LeaveLedgerReport.jsx"));
+const LumpsumReport = lazyWithReload(() => import("./pages/admin/reports/LumpsumReport.jsx"));
+const AttendanceReport = lazyWithReload(() => import("./pages/admin/reports/AttendanceReport.jsx"));
+const TeamAccess = lazyWithReload(() => import("./pages/admin/TeamAccess.jsx"));
+const OnboardingReview = lazyWithReload(() => import("./pages/admin/Onboarding.jsx"));
+const WorkAbsence = lazyWithReload(() => import("./pages/admin/WorkAbsence.jsx"));
+const EmployeeLayout = lazyWithReload(() => import("./pages/employee/EmployeeLayout.jsx"));
+const EmployeeDashboard = lazyWithReload(() => import("./pages/employee/Dashboard.jsx"));
+const TeamLeave = lazyWithReload(() => import("./pages/employee/TeamLeave.jsx"));
+const TaxDeclaration = lazyWithReload(() => import("./pages/employee/TaxDeclaration.jsx"));
 
 const CONSOLE_ROLES = ["accounts", "hr"];
 
@@ -74,7 +97,13 @@ function Protected({ roles, children }) {
 // Used for whole pages (Payroll, Disputes, Leave) and Team Access, which is
 // accounts by default but can be delegated via the permissions.manage key.
 function RequirePermission({ anyOf, children }) {
-  const { can } = useAuth();
+  const { user, can, permissionsLoading } = useAuth();
+  // hr's permissions arrive one round-trip after `user` — on a direct
+  // nav/hard-refresh into a gated route, deciding before they land would
+  // read the still-empty permission set as "denied" and bounce a user who
+  // actually has access. accounts doesn't need this (can() short-circuits
+  // true for that role without ever consulting `permissions`).
+  if (user?.role === "hr" && permissionsLoading) return <PageFallback />;
   if (!can(...anyOf)) return <Navigate to="/admin" replace />;
   return children;
 }
@@ -121,7 +150,7 @@ export default function App() {
             <Route path="reports/gratuity" element={<RequirePermission anyOf={["payroll.view"]}><GratuityReport /></RequirePermission>} />
             <Route path="reports/leave-ledger" element={<RequirePermission anyOf={["leave.manage", "payroll.view"]}><LeaveLedgerReport /></RequirePermission>} />
             <Route path="reports/lumpsum" element={<RequirePermission anyOf={["payroll.view"]}><LumpsumReport /></RequirePermission>} />
-            <Route path="reports/attendance" element={<RequirePermission anyOf={["payroll.view"]}><AttendanceReport /></RequirePermission>} />
+            <Route path="reports/attendance" element={<RequirePermission anyOf={["payroll.view", "attendance.view"]}><AttendanceReport /></RequirePermission>} />
             <Route path="disputes" element={<RequirePermission anyOf={["disputes.manage"]}><Disputes /></RequirePermission>} />
             <Route path="leave" element={<RequirePermission anyOf={["leave.manage"]}><Leave /></RequirePermission>} />
             <Route path="work-absence" element={<RequirePermission anyOf={["absence.manage"]}><WorkAbsence /></RequirePermission>} />

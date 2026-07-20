@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 
 import MonthPicker from "../../components/MonthPicker.jsx";
 import api from "../../lib/api.js";
-import { formatINR } from "../../lib/format.js";
+import { formatHoursMins, formatINR } from "../../lib/format.js";
 
 const today = new Date();
 const MONTH_NAMES = [
@@ -29,7 +29,7 @@ async function exportExcel(rows, year, month) {
     "Gross (Basic+HRA+Conveyance)": r.basic + r.hra + r.conveyance,
     "Per Day Salary": r.per_day_salary,
     "Per Hour Salary": r.per_hour_salary,
-    "OT Hours": r.total_ot_hours,
+    "OT Hours": formatHoursMins(r.total_ot_hours),
     "OT Amount": r.ot_amount,
     "Total Payable": r.total_payable,
   }));
@@ -145,7 +145,7 @@ export default function Payroll() {
                   <td className="px-5 py-3.5 font-nums">{formatINR(r.basic + r.hra + r.conveyance)}</td>
                   <td className="px-5 py-3.5 font-nums text-ink/70">{formatINR(r.per_day_salary)}</td>
                   <td className="px-5 py-3.5 font-nums text-ink/70">{formatINR(r.per_hour_salary)}</td>
-                  <td className="px-5 py-3.5 font-nums">{r.total_ot_hours}</td>
+                  <td className="px-5 py-3.5 font-nums">{formatHoursMins(r.total_ot_hours)}</td>
                   <td className="px-5 py-3.5 font-nums font-semibold text-ochre-700">{formatINR(r.ot_amount)}</td>
                   <td className="px-5 py-3.5 font-nums font-semibold text-ink">{formatINR(r.total_payable)}</td>
                   <td className="px-5 py-3.5">

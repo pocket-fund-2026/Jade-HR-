@@ -21,8 +21,16 @@ def _sanitize(employee: dict, can_view_salary: bool) -> dict:
     return employee
 
 
+LITE_FIELDS = "id,employee_code,first_name,last_name,is_active,department,designation,location,role,employee_category"
+
+
 @router.get("")
-def list_employees(user: dict = Depends(require_permission("employees.view"))):
+def list_employees(lite: bool = False, user: dict = Depends(require_permission("employees.view"))):
+    # Most callers of this endpoint just need it for an id->name lookup
+    # (a dropdown, a report filter) — lite=true skips salary/compliance/bank
+    # columns and the salary.view permission check entirely.
+    if lite:
+        return supabase.table("hr_employees").select(LITE_FIELDS).order("first_name").execute().data
     resp = supabase.table("hr_employees").select("*").order("first_name").execute()
     # Compute once per request, not once per employee — user_can() re-queries
     # hr_permissions/hr_permission_overrides for any non-"accounts" role, so
@@ -67,20 +75,27 @@ def bulk_import_salary(body: SalaryImportRequest, user: dict = Depends(require_p
     existing = supabase.table("hr_employees").select("id,employee_code").execute().data
     id_by_code = {e["employee_code"]: e["id"] for e in existing}
 
-    updated, not_found = [], []
+    updated, not_found, rows_to_upsert = [], [], []
     for row in body.rows:
         emp_id = id_by_code.get(row.employee_code)
         if not emp_id:
             not_found.append(row.employee_code)
             continue
-        supabase.table("hr_employees").update({
+        rows_to_upsert.append({
+            "id": emp_id,
             "basic": row.basic,
             "hra": row.hra,
             "conveyance": row.conveyance,
             "other_allowance": row.other_allowance,
             "incentive": row.incentive,
-        }).eq("id", emp_id).execute()
+        })
         updated.append(row.employee_code)
+
+    # One batched upsert (matches on the primary key, always an UPDATE here
+    # since every id came from an existing row) instead of one round-trip
+    # per imported row.
+    if rows_to_upsert:
+        supabase.table("hr_employees").upsert(rows_to_upsert).execute()
 
     return {"updated": len(updated), "not_found": not_found}
 

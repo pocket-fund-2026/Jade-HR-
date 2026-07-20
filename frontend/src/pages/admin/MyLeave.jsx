@@ -3,18 +3,18 @@ import { useEffect, useState } from "react";
 
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
+import { useAuth } from "../../lib/auth.jsx";
 import { formatDate } from "../../lib/format.js";
-
-const LEAVE_LABELS = {
-  casual: "Casual", sick: "Sick", earned: "Privilege (PL)", unpaid: "Unpaid", other: "Other",
-  paternity: "Paternity", maternity: "Maternity", compassionate: "Compassionate", comp_off: "Comp-Off",
-};
+import { LEAVE_LABELS, selectableLeaveTypes } from "../../lib/leaveTypes.js";
 
 export default function MyLeave() {
+  const { user } = useAuth();
+  const isCorporate = user?.employee_category === "corporate";
+  const availableTypes = selectableLeaveTypes(isCorporate);
   const [balance, setBalance] = useState([]);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [leaveType, setLeaveType] = useState("casual");
+  const [leaveType, setLeaveType] = useState("paid");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [reason, setReason] = useState("");
@@ -68,6 +68,9 @@ export default function MyLeave() {
                 <div key={b.leave_type} className="bg-paper rounded-sm shadow-card px-4 py-3 border-t-2 border-ink/10">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70">{LEAVE_LABELS[b.leave_type] || b.leave_type}</p>
                   <p className="font-display text-lg text-ink mt-0.5">{b.remaining} <span className="text-xs text-ink/50 font-sans">/ {b.allocated}</span></p>
+                  {b.carried_forward > 0 && (
+                    <p className="text-[10px] text-ink/50 mt-0.5">incl. {Number(b.carried_forward).toFixed(1)} carried forward</p>
+                  )}
                 </div>
               ))}
             </div>
@@ -79,7 +82,7 @@ export default function MyLeave() {
                 <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Leave Type</label>
                 <select value={leaveType} onChange={(e) => setLeaveType(e.target.value)}
                   className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
-                  {Object.entries(LEAVE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  {availableTypes.map((v) => <option key={v} value={v}>{LEAVE_LABELS[v]}</option>)}
                 </select>
               </div>
               <div>

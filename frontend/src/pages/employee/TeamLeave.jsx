@@ -5,17 +5,13 @@ import { useOutletContext } from "react-router-dom";
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
 import { formatDate } from "../../lib/format.js";
+import { LEAVE_LABELS } from "../../lib/leaveTypes.js";
 
 const TABS = [
   { key: "pending", label: "Pending" },
   { key: "approved", label: "Approved" },
   { key: "rejected", label: "Rejected" },
 ];
-
-const LEAVE_LABELS = {
-  casual: "Casual", sick: "Sick", earned: "Privilege (PL)", unpaid: "Unpaid", other: "Other",
-  paternity: "Paternity", maternity: "Maternity", compassionate: "Compassionate", comp_off: "Comp-Off",
-};
 
 function ResolveRow({ request, onResolved }) {
   const [note, setNote] = useState("");

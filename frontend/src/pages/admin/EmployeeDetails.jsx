@@ -60,7 +60,7 @@ const SECTIONS = [
           {
             k: "time_slot", l: "Time Slot", t: "select",
             options: ["10:00 AM – 6:30 PM", "10:00 AM – 7:00 PM", "11:00 AM – 8:00 PM", "Flexible", "Intern (10:00 AM – 6:00 PM)"],
-            hint: "\"10:00 AM – 6:30 PM\" automatically gets a shortened Saturday of 10:00 AM – 3:00 PM in payroll/attendance calculations — no separate setting needed.",
+            hint: "\"10:00 AM – 6:30 PM\" additionally gets a shortened Saturday of 10:00 AM – 3:00 PM for late-mark purposes — no separate setting needed. Saturday OT (after 3:00 PM) applies to every time slot.",
           },
           {
             k: "saturday_extended_hours", l: "Saturday Extended Hours", t: "boolean",
@@ -218,9 +218,24 @@ const SECTIONS = [
         ],
         note: "If Severe Disability is ticked, ₹1,600 or ₹3,200 per month exemption is allowed for handicap, and conveyance should be paid in the payslip. Profession tax is not applicable.",
       },
+      {
+        title: "Authorization",
+        fields: [
+          { k: "signatory_name", l: "Authorized Signatory — Name", t: "text" },
+          { k: "signatory_designation", l: "Authorized Signatory — Designation", t: "text" },
+          { k: "signatory_email", l: "Authorized Signatory — Email", t: "text" },
+          { k: "approver_name", l: "Approver — Name", t: "text" },
+          { k: "approver_email", l: "Approver — Email", t: "text" },
+        ],
+      },
     ],
   },
 ];
+
+// Bank details are as sensitive as pay figures — gated by the same
+// canViewSalary flag as the Salary tab (see backend/routers/employee_profile.py's
+// SENSITIVE_PROFILE_FIELDS / employees.py's _sanitize).
+const SENSITIVE_OFFICIAL_KEYS = new Set(["bank_name", "bank_account_no", "bank_ifsc"]);
 
 const CORE_KEYS = new Set(
   SECTIONS.flatMap((s) => s.groups.flatMap((g) => g.fields)).filter((f) => f.core).map((f) => f.k),
@@ -914,7 +929,7 @@ export default function EmployeeDetails() {
   const [employeesList, setEmployeesList] = useState([]);
 
   useEffect(() => {
-    api.get("/api/employees").then(({ data }) => {
+    api.get("/api/employees", { params: { lite: true } }).then(({ data }) => {
       setEmployeesList(
         data
           .filter((e) => e.is_active)
@@ -979,21 +994,30 @@ export default function EmployeeDetails() {
       if (corePayload.standard_working_days_per_month === "") corePayload.standard_working_days_per_month = null;
       delete corePayload.is_active;
 
+      const buildProfilePayload = () => {
+        const profilePayload = Object.fromEntries(PROFILE_KEYS.map((k) => [k, form[k]]));
+        for (const dateKey of DATE_KEYS) {
+          if (dateKey in profilePayload && !profilePayload[dateKey]) profilePayload[dateKey] = null;
+        }
+        profilePayload.udfs = (form.udfs || []).filter((u) => u.udf_name || u.udf_value);
+        return profilePayload;
+      };
+
       let employeeId = id;
       if (isNew) {
+        // The profile PUT needs the id the POST returns — must stay sequential.
         const { data } = await api.post("/api/employees", corePayload);
         employeeId = data.id;
+        await api.put(`/api/employees/${employeeId}/profile`, buildProfilePayload());
       } else {
+        // Both PUTs target an already-known id and don't depend on each
+        // other's result — run them concurrently instead of one after another.
         const { employee_code, ...updates } = corePayload;
-        await api.put(`/api/employees/${employeeId}`, updates);
+        await Promise.all([
+          api.put(`/api/employees/${employeeId}`, updates),
+          api.put(`/api/employees/${employeeId}/profile`, buildProfilePayload()),
+        ]);
       }
-
-      const profilePayload = Object.fromEntries(PROFILE_KEYS.map((k) => [k, form[k]]));
-      for (const dateKey of DATE_KEYS) {
-        if (dateKey in profilePayload && !profilePayload[dateKey]) profilePayload[dateKey] = null;
-      }
-      profilePayload.udfs = (form.udfs || []).filter((u) => u.udf_name || u.udf_value);
-      await api.put(`/api/employees/${employeeId}/profile`, profilePayload);
 
       if (andThen === "list") {
         navigate("/admin/employees");
@@ -1147,6 +1171,9 @@ export default function EmployeeDetails() {
                     <div key={i}>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-5">
                         {group.fields.map((field) => {
+                          if (SENSITIVE_OFFICIAL_KEYS.has(field.k) && !canViewSalary) {
+                            return null;
+                          }
                           if (field.t === "role") {
                             return (
                               <div key={field.k}>

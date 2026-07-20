@@ -1,5 +1,6 @@
 import { Check, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useOutletContext } from "react-router-dom";
 
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
@@ -72,16 +73,25 @@ function ResolveRow({ approval, onResolved }) {
 }
 
 export default function PayslipApprovals() {
+  const { pendingPayslipApprovals: layoutPending, pendingLoaded } = useOutletContext() || {};
+  const hasLayoutData = pendingLoaded && layoutPending !== undefined;
   const [tab, setTab] = useState("pending");
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState(() => (hasLayoutData ? layoutPending : []));
+  const [loading, setLoading] = useState(!hasLayoutData);
+  const skipNextLoad = useRef(hasLayoutData);
 
   const load = () => {
     setLoading(true);
     api.get("/api/payslip-approvals", { params: { status: tab } }).then(({ data }) => setRows(data)).finally(() => setLoading(false));
   };
 
-  useEffect(load, [tab]);
+  useEffect(() => {
+    if (skipNextLoad.current) {
+      skipNextLoad.current = false;
+      return;
+    }
+    load();
+  }, [tab]);
 
   return (
     <div>

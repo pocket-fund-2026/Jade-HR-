@@ -17,11 +17,11 @@ const navItems = [
   { to: "/admin/leave", label: "Leave", icon: Plane, badgeKey: "leave", permission: "leave.manage" },
   { to: "/admin/work-absence", label: "Work Absence", icon: Briefcase, badgeKey: "workAbsence", permission: "absence.manage" },
   { to: "/admin/leave-entry", label: "Leave Entry", icon: ClipboardList, permission: "leave.manage" },
-  { to: "/admin/my-leave", label: "My Leave", icon: CalendarPlus },
-  { to: "/admin/my-payslip", label: "My Payslip", icon: Receipt },
   { to: "/admin/payslip-approvals", label: "Payslip Approvals", icon: Stamp, badgeKey: "payslipApprovals", permission: "payslip_approvals.manage" },
   { to: "/admin/letters", label: "Letters", icon: FileText, permission: ["letters.generate", "letters.manage"] },
   { to: "/admin/policy", label: "Leave Policy", icon: CalendarDays, permission: ["employees.manage", "policy.manage"] },
+  { to: "/admin/my-leave", label: "My Leave", icon: CalendarPlus, sectionBreak: true },
+  { to: "/admin/my-payslip", label: "My Payslip", icon: Receipt },
   { to: "/admin/team-access", label: "Team Access", icon: Shield, permission: "permissions.manage" },
 ];
 
@@ -39,28 +39,29 @@ function SidebarContent({ user, can, logout, pendingCounts, onNavigate }) {
         </div>
       </div>
       <nav className="flex-1 px-3 py-2 space-y-1 relative overflow-y-auto">
-        {visibleItems.map(({ to, label, icon: Icon, end, badgeKey }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={end}
-            onClick={onNavigate}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium transition-colors ${
-                isActive
-                  ? "bg-manila text-ledger-900"
-                  : "text-manila/60 hover:bg-manila/10 hover:text-manila"
-              }`
-            }
-          >
-            <Icon size={17} strokeWidth={2} />
-            {label}
-            {badgeKey && pendingCounts[badgeKey] > 0 && (
-              <span className="ml-auto bg-ochre-500 text-ledger-900 text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                {pendingCounts[badgeKey]}
-              </span>
-            )}
-          </NavLink>
+        {visibleItems.map(({ to, label, icon: Icon, end, badgeKey, sectionBreak }) => (
+          <div key={to} className={sectionBreak ? "mt-3 pt-3 border-t border-manila/10" : ""}>
+            <NavLink
+              to={to}
+              end={end}
+              onClick={onNavigate}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium transition-colors ${
+                  isActive
+                    ? "bg-manila text-ledger-900"
+                    : "text-manila/60 hover:bg-manila/10 hover:text-manila"
+                }`
+              }
+            >
+              <Icon size={17} strokeWidth={2} />
+              {label}
+              {badgeKey && pendingCounts[badgeKey] > 0 && (
+                <span className="ml-auto bg-ochre-500 text-ledger-900 text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  {pendingCounts[badgeKey]}
+                </span>
+              )}
+            </NavLink>
+          </div>
         ))}
       </nav>
       <div className="px-3 py-4 relative">
@@ -89,6 +90,11 @@ export default function AdminLayout() {
   const [pendingPayslipApprovals, setPendingPayslipApprovals] = useState([]);
   const [pendingOnboarding, setPendingOnboarding] = useState([]);
   const [pendingWorkAbsence, setPendingWorkAbsence] = useState([]);
+  // True once the first poll below has resolved — lets pages seed their own
+  // "pending" tab from this data instead of re-fetching it themselves on
+  // mount (an empty pending* array is ambiguous with "not fetched yet"
+  // otherwise).
+  const [pendingLoaded, setPendingLoaded] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const pendingCounts = {
     disputes: pendingDisputes.length, leave: pendingLeave.length,
@@ -118,6 +124,7 @@ export default function AdminLayout() {
           setPendingPayslipApprovals(payslipApprovalsRes.data);
           setPendingOnboarding(onboardingRes.data);
           setPendingWorkAbsence(workAbsenceRes.data);
+          setPendingLoaded(true);
         })
         .catch(() => {});
     };
@@ -159,7 +166,12 @@ export default function AdminLayout() {
       )}
 
       <main className="flex-1 p-4 pt-20 md:p-8 md:pt-8 overflow-y-auto overflow-x-hidden max-w-[1400px]">
-        <Outlet context={{ pendingDisputes, pendingLeave }} />
+        <Outlet
+          context={{
+            pendingDisputes, pendingLeave, pendingPayslipApprovals, pendingOnboarding, pendingWorkAbsence,
+            pendingLoaded,
+          }}
+        />
       </main>
     </div>
   );

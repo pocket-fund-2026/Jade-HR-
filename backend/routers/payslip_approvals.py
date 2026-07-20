@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -57,7 +58,7 @@ def my_payslip_approvals(user: dict = Depends(get_current_user)):
     return resp.data
 
 
-def _net_salary_for(employee_id: str, period_year: int, period_month: int) -> float:
+def _net_salary_for(employee_id: str, period_year: int, period_month: int, holidays: list[dict]) -> float:
     """Recomputes the same figure /api/me/payroll would show for that
     employee/period, so Accounts sees the amount inline on the approvals
     list without navigating away to look it up."""
@@ -69,7 +70,7 @@ def _net_salary_for(employee_id: str, period_year: int, period_month: int) -> fl
     punches = _fetch_punch_times(employee["employee_code"], period_year, period_month)
     overrides = _fetch_overrides(employee_id, period_year, period_month)
     leaves = fetch_approved_leaves(employee_id, period_year, period_month)
-    summary = compute_monthly_summary(employee, period_year, period_month, punches, overrides, leaves, _fetch_holidays())
+    summary = compute_monthly_summary(employee, period_year, period_month, punches, overrides, leaves, holidays)
     return summary["total_payable"]
 
 
@@ -84,8 +85,18 @@ def list_payslip_approvals(
         query = query.eq("status", status)
     resp = query.order("submitted_at", desc=True).execute()
     rows = resp.data
-    for r in rows:
-        r["net_salary"] = _net_salary_for(r["employee_id"], r["period_year"], r["period_month"])
+    if rows:
+        # Holidays are the same for every row (no year/month filter) — fetch
+        # once. Each row's net-salary recompute is otherwise ~5 sequential
+        # Supabase reads for an unrelated employee/period, so run rows
+        # concurrently instead of one after another.
+        holidays = _fetch_holidays()
+        with ThreadPoolExecutor(max_workers=min(8, len(rows))) as pool:
+            net_salaries = list(pool.map(
+                lambda r: _net_salary_for(r["employee_id"], r["period_year"], r["period_month"], holidays), rows,
+            ))
+        for r, net_salary in zip(rows, net_salaries):
+            r["net_salary"] = net_salary
     return rows
 
 

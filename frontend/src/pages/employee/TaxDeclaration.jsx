@@ -37,10 +37,14 @@ export default function TaxDeclaration() {
   useEffect(load, []);
 
   useEffect(() => {
+    // Skip while `load()` is still in flight — otherwise this fires once
+    // with the EMPTY placeholder values, then again the moment the real
+    // declaration arrives, doubling this call on every visit.
+    if (loading) return;
     api.get("/api/me/tax-projection", { params: { financial_year: form.financial_year } })
       .then(({ data }) => setProjection(data))
       .catch(() => setProjection(null));
-  }, [form.financial_year, form.regime, form.rent_paid_annual, form.section_80c, form.section_80d, form.home_loan_interest, form.other_deductions]);
+  }, [loading, form.financial_year, form.regime, form.rent_paid_annual, form.section_80c, form.section_80d, form.home_loan_interest, form.other_deductions]);
 
   const setField = (k, v) => { setForm((f) => ({ ...f, [k]: v })); setSaved(false); };
 

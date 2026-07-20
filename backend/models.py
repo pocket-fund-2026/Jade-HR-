@@ -117,7 +117,7 @@ class SalaryImportRequest(BaseModel):
 
 
 class LeaveRequestCreate(BaseModel):
-    leave_type: str  # casual | sick | earned | unpaid
+    leave_type: str  # paid | unpaid | other | paternity | maternity | compassionate | comp_off
     start_date: date
     end_date: date
     reason: str
@@ -294,6 +294,13 @@ class EmployeeProfileUpdate(BaseModel):
     severe_disability: Optional[bool] = None
     severe_disability_details: Optional[str] = None
     additional_info: Optional[str] = None
+
+    # Authorization — used when generating letters/documents for this employee
+    signatory_name: Optional[str] = None
+    signatory_designation: Optional[str] = None
+    signatory_email: Optional[str] = None
+    approver_name: Optional[str] = None
+    approver_email: Optional[str] = None
 
     # User Defined Fields — full list, replaces existing rows on save
     udfs: Optional[list[UDFEntry]] = None

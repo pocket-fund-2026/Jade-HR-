@@ -1,20 +1,17 @@
 import { Check, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useOutletContext } from "react-router-dom";
 
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
 import { formatDate } from "../../lib/format.js";
+import { LEAVE_LABELS } from "../../lib/leaveTypes.js";
 
 const TABS = [
   { key: "pending", label: "Pending" },
   { key: "approved", label: "Approved" },
   { key: "rejected", label: "Rejected" },
 ];
-
-const LEAVE_LABELS = {
-  casual: "Casual", sick: "Sick", earned: "Privilege (PL)", unpaid: "Unpaid", other: "Other",
-  paternity: "Paternity", maternity: "Maternity", compassionate: "Compassionate", comp_off: "Comp-Off",
-};
 
 function ResolveRow({ request, onResolved }) {
   const [note, setNote] = useState("");
@@ -79,10 +76,13 @@ function ResolveRow({ request, onResolved }) {
 const POLL_MS = 20000;
 
 export default function Leave() {
+  const { pendingLeave: layoutPendingLeave, pendingLoaded } = useOutletContext() || {};
+  const hasLayoutData = pendingLoaded && layoutPendingLeave !== undefined;
   const [tab, setTab] = useState("pending");
-  const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [requests, setRequests] = useState(() => (hasLayoutData ? layoutPendingLeave : []));
+  const [loading, setLoading] = useState(!hasLayoutData);
   const [location, setLocation] = useState("all");
+  const skipNextLoad = useRef(hasLayoutData);
 
   const load = (silent) => {
     if (!silent) setLoading(true);
@@ -90,7 +90,11 @@ export default function Leave() {
   };
 
   useEffect(() => {
-    load();
+    if (skipNextLoad.current) {
+      skipNextLoad.current = false;
+    } else {
+      load();
+    }
     if (tab !== "pending") return;
     const interval = setInterval(() => load(true), POLL_MS);
     return () => clearInterval(interval);

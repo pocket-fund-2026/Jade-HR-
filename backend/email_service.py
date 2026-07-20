@@ -121,6 +121,70 @@ def notify_absence_submitted(
             send_email(recipient, subject, body)
 
 
+def notify_onboarding_submitted(submission: dict, hr_email: str) -> None:
+    if not hr_email:
+        return
+    full_name = submission.get("full_name") or "Someone"
+    subject = f"New onboarding submission — {full_name}"
+
+    docs = []
+    if submission.get("aadhar_front_path"):
+        docs.append("Aadhar (front)")
+    if submission.get("aadhar_back_path"):
+        docs.append("Aadhar (back)")
+    if submission.get("pan_card_path"):
+        docs.append("PAN card")
+    slip_count = len(submission.get("salary_slip_paths") or [])
+    if slip_count:
+        docs.append(f"{slip_count} salary slip{'s' if slip_count != 1 else ''}")
+
+    lines = [
+        f"{full_name} has submitted the new-joinee details form. Full details below:",
+        "",
+        "Personal Details",
+        f"  Full Name: {submission.get('full_name', '')}",
+        f"  Date of Birth: {submission.get('date_of_birth') or ''}",
+        f"  Mobile: {submission.get('mobile', '')}",
+        f"  Emergency Contact No: {submission.get('emergency_contact_no', '')}",
+        f"  Email: {submission.get('email', '')}",
+        "",
+        "Permanent Address",
+        f"  {submission.get('address_line1', '')}",
+        f"  {submission.get('address_line2', '')}",
+        f"  {submission.get('address_line3', '')}",
+        f"  {submission.get('address_line4', '')}",
+        "",
+        "Employment Details",
+        f"  Date of Joining: {submission.get('date_of_joining') or ''}",
+        f"  Fresher: {'Yes' if submission.get('is_fresher') else 'No'}",
+        "",
+        "Bank Account Information",
+        f"  Bank Name and Branch: {submission.get('bank_name', '')}",
+        f"  Bank Account No: {submission.get('bank_account_no', '')}",
+        f"  Bank IFSC Code: {submission.get('bank_ifsc', '')}",
+        "",
+        "Document Upload",
+        f"  Aadhar Card No: {submission.get('aadhar_no', '')}",
+        f"  PAN Card No: {submission.get('pan_no', '')}",
+        f"  Documents attached: {', '.join(docs) if docs else 'None'}",
+        f"  Date of Offer Letter: {submission.get('date_of_offer_letter') or ''}",
+        "",
+        "Job Designation",
+        f"  Designation: {submission.get('designation', '')}",
+        f"  Department: {submission.get('department', '')}",
+        f"  KRA in Detail: {submission.get('kra', '')}",
+        f"  Requires Personal Email: {'Yes' if submission.get('requires_personal_email') else 'No'}",
+        f"  Requires Independent OMS Login: {'Yes' if submission.get('requires_oms_login') else 'No'}",
+        "",
+        "Workplace & Schedule",
+        f"  Place of Work: {submission.get('place_of_work', '')}",
+        f"  Timings + Days: {submission.get('timings_and_days', '')}",
+        "",
+        "Review it in the JADE HR console: https://jade-hr.vercel.app/admin/onboarding",
+    ]
+    send_email(hr_email, subject, "\n".join(lines))
+
+
 def notify_absence_resolved(
     employee_email: str, employee_name: str, status: str, start_date: str, end_date: str, admin_note: str,
 ) -> None:

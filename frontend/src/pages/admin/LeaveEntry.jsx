@@ -3,11 +3,7 @@ import { useEffect, useState } from "react";
 
 import api from "../../lib/api.js";
 import { formatDate } from "../../lib/format.js";
-
-const LEAVE_LABELS = {
-  casual: "Casual", sick: "Sick", earned: "PL", unpaid: "Unpaid", other: "Other",
-  paternity: "Paternity", maternity: "Maternity", compassionate: "Compassionate", comp_off: "Comp-Off",
-};
+import { LEAVE_LABELS, selectableLeaveTypes } from "../../lib/leaveTypes.js";
 
 const TRANSACTION_TYPES = [
   { value: "credit", label: "Credit" },
@@ -20,13 +16,21 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 function EntryForm({ employees, onAdded }) {
   const [employeeId, setEmployeeId] = useState("");
-  const [leaveType, setLeaveType] = useState("earned");
+  const [leaveType, setLeaveType] = useState("paid");
   const [transactionType, setTransactionType] = useState("adjustment");
   const [amount, setAmount] = useState("");
   const [remarks, setRemarks] = useState("");
   const [entryDate, setEntryDate] = useState(today());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const selectedEmployee = employees.find((e) => e.id === employeeId);
+  const isCorporate = selectedEmployee?.employee_category === "corporate";
+  const availableTypes = selectableLeaveTypes(isCorporate);
+
+  useEffect(() => {
+    if (!availableTypes.includes(leaveType)) setLeaveType("paid");
+  }, [employeeId]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -81,7 +85,7 @@ function EntryForm({ employees, onAdded }) {
             onChange={(e) => setLeaveType(e.target.value)}
             className="w-full rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
           >
-            {Object.entries(LEAVE_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+            {availableTypes.map((v) => <option key={v} value={v}>{LEAVE_LABELS[v]}</option>)}
           </select>
         </div>
         <div>
@@ -148,7 +152,7 @@ export default function LeaveEntry() {
   const [pageSize, setPageSize] = useState(20);
 
   useEffect(() => {
-    api.get("/api/employees").then(({ data }) => {
+    api.get("/api/employees", { params: { lite: true } }).then(({ data }) => {
       setEmployees([...data].sort((a, b) => (a.is_active === b.is_active ? 0 : a.is_active ? -1 : 1)));
     });
   }, []);

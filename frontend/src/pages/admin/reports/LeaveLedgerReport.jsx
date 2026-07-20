@@ -4,11 +4,7 @@ import { Link } from "react-router-dom";
 
 import api from "../../../lib/api.js";
 import { formatDate } from "../../../lib/format.js";
-
-const LEAVE_LABELS = {
-  casual: "Casual", sick: "Sick", earned: "PL", unpaid: "Unpaid", other: "Other",
-  paternity: "Paternity", maternity: "Maternity", compassionate: "Compassionate", comp_off: "Comp-Off",
-};
+import { LEAVE_LABELS } from "../../../lib/leaveTypes.js";
 
 const today = new Date();
 
@@ -34,14 +30,14 @@ export default function LeaveLedgerReport() {
   const [employees, setEmployees] = useState([]);
   const [status, setStatus] = useState("both");
   const [employeeId, setEmployeeId] = useState("");
-  const [leaveType, setLeaveType] = useState("earned");
+  const [leaveType, setLeaveType] = useState("paid");
   const [year, setYear] = useState(today.getFullYear());
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    api.get("/api/employees").then(({ data }) => setEmployees(data));
+    api.get("/api/employees", { params: { lite: true } }).then(({ data }) => setEmployees(data));
   }, []);
 
   const filteredEmployees = employees.filter((e) => status === "both" || e.is_active === (status === "active"));

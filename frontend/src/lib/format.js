@@ -43,6 +43,15 @@ export function formatTime(iso) {
   return new Date(iso).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: IST });
 }
 
+// Attendance/payroll durations are stored as decimal hours (e.g. 6.5) —
+// display as "6h 30m" everywhere a person reads them, never the raw decimal.
+export function formatHoursMins(decimalHours) {
+  const totalMinutes = Math.round((decimalHours || 0) * 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return `${h}h ${m}m`;
+}
+
 const SHORT_MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];

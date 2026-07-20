@@ -1,5 +1,5 @@
-import { ArrowLeft, FileText, Pencil, Plus, Printer, Save } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, Bold, FileText, List, ListOrdered, Pencil, Plus, Printer, Save } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import api from "../../lib/api.js";
 import { useAuth } from "../../lib/auth.jsx";
@@ -140,6 +140,63 @@ function slugify(title) {
   return title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "letter";
 }
 
+// Lets HR type a letter the way they'd type it in a word processor — no HTML
+// tags — while still producing the <p>/<strong>/<ol>/<ul> markup the
+// generator's substitute()+dangerouslySetInnerHTML pipeline expects.
+function RichTextEditor({ value, onChange }) {
+  const editorRef = useRef(null);
+  const loadedValue = useRef(null);
+
+  useEffect(() => {
+    if (editorRef.current && loadedValue.current !== value) {
+      editorRef.current.innerHTML = value;
+      loadedValue.current = value;
+    }
+  }, [value]);
+
+  const emit = () => {
+    if (!editorRef.current) return;
+    loadedValue.current = editorRef.current.innerHTML;
+    onChange(editorRef.current.innerHTML);
+  };
+
+  const exec = (command) => {
+    editorRef.current?.focus();
+    document.execCommand(command);
+    emit();
+  };
+
+  const toolbarButton = (command, label, Icon) => (
+    <button
+      type="button"
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={() => exec(command)}
+      title={label}
+      className="p-1.5 rounded-sm border border-ink/15 text-ink hover:border-jade-500 hover:text-jade-600 transition-colors"
+    >
+      <Icon size={14} />
+    </button>
+  );
+
+  return (
+    <div>
+      <div className="flex gap-1.5 mb-2">
+        {toolbarButton("bold", "Bold", Bold)}
+        {toolbarButton("insertOrderedList", "Numbered list", ListOrdered)}
+        {toolbarButton("insertUnorderedList", "Bullet list", List)}
+      </div>
+      <div
+        ref={editorRef}
+        contentEditable
+        suppressContentEditableWarning
+        onInput={emit}
+        onFocus={() => document.execCommand("defaultParagraphSeparator", false, "p")}
+        className="letter-doc w-full min-h-[420px] rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+      />
+    </div>
+  );
+}
+
 function TemplateEditor({ template, onClose, onSaved, onDeleted }) {
   const isNew = !template;
   const [letterType, setLetterType] = useState(template?.letter_type || "");
@@ -194,7 +251,7 @@ function TemplateEditor({ template, onClose, onSaved, onDeleted }) {
       </button>
       <h2 className="font-display text-2xl text-ink mb-1">{isNew ? "New Letter Type" : "Edit Template"}</h2>
       <p className="text-sm text-ink/70 mb-5">
-        Raw HTML — use <code className="font-nums">{"{{token_name}}"}</code> for anything that should be filled in per letter.
+        Type the letter as you'd write it — use <code className="font-nums">{"{{token_name}}"}</code> for anything that should be filled in per letter.
       </p>
 
       <div className="bg-paper rounded-sm shadow-card p-6 mb-4">
@@ -215,13 +272,8 @@ function TemplateEditor({ template, onClose, onSaved, onDeleted }) {
             />
           </>
         )}
-        <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Body (HTML)</label>
-        <textarea
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          rows={20}
-          className="w-full rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink font-nums focus:outline-none focus:ring-2 focus:ring-jade-500"
-        />
+        <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Letter Body</label>
+        <RichTextEditor value={body} onChange={setBody} />
         {tokens.length > 0 && (
           <p className="text-xs text-ink/60 mt-2">Tokens found: {tokens.join(", ")}</p>
         )}
@@ -263,7 +315,7 @@ function LetterGenerator({ template, canManage, onClose }) {
   useEffect(() => {
     // Every employee, active or not — Relieving/Termination letters are
     // almost always written for someone who has already been deactivated.
-    api.get("/api/employees").then(({ data }) => {
+    api.get("/api/employees", { params: { lite: true } }).then(({ data }) => {
       const sorted = [...data].sort((a, b) => {
         if (a.is_active !== b.is_active) return a.is_active ? -1 : 1;
         return `${a.first_name} ${a.last_name || ""}`.localeCompare(`${b.first_name} ${b.last_name || ""}`);

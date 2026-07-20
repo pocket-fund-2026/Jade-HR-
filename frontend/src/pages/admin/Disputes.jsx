@@ -1,5 +1,6 @@
 import { Check, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useOutletContext } from "react-router-dom";
 
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
@@ -90,10 +91,15 @@ function ResolveRow({ dispute, onResolved }) {
 const POLL_MS = 20000;
 
 export default function Disputes() {
+  const { pendingDisputes: layoutPendingDisputes, pendingLoaded } = useOutletContext() || {};
+  // AdminLayout's sidebar-badge poll already fetched this exact list — reuse
+  // it for the initial paint instead of an immediately-redundant refetch.
+  const hasLayoutData = pendingLoaded && layoutPendingDisputes !== undefined;
   const [tab, setTab] = useState("pending");
-  const [disputes, setDisputes] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [disputes, setDisputes] = useState(() => (hasLayoutData ? layoutPendingDisputes : []));
+  const [loading, setLoading] = useState(!hasLayoutData);
   const [location, setLocation] = useState("all");
+  const skipNextLoad = useRef(hasLayoutData);
 
   const load = (silent) => {
     if (!silent) setLoading(true);
@@ -101,7 +107,11 @@ export default function Disputes() {
   };
 
   useEffect(() => {
-    load();
+    if (skipNextLoad.current) {
+      skipNextLoad.current = false;
+    } else {
+      load();
+    }
     if (tab !== "pending") return;
     const interval = setInterval(() => load(true), POLL_MS);
     return () => clearInterval(interval);

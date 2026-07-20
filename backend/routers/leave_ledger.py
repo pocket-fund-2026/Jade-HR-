@@ -5,7 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from auth import require_permission
 from database import maybe_single_data, supabase
 from models import LeaveLedgerEntryCreate
-from routers.leave import _days_in_range, _pl_accrued_to_date, earned_leave_balance_as_of
+from routers.leave import (
+    MERGED_PAID_LEAVE_TYPES, _days_in_range, _pl_accrued_to_date, get_carried_forward, paid_leave_balance_as_of,
+)
 
 router = APIRouter(prefix="/api/leave-ledger", tags=["leave-ledger"])
 
@@ -63,15 +65,23 @@ def list_entries(
 # each accruing month. jade-hr has no scheduled accrual job; this purely
 # reconstructs, as display rows, the same running total _pl_accrued_to_date
 # already produces everywhere else (payslip PL ledger, balance checks), so
-# the numbers always reconcile with the rest of the app.
+# the numbers always reconcile with the rest of the app. Company-wide since
+# the Jul 2026 Paid Leave merge (previously corporate-'earned'-only).
 def _auto_credit_rows(employee: dict, leave_type: str, year: int) -> list[dict]:
-    if leave_type != "earned" or employee.get("employee_category") != "corporate":
+    if leave_type != "paid":
         return []
     doj = employee.get("date_of_joining")
     today = datetime.now(timezone.utc).date()
     if year > today.year:
         return []
     rows = []
+    carried_forward = get_carried_forward(employee, year)
+    if carried_forward > 0:
+        rows.append({
+            "date": date(year, 1, 1).isoformat(),
+            "description": f"Carried Forward from {year - 1}",
+            "cr": carried_forward, "debit": 0, "adjusted_in_payslip": 0, "leave_approved": 0,
+        })
     prev_total = 0
     last_month = today.month if year == today.year else 12
     for month in range(1, last_month + 1):
@@ -98,12 +108,16 @@ def _approved_leave_rows(employee_id: str, leave_type: str, year: int) -> list[d
     """Every approved leave request of this type in the year debits the
     balance — shown under Adjusted in Payslip AND Leave Approved (jade-hr
     has one debit signal, not two independently-reconciled pipelines like
-    the legacy system this report is modeled on; both columns mirror it)."""
+    the legacy system this report is modeled on; both columns mirror it).
+    'paid' pulls every merged type (see MERGED_PAID_LEAVE_TYPES) so a
+    transition-year employee's casual/sick/earned debits still show up in
+    the unified ledger instead of only new 'paid' requests."""
+    types = list(MERGED_PAID_LEAVE_TYPES) if leave_type == "paid" else [leave_type]
     resp = (
         supabase.table("hr_leave_requests")
         .select("start_date,end_date")
         .eq("employee_id", employee_id)
-        .eq("leave_type", leave_type)
+        .in_("leave_type", types)
         .eq("status", "approved")
         .gte("start_date", f"{year}-01-01")
         .lte("start_date", f"{year}-12-31")
@@ -147,7 +161,7 @@ def _manual_rows(employee_id: str, leave_type: str, year: int) -> list[dict]:
 @router.get("/report/{employee_id}")
 def leave_ledger_report(
     employee_id: str,
-    leave_type: str = Query(default="earned"),
+    leave_type: str = Query(default="paid"),
     year: int = Query(...),
     user: dict = Depends(require_permission("leave.manage", "payroll.view")),
 ):
@@ -157,7 +171,7 @@ def leave_ledger_report(
         raise HTTPException(status_code=404, detail="Employee not found")
 
     opening_balance = (
-        earned_leave_balance_as_of(employee, date(year - 1, 12, 31)) if leave_type == "earned" else 0.0
+        paid_leave_balance_as_of(employee, date(year - 1, 12, 31)) if leave_type == "paid" else 0.0
     )
 
     rows = (

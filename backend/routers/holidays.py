@@ -1,11 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from auth import require_console, require_permission
+from auth import get_current_user, require_console, require_permission
 from database import supabase
 from models import HolidayCreate
 from payroll import _holiday_applies
 
 router = APIRouter(prefix="/api/holidays", tags=["holidays"])
+# Separate router (not a sub-path of /api/holidays) so this lands at
+# /api/me/holidays — matching every other self-service endpoint's
+# /api/me/* convention (leave.py, payroll.py, etc.) instead of /api/holidays/me.
+me_router = APIRouter(prefix="/api/me", tags=["holidays"])
 
 
 @router.get("")
@@ -25,6 +29,20 @@ def list_holidays(
         # would see — its own rows plus any company-wide (location=None) one.
         rows = [r for r in rows if _holiday_applies(r.get("location"), location)]
     return rows
+
+
+@me_router.get("/holidays")
+def my_holidays(year: int | None = Query(default=None), user: dict = Depends(get_current_user)):
+    """Every employee's own holiday calendar, scoped to their own location —
+    same filtering _holiday_applies already does for the admin console's
+    location query param, just implicitly scoped to the caller instead of an
+    arbitrary caller-supplied location. No permission gate: this is the
+    caller's own data, same as every other /me/* endpoint."""
+    query = supabase.table("hr_holidays").select("*")
+    if year:
+        query = query.gte("holiday_date", f"{year}-01-01").lte("holiday_date", f"{year}-12-31")
+    resp = query.order("holiday_date").execute()
+    return [r for r in resp.data if _holiday_applies(r.get("location"), user.get("location"))]
 
 
 @router.post("")
