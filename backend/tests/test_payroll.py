@@ -77,27 +77,28 @@ def test_stay_back_past_830pm_extends_next_day_grace_to_11am():
     assert row2["late"] is False
 
 
-def test_stay_back_past_1030pm_extends_next_day_grace_to_noon():
-    day1 = [datetime(2026, 1, 5, 10, 0, tzinfo=IST), datetime(2026, 1, 5, 22, 31, tzinfo=IST)]
-    # 11:45am would be late even under the 11am (8:30pm-tier) grace, but is within noon.
-    day2 = [datetime(2026, 1, 6, 11, 45, tzinfo=IST), datetime(2026, 1, 6, 19, 0, tzinfo=IST)]
-    rows = compute_daily_attendance(2026, 1, day1 + day2, 8, weekly_off_day=6)
-    row2 = next(r for r in rows if r["date"] == "2026-01-06")
-    assert row2["late"] is False
-
-    # Past noon is still late even with the extended grace.
-    day2_late = [datetime(2026, 1, 6, 12, 15, tzinfo=IST), datetime(2026, 1, 6, 19, 0, tzinfo=IST)]
+def test_finish_before_midnight_gives_11am_grace_not_noon():
+    # v1.1 §4: only a past-MIDNIGHT finish earns the noon grace. A finish that
+    # ran past 8:30 PM but before midnight (e.g. 10:30 PM) earns 11 AM only.
+    day1 = [datetime(2026, 1, 5, 10, 0, tzinfo=IST), datetime(2026, 1, 5, 22, 30, tzinfo=IST)]
+    # 10:45am is within the 11am grace...
+    day2_ok = [datetime(2026, 1, 6, 10, 45, tzinfo=IST), datetime(2026, 1, 6, 19, 0, tzinfo=IST)]
+    rows_ok = compute_daily_attendance(2026, 1, day1 + day2_ok, 8, weekly_off_day=6)
+    assert next(r for r in rows_ok if r["date"] == "2026-01-06")["late"] is False
+    # ...but 11:45am is NOT (it would have been fine under the old 10:30pm->noon tier).
+    day2_late = [datetime(2026, 1, 6, 11, 45, tzinfo=IST), datetime(2026, 1, 6, 19, 0, tzinfo=IST)]
     rows_late = compute_daily_attendance(2026, 1, day1 + day2_late, 8, weekly_off_day=6)
-    row2_late = next(r for r in rows_late if r["date"] == "2026-01-06")
-    assert row2_late["late"] is True
+    assert next(r for r in rows_late if r["date"] == "2026-01-06")["late"] is True
 
 
-def test_stay_back_past_midnight_is_comp_off_eligible_not_extended_grace():
-    # Jan 5's shift actually runs past midnight, so its real finish (00:30)
-    # is bucketed under Jan 6 by IST calendar date, not Jan 5.
+def test_stay_back_past_midnight_extends_next_day_grace_to_noon():
+    # Jan 5's shift runs past midnight, so its real finish (00:30) is bucketed
+    # under Jan 6 by IST calendar date, not Jan 5. v1.1 §4: a past-midnight
+    # finish lets them report by 12:00 PM next day WITHOUT a late mark — a
+    # grace extension, NOT a comp-off.
     day1_in = datetime(2026, 1, 5, 10, 0, tzinfo=IST)
     day1_true_out = datetime(2026, 1, 6, 0, 30, tzinfo=IST)
-    day2_real_in = datetime(2026, 1, 6, 10, 30, tzinfo=IST)  # would be late under normal 10:11 grace
+    day2_real_in = datetime(2026, 1, 6, 11, 45, tzinfo=IST)  # within the extended noon grace
     day2_out = datetime(2026, 1, 6, 19, 0, tzinfo=IST)
     rows = compute_daily_attendance(
         2026, 1, [day1_in, day1_true_out, day2_real_in, day2_out], 8, weekly_off_day=6, is_corporate=True,
@@ -105,15 +106,21 @@ def test_stay_back_past_midnight_is_comp_off_eligible_not_extended_grace():
     row1 = next(r for r in rows if r["date"] == "2026-01-05")
     row2 = next(r for r in rows if r["date"] == "2026-01-06")
 
-    assert row1["comp_off_eligible"] is True
-    assert row1["midnight_comp_off"] is True
-    assert row1["comp_off_units"] == 1.0
-    # Day 2's own first_in must reflect the REAL 10:30am arrival, not the
+    # NOT a comp-off — comp-off is only weekly-off / declared-holiday work now.
+    assert "comp_off_eligible" not in row1
+    assert "midnight_comp_off" not in row1
+    # Day 2's own first_in must reflect the REAL 11:45am arrival, not the
     # stray 00:30 tail punch left over from Jan 5's shift.
     assert row2["first_in"] == day2_real_in.isoformat()
-    # A midnight finish does NOT extend next-day grace (policy: comp-off
-    # instead) -> 10:30am is still late against the normal 10:11 cutoff.
-    assert row2["late"] is True
+    # Past-midnight finish -> 12:00 PM grace -> 11:45am is on time.
+    assert row2["late"] is False
+
+    # Past noon is still late even with the extension.
+    day2_past_noon = datetime(2026, 1, 6, 12, 15, tzinfo=IST)
+    rows_late = compute_daily_attendance(
+        2026, 1, [day1_in, day1_true_out, day2_past_noon, day2_out], 8, weekly_off_day=6, is_corporate=True,
+    )
+    assert next(r for r in rows_late if r["date"] == "2026-01-06")["late"] is True
 
 
 def test_normal_finish_does_not_extend_next_day_grace():
@@ -201,9 +208,9 @@ def test_red_card_and_lop_only_apply_to_corporate_roster():
     corporate_summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 1, punches)
     assert corporate_summary["late_mark_count"] == 5
     assert corporate_summary["red_card"] is True
-    # First 2 late marks are free (full daily hours were still completed
-    # each time); the 3rd, 4th and 5th are each 0.25 day LOP (revised policy).
-    assert corporate_summary["lop_days"] == 0.75
+    # v1.1 §4: first 2 late marks are free; the 3rd, 4th and 5th are each a
+    # ½-day LOP -> 3 x 0.5 = 1.5.
+    assert corporate_summary["lop_days"] == 1.5
 
     factory_summary = compute_monthly_summary(EMPLOYEE, 2026, 1, punches)
     assert factory_summary["late_mark_count"] == 0
@@ -212,38 +219,29 @@ def test_red_card_and_lop_only_apply_to_corporate_roster():
     assert factory_summary["late_days"] == 5  # the plain "late" badge is unaffected either way
 
 
-def test_worked_example_two_free_then_quarter_day_each():
-    # The exact scenario used to confirm this policy with HR: 30 total days
-    # in the cycle, late more than the free allowance -> 2 free + 3 penalized
-    # at 0.25 each = 0.75 LOP, i.e. paid for 29.25 of the 30 days.
+def test_worked_example_two_free_then_half_day_each():
+    # v1.1 §4 worked example: 30 total days in the cycle, 5 late marks ->
+    # 2 free + 3 penalized at ½ day each = 1.5 LOP, i.e. paid for 28.5 days.
     late_days = [(2025, 12, 29), (2025, 12, 30), (2025, 12, 31), (2026, 1, 2), (2026, 1, 5)]
     punches = [p for day in late_days for p in _late_punch(*day)]
     summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 1, punches)
-    assert summary["lop_days"] == 0.75
+    assert summary["lop_days"] == 1.5
 
 
-def test_after_noon_arrival_is_treated_as_an_ordinary_late_mark():
-    # Revised Jul 2026: the flat-0.25 policy has no steeper after-noon tier.
-    # A lone after-noon arrival (1st late mark) is free within the 2-mark
-    # allowance, exactly like any other late arrival.
+def test_after_noon_arrival_is_half_day_lop_regardless_of_count():
+    # v1.1 §4: arrival after 12:00 PM is a ½-day LOP regardless of the
+    # late-mark count — even a lone after-noon arrival (1st late mark) is
+    # NOT free.
     punches = [datetime(2026, 1, 5, 12, 0, 1, tzinfo=IST), datetime(2026, 1, 5, 19, 0, tzinfo=IST)]
     summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 1, punches)
     assert summary["late_mark_count"] == 1
-    assert summary["lop_days"] == 0  # free — no after-noon penalty any more
-
-    # Three after-noon arrivals -> 2 free + 1 penalized at the flat 0.25.
-    after_noon_days = [(2025, 12, 29), (2025, 12, 30), (2025, 12, 31)]
-    many = [p for day in after_noon_days for p in _late_punch(*day, hour=13)]
-    many_summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 1, many)
-    assert many_summary["late_mark_count"] == 3
-    assert many_summary["lop_days"] == 0.25
+    assert summary["lop_days"] == 0.5  # after-noon -> ½ day even within the free allowance
 
 
-def test_late_arrival_with_short_hours_is_free_within_the_allowance():
-    # Revised Jul 2026: the shortfall carve-out is gone. Arriving late (1st
-    # late mark) and leaving early — short of the 8h standard — is still free
-    # within the 2-mark allowance, and only ever costs the flat 0.25 once it
-    # falls beyond the free count.
+def test_late_arrival_with_short_hours_has_no_special_penalty():
+    # v1.1 has no hours-shortfall late rule. Arriving late (1st late mark) and
+    # leaving early — short of the 8h standard — is still free within the
+    # 2-mark allowance; only after-noon or the 3rd+ late mark is charged.
     punches = [datetime(2026, 1, 5, 11, 0, tzinfo=IST), datetime(2026, 1, 5, 17, 0, tzinfo=IST)]  # 6h worked
     summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 1, punches)
     assert summary["late_mark_count"] == 1

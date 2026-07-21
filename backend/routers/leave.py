@@ -39,7 +39,7 @@ PL_PROBATION_DAYS = 91  # ~3 months
 # documented-exception override is the employee_id-on-behalf-of path below.
 RED_CARD_BLOCKED_TYPES = {"paid", "comp_off"}
 COMP_OFF_MAX_DAYS_PER_REQUEST = 2
-COMP_OFF_VALIDITY_DAYS = 90  # a comp-off must be used within 90 days of the earned date
+COMP_OFF_VALIDITY_DAYS = 120  # v1.1 §5: a comp-off is valid 120 days from the date earned
 
 
 def _carry_forward_cap(location: str | None) -> float:

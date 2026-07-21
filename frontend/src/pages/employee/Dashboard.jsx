@@ -200,7 +200,7 @@ export default function Dashboard() {
                       {d.late && <span className="ml-1.5 text-[10px] font-sans font-semibold text-rust-500 uppercase tracking-wide">Late</span>}
                       {d.lop_days > 0 && (
                         <span className="ml-1.5 text-[10px] font-sans font-semibold text-rust-500 uppercase tracking-wide">
-                          {d.lop_days === 0.5 ? "½" : "¼"} LOP
+                          ½ LOP
                         </span>
                       )}
                     </td>

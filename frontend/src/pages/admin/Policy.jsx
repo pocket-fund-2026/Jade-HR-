@@ -293,7 +293,7 @@ function CompOffGrant({ corporateEmployees }) {
     <div>
       <p className="text-sm text-ink/70 mb-4">
         Comp-Off is earned only when a corporate employee works a weekly off or a declared holiday — grant it
-        manually once you've validated it (biometric log, Zoho form, HOD confirmation). Each grant is valid 90
+        manually once you've validated it (biometric log, Zoho form, HOD confirmation). Each grant is valid 120
         days from the earned date; a leave request can club at most 2 days.
       </p>
 

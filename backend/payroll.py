@@ -22,15 +22,17 @@ from statutory import ZERO_ESIC, ZERO_PF, compute_esic, compute_lwf, compute_pf,
 # Grace period: clocking in by 10:11 AM IST counts as on time.
 LATE_GRACE = time(10, 11)
 
-# Stay-back policy (revised Jul 2026): a late FINISH the prior day earns a
-# later grace THE FOLLOWING day — mutually exclusive tiers by how late the
-# prior day's shift actually ran (each is a distinct clock-time zone, not
-# cumulative). A finish past midnight does NOT extend next-day grace — it
-# earns a comp-off instead (see MIDNIGHT_TAIL_CUTOFF / _midnight_crossing_dates).
-STAY_BACK_TIER_1_CUTOFF = time(20, 30)  # past 8:30 PM
-STAY_BACK_TIER_2_CUTOFF = time(22, 30)  # past 10:30 PM
-STAY_BACK_TIER_1_GRACE = time(11, 0)
-STAY_BACK_TIER_2_GRACE = time(12, 0)
+# Stay-back policy (Leave & Attendance Policy v1.1, section 4): a late FINISH
+# the prior day earns a later grace THE FOLLOWING day. Two tiers by how late
+# the prior shift ran: finished past 8:30 PM -> report by 11:00 AM next day;
+# a shift that runs past MIDNIGHT -> report by 12:00 PM next day (detected via
+# MIDNIGHT_TAIL_CUTOFF / _midnight_crossing_dates, since a past-midnight
+# clock-out buckets into the next calendar day). A past-midnight finish is a
+# grace extension, NOT a comp-off — comp-off is earned only by weekly-off /
+# declared-holiday work (v1.1 section 5).
+STAY_BACK_CUTOFF = time(20, 30)  # finished past 8:30 PM -> next day 11:00 AM
+STAY_BACK_GRACE = time(11, 0)
+MIDNIGHT_GRACE = time(12, 0)      # ran past midnight -> next day 12:00 PM
 # Punches are bucketed by IST calendar date (group_punches_by_day), not by
 # shift — a clock-out after midnight lands in the NEXT day's bucket instead
 # of staying attached to the shift that earned it. A first punch before this
@@ -178,20 +180,18 @@ def _midnight_crossing_dates(by_day: dict[date, list[datetime]]) -> set[date]:
 
 def _extended_grace_for(d: date, by_day: dict[date, list[datetime]], midnight_tail_dates: set[date]) -> time:
     """Late-grace cutoff for day `d`, extended if the PRIOR calendar day's
-    shift ran late enough to earn it (stay-back policy above). A prior day
-    in midnight_tail_dates earns a comp-off instead of extended grace here
-    — falls through to the normal LATE_GRACE."""
+    shift ran late enough to earn it (stay-back policy above). A prior shift
+    that ran past midnight earns the 12:00 PM grace; one that merely finished
+    past 8:30 PM earns 11:00 AM; otherwise the normal 10:11 AM."""
     prior = d - timedelta(days=1)
     if prior in midnight_tail_dates:
-        return LATE_GRACE
+        return MIDNIGHT_GRACE
     prior_punches = by_day.get(prior, [])
     if not prior_punches:
         return LATE_GRACE
     prior_last = prior_punches[-1].astimezone(IST).time()
-    if prior_last > STAY_BACK_TIER_2_CUTOFF:
-        return STAY_BACK_TIER_2_GRACE
-    if prior_last > STAY_BACK_TIER_1_CUTOFF:
-        return STAY_BACK_TIER_1_GRACE
+    if prior_last > STAY_BACK_CUTOFF:
+        return STAY_BACK_GRACE
     return LATE_GRACE
 
 
@@ -222,12 +222,12 @@ def compute_daily_attendance(
     `holidays` and `is_corporate` implement the corporate-roster-only Leave &
     Attendance Policy v1.1: a 'closed' company holiday is paid like a weekoff
     instead of showing absent, and a present day landing on a weekoff/closed
-    holiday is flagged comp-off eligible — as is one where the PRIOR day's
-    shift ran past midnight (see MIDNIGHT_TAIL_CUTOFF; a same-day-but-late
-    finish instead extends THIS day's late grace — see
-    STAY_BACK_TIER_1/2_CUTOFF — mutually exclusive with the comp-off case).
-    Late-mark/Red-Card/LOP-by-lateness is cross-day cycle state, computed in
-    compute_monthly_summary instead.
+    holiday is flagged comp-off eligible (v1.1 section 5 — the only way to earn
+    a comp-off). A prior day whose shift ran past 8:30 PM / past midnight
+    instead extends THIS day's late grace to 11 AM / 12 PM (v1.1 section 4 —
+    see _extended_grace_for / MIDNIGHT_TAIL_CUTOFF; a past-midnight finish is a
+    grace extension, never a comp-off). Late-mark/Red-Card/LOP-by-lateness is
+    cross-day cycle state, computed in compute_monthly_summary instead.
     """
     overrides = overrides or {}
     leaves = leaves or {}
@@ -309,48 +309,42 @@ def compute_daily_attendance(
         }
         if is_corporate:
             row["after_noon"] = first_in_local > NOON
+            # Comp-off is earned ONLY by working a weekly off or a declared
+            # holiday (v1.1 section 5). A past-midnight finish does NOT earn a
+            # comp-off — it extends the NEXT day's grace to 12 PM instead
+            # (v1.1 section 4, handled in _extended_grace_for), so there is
+            # deliberately no midnight branch here.
             if d.weekday() == weekly_off_day or is_closed_holiday:
                 row["comp_off_eligible"] = True
                 row["comp_off_units"] = 0.5 if hours_worked <= 4 else 1.0
-            elif d in midnight_tail_dates:
-                # Stayed back past midnight — comp-off eligible (stay-back
-                # policy above), distinct from the weekoff/holiday comp-off
-                # case above (mutually exclusive: this branch only reachable
-                # when neither of those applied). hours_worked here can't be
-                # trusted as a completeness measure — the true finish time
-                # lives in TOMORROW's punch bucket (see MIDNIGHT_TAIL_CUTOFF),
-                # not today's — so this always suggests a full day, not the
-                # <=4h/>4h split the weekoff/holiday case uses.
-                row["comp_off_eligible"] = True
-                row["comp_off_units"] = 1.0
-                row["midnight_comp_off"] = True
         rows.append(row)
         d += timedelta(days=1)
 
     return rows
 
 
-LATE_FREE_COUNT = 2  # first N late arrivals in a cycle are free
-LATE_LOP_DAYS = 0.25  # flat rate for every late arrival beyond the free count
+LATE_FREE_COUNT = 2  # v1.1 §4: first 2 late arrivals in a cycle are free
+LATE_LOP_DAYS = 0.5  # ½-day LOP per chargeable late mark (v1.1 §§4,8: deductions only in ½/full-day units)
 
 
 def apply_late_coming_policy(
     daily: list[dict], standard_hours_per_day: float, time_slot: str | None = None
 ) -> tuple[int, bool]:
-    """Corporate-roster-only (Leave & Attendance Policy, revised Jul 2026):
-    the first LATE_FREE_COUNT late arrivals in the cycle are free; every late
-    arrival beyond that costs a flat LATE_LOP_DAYS (0.25 day), regardless of
-    how late it is or how many hours were worked that day — there is no longer
-    a steeper tier for after-noon or short-hours arrivals. 5+ late marks in the
-    cycle is a Red Card: any leave day not already admin-corrected becomes
-    LOP too (a documented medical emergency or other management exception is
-    a manual call — use the existing attendance-override mechanism to
-    restore a specific day, or the admin Leave Entry page to bypass the
-    Red Card leave-request block elsewhere).
+    """Corporate-roster-only (Leave & Attendance Policy v1.1, section 4):
+    the first LATE_FREE_COUNT (2) late arrivals in the cycle are free; from the
+    3rd late arrival onward each is a ½-day LOP (LATE_LOP_DAYS). An arrival
+    after 12:00 PM (after_noon) is a ½-day LOP regardless of the late-mark
+    count — even within the free allowance. Deductions are only ever ½ or full
+    day (v1.1 sections 4 & 8), never a quarter, and there is no hours-shortfall
+    late rule. 5+ late marks in the cycle is a Red Card: any leave day not
+    already admin-corrected becomes LOP too (a documented medical emergency or
+    other management exception is a manual call — use the existing attendance-
+    override mechanism to restore a specific day, or the admin Leave Entry page
+    to bypass the Red Card leave-request block elsewhere).
 
     `standard_hours_per_day`/`time_slot` are retained for call-site
-    compatibility (the shortfall check that used them was removed with the
-    flat-rate change) — kept so the two callers don't have to change.
+    compatibility (v1.1 has no hours-shortfall late rule) — kept so the two
+    callers don't have to change.
 
     Mutates `daily` in place (tags lop_days / red_card_lop) and returns
     (late_mark_count, red_card).
@@ -359,7 +353,9 @@ def apply_late_coming_policy(
     for r in daily:
         if r["status"] == "present" and r.get("late"):
             late_ordinal += 1
-            if late_ordinal > LATE_FREE_COUNT:
+            # After-noon (>12 PM) is a ½-day LOP regardless of count; otherwise
+            # the 3rd late mark onward in the cycle is a ½-day LOP.
+            if r.get("after_noon") or late_ordinal > LATE_FREE_COUNT:
                 r["lop_days"] = LATE_LOP_DAYS
 
     red_card = late_ordinal >= 5
@@ -448,7 +444,7 @@ def compute_monthly_summary(
     # Payslip "WithoutPayDays" — the complement of paid_days over total_days:
     # full absences, unpaid/red-card-lop leave (excluded from pl_days above),
     # the unpaid halves of half-days, and late-coming LOP days (already a
-    # day-amount, not a count — see LATE_LOP_DAYS/AFTER_NOON_OR_SHORTFALL_LOP_DAYS).
+    # day-amount, not a count — see LATE_LOP_DAYS).
     without_pay_days = absent_days + unpaid_leave_days + red_card_lop_leave_days + 0.5 * half_days + late_lop_days
     late_days = sum(1 for r in daily if r["status"] == "present" and r.get("late"))
     on_time_days = present_days - late_days

@@ -18,9 +18,7 @@ const STATUS_CLASS = {
 function cellTitle(d) {
   if (d.status === "present") {
     const late = d.late ? " (late)" : "";
-    const compOff = d.comp_off_eligible
-      ? ` — Comp-Off eligible (${d.midnight_comp_off ? "worked past midnight" : "worked a weekoff/holiday"})`
-      : "";
+    const compOff = d.comp_off_eligible ? " — Comp-Off eligible (worked a weekoff/holiday)" : "";
     return `${formatTime(d.first_in)} – ${formatTime(d.last_out)}${late}, ${formatHoursMins(d.hours_worked)} worked, ${formatHoursMins(d.ot_hours)} OT${compOff}`;
   }
   if (d.status === "holiday") return d.holiday_description || "Holiday";
@@ -52,7 +50,7 @@ export default function AttendanceReport() {
         <div>
           <h2 className="font-display text-2xl text-ink">Attendance Sheet</h2>
           <p className="text-xs text-ink/70 font-nums mt-0.5">
-            P = Present · A = Absent · WO = Weekoff · H = Holiday · L = Leave · HD = Half Day — in/out time shown under each punched day, hover a cell for hours &amp; OT. Green dot = Comp-Off eligible (weekoff/holiday worked, or stayed past midnight).
+            P = Present · A = Absent · WO = Weekoff · H = Holiday · L = Leave · HD = Half Day — in/out time shown under each punched day, hover a cell for hours &amp; OT. Green dot = Comp-Off eligible (weekoff/holiday worked).
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
