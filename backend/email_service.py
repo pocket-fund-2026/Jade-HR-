@@ -105,6 +105,31 @@ def notify_leave_approved(employee_email: str, employee_name: str, leave_type: s
     send_email(employee_email, subject, body)
 
 
+def notify_late_digest(date_iso: str, late_employees: list[dict], hr_email: str) -> bool:
+    """One daily digest email to HR listing everyone who clocked in late on
+    date_iso. `late_employees` is a list of {name, employee_code, location,
+    time} dicts (time already IST-formatted by the caller). Sends nothing —
+    and returns False — when the list is empty or no HR recipient is set, so
+    HR never gets an empty "0 late today" email."""
+    if not hr_email or not late_employees:
+        return False
+    n = len(late_employees)
+    lines = [
+        f"{n} employee{'s' if n != 1 else ''} clocked in late on {date_iso}:",
+        "",
+    ]
+    for e in late_employees:
+        location = f" — {e['location']}" if e.get("location") else ""
+        lines.append(f"  • {e.get('name', '')} ({e.get('employee_code', '')}){location}: in at {e.get('time', '—')}")
+    lines += [
+        "",
+        "Grace is 10:11 AM (extended to 11 AM / noon if they stayed back late the previous evening).",
+        "Full attendance sheet: https://jade-hr.vercel.app/admin/reports/attendance",
+    ]
+    subject = f"Late arrivals — {date_iso} ({n})"
+    return send_email(hr_email, subject, "\n".join(lines))
+
+
 def notify_absence_submitted(
     employee_name: str, department: str, start_date: str, end_date: str,
     number_of_days: float, details: str, approver_email: str, hr_email: str,

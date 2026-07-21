@@ -3,7 +3,8 @@ from datetime import date, datetime, time, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from auth import CONSOLE_ROLES, get_current_user, require_permission, user_can
+import email_service
+from auth import CONSOLE_ROLES, get_current_user, require_console, require_permission, user_can
 from config import IST
 from database import maybe_single_data, supabase
 from payroll import compute_monthly_summary, fy_label_for_month, pay_period_bounds
@@ -283,6 +284,86 @@ def payroll_for_month(
             if field != "earn_arrear":
                 summary[field] = round(period_items.get(field, 0), 2)
     return summaries
+
+
+def _pay_period_label_for(d: date) -> tuple[int, int]:
+    """The (year, month) pay-period label whose 23rd-of-prior-month → 22nd
+    window contains date `d`. Mirrors leave.py's _current_pay_period."""
+    if d.day <= 22:
+        return d.year, d.month
+    month, year = d.month + 1, d.year
+    if month > 12:
+        month, year = 1, year + 1
+    return year, month
+
+
+@router.post("/attendance/late-digest")
+def late_digest(
+    for_date: date | None = Query(default=None),
+    dry_run: bool = Query(default=False),
+    user: dict = Depends(require_console),
+):
+    """Daily late-marking digest — one email to HR listing every corporate
+    employee whose first punch on `for_date` (default: today, IST) was after
+    their applicable grace (10:11 AM, or the stay-back-extended 11 AM / noon).
+
+    'Late' here is exactly the payslip's own late flag: it runs the same
+    attendance engine (overrides, approved leave, holidays, weekly-off and
+    stay-back grace all honoured), then reads out that one day's row — so the
+    digest and the month-end payslip can never disagree. Only corporate-roster
+    staff are included, since the 10:11 late policy only governs them.
+
+    Triggered once a day by the cron in /etc/cron.d/jade-hr-sync, after the
+    morning punch sync has landed the day's clock-ins. Note the punch data is
+    only as fresh as that last sync (arrivals after it show up the next run).
+    `dry_run` returns the list WITHOUT sending, for safe verification; the
+    real run sends nothing on a day with no late arrivals (no empty emails).
+    Gated on require_console so the sync account (already console-capable for
+    /api/biometric/ingest) can call it — no new credential needed.
+    """
+    target = for_date or datetime.now(IST).date()
+    target_iso = target.isoformat()
+    year, month = _pay_period_label_for(target)
+
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        employees_future = pool.submit(
+            lambda: supabase.table("hr_employees").select("*").eq("is_active", True).execute().data
+        )
+        profiles_future = pool.submit(_fetch_all_compliance_profiles)
+        holidays_future = pool.submit(_fetch_holidays)
+        employees = employees_future.result()
+        profiles_by_employee = profiles_future.result()
+        holidays = holidays_future.result()
+
+    corporate = [e for e in employees if e.get("employee_category") == "corporate"]
+    summaries = _all_summaries_for_month(
+        corporate, profiles_by_employee, holidays, year, month, keep_daily=True,
+    )
+
+    late = []
+    for summary in summaries:
+        row = next((r for r in summary["daily"] if r["date"] == target_iso), None)
+        if row and row["status"] == "present" and row.get("late"):
+            first_in = row.get("first_in")
+            in_time = (
+                datetime.fromisoformat(first_in).astimezone(IST).strftime("%I:%M %p").lstrip("0")
+                if first_in else "—"
+            )
+            late.append({
+                "employee_code": summary["employee_code"],
+                "name": summary["name"],
+                "location": summary["location"],
+                "time": in_time,
+                "sort_key": first_in or "",
+            })
+    late.sort(key=lambda x: x["sort_key"])
+    for e in late:
+        e.pop("sort_key", None)
+
+    emailed = False
+    if not dry_run:
+        emailed = email_service.notify_late_digest(target_iso, late, email_service.HR_NOTIFY_EMAIL)
+    return {"date": target_iso, "count": len(late), "late": late, "emailed": emailed}
 
 
 MAX_RANGE_MONTHS = 12  # each month re-fetches punches/overrides/leaves/declarations

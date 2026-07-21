@@ -5,9 +5,14 @@ import api from "../lib/api.js";
 import { useAuth } from "../lib/auth.jsx";
 import { LEAVE_LABELS, selectableLeaveTypes } from "../lib/leaveTypes.js";
 
-export default function LeaveRequestModal({ onClose, onSubmitted }) {
+// `onBehalfOf` (an employee row: {id, first_name, last_name, employee_code,
+// employee_category}) switches this from the normal employee self-service
+// modal into HR's Red Card exception path — files the request under that
+// employee instead of the caller, and skips the Red Card block (filing it
+// IS the documented management exception).
+export default function LeaveRequestModal({ onClose, onSubmitted, onBehalfOf }) {
   const { user } = useAuth();
-  const isCorporate = user?.employee_category === "corporate";
+  const isCorporate = (onBehalfOf ?? user)?.employee_category === "corporate";
   const availableTypes = selectableLeaveTypes(isCorporate);
   const [leaveType, setLeaveType] = useState("paid");
   const [startDate, setStartDate] = useState("");
@@ -35,6 +40,7 @@ export default function LeaveRequestModal({ onClose, onSubmitted }) {
         start_date: startDate,
         end_date: endDate,
         reason: leaveType === "other" ? `[${remark.trim()}] ${reason}` : reason,
+        ...(onBehalfOf ? { employee_id: onBehalfOf.id } : {}),
       });
       onSubmitted();
     } catch (err) {
@@ -50,8 +56,14 @@ export default function LeaveRequestModal({ onClose, onSubmitted }) {
         <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-ink/70 hover:text-ink transition-colors">
           <X size={18} />
         </button>
-        <p className="text-xs font-semibold uppercase tracking-wider text-jade-600 mb-1">Request leave</p>
-        <p className="font-display text-lg text-ink mb-5">New leave request</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-jade-600 mb-1">
+          {onBehalfOf ? "Red Card exception" : "Request leave"}
+        </p>
+        <p className="font-display text-lg text-ink mb-5">
+          {onBehalfOf
+            ? `Filing for ${onBehalfOf.first_name} ${onBehalfOf.last_name || ""} (${onBehalfOf.employee_code})`
+            : "New leave request"}
+        </p>
 
         <form onSubmit={submit} className="space-y-4">
           <div>
@@ -130,7 +142,7 @@ export default function LeaveRequestModal({ onClose, onSubmitted }) {
               disabled={busy}
               className="bg-ledger-800 text-manila px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
             >
-              {busy ? "Submitting…" : "Submit to admin"}
+              {busy ? "Submitting…" : onBehalfOf ? "File exception" : "Submit to admin"}
             </button>
           </div>
         </form>

@@ -7,7 +7,7 @@ import email_service
 from auth import get_current_user, require_permission, user_can
 from database import maybe_single_data, supabase
 from models import CompOffGrant, LeaveRequestCreate, LeaveResolve
-from payroll import pay_period_bounds
+from payroll import apply_late_coming_policy, compute_daily_attendance, pay_period_bounds
 
 router = APIRouter(prefix="/api", tags=["leave"])
 
@@ -33,8 +33,13 @@ DEPRECATED_LEAVE_TYPES = ("casual", "sick", "earned")
 MERGED_PAID_LEAVE_TYPES = ("paid",) + DEPRECATED_LEAVE_TYPES
 CORPORATE_ONLY_TYPES = {"paternity", "maternity", "compassionate", "comp_off"}
 PL_PROBATION_DAYS = 91  # ~3 months
+# Late-coming policy (revised Jul 2026): a Red Card month (5+ late marks)
+# blocks new PL/Comp-Off requests entirely, not just the leave-day-becomes-
+# LOP consequence in payroll.py's apply_late_coming_policy. Management's
+# documented-exception override is the employee_id-on-behalf-of path below.
+RED_CARD_BLOCKED_TYPES = {"paid", "comp_off"}
 COMP_OFF_MAX_DAYS_PER_REQUEST = 2
-COMP_OFF_VALIDITY_DAYS = 120
+COMP_OFF_VALIDITY_DAYS = 90  # a comp-off must be used within 90 days of the earned date
 
 
 def _carry_forward_cap(location: str | None) -> float:
@@ -200,11 +205,69 @@ def _consume_comp_off(employee_id: str, days_needed: float, leave_request_id: st
     return True
 
 
+def _current_pay_period(today: date) -> tuple[int, int]:
+    """Which (year, month) pay-period label today's date falls in — periods
+    run 23rd(prev month) to 22nd(this month). Kept local (rather than shared
+    with routers/reports.py's identical _pay_period_for_date) to avoid a
+    circular import — routers/payroll.py already imports from this module."""
+    if today.day <= 22:
+        return today.year, today.month
+    month, year = today.month + 1, today.year
+    if month > 12:
+        month, year = 1, year + 1
+    return year, month
+
+
+def _is_red_carded_current_cycle(employee: dict) -> bool:
+    """Whether `employee` has already hit 5+ late marks in the pay period
+    currently in progress — re-runs the same late-coming-policy computation
+    payroll.py uses for a real payslip, just for the partial period to date
+    (days after today compute as status "future" and never count as late)."""
+    if employee.get("employee_category") != "corporate":
+        return False
+    year, month = _current_pay_period(date.today())
+    period_start, period_end = pay_period_bounds(year, month)
+    punches_resp = (
+        supabase.table("hr_biometric_punches")
+        .select("punch_time")
+        .eq("employee_code", employee["employee_code"])
+        .gte("punch_time", f"{period_start.isoformat()}T00:00:00+00:00")
+        .lte("punch_time", f"{period_end.isoformat()}T23:59:59+00:00")
+        .execute()
+    )
+    punches = [datetime.fromisoformat(r["punch_time"]) for r in punches_resp.data]
+    profile_resp = (
+        supabase.table("hr_employee_profile").select("time_slot").eq("employee_id", employee["id"]).maybe_single().execute()
+    )
+    time_slot = (maybe_single_data(profile_resp) or {}).get("time_slot")
+    standard_hours = float(employee.get("standard_hours_per_day") or 8)
+    weekly_off_day = int(employee.get("weekly_off_day") if employee.get("weekly_off_day") is not None else 6)
+    leaves = fetch_approved_leaves(employee["id"], year, month)
+    daily = compute_daily_attendance(
+        year, month, punches, standard_hours, leaves=leaves, weekly_off_day=weekly_off_day,
+        is_corporate=True, time_slot=time_slot,
+    )
+    _, red_card = apply_late_coming_policy(daily, standard_hours, time_slot)
+    return red_card
+
+
 @router.post("/me/leave-requests")
 def create_leave_request(body: LeaveRequestCreate, user: dict = Depends(get_current_user)):
     if body.end_date < body.start_date:
         raise HTTPException(status_code=400, detail="End date must be on or after start date")
-    is_corporate = user.get("employee_category") == "corporate"
+
+    filed_by_hr = body.employee_id is not None and body.employee_id != user["id"]
+    if filed_by_hr:
+        if not user_can(user, "leave.manage"):
+            raise HTTPException(status_code=403, detail="Not authorized to file a leave request for another employee")
+        target_resp = supabase.table("hr_employees").select("*").eq("id", body.employee_id).maybe_single().execute()
+        target = maybe_single_data(target_resp)
+        if not target or not target["is_active"]:
+            raise HTTPException(status_code=404, detail="Employee not found")
+    else:
+        target = user
+
+    is_corporate = target.get("employee_category") == "corporate"
     requested_days = _days_in_range(body.start_date.isoformat(), body.end_date.isoformat())
 
     if body.leave_type in DEPRECATED_LEAVE_TYPES:
@@ -213,36 +276,54 @@ def create_leave_request(body: LeaveRequestCreate, user: dict = Depends(get_curr
     if body.leave_type in CORPORATE_ONLY_TYPES and not is_corporate:
         raise HTTPException(status_code=403, detail="This leave type is only available to corporate staff")
 
+    # Red Card block only applies to the employee's own self-service
+    # submission — HR filing on their behalf (filed_by_hr) IS the documented
+    # management exception the policy allows for, so it bypasses this check.
+    if not filed_by_hr and body.leave_type in RED_CARD_BLOCKED_TYPES and _is_red_carded_current_cycle(target):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "You've had 5 or more late arrivals this pay cycle (Red Card) — Paid Leave and Comp-Off "
+                "requests are blocked until the cycle resets on the 23rd. For a documented medical emergency "
+                "or an approved management exception, contact HR."
+            ),
+        )
+
     if body.leave_type == "paid":
-        doj = user.get("date_of_joining")
+        doj = target.get("date_of_joining")
         if doj and (date.today() - date.fromisoformat(doj)).days < PL_PROBATION_DAYS:
             raise HTTPException(
                 status_code=400,
-                detail="Paid Leave is available after 3 months from your date of joining",
+                detail="Paid Leave is available after 3 months from date of joining",
             )
-        remaining = paid_leave_balance_as_of(user, date.today())
+        remaining = paid_leave_balance_as_of(target, date.today())
         if requested_days > remaining:
             raise HTTPException(status_code=400, detail=f"Not enough Paid Leave balance — {remaining} day(s) remaining")
 
     if body.leave_type == "comp_off":
         if requested_days > COMP_OFF_MAX_DAYS_PER_REQUEST:
             raise HTTPException(status_code=400, detail=f"Comp-Off requests can cover at most {COMP_OFF_MAX_DAYS_PER_REQUEST} days")
-        if _comp_off_available(user["id"]) < requested_days:
+        if _comp_off_available(target["id"]) < requested_days:
             raise HTTPException(status_code=400, detail="Not enough available Comp-Off balance")
 
+    reason = body.reason
+    if filed_by_hr:
+        filer_name = f"{user['first_name']} {user.get('last_name', '')}".strip()
+        reason = f"[Filed by {filer_name} (HR) — Red Card exception] {reason}"
+
     row = {
-        "employee_id": user["id"],
+        "employee_id": target["id"],
         "leave_type": body.leave_type,
         "start_date": body.start_date.isoformat(),
         "end_date": body.end_date.isoformat(),
-        "reason": body.reason,
+        "reason": reason,
     }
     inserted = supabase.table("hr_leave_requests").insert(row).execute()
 
     approver_ids = set()
-    if user.get("leave_approver_id"):
-        approver_ids.add(user["leave_approver_id"])
-    profile_resp = supabase.table("hr_employee_profile").select("reporting_to_id").eq("employee_id", user["id"]).maybe_single().execute()
+    if target.get("leave_approver_id"):
+        approver_ids.add(target["leave_approver_id"])
+    profile_resp = supabase.table("hr_employee_profile").select("reporting_to_id").eq("employee_id", target["id"]).maybe_single().execute()
     profile = maybe_single_data(profile_resp)
     if profile and profile.get("reporting_to_id"):
         approver_ids.add(profile["reporting_to_id"])
@@ -250,9 +331,9 @@ def create_leave_request(body: LeaveRequestCreate, user: dict = Depends(get_curr
     if approver_ids:
         approvers_resp = supabase.table("hr_employees").select("email").in_("id", list(approver_ids)).execute()
         approver_emails = {a["email"] for a in approvers_resp.data if a.get("email")}
-    employee_name = f"{user['first_name']} {user.get('last_name', '')}".strip()
+    employee_name = f"{target['first_name']} {target.get('last_name', '')}".strip()
     email_service.notify_leave_submitted(
-        employee_name, body.leave_type, body.start_date.isoformat(), body.end_date.isoformat(), body.reason,
+        employee_name, body.leave_type, body.start_date.isoformat(), body.end_date.isoformat(), reason,
         approver_emails, email_service.HR_NOTIFY_EMAIL,
     )
 

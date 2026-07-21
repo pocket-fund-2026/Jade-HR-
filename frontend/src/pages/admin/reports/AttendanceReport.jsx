@@ -18,7 +18,10 @@ const STATUS_CLASS = {
 function cellTitle(d) {
   if (d.status === "present") {
     const late = d.late ? " (late)" : "";
-    return `${formatTime(d.first_in)} – ${formatTime(d.last_out)}${late}, ${formatHoursMins(d.hours_worked)} worked, ${formatHoursMins(d.ot_hours)} OT`;
+    const compOff = d.comp_off_eligible
+      ? ` — Comp-Off eligible (${d.midnight_comp_off ? "worked past midnight" : "worked a weekoff/holiday"})`
+      : "";
+    return `${formatTime(d.first_in)} – ${formatTime(d.last_out)}${late}, ${formatHoursMins(d.hours_worked)} worked, ${formatHoursMins(d.ot_hours)} OT${compOff}`;
   }
   if (d.status === "holiday") return d.holiday_description || "Holiday";
   if (d.status === "leave") return `Leave (${d.leave_type})`;
@@ -49,7 +52,7 @@ export default function AttendanceReport() {
         <div>
           <h2 className="font-display text-2xl text-ink">Attendance Sheet</h2>
           <p className="text-xs text-ink/70 font-nums mt-0.5">
-            P = Present · A = Absent · WO = Weekoff · H = Holiday · L = Leave · HD = Half Day — in/out time shown under each punched day, hover a cell for hours &amp; OT
+            P = Present · A = Absent · WO = Weekoff · H = Holiday · L = Leave · HD = Half Day — in/out time shown under each punched day, hover a cell for hours &amp; OT. Green dot = Comp-Off eligible (weekoff/holiday worked, or stayed past midnight).
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -103,9 +106,12 @@ export default function AttendanceReport() {
                       <td key={d.date} title={cellTitle(d)} className="p-0.5 text-center align-top">
                         <div className="flex flex-col items-center gap-0.5">
                           <span
-                            className={`inline-flex items-center justify-center w-7 h-5 rounded-sm font-semibold ${STATUS_CLASS[d.status] || ""}`}
+                            className={`relative inline-flex items-center justify-center w-7 h-5 rounded-sm font-semibold ${STATUS_CLASS[d.status] || ""}`}
                           >
                             {STATUS_CODE[d.status] ?? d.status}
+                            {d.comp_off_eligible && (
+                              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-jade-500 ring-1 ring-paper" />
+                            )}
                           </span>
                           {d.first_in && (
                             <span className="text-[9px] leading-none text-ink/50 font-nums whitespace-nowrap">

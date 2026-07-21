@@ -198,7 +198,11 @@ export default function Dashboard() {
                     <td className="px-5 py-2.5 font-nums text-ink/70">
                       {formatTime(d.first_in)}
                       {d.late && <span className="ml-1.5 text-[10px] font-sans font-semibold text-rust-500 uppercase tracking-wide">Late</span>}
-                      {d.lop_half_day && <span className="ml-1.5 text-[10px] font-sans font-semibold text-rust-500 uppercase tracking-wide">½ LOP</span>}
+                      {d.lop_days > 0 && (
+                        <span className="ml-1.5 text-[10px] font-sans font-semibold text-rust-500 uppercase tracking-wide">
+                          {d.lop_days === 0.5 ? "½" : "¼"} LOP
+                        </span>
+                      )}
                     </td>
                     <td className="px-5 py-2.5 font-nums text-ink/70">{formatTime(d.last_out)}</td>
                     <td className="px-5 py-2.5 font-nums">{d.hours_worked ? formatHoursMins(d.hours_worked) : "—"}</td>

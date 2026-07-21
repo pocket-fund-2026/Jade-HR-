@@ -1,7 +1,8 @@
-import { Check, X } from "lucide-react";
+import { Check, ShieldAlert, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 
+import LeaveRequestModal from "../../components/LeaveRequestModal.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
 import { formatDate } from "../../lib/format.js";
@@ -73,6 +74,57 @@ function ResolveRow({ request, onResolved }) {
   );
 }
 
+// HR's override for the Red Card leave-request block (policy allows "a
+// documented medical emergency or approved exception by Management") — no
+// employee self-service path can reach this; filing it here IS the exception.
+function RedCardExceptionTrigger({ onFiled }) {
+  const [employees, setEmployees] = useState([]);
+  const [employeeId, setEmployeeId] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+
+  useEffect(() => {
+    api.get("/api/employees", { params: { lite: true } }).then(({ data }) => setEmployees(data));
+  }, []);
+
+  const corporateEmployees = useMemo(
+    () => employees.filter((e) => e.employee_category === "corporate" && e.is_active)
+      .sort((a, b) => a.first_name.localeCompare(b.first_name)),
+    [employees],
+  );
+  const target = corporateEmployees.find((e) => e.id === employeeId);
+
+  return (
+    <div className="flex items-center gap-2">
+      <select
+        aria-label="Employee to file a Red Card exception for"
+        value={employeeId}
+        onChange={(e) => setEmployeeId(e.target.value)}
+        className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+      >
+        <option value="">File Red Card exception for…</option>
+        {corporateEmployees.map((e) => (
+          <option key={e.id} value={e.id}>{e.first_name} {e.last_name} ({e.employee_code})</option>
+        ))}
+      </select>
+      <button
+        type="button"
+        disabled={!target}
+        onClick={() => setModalOpen(true)}
+        className="flex items-center gap-1.5 bg-paper border border-ochre-500 text-ochre-700 px-3 py-2 rounded-sm text-sm font-semibold hover:bg-ochre-50 disabled:opacity-40 transition-colors"
+      >
+        <ShieldAlert size={15} /> File Exception
+      </button>
+      {modalOpen && target && (
+        <LeaveRequestModal
+          onBehalfOf={target}
+          onClose={() => setModalOpen(false)}
+          onSubmitted={() => { setModalOpen(false); setEmployeeId(""); onFiled(); }}
+        />
+      )}
+    </div>
+  );
+}
+
 const POLL_MS = 20000;
 
 export default function Leave() {
@@ -116,17 +168,20 @@ export default function Leave() {
           <h2 className="font-display text-2xl text-ink">Leave Requests</h2>
           <p className="text-xs text-ink/70 font-nums mt-0.5">Casual, sick, earned & unpaid leave</p>
         </div>
-        <select
-          aria-label="Filter by location"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-          className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
-        >
-          <option value="all">All locations</option>
-          {locations.map((loc) => (
-            <option key={loc} value={loc}>{loc}</option>
-          ))}
-        </select>
+        <div className="flex flex-wrap items-center gap-3">
+          <select
+            aria-label="Filter by location"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+          >
+            <option value="all">All locations</option>
+            {locations.map((loc) => (
+              <option key={loc} value={loc}>{loc}</option>
+            ))}
+          </select>
+          <RedCardExceptionTrigger onFiled={() => load(true)} />
+        </div>
       </div>
 
       <div className="flex gap-1 mb-4">

@@ -121,6 +121,11 @@ class LeaveRequestCreate(BaseModel):
     start_date: date
     end_date: date
     reason: str
+    # Set only when HR is filing on an employee's behalf (requires
+    # leave.manage) — e.g. a documented Red Card exception, since the
+    # employee's own self-service submission is blocked in that case.
+    # Omitted/None for the normal self-service path.
+    employee_id: str | None = None
 
 
 class LeaveResolve(BaseModel):
