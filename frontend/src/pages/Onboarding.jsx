@@ -117,16 +117,17 @@ function FileField({ label, hint, multiple, count, onUploaded }) {
     setBusy(true);
     setStatus("Uploading…");
     try {
-      const paths = [];
-      for (const file of files) {
-        const content_base64 = await fileToBase64(file);
-        const { data } = await api.post("/api/onboarding/upload", {
-          filename: file.name,
-          content_base64,
-          content_type: file.type || "application/octet-stream",
-        });
-        paths.push(data.path);
-      }
+      const paths = await Promise.all(
+        files.map(async (file) => {
+          const content_base64 = await fileToBase64(file);
+          const { data } = await api.post("/api/onboarding/upload", {
+            filename: file.name,
+            content_base64,
+            content_type: file.type || "application/octet-stream",
+          });
+          return data.path;
+        }),
+      );
       onUploaded(multiple ? paths : paths[0]);
       setStatus(multiple ? `${paths.length} file(s) added` : "Uploaded");
     } catch (err) {

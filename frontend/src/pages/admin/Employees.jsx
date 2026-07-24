@@ -26,10 +26,16 @@ export default function Employees() {
 
   const load = () => {
     setLoading(true);
-    api.get("/api/employees").then(({ data }) => setEmployees(data)).finally(() => setLoading(false));
+    // This table only ever renders name/code/location/designation/status
+    // (+ gross, when salary.view is granted) — lite=true skips ~30
+    // salary/bank/compliance columns per row when we don't need them.
+    api
+      .get("/api/employees", { params: canViewSalary ? undefined : { lite: true } })
+      .then(({ data }) => setEmployees(data))
+      .finally(() => setLoading(false));
   };
 
-  useEffect(load, []);
+  useEffect(load, [canViewSalary]);
   useEffect(() => setPage(1), [query, location]);
 
   const locations = useMemo(

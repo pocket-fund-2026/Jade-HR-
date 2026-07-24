@@ -21,7 +21,7 @@ def _sanitize(employee: dict, can_view_salary: bool) -> dict:
     return employee
 
 
-LITE_FIELDS = "id,employee_code,first_name,last_name,is_active,department,designation,location,role,employee_category"
+LITE_FIELDS = "id,employee_code,first_name,last_name,is_active,department,designation,location,role,employee_category,is_intern"
 
 
 @router.get("")

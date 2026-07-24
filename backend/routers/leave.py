@@ -356,13 +356,49 @@ def my_leave_requests(user: dict = Depends(get_current_user)):
     return resp.data
 
 
-def _pl_ledger_from_rows(employee: dict, year: int, month: int, leave_rows: list[dict]) -> dict:
+def _carried_forward_bulk(employees: list[dict], year: int) -> dict[str, float]:
+    """Bulk equivalent of get_carried_forward: one query for the whole
+    roster's already-locked carry-forward for `year`, falling back to the
+    single-employee path (still its own query, but only for whichever
+    employees haven't had this year locked in yet — a one-time cost per
+    employee per year, not a steady-state N+1)."""
+    if year <= PAID_LEAVE_POLICY_START_YEAR:
+        return {e["id"]: 0.0 for e in employees}
+
+    employee_ids = [e["id"] for e in employees]
+    resp = (
+        supabase.table("hr_leave_balances")
+        .select("employee_id,carried_forward")
+        .in_("employee_id", employee_ids)
+        .eq("leave_year", year)
+        .execute()
+    )
+    result = {r["employee_id"]: float(r["carried_forward"]) for r in resp.data}
+    for e in employees:
+        if e["id"] not in result:
+            result[e["id"]] = get_carried_forward(e, year)
+    return result
+
+
+def _pl_ledger_from_rows(
+    employee: dict,
+    year: int,
+    month: int,
+    leave_rows: list[dict],
+    carry_at_start: float | None = None,
+    carry_at_end: float | None = None,
+) -> dict:
     """Pure computation half of the Paid Leave ledger, given this employee's
     already-fetched approved leave rows (start_date/end_date, any merged
     type — see MERGED_PAID_LEAVE_TYPES) covering at least day-before-period-
     start through period-end. Split out so the bulk path
     (pl_ledger_for_period_bulk) can fetch once for every employee instead of
-    once per employee."""
+    once per employee.
+
+    carry_at_start/carry_at_end let the bulk path pass in pre-fetched
+    (_carried_forward_bulk) values instead of each employee hitting
+    get_carried_forward individually; leave both None for the
+    single-employee path (pl_ledger_for_period)."""
     doj = employee.get("date_of_joining")
     location = employee.get("location")
     period_start, period_end = pay_period_bounds(year, month)
@@ -370,8 +406,10 @@ def _pl_ledger_from_rows(employee: dict, year: int, month: int, leave_rows: list
 
     accrued_at_start = _pl_accrued_to_date(doj, day_before_start, day_before_start.year)
     accrued_at_end = _pl_accrued_to_date(doj, period_end, period_end.year)
-    carry_at_start = get_carried_forward(employee, day_before_start.year) if day_before_start.year > PAID_LEAVE_POLICY_START_YEAR else 0.0
-    carry_at_end = get_carried_forward(employee, period_end.year) if period_end.year > PAID_LEAVE_POLICY_START_YEAR else 0.0
+    if carry_at_start is None:
+        carry_at_start = get_carried_forward(employee, day_before_start.year) if day_before_start.year > PAID_LEAVE_POLICY_START_YEAR else 0.0
+    if carry_at_end is None:
+        carry_at_end = get_carried_forward(employee, period_end.year) if period_end.year > PAID_LEAVE_POLICY_START_YEAR else 0.0
     credit = max(0, (accrued_at_end + carry_at_end) - (accrued_at_start + carry_at_start))
 
     used_before = used_within = 0
@@ -442,7 +480,20 @@ def pl_ledger_for_period_bulk(employees: list[dict], year: int, month: int) -> d
     for r in resp.data:
         rows_by_employee[r["employee_id"]].append(r)
 
-    return {e["id"]: _pl_ledger_from_rows(e, year, month, rows_by_employee.get(e["id"], [])) for e in employees}
+    day_before_start = period_start - timedelta(days=1)
+    carry_at_start_by_year = _carried_forward_bulk(employees, day_before_start.year)
+    carry_at_end_by_year = (
+        carry_at_start_by_year if period_end.year == day_before_start.year else _carried_forward_bulk(employees, period_end.year)
+    )
+
+    return {
+        e["id"]: _pl_ledger_from_rows(
+            e, year, month, rows_by_employee.get(e["id"], []),
+            carry_at_start=carry_at_start_by_year[e["id"]],
+            carry_at_end=carry_at_end_by_year[e["id"]],
+        )
+        for e in employees
+    }
 
 
 @router.get("/me/leave-balance")
