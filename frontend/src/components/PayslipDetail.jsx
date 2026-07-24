@@ -12,37 +12,104 @@ const MONTH_NAMES = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-function InfoField({ label, value }) {
+// A "Label ····· Value" row with a dotted leader, matching the
+// registered-payslip form fields (Name, Designation, Present, etc.).
+function InfoRow({ label, value }) {
+  const isEmpty = value === undefined || value === null || value === "";
   return (
-    <div>
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70">{label}</p>
-      <p className="text-sm text-ink font-medium mt-0.5">{value || "—"}</p>
+    <div className="flex items-baseline justify-between gap-3 border-b border-dotted border-ink/25 py-1 text-sm">
+      <span className="font-semibold text-ink/80 shrink-0">{label}</span>
+      <span className="text-ink font-nums text-right truncate">{isEmpty ? "—" : value}</span>
     </div>
   );
 }
 
-// Description/Amount ledger table shared by the Earnings and Deductions
-// panels — mirrors the printed payslip's two-column layout. Rows with no
-// amount are hidden (matches how PF/ESIC/PT/LWF only apply to some
+// Single combined Earnings | Deductions | Description(leave ledger) table —
+// mirrors the printed payslip's one-table layout instead of three separate
+// cards. Rows with no amount are hidden (PF/ESIC/PT/LWF only apply to some
 // employees) except for the core recurring earning lines, which always show.
-function LedgerTable({ title, rows, totalLabel, total, accentClass }) {
-  const visible = rows.filter((r) => r.always || r.value > 0);
+function PayslipLedgerTable({ earningsRows, deductionsRows, pl, netSalary }) {
+  const earnings = earningsRows.filter((r) => r.always || r.value > 0);
+  const deductions = deductionsRows.filter((r) => r.value > 0);
+  const totalEarnings = earnings.reduce((s, r) => s + (r.value || 0), 0);
+  const totalDeductions = deductions.reduce((s, r) => s + (r.value || 0), 0);
+  const rowCount = Math.max(earnings.length, deductions.length, pl ? 1 : 0);
+  const thCls = "px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-ink/70";
+
+  const descColSpan = 5; // label + Opg + Dr + Cr + Clg
   return (
-    <div className="bg-paper rounded-sm shadow-card overflow-hidden">
-      <p className="px-5 pt-4 pb-2 text-xs font-semibold uppercase tracking-wider text-ink/70">{title}</p>
+    <div className="bg-paper rounded-sm shadow-card border border-ink/15 overflow-hidden overflow-x-auto">
       <table className="w-full text-sm">
-        <tbody>
-          {visible.map((r) => (
-            <tr key={r.label} className="border-t border-ink/[0.06]">
-              <td className="px-5 py-2 text-ink/80">{r.label}</td>
-              <td className="px-5 py-2 text-right font-nums text-ink">{formatINR(r.value)}</td>
-            </tr>
-          ))}
-          <tr className={`border-t-2 border-ink/10 font-semibold ${accentClass || "text-ink"}`}>
-            <td className="px-5 py-2.5">{totalLabel}</td>
-            <td className="px-5 py-2.5 text-right font-nums">{formatINR(total)}</td>
+        <thead>
+          <tr className="border-b border-ink/15">
+            <th colSpan={2} className={`${thCls} border-r border-ink/10`}>Earnings</th>
+            <th colSpan={2} className={`${thCls} border-r border-ink/10`}>Deductions</th>
+            {pl && <th colSpan={descColSpan} className={thCls}>Description</th>}
           </tr>
+          <tr className="border-b border-ink/10">
+            <th className={thCls}></th>
+            <th className={`${thCls} text-right border-r border-ink/10`}>Amount</th>
+            <th className={thCls}></th>
+            <th className={`${thCls} text-right border-r border-ink/10`}>Amount</th>
+            {pl && (
+              <>
+                <th className={thCls}></th>
+                <th className={`${thCls} text-right`}>Opg</th>
+                <th className={`${thCls} text-right`}>Dr</th>
+                <th className={`${thCls} text-right`}>Cr</th>
+                <th className={`${thCls} text-right`}>Clg</th>
+              </>
+            )}
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: rowCount }).map((_, i) => {
+            const e = earnings[i];
+            const d = deductions[i];
+            return (
+              <tr key={i} className="border-b border-dotted border-ink/[0.12]">
+                <td className="px-3 py-1.5 text-ink/80">{e?.label || ""}</td>
+                <td className="px-3 py-1.5 text-right font-nums text-ink border-r border-ink/10">
+                  {e ? formatINR(e.value) : ""}
+                </td>
+                <td className="px-3 py-1.5 text-ink/80">{d?.label || ""}</td>
+                <td className={`px-3 py-1.5 text-right font-nums text-ink ${pl ? "border-r border-ink/10" : ""}`}>
+                  {d ? formatINR(d.value) : ""}
+                </td>
+                {pl && i === 0 && (
+                  <>
+                    <td className="px-3 py-1.5 text-ink/80">{pl.label || "PL"}</td>
+                    <td className="px-3 py-1.5 text-right font-nums text-ink">{pl.opening}</td>
+                    <td className="px-3 py-1.5 text-right font-nums text-ink">{pl.debit}</td>
+                    <td className="px-3 py-1.5 text-right font-nums text-ink">{pl.credit}</td>
+                    <td className="px-3 py-1.5 text-right font-nums text-ink">{pl.closing}</td>
+                  </>
+                )}
+                {pl && i !== 0 && <td colSpan={descColSpan}></td>}
+              </tr>
+            );
+          })}
         </tbody>
+        <tfoot>
+          <tr className="border-t-2 border-ink/15 font-semibold">
+            <td className="px-3 py-2">Total :</td>
+            <td className="px-3 py-2 text-right font-nums border-r border-ink/10">{formatINR(totalEarnings)}</td>
+            <td className="px-3 py-2">Total :</td>
+            <td className={`px-3 py-2 text-right font-nums text-rust-500 ${pl ? "border-r border-ink/10" : ""}`}>
+              {formatINR(totalDeductions)}
+            </td>
+            {pl && <td colSpan={descColSpan}></td>}
+          </tr>
+          <tr className="bg-ledger-800">
+            <td colSpan={pl ? 4 + descColSpan : 4} className="px-3 py-2.5 relative">
+              <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
+              <div className="relative flex justify-between items-baseline">
+                <span className="font-display text-manila text-base">Net Salary</span>
+                <span className="font-nums font-semibold text-xl text-manila">{formatINR(netSalary)}</span>
+              </div>
+            </td>
+          </tr>
+        </tfoot>
       </table>
     </div>
   );
@@ -66,7 +133,6 @@ export default function PayslipDetail({ summary, showDailyAttendance = true }) {
     { label: "Incentive", value: summary.incentive, always: true },
     { label: "OT Amount", value: summary.ot_amount, always: true },
   ];
-  const totalEarnings = earningsRows.reduce((s, r) => s + (r.value || 0), 0);
 
   const deductionsRows = [
     { label: "PF (employee contribution)", value: summary.ded_pf },
@@ -75,7 +141,6 @@ export default function PayslipDetail({ summary, showDailyAttendance = true }) {
     { label: "LWF (Labour Welfare Fund)", value: summary.ded_lwf },
     { label: "TDS (Income Tax)", value: summary.ded_tds },
   ];
-  const totalDeductions = deductionsRows.reduce((s, r) => s + (r.value || 0), 0);
 
   const pl = summary.pl_ledger;
 
@@ -101,33 +166,37 @@ export default function PayslipDetail({ summary, showDailyAttendance = true }) {
         </div>
       </div>
 
-      <div className="bg-paper rounded-sm shadow-card p-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
-          <InfoField label="Employee" value={`${summary.name} [${summary.employee_code}]`} />
-          <InfoField label="Designation" value={summary.designation} />
-          <InfoField label="Department" value={summary.department} />
-          <InfoField label="PAN No" value={summary.pan_no} />
-          <InfoField label="UAN No" value={summary.uan_no} />
-          <InfoField label="Aadhar No" value={summary.aadhar_no} />
-          <InfoField label="PF No" value={summary.pf_no} />
-          <InfoField label="ESIC No" value={summary.esic_no} />
-          <InfoField label="Payment Mode" value={summary.payment_mode} />
-          <InfoField label="Date of Join" value={formatFullDate(summary.date_of_joining)} />
-          <InfoField label="Location" value={summary.location} />
+      <div className="bg-paper rounded-sm shadow-card border border-ink/15 p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-10">
+          <div className="space-y-0.5">
+            <InfoRow label="Name" value={`${summary.name} [${summary.employee_code}]`} />
+            <InfoRow label="Designation" value={summary.designation} />
+            <InfoRow label="Department" value={summary.department} />
+            <InfoRow label="Location" value={summary.location} />
+            <InfoRow label="P A N No" value={summary.pan_no} />
+            <InfoRow label="UAN No" value={summary.uan_no} />
+            <InfoRow label="Aadhar No" value={summary.aadhar_no} />
+            <InfoRow label="P F No" value={summary.pf_no} />
+            <InfoRow label="ESIC No" value={summary.esic_no} />
+            <InfoRow label="Date of Join" value={formatFullDate(summary.date_of_joining)} />
+            <InfoRow label="Payment Mode" value={summary.payment_mode} />
+          </div>
+          <div className="space-y-0.5 mt-4 lg:mt-0">
+            <InfoRow label="Present" value={summary.present_days} />
+            <InfoRow label="WeeklyOff" value={summary.weekoff_days} />
+            <InfoRow label="Holiday" value={summary.holiday_days} />
+            <InfoRow label="LeaveAdj" value={summary.pl_days} />
+            <InfoRow label="PaidDays" value={summary.paid_days} />
+            <InfoRow
+              label="WithoutPayDays"
+              value={<span className={summary.without_pay_days > 0 ? "text-rust-500" : undefined}>{summary.without_pay_days}</span>}
+            />
+            <InfoRow label="Total Days" value={summary.days_in_month} />
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 stagger-rise">
-        <StatCard label="Present" value={summary.present_days} />
-        <StatCard label="WeeklyOff" value={summary.weekoff_days} />
-        <StatCard label="Holiday" value={summary.holiday_days} />
-        <StatCard label="LeaveAdj" value={summary.pl_days} />
-        <StatCard label="Paid Days" value={summary.paid_days} />
-        <StatCard label="Without Pay" value={summary.without_pay_days} accent={summary.without_pay_days > 0 ? "text-rust-500" : "text-ink"} />
-        <StatCard label="Total Days" value={summary.days_in_month} />
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 stagger-rise">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 stagger-rise print-hide">
         <StatCard label="Hours Worked" value={formatHoursMins(summary.total_hours_worked)} />
         <StatCard label="OT Hours" value={formatHoursMins(summary.total_ot_hours)} accent="text-ochre-700" />
         <StatCard label="OT Amount" value={formatINR(summary.ot_amount)} accent="text-ochre-700" />
@@ -160,44 +229,12 @@ export default function PayslipDetail({ summary, showDailyAttendance = true }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <LedgerTable title="Earnings" rows={earningsRows} totalLabel="Total Earnings" total={totalEarnings} />
-        <LedgerTable title="Deductions" rows={deductionsRows} totalLabel="Total Deductions" total={totalDeductions} accentClass="text-rust-500" />
-      </div>
-
-      {pl && (
-        <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
-          <p className="px-5 pt-4 pb-2 text-xs font-semibold uppercase tracking-wider text-ink/70">Leave Ledger</p>
-          <table className="w-full text-sm">
-            <thead className="text-left sticky top-0 z-10 bg-paper">
-              <tr className="border-b border-ink/10">
-                <th className="px-5 py-2 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Description</th>
-                <th className="px-5 py-2 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">Opening</th>
-                <th className="px-5 py-2 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">Debit</th>
-                <th className="px-5 py-2 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">Credit</th>
-                <th className="px-5 py-2 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">Closing</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="px-5 py-2 text-ink/80">PL (Privilege Leave)</td>
-                <td className="px-5 py-2 text-right font-nums text-ink">{pl.opening}</td>
-                <td className="px-5 py-2 text-right font-nums text-ink">{pl.debit}</td>
-                <td className="px-5 py-2 text-right font-nums text-ink">{pl.credit}</td>
-                <td className="px-5 py-2 text-right font-nums text-ink">{pl.closing}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      <div className="bg-ledger-800 rounded-sm shadow-card p-7 relative overflow-hidden">
-        <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
-        <div className="relative flex justify-between items-baseline">
-          <span className="font-display text-manila text-lg">Net Salary</span>
-          <span className="font-nums font-semibold text-3xl text-manila">{formatINR(summary.total_payable)}</span>
-        </div>
-      </div>
+      <PayslipLedgerTable
+        earningsRows={earningsRows}
+        deductionsRows={deductionsRows}
+        pl={pl ? { label: "PL", ...pl } : null}
+        netSalary={summary.total_payable}
+      />
 
       {showDailyAttendance && (
         <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto print-hide">
