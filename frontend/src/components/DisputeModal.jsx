@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { Paperclip, X } from "lucide-react";
 import { useState } from "react";
 
 import api from "../lib/api.js";
@@ -11,11 +11,21 @@ const ISSUE_LABELS = {
   other: "Something else",
 };
 
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function DisputeModal({ date, onClose, onSubmitted }) {
   const [issueType, setIssueType] = useState("missed_clock_out");
   const [claimedIn, setClaimedIn] = useState("");
   const [claimedOut, setClaimedOut] = useState("");
   const [reason, setReason] = useState("");
+  const [photo, setPhoto] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -25,14 +35,26 @@ export default function DisputeModal({ date, onClose, onSubmitted }) {
   const submit = async (e) => {
     e.preventDefault();
     setError("");
+    if (!photo) {
+      setError("Please attach a photo of the attendance register as supporting evidence");
+      return;
+    }
     setBusy(true);
     try {
+      const content_base64 = await fileToBase64(photo);
+      const { data: uploaded } = await api.post("/api/disputes/upload", {
+        filename: photo.name,
+        content_base64,
+        content_type: photo.type || "application/octet-stream",
+      });
       await api.post("/api/me/disputes", {
         date,
         issue_type: issueType,
         claimed_in: needsIn && claimedIn ? `${claimedIn}:00` : null,
         claimed_out: needsOut && claimedOut ? `${claimedOut}:00` : null,
         reason,
+        photo_path: uploaded.path,
+        photo_filename: uploaded.filename,
       });
       onSubmitted();
     } catch (err) {
@@ -104,6 +126,17 @@ export default function DisputeModal({ date, onClose, onSubmitted }) {
               onChange={(e) => setReason(e.target.value)}
               required
             />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">
+              Photo of attendance register <span className="text-rust-500 normal-case font-normal">*Required</span>
+            </label>
+            <label className="flex items-center gap-2 w-full rounded-sm border border-dashed border-ink/20 bg-manila/40 px-3 py-2.5 text-sm text-ink/70 cursor-pointer hover:bg-manila/60 transition-colors">
+              <Paperclip size={14} />
+              {photo ? photo.name : "Attach photo…"}
+              <input type="file" accept="image/*" className="hidden" onChange={(e) => setPhoto(e.target.files?.[0] || null)} />
+            </label>
           </div>
 
           {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}

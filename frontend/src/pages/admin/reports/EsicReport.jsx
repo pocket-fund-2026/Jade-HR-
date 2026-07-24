@@ -12,16 +12,16 @@ const MONTH_NAMES = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-// "Days Paid" on the statutory ESIC template is the NCP (Non-Contribution
-// Period) day count — days with no wages (absent/unpaid leave/LOP) —
-// distinct from "PaidDays" (the days actually paid). Mirrors
-// without_pay_days from the payslip engine. "Daily Wages" and "OT ESIC"
-// aren't separately computed by this system: Daily Wages is derived here
-// (ESIC Wages ÷ PaidDays) and OT ESIC is left blank, since OT amount isn't
-// part of the ESIC contribution wage base (statutory.py's compute_esic).
+// Column layout mirrors the reference ESIC sheet exactly. "Days Paid" is a
+// fixed 0.00 in that template (it is NOT the NCP/without-pay count — the
+// reference shows 0 even for part-month employees), so we emit 0. "Daily
+// Wages" = round(ESIC Wages ÷ PaidDays); "OT ESIC" is blank, since OT isn't
+// part of the ESIC contribution wage base. ESIC Employer / ESIC come from
+// the backend already rounded up to whole rupees (statutory.compute_esic).
+// Rows are for the CALENDAR month (/api/esic-report), not the 23rd–22nd cycle.
 function esicRow(r) {
   const dailyWages = r.paid_days > 0 ? Math.round(r.esic_wages / r.paid_days) : 0;
-  return { ...r, ncpDays: r.without_pay_days, dailyWages };
+  return { ...r, daysPaid: 0, dailyWages };
 }
 
 async function exportExcel(rows, year, month) {
@@ -33,7 +33,7 @@ async function exportExcel(rows, year, month) {
       "Employee Code": r.employee_code,
       "Full Name": r.name,
       "PaidDays": r.paid_days,
-      "Days Paid": r.ncpDays,
+      "Days Paid": r.daysPaid,
       "ESIC Wages": r.esic_wages,
       "ESIC Employer": r.esic_employer,
       "ESIC": r.ded_esic,
@@ -56,8 +56,8 @@ export default function EsicReport() {
 
   useEffect(() => {
     setLoading(true);
-    api.get("/api/payroll", { params: { year, month } })
-      .then(({ data }) => setRows(data.filter((r) => r.esic_wages > 0)))
+    api.get("/api/esic-report", { params: { year, month } })
+      .then(({ data }) => setRows(data))
       .finally(() => setLoading(false));
   }, [year, month]);
 
@@ -90,7 +90,7 @@ export default function EsicReport() {
       <div className="bg-ledger-800 rounded-sm shadow-card p-6 relative overflow-hidden mb-6">
         <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
         <div className="relative space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wider text-manila/60 mb-3">Challan — {rows.length} employees (gross ≤ ₹21,000)</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-manila/60 mb-3">Challan — {rows.length} ESIC-covered employees · {MONTH_NAMES[month - 1]} {year} (calendar month)</p>
           <div className="flex justify-between text-sm text-manila/60"><span>Employee ESIC (0.75%)</span><span className="font-nums text-manila">{formatINR(totals.employee)}</span></div>
           <div className="flex justify-between text-sm text-manila/60"><span>Employer ESIC (3.25%)</span><span className="font-nums text-manila">{formatINR(totals.employer)}</span></div>
           <div className="flex justify-between items-baseline pt-4 mt-2 border-t border-manila/15">
@@ -107,7 +107,7 @@ export default function EsicReport() {
               <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">ESIC No</th>
               <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
               <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">PaidDays</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Days Paid (NCP)</th>
+              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Days Paid</th>
               <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">ESIC Wages</th>
               <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee ESIC</th>
               <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employer ESIC</th>
@@ -132,7 +132,7 @@ export default function EsicReport() {
                       <div className="text-xs text-ink/70 font-nums">{r.employee_code}</div>
                     </td>
                     <td className="px-4 py-3 font-nums">{r.paid_days}</td>
-                    <td className="px-4 py-3 font-nums">{r.ncpDays}</td>
+                    <td className="px-4 py-3 font-nums">{r.daysPaid.toFixed(2)}</td>
                     <td className="px-4 py-3 font-nums">{formatINR(r.esic_wages)}</td>
                     <td className="px-4 py-3 font-nums">{formatINR(r.ded_esic)}</td>
                     <td className="px-4 py-3 font-nums">{formatINR(r.esic_employer)}</td>

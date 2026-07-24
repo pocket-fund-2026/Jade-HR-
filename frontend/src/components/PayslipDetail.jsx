@@ -133,7 +133,7 @@ export default function PayslipDetail({ summary, showDailyAttendance = true }) {
         <StatCard label="OT Amount" value={formatINR(summary.ot_amount)} accent="text-ochre-700" />
       </div>
 
-      <div className="bg-paper rounded-sm shadow-card p-7 border-t-4 border-ochre-500">
+      <div className="bg-paper rounded-sm shadow-card p-7 border-t-4 border-ochre-500 print-hide">
         <p className="text-xs font-semibold uppercase tracking-wider text-ochre-700 mb-1">Overtime calculation</p>
         <p className="text-xs text-ink/65 mb-4 font-nums">
           (Basic + HRA + Conveyance) &divide; days in month &divide; standard hours &times; OT hours
@@ -200,7 +200,7 @@ export default function PayslipDetail({ summary, showDailyAttendance = true }) {
       </div>
 
       {showDailyAttendance && (
-        <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
+        <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto print-hide">
           <p className="px-5 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-ink/70">Daily attendance</p>
           <table className="w-full text-sm mt-2">
             <thead className="text-left sticky top-0 z-10 bg-paper">

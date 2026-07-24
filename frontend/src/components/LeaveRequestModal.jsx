@@ -18,7 +18,6 @@ export default function LeaveRequestModal({ onClose, onSubmitted, onBehalfOf }) 
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [reason, setReason] = useState("");
-  const [remark, setRemark] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -29,17 +28,13 @@ export default function LeaveRequestModal({ onClose, onSubmitted, onBehalfOf }) 
       setError("End date must be on or after the start date");
       return;
     }
-    if (leaveType === "other" && !remark.trim()) {
-      setError("Please specify what kind of leave this is");
-      return;
-    }
     setBusy(true);
     try {
       await api.post("/api/me/leave-requests", {
         leave_type: leaveType,
         start_date: startDate,
         end_date: endDate,
-        reason: leaveType === "other" ? `[${remark.trim()}] ${reason}` : reason,
+        reason,
         ...(onBehalfOf ? { employee_id: onBehalfOf.id } : {}),
       });
       onSubmitted();
@@ -79,21 +74,6 @@ export default function LeaveRequestModal({ onClose, onSubmitted, onBehalfOf }) 
               ))}
             </select>
           </div>
-
-          {leaveType === "other" && (
-            <div>
-              <label htmlFor="leave_remark" className="block text-xs font-semibold uppercase tracking-wider text-ochre-700 mb-1.5">Please specify</label>
-              <input
-                id="leave_remark"
-                type="text"
-                required
-                placeholder="e.g. Bereavement, compensatory off, jury duty…"
-                className="w-full rounded-sm border border-ochre-400/50 bg-ochre-50 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ochre-500"
-                value={remark}
-                onChange={(e) => setRemark(e.target.value)}
-              />
-            </div>
-          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>

@@ -18,7 +18,10 @@ export const LEAVE_LABELS = {
 
 // Offered on new leave-request forms — excludes the discontinued types and
 // (separately) whatever CORPORATE_ONLY_TYPES filters out for non-corporate staff.
-export const SELECTABLE_LEAVE_TYPES = ["paid", "unpaid", "other", "paternity", "maternity", "compassionate", "comp_off"];
+// "unpaid" and "other" were retired from new requests Jul 2026 (HR request):
+// unpaid days are derived automatically from attendance/LOP, and "other" was a
+// catch-all HR wanted removed. Both stay in LEAVE_LABELS so old requests render.
+export const SELECTABLE_LEAVE_TYPES = ["paid", "paternity", "maternity", "compassionate", "comp_off"];
 
 export const CORPORATE_ONLY_TYPES = new Set(["paternity", "maternity", "compassionate", "comp_off"]);
 

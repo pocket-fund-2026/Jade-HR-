@@ -16,11 +16,12 @@ from tds import DEFAULT_DECLARATION, project_annual_tax
 router = APIRouter(prefix="/api", tags=["payroll"])
 
 
-def _month_bounds(year: int, month: int) -> tuple[str, str]:
+def _month_bounds(year: int, month: int, calendar_month: bool = False) -> tuple[str, str]:
     """Pay-period bounds (23rd of prior month - 22nd of this month), as UTC
     instants — the period is defined in IST wall-clock time, so midnight IST
-    on each boundary date is what actually delimits it."""
-    start, end = pay_period_bounds(year, month)
+    on each boundary date is what actually delimits it. calendar_month=True
+    spans the true calendar month instead (ESIC report)."""
+    start, end = pay_period_bounds(year, month, calendar_month)
     from_dt = datetime.combine(start, datetime.min.time(), tzinfo=IST).isoformat()
     to_dt = datetime.combine(end + timedelta(days=1), datetime.min.time(), tzinfo=IST).isoformat()
     return from_dt, to_dt
@@ -43,9 +44,9 @@ def _fetch_punch_times(employee_code: str, year: int, month: int) -> list[dateti
     return [datetime.fromisoformat(r["punch_time"]) for r in resp.data]
 
 
-def _fetch_all_punches_by_employee(year: int, month: int) -> dict[str, list[datetime]]:
+def _fetch_all_punches_by_employee(year: int, month: int, calendar_month: bool = False) -> dict[str, list[datetime]]:
     """One (paginated) query for the whole month instead of one query per employee."""
-    from_dt, to_dt = _month_bounds(year, month)
+    from_dt, to_dt = _month_bounds(year, month, calendar_month)
     by_employee: dict[str, list[datetime]] = {}
     page_size = 1000
     start = 0
@@ -88,8 +89,8 @@ def _fetch_overrides(employee_id: str, year: int, month: int) -> dict[date, dict
     }
 
 
-def _fetch_all_overrides_by_employee(year: int, month: int) -> dict[str, dict[date, dict]]:
-    start, end = pay_period_bounds(year, month)
+def _fetch_all_overrides_by_employee(year: int, month: int, calendar_month: bool = False) -> dict[str, dict[date, dict]]:
+    start, end = pay_period_bounds(year, month, calendar_month)
     from_d, to_d = start.isoformat(), end.isoformat()
     resp = (
         supabase.table("hr_attendance_overrides")
@@ -207,7 +208,7 @@ def _monthly_tds(employee: dict, year: int, month: int, declaration: dict | None
 
 def _all_summaries_for_month(
     employees: list[dict], profiles_by_employee: dict[str, dict], holidays: dict[date, dict],
-    year: int, month: int, keep_daily: bool = False,
+    year: int, month: int, keep_daily: bool = False, calendar_month: bool = False,
 ) -> list[dict]:
     """Shared by payroll_for_month and payroll_for_range — one bulk fetch of
     punches/overrides/leaves/tax-declarations for the month, then
@@ -223,9 +224,9 @@ def _all_summaries_for_month(
     one after another cuts this function's network-wait time roughly 4x,
     since each one is pure I/O wait on the same shared httpx client."""
     with ThreadPoolExecutor(max_workers=4) as pool:
-        punches_future = pool.submit(_fetch_all_punches_by_employee, year, month)
-        overrides_future = pool.submit(_fetch_all_overrides_by_employee, year, month)
-        leaves_future = pool.submit(fetch_all_approved_leaves_by_employee, year, month)
+        punches_future = pool.submit(_fetch_all_punches_by_employee, year, month, calendar_month)
+        overrides_future = pool.submit(_fetch_all_overrides_by_employee, year, month, calendar_month)
+        leaves_future = pool.submit(fetch_all_approved_leaves_by_employee, year, month, calendar_month)
         declarations_future = pool.submit(_fetch_all_tax_declarations, fy_label_for_month(year, month))
         punches_by_employee = punches_future.result()
         overrides_by_employee = overrides_future.result()
@@ -243,7 +244,10 @@ def _all_summaries_for_month(
         # employee who hasn't filled in a declaration yet.
         declaration = declarations_by_employee.get(employee["id"]) or DEFAULT_DECLARATION
         monthly_tds = _monthly_tds(employee, year, month, declaration)
-        summary = compute_monthly_summary(employee, year, month, punches, overrides, leaves, holidays, monthly_tds)
+        summary = compute_monthly_summary(
+            employee, year, month, punches, overrides, leaves, holidays, monthly_tds,
+            calendar_month=calendar_month,
+        )
         if not keep_daily:
             summary.pop("daily")
         summaries.append(summary)
@@ -284,6 +288,33 @@ def payroll_for_month(
             if field != "earn_arrear":
                 summary[field] = round(period_items.get(field, 0), 2)
     return summaries
+
+
+@router.get("/esic-report")
+def esic_report(
+    year: int = Query(...),
+    month: int = Query(..., ge=1, le=12),
+    user: dict = Depends(require_permission("payroll.view")),
+):
+    """ESIC Sheet/Challan rows for the CALENDAR month (1st-last), not the
+    23rd-22nd payroll cycle — ESIC is a calendar-month statutory return.
+    Returns only ESIC-applicable employees who accrued wages in the month
+    (esic_wages > 0). ESIC contributions come already rounded up to whole
+    rupees from statutory.compute_esic; the report layer adds no rounding."""
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        employees_future = pool.submit(
+            lambda: supabase.table("hr_employees").select("*").eq("is_active", True).execute().data
+        )
+        profiles_future = pool.submit(_fetch_all_compliance_profiles)
+        holidays_future = pool.submit(_fetch_holidays)
+        employees = employees_future.result()
+        profiles_by_employee = profiles_future.result()
+        holidays = holidays_future.result()
+
+    summaries = _all_summaries_for_month(
+        employees, profiles_by_employee, holidays, year, month, calendar_month=True
+    )
+    return [s for s in summaries if (s.get("esic_wages") or 0) > 0]
 
 
 def _pay_period_label_for(d: date) -> tuple[int, int]:

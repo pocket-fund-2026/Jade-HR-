@@ -1,7 +1,8 @@
-import { Briefcase, CalendarDays, CalendarPlus, ClipboardList, FileBarChart, FileText, Flag, LayoutDashboard, LogOut, Menu, Plane, Receipt, Shield, Stamp, UserPlus, Users, X } from "lucide-react";
+import { Briefcase, CalendarDays, CalendarPlus, ClipboardList, FileBarChart, FileText, Flag, KeyRound, LayoutDashboard, LogOut, Menu, Plane, Receipt, Shield, Stamp, UserPlus, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
+import ChangePasswordModal from "../../components/ChangePasswordModal.jsx";
 import api from "../../lib/api.js";
 import { useAuth } from "../../lib/auth.jsx";
 
@@ -27,6 +28,7 @@ const navItems = [
 
 function SidebarContent({ user, can, logout, pendingCounts, onNavigate }) {
   const visibleItems = navItems.filter(({ permission }) => (permission ? can(...[].concat(permission)) : true));
+  const [showPw, setShowPw] = useState(false);
   return (
     <>
       <div className="px-6 py-6 relative flex items-center gap-3">
@@ -71,6 +73,13 @@ function SidebarContent({ user, can, logout, pendingCounts, onNavigate }) {
             <p className="text-manila/40 text-xs font-nums">{user?.employee_code}</p>
           </div>
           <button
+            onClick={() => setShowPw(true)}
+            className="flex items-center gap-3 px-3 py-2 rounded-sm text-sm font-medium text-manila/60 hover:bg-manila/10 hover:text-manila w-full transition-colors"
+          >
+            <KeyRound size={16} />
+            Change password
+          </button>
+          <button
             onClick={logout}
             className="flex items-center gap-3 px-3 py-2 rounded-sm text-sm font-medium text-manila/60 hover:bg-manila/10 hover:text-manila w-full transition-colors"
           >
@@ -79,6 +88,7 @@ function SidebarContent({ user, can, logout, pendingCounts, onNavigate }) {
           </button>
         </div>
       </div>
+      {showPw && <ChangePasswordModal onClose={() => setShowPw(false)} />}
     </>
   );
 }

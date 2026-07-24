@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from auth import create_access_token, get_current_user, hash_password, verify_password
 from database import maybe_single_data, supabase
-from models import BootstrapAdminRequest, LoginRequest
+from models import BootstrapAdminRequest, LoginRequest, PasswordChange
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -57,6 +57,22 @@ def login(body: LoginRequest):
         "role": employee["role"],
         "name": f"{employee['first_name']} {employee.get('last_name', '')}".strip(),
     }
+
+
+@router.post("/change-password")
+def change_password(body: PasswordChange, user: dict = Depends(get_current_user)):
+    """Self-service password change — available to EVERY authenticated user
+    (employees and console users alike), for their own account only. Requires
+    the current password; distinct from the admin-only reset at
+    PUT /api/employees/{id}/password which sets another person's password."""
+    if not verify_password(body.current_password, user["password_hash"]):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    if len(body.new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+    supabase.table("hr_employees").update(
+        {"password_hash": hash_password(body.new_password), "failed_login_count": 0, "locked_until": None}
+    ).eq("id", user["id"]).execute()
+    return {"ok": True}
 
 
 @router.get("/me")

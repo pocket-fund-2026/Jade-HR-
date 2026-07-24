@@ -13,6 +13,7 @@ Formula (as specified by JADE HR ops), example — Sarita:
     OT Amount = 108.06 x 21.54 = 2,328 (approx)
 """
 
+import calendar
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta
 
@@ -76,9 +77,14 @@ def _ot_hours(d: date, start: datetime, end: datetime, day_standard: float) -> f
     return max(0.0, hours_worked - day_standard)
 
 
-def pay_period_bounds(year: int, month: int) -> tuple[date, date]:
+def pay_period_bounds(year: int, month: int, calendar_month: bool = False) -> tuple[date, date]:
     """Pay period labeled (year, month) runs 23rd of the prior month
-    through the 22nd of (year, month)."""
+    through the 22nd of (year, month). With calendar_month=True it instead
+    spans the true calendar month (1st through last day) — the ESIC report is
+    a calendar-month statutory return, not the 23rd–22nd payroll cycle."""
+    if calendar_month:
+        last_day = calendar.monthrange(year, month)[1]
+        return date(year, month, 1), date(year, month, last_day)
     if month == 1:
         prev_year, prev_month = year - 1, 12
     else:
@@ -88,9 +94,9 @@ def pay_period_bounds(year: int, month: int) -> tuple[date, date]:
     return start, end
 
 
-def days_in_month(year: int, month: int) -> int:
+def days_in_month(year: int, month: int, calendar_month: bool = False) -> int:
     """Number of days in the pay period. Name kept for call-site compatibility."""
-    start, end = pay_period_bounds(year, month)
+    start, end = pay_period_bounds(year, month, calendar_month)
     return (end - start).days + 1
 
 
@@ -149,7 +155,17 @@ def _apply_override(d: date, override: dict, standard_hours_per_day: float, time
         first_in_iso, last_out_iso = start.isoformat(), end.isoformat()
         late = first_in > LATE_GRACE
     elif status == "present":
+        # Only one side (or neither) of the punch was corrected — a "forgot to
+        # clock in/out" dispute usually fills just one time. Still surface the
+        # time that WAS entered instead of dropping both to null; credit the
+        # standard day's hours (OT needs both punches to measure a span, so it
+        # stays 0 until the other side is also filled).
         hours_worked = day_standard
+        if first_in:
+            first_in_iso = datetime.combine(d, first_in, tzinfo=IST).isoformat()
+            late = first_in > LATE_GRACE
+        if last_out:
+            last_out_iso = datetime.combine(d, last_out, tzinfo=IST).isoformat()
     elif status == "half_day":
         hours_worked = day_standard / 2
 
@@ -195,6 +211,45 @@ def _extended_grace_for(d: date, by_day: dict[date, list[datetime]], midnight_ta
     return LATE_GRACE
 
 
+# Leave-type labels treated as Paid Leave for the weekly-off earning rule
+# below — mirrors leave.py's MERGED_PAID_LEAVE_TYPES. Duplicated (not
+# imported) because leave.py already imports from this module, and Python
+# can't resolve the resulting circular import.
+_PAID_LEAVE_LIKE_TYPES = {"paid", "casual", "sick", "earned"}
+
+
+def _apply_weekly_off_earning_rule(rows: list[dict]) -> None:
+    """PL & Weekly-Off rule: a weekly-off day is only automatically paid if,
+    over the 6 days before it, the employee was EITHER (a) on Paid Leave
+    every one of those days — in which case the weekly-off itself also
+    counts as Paid Leave, matching how the week reads on the leave ledger —
+    or (b) actually present at least 3 of those days, in which case it
+    stays a normal paid weekoff (unchanged from before this rule existed).
+    Any other mix means the weekly-off was not earned and becomes unpaid
+    (absent) that week.
+
+    Mutates `rows` in place; only ever touches rows currently "weekoff", and
+    leaves a week alone entirely if it isn't fully known yet (contains a
+    "future" day) — the judgment can't be made until the week has happened.
+    """
+    by_date = {date.fromisoformat(r["date"]): r for r in rows}
+    for d, row in by_date.items():
+        if row["status"] != "weekoff":
+            continue
+        week_days = [d - timedelta(days=i) for i in range(1, 7)]
+        week_rows = [by_date[wd] for wd in week_days if wd in by_date]
+        if not week_rows or any(r["status"] == "future" for r in week_rows):
+            continue
+        if all(r["status"] == "leave" and r.get("leave_type") in _PAID_LEAVE_LIKE_TYPES for r in week_rows):
+            row["status"] = "leave"
+            row["leave_type"] = "paid"
+            row["late"] = False
+        elif sum(1 for r in week_rows if r["status"] == "present") >= 3:
+            continue
+        else:
+            row["status"] = "absent"
+
+
 NOON = time(12, 0)
 
 
@@ -209,6 +264,7 @@ def compute_daily_attendance(
     holidays: dict[date, dict] | None = None,
     is_corporate: bool = False,
     time_slot: str | None = None,
+    calendar_month: bool = False,
 ) -> list[dict]:
     """One row per day in the pay period (23rd of prior month - 22nd of this month).
 
@@ -234,7 +290,7 @@ def compute_daily_attendance(
     holidays = holidays or {}
     by_day = group_punches_by_day(punch_times)
     midnight_tail_dates = _midnight_crossing_dates(by_day)
-    start, end = pay_period_bounds(year, month)
+    start, end = pay_period_bounds(year, month, calendar_month)
     today = datetime.now(IST).date()
 
     rows = []
@@ -242,6 +298,25 @@ def compute_daily_attendance(
     while d <= end:
         if d in overrides:
             rows.append(_apply_override(d, overrides[d], standard_hours_per_day, time_slot))
+            d += timedelta(days=1)
+            continue
+
+        # Approved leave wins over a stray punch — an employee badging in/out
+        # once on an approved-leave day (e.g. dropping by the office) must
+        # still show as leave and consume PL, not silently flip to "present"
+        # and mask the approval. Checked ahead of punches for exactly that
+        # reason; only an admin override (above) can supersede it.
+        if d in leaves:
+            rows.append({
+                "date": d.isoformat(),
+                "first_in": None,
+                "last_out": None,
+                "hours_worked": 0.0,
+                "ot_hours": 0.0,
+                "status": "leave",
+                "leave_type": leaves[d],
+                "late": False,
+            })
             d += timedelta(days=1)
             continue
 
@@ -255,19 +330,6 @@ def compute_daily_attendance(
         is_closed_holiday = is_corporate and holidays.get(d, {}).get("day_type") in ("closed", "day_off")
 
         if not punches:
-            if d in leaves:
-                rows.append({
-                    "date": d.isoformat(),
-                    "first_in": None,
-                    "last_out": None,
-                    "hours_worked": 0.0,
-                    "ot_hours": 0.0,
-                    "status": "leave",
-                    "leave_type": leaves[d],
-                    "late": False,
-                })
-                d += timedelta(days=1)
-                continue
             if d > today:
                 status = "future"
             elif is_closed_holiday:
@@ -320,6 +382,7 @@ def compute_daily_attendance(
         rows.append(row)
         d += timedelta(days=1)
 
+    _apply_weekly_off_earning_rule(rows)
     return rows
 
 
@@ -412,6 +475,7 @@ def compute_monthly_summary(
     leaves: dict[date, str] | None = None,
     holidays: list[dict] | None = None,
     monthly_tds: float = 0.0,
+    calendar_month: bool = False,
 ) -> dict:
     standard_hours = float(employee.get("standard_hours_per_day") or 8)
     weekly_off_day = int(employee.get("weekly_off_day") if employee.get("weekly_off_day") is not None else 6)
@@ -424,6 +488,7 @@ def compute_monthly_summary(
     daily = compute_daily_attendance(
         year, month, punch_times, standard_hours, overrides, leaves, weekly_off_day,
         holidays=holidays_for_employee, is_corporate=is_corporate, time_slot=time_slot,
+        calendar_month=calendar_month,
     )
 
     late_mark_count, red_card = (
@@ -469,7 +534,7 @@ def compute_monthly_summary(
     # unlike Basic/HRA/etc above, never prorated by paid_days.
     ded_standing_loan = round(float(employee.get("standing_loan_emi") or 0), 2)
 
-    total_days = days_in_month(year, month)
+    total_days = days_in_month(year, month, calendar_month)
     proration = paid_days / total_days if total_days else 0.0
     basic = round(basic_rate * proration, 2)
     hra = round(hra_rate * proration, 2)
@@ -510,7 +575,7 @@ def compute_monthly_summary(
     # gross/total_payable below or it would be double-deducted.
     lop_amount = per_day_salary * (late_lop_days + red_card_lop_leave_days)
 
-    period_start, period_end = pay_period_bounds(year, month)
+    period_start, period_end = pay_period_bounds(year, month, calendar_month)
 
     return {
         "employee_id": employee["id"],

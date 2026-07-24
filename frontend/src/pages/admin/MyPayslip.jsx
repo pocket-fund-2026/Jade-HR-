@@ -6,14 +6,15 @@ import PayslipDetail from "../../components/PayslipDetail.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
 import { useAuth } from "../../lib/auth.jsx";
+import { currentPayPeriod } from "../../lib/format.js";
 
-const today = new Date();
+const currentPeriod = currentPayPeriod();
 
 export default function MyPayslip() {
   const { user } = useAuth();
   const isHr = user?.role === "hr";
-  const [year, setYear] = useState(today.getFullYear());
-  const [month, setMonth] = useState(today.getMonth() + 1);
+  const [year, setYear] = useState(currentPeriod.year);
+  const [month, setMonth] = useState(currentPeriod.month);
   const [summary, setSummary] = useState(null);
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);

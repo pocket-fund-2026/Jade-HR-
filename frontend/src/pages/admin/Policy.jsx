@@ -2,7 +2,7 @@ import { Cake, CalendarDays, Clock3, Pencil, Plus, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import api from "../../lib/api.js";
-import { daysUntilAnnualDate, formatDate } from "../../lib/format.js";
+import { daysUntilAnnualDate, formatDate, formatHolidayDate } from "../../lib/format.js";
 
 const DAY_TYPE_LABELS = {
   closed: "Store closed",
@@ -136,7 +136,7 @@ function HolidayCalendar({ holidays, onAdd, onRemove, adding, year, onYearChange
                   )}
                 </p>
                 <p className="text-xs text-ink/70 mt-0.5">
-                  {formatDate(h.holiday_date)} · {DAY_TYPE_LABELS[h.day_type] || h.day_type}
+                  {formatHolidayDate(h.holiday_date)} · {DAY_TYPE_LABELS[h.day_type] || h.day_type}
                   {h.close_time && ` (${h.close_time.slice(0, 5)})`}
                   {h.remarks && ` · ${h.remarks}`}
                 </p>

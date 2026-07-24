@@ -10,6 +10,18 @@ function daysBetween(start, end) {
   return days > 0 ? days : 0;
 }
 
+// Absences may only be reported for the CURRENT pay cycle (HR rule): today's
+// date or a backdated day within it — never a future date, never a prior
+// (already-closed) cycle. Pay cycles run the 23rd of the prior month → 22nd,
+// so the current cycle started on the most recent 23rd.
+function currentCycleBounds() {
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
+  const start = d >= 23 ? new Date(y, m, 23) : new Date(y, m - 1, 23);
+  const iso = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+  return { min: iso(start), max: iso(now) };
+}
+
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -48,6 +60,7 @@ export default function AbsenceRequestModal({ onClose, onSubmitted }) {
   const [file, setFile] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const cycle = currentCycleBounds();
 
   useEffect(() => {
     if (!user?.id) return;
@@ -66,6 +79,10 @@ export default function AbsenceRequestModal({ onClose, onSubmitted }) {
     setError("");
     if (endDate < startDate) {
       setError("To date must be on or after the From date");
+      return;
+    }
+    if (startDate < cycle.min || endDate > cycle.max) {
+      setError("Absences can only be reported within the current pay cycle, up to today — no future or older dates.");
       return;
     }
     setBusy(true);
@@ -134,12 +151,14 @@ export default function AbsenceRequestModal({ onClose, onSubmitted }) {
               <Field label="From" required>
                 <input
                   type="date" required className={`${inputCls} font-nums`}
+                  min={cycle.min} max={cycle.max}
                   value={startDate} onChange={(e) => setStartDate(e.target.value)}
                 />
               </Field>
               <Field label="To" required>
                 <input
                   type="date" required className={`${inputCls} font-nums`}
+                  min={cycle.min} max={cycle.max}
                   value={endDate} onChange={(e) => setEndDate(e.target.value)}
                 />
               </Field>

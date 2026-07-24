@@ -113,7 +113,7 @@ a:focus-visible, button:focus-visible {
 /* Payslip printing — hide chrome, drop the dark ledger panel to a bordered
    light one so it doesn't waste ink, force color backgrounds to render. */
 @media print {
-  .no-print {
+  .no-print, .print-hide {
     display: none !important;
   }
   body, .print-area {

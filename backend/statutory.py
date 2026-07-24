@@ -15,9 +15,15 @@ pf_gross_limit the employer has chosen for the PF-employee-contribution base
 itself (pf_gross_limit == 0 means "no cap, use full Basic", per its hint text
 in the Compliances tab).
 
-ESIC only applies while gross wages (all recurring cash earnings, excluding
-OT/arrears) are at or below the ₹21,000/month coverage ceiling.
+ESIC membership is decided by the employee's esic_applicable flag (HR sets it
+per the ₹21,000 entry ceiling and the contribution-period-continuity rule).
+Once someone is covered, contributions are computed on their ACTUAL gross
+wages even above ₹21,000 — coverage continues to the end of the contribution
+period once it has started — and each contribution is rounded UP to the next
+whole rupee per the ESIC Act's rounding rule.
 """
+
+import math
 
 PF_EMPLOYEE_RATE = 0.12
 PF_EMPLOYER_RATE = 0.12
@@ -57,12 +63,16 @@ def compute_pf(wage_base: float, pf_gross_limit: float, eps_applicable: bool) ->
 
 
 def compute_esic(gross_wages: float) -> dict:
-    if gross_wages <= 0 or gross_wages > ESIC_WAGE_CEILING:
+    """Employee (0.75%) and employer (3.25%) ESIC, each rounded UP to the next
+    whole rupee (ESIC Act rounding). Callers gate on esic_applicable; there is
+    deliberately no ₹21,000 cutoff here — an already-covered member contributes
+    on actual wages above the entry ceiling too (see module docstring)."""
+    if gross_wages <= 0:
         return dict(ZERO_ESIC)
     return {
-        "ded_esic": round(gross_wages * ESIC_EMPLOYEE_RATE, 2),
+        "ded_esic": float(math.ceil(gross_wages * ESIC_EMPLOYEE_RATE)),
         "oth_esic_wages": round(gross_wages, 2),
-        "oth_esic_employer": round(gross_wages * ESIC_EMPLOYER_RATE, 2),
+        "oth_esic_employer": float(math.ceil(gross_wages * ESIC_EMPLOYER_RATE)),
     }
 
 

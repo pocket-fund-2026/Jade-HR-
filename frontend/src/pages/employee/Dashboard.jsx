@@ -1,4 +1,4 @@
-import { Bell, Briefcase, Flag, Plane, Printer, X } from "lucide-react";
+import { Bell, Briefcase, Flag, Paperclip, Plane, Printer, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import AbsenceRequestModal from "../../components/AbsenceRequestModal.jsx";
@@ -9,7 +9,7 @@ import PayslipDetail from "../../components/PayslipDetail.jsx";
 import SelfieCheckinCard from "../../components/SelfieCheckinCard.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
-import { formatDate, formatHoursMins, formatTime } from "../../lib/format.js";
+import { currentPayPeriod, formatDate, formatHolidayDate, formatHoursMins, formatTime } from "../../lib/format.js";
 import { LEAVE_LABELS } from "../../lib/leaveTypes.js";
 
 const today = new Date();
@@ -23,8 +23,8 @@ const DAY_TYPE_LABELS = {
 };
 
 export default function Dashboard() {
-  const [year, setYear] = useState(today.getFullYear());
-  const [month, setMonth] = useState(today.getMonth() + 1);
+  const [year, setYear] = useState(currentPayPeriod().year);
+  const [month, setMonth] = useState(currentPayPeriod().month);
   const [summary, setSummary] = useState(null);
   const [disputes, setDisputes] = useState([]);
   const [leaveRequests, setLeaveRequests] = useState([]);
@@ -168,7 +168,7 @@ export default function Dashboard() {
                 <tbody>
                   {holidays.map((h) => (
                     <tr key={h.id} className="border-t border-ink/[0.06] first:border-0">
-                      <td className="py-2 pr-4 font-nums text-ink/70 w-24">{formatDate(h.holiday_date)}</td>
+                      <td className="py-2 pr-4 font-nums text-ink/70 w-28">{formatHolidayDate(h.holiday_date)}</td>
                       <td className="py-2 pr-4 text-ink">{h.description}</td>
                       <td className="py-2 text-ink/70">{DAY_TYPE_LABELS[h.day_type] || h.day_type}</td>
                     </tr>
@@ -243,7 +243,14 @@ export default function Dashboard() {
                   {disputes.map((d) => (
                     <tr key={d.id} className="border-t border-ink/[0.06]">
                       <td className="px-5 py-3 font-nums text-ink/70 w-28">{formatDate(d.date)}</td>
-                      <td className="px-5 py-3 text-ink/70">{d.reason}</td>
+                      <td className="px-5 py-3 text-ink/70">
+                        {d.reason}
+                        {d.photo_url && (
+                          <a href={d.photo_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-jade-700 hover:underline mt-1">
+                            <Paperclip size={11} /> {d.photo_filename || "Photo"}
+                          </a>
+                        )}
+                      </td>
                       <td className="px-5 py-3">
                         <StampBadge status={d.status}>{d.status}</StampBadge>
                         {d.admin_note && <div className="text-xs text-ink/70 mt-1">{d.admin_note}</div>}

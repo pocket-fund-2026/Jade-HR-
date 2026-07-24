@@ -131,16 +131,40 @@ def test_normal_finish_does_not_extend_next_day_grace():
     assert row2["late"] is True
 
 
-def test_absent_day_on_weekly_off_is_marked_weekoff():
-    # 2026-01-04 is a Sunday. No punches, no leave, no override -> weekoff,
-    # not absent, when weekly_off_day=6.
+def test_weekly_off_only_paid_if_earned():
+    # PL & Weekly-Off rule: a weekly-off is only automatically paid if the
+    # employee attended >=3 days that week, or was on Paid Leave the whole
+    # week. 2026-01-04 is a Sunday with zero attendance and zero leave in
+    # the week before it -> not earned -> absent, not a free weekoff.
     rows = compute_daily_attendance(2026, 1, [], 8, weekly_off_day=6)
     sunday_row = next(r for r in rows if r["date"] == "2026-01-04")
-    assert sunday_row["status"] == "weekoff"
+    assert sunday_row["status"] == "absent"
 
-    # A non-Sunday day with no punches falls back to absent.
+    # A non-Sunday day with no punches falls back to absent regardless.
     monday_row = next(r for r in rows if r["date"] == "2025-12-29")
     assert monday_row["status"] == "absent"
+
+
+def test_weekly_off_stays_paid_with_three_attended_days():
+    # Jan 11 2026 is a Sunday; present Jan 5,6,7 (Mon-Wed that week) earns
+    # the weekoff even though the rest of the week is unaccounted for.
+    punches = []
+    for d in (5, 6, 7):
+        punches.append(datetime(2026, 1, d, 10, 0, tzinfo=IST))
+        punches.append(datetime(2026, 1, d, 19, 0, tzinfo=IST))
+    rows = compute_daily_attendance(2026, 1, punches, 8, weekly_off_day=6)
+    sunday_row = next(r for r in rows if r["date"] == "2026-01-11")
+    assert sunday_row["status"] == "weekoff"
+
+
+def test_weekly_off_becomes_paid_leave_for_a_full_pl_week():
+    # A Paid Leave request covering the 6 days before a Sunday (but not the
+    # Sunday itself) still converts that Sunday to Paid Leave too.
+    leaves = {date(2026, 1, d): "paid" for d in range(5, 11)}  # Mon 5 - Sat 10
+    rows = compute_daily_attendance(2026, 1, [], 8, leaves=leaves, weekly_off_day=6)
+    sunday_row = next(r for r in rows if r["date"] == "2026-01-11")
+    assert sunday_row["status"] == "leave"
+    assert sunday_row["leave_type"] == "paid"
 
 
 def test_leave_fills_in_for_a_day_with_no_punches():
@@ -186,12 +210,14 @@ def test_compute_monthly_summary_ot_formula_matches_documented_example():
     assert summary["per_day_salary"] == 864.52  # 26800 / 31
     assert summary["per_hour_salary"] == 108.06  # per_day_salary / 8
     assert summary["ot_amount"] == 216.13  # unrounded per_hour_salary * 2h, then rounded
-    # Only 1 present day + 4 weekoffs in this otherwise-empty period ->
-    # paid_days = 5, so Basic/HRA/Conveyance are prorated to 5/31 of rate.
-    assert summary["paid_days"] == 5.0
-    assert summary["basic"] == 2580.65  # 16000 * 5/31
-    assert summary["gross_salary"] == 4322.59  # 2580.65 + 1548.39 + 193.55
-    assert summary["total_payable"] == 4538.72  # gross_salary + ot_amount (no deductions apply)
+    # Only 1 present day in this otherwise-empty period, and every weekoff's
+    # week falls short of 3 attended days / a full Paid Leave week -> none of
+    # the 4 weekoffs are earned (see the weekly-off-earning-rule tests) ->
+    # paid_days = 1, so Basic/HRA/Conveyance are prorated to 1/31 of rate.
+    assert summary["paid_days"] == 1.0
+    assert summary["basic"] == 516.13  # 16000 * 1/31
+    assert summary["gross_salary"] == 864.52  # 516.13 + 309.68 + 38.71
+    assert summary["total_payable"] == 1080.65  # gross_salary + ot_amount (no deductions apply)
 
 
 def _late_punch(y, m, d, hour=11):

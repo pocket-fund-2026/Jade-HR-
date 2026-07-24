@@ -652,9 +652,9 @@ def fetch_approved_leaves(employee_id: str, year: int, month: int) -> dict[date,
     return by_day
 
 
-def fetch_all_approved_leaves_by_employee(year: int, month: int) -> dict[str, dict[date, str]]:
+def fetch_all_approved_leaves_by_employee(year: int, month: int, calendar_month: bool = False) -> dict[str, dict[date, str]]:
     """One query for the whole month instead of one per employee (mirrors payroll.py's punch fetcher)."""
-    from_d, to_d = pay_period_bounds(year, month)
+    from_d, to_d = pay_period_bounds(year, month, calendar_month)
 
     resp = (
         supabase.table("hr_leave_requests")

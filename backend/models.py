@@ -92,6 +92,17 @@ class DisputeCreate(BaseModel):
     claimed_in: Optional[time] = None
     claimed_out: Optional[time] = None
     reason: str
+    # Required — a photo of the physical attendance register (or other
+    # supporting evidence) must be attached; no default, so a request that
+    # omits it is rejected by Pydantic before it reaches the handler.
+    photo_path: str
+    photo_filename: Optional[str] = None
+
+
+class DisputePhotoUpload(BaseModel):
+    filename: str
+    content_base64: str  # may be a data: URL or raw base64
+    content_type: str = "application/octet-stream"
 
 
 class DisputeResolve(BaseModel):
@@ -101,6 +112,18 @@ class DisputeResolve(BaseModel):
     first_in: Optional[time] = None
     last_out: Optional[time] = None
     status_override: str = "present"  # present | absent | half_day
+
+
+class AttendanceOverrideUpsert(BaseModel):
+    """Direct correction of one employee/date's attendance from the
+    Attendance Report — distinct from DisputeResolve (which only fires off
+    an employee-filed dispute); this lets HR fix a record HR itself noticed
+    was wrong, with no dispute required."""
+    date: date
+    status_override: str  # present | absent | half_day
+    first_in: Optional[time] = None
+    last_out: Optional[time] = None
+    note: str = ""
 
 
 class SalaryImportRow(BaseModel):
@@ -168,6 +191,11 @@ class HolidayCreate(BaseModel):
 
 class PasswordReset(BaseModel):
     password: str
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
 
 
 class CompOffGrant(BaseModel):

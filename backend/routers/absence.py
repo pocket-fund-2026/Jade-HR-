@@ -1,12 +1,23 @@
 import base64
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 
 import email_service
 from auth import get_current_user, require_permission
+from config import IST
 from database import maybe_single_data, supabase
 from models import AbsenceRequestCreate, AbsenceResolve, AbsenceUpload
+
+
+def _current_cycle_start(today: date) -> date:
+    """Absences may only be reported for the current pay cycle (23rd of the
+    prior month → 22nd). Returns the most recent 23rd on/before `today`."""
+    if today.day >= 23:
+        return date(today.year, today.month, 23)
+    if today.month == 1:
+        return date(today.year - 1, 12, 23)
+    return date(today.year, today.month - 1, 23)
 
 router = APIRouter(tags=["absence"])
 
@@ -53,6 +64,14 @@ def _signed_urls(paths: list[str | None]) -> dict[str, str | None]:
 def create_absence_request(body: AbsenceRequestCreate, user: dict = Depends(get_current_user)):
     if body.end_date < body.start_date:
         raise HTTPException(status_code=400, detail="End date must be on or after start date")
+
+    today = datetime.now(IST).date()
+    cycle_start = _current_cycle_start(today)
+    if body.start_date < cycle_start or body.end_date > today:
+        raise HTTPException(
+            status_code=400,
+            detail="Absences can only be reported within the current pay cycle, up to today — no future or older dates.",
+        )
 
     row = {
         "employee_id": user["id"],

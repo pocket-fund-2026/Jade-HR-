@@ -20,6 +20,16 @@ export function formatFullDate(iso) {
   return new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: IST });
 }
 
+// Holiday list: shows the WEEKDAY alongside the date (e.g. "Mon, 08 Nov"). The
+// weekday MUST be derived with timeZone: IST forced — a bare new Date("YYYY-MM-DD")
+// parses as UTC midnight, so computing the weekday in the viewer's local zone
+// (behind UTC) rolls back a day and prints the wrong weekday. Forcing IST here
+// keeps it correct for every viewer.
+export function formatHolidayDate(iso) {
+  if (!iso) return "-";
+  return new Date(iso).toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short", timeZone: IST });
+}
+
 const MONTH_NAMES_LONG = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
@@ -55,6 +65,22 @@ export function formatHoursMins(decimalHours) {
 const SHORT_MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
+
+// The pay-period (year, month) label currently in progress, by the same
+// 23rd-rollover rule the backend uses (payroll.py _pay_period_label_for): on or
+// after the 23rd we are already inside NEXT month's pay period. Payslip screens
+// default to this instead of the raw calendar month, so a leave taken on/after
+// the 23rd — which lands in the newly-started period — is visible rather than
+// hidden on the just-closed month.
+export function currentPayPeriod(now = new Date()) {
+  let year = now.getFullYear();
+  let month = now.getMonth() + 1; // 1-12
+  if (now.getDate() >= 23) {
+    month += 1;
+    if (month > 12) { month = 1; year += 1; }
+  }
+  return { year, month };
+}
 
 // Pay periods run 23rd of the prior month - 22nd of the labeled month —
 // mirrors backend/payroll.py's pay_period_bounds(), purely for display.

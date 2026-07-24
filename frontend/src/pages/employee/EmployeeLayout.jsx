@@ -1,7 +1,8 @@
-import { LogOut, Receipt, Users } from "lucide-react";
+import { KeyRound, LogOut, Receipt, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
+import ChangePasswordModal from "../../components/ChangePasswordModal.jsx";
 import api from "../../lib/api.js";
 import { useAuth } from "../../lib/auth.jsx";
 
@@ -10,6 +11,7 @@ const POLL_MS = 25000;
 export default function EmployeeLayout() {
   const { user, logout } = useAuth();
   const [pendingTeamLeave, setPendingTeamLeave] = useState(0);
+  const [showPw, setShowPw] = useState(false);
 
   const refetchPendingCount = () => {
     if (!user?.is_leave_approver) return;
@@ -38,13 +40,22 @@ export default function EmployeeLayout() {
               <p className="text-manila/40 text-xs mt-1">{user?.name}</p>
             </div>
           </div>
-          <button
-            onClick={logout}
-            className="flex items-center gap-2 text-sm text-manila/60 hover:text-manila transition-colors"
-          >
-            <LogOut size={16} />
-            Sign out
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setShowPw(true)}
+              className="flex items-center gap-2 text-sm text-manila/60 hover:text-manila transition-colors"
+            >
+              <KeyRound size={16} />
+              Change password
+            </button>
+            <button
+              onClick={logout}
+              className="flex items-center gap-2 text-sm text-manila/60 hover:text-manila transition-colors"
+            >
+              <LogOut size={16} />
+              Sign out
+            </button>
+          </div>
         </div>
         <div className="max-w-4xl mx-auto px-6 relative">
           <nav className="flex gap-1 -mb-px">
@@ -94,6 +105,7 @@ export default function EmployeeLayout() {
       <main className="max-w-4xl mx-auto px-6 py-8">
         <Outlet context={{ pendingTeamLeave, refreshTeamLeaveBadge: () => setPendingTeamLeave((n) => n) }} />
       </main>
+      {showPw && <ChangePasswordModal onClose={() => setShowPw(false)} />}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { Check, X } from "lucide-react";
+import { Check, Paperclip, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 
@@ -47,6 +47,11 @@ function ResolveRow({ dispute, onResolved }) {
       <td className="px-5 py-3.5 max-w-xs">
         <p className="text-ink/70">{dispute.reason}</p>
         <p className="text-xs text-ink/70 mt-0.5 uppercase tracking-wide">{dispute.issue_type.replace(/_/g, " ")}</p>
+        {dispute.photo_url && (
+          <a href={dispute.photo_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-jade-700 hover:underline mt-1">
+            <Paperclip size={11} /> {dispute.photo_filename || "Photo"}
+          </a>
+        )}
       </td>
       <td className="px-5 py-3.5">
         <div className="flex gap-2">
@@ -189,7 +194,14 @@ export default function Disputes() {
                   </td>
                   <td className="px-5 py-3.5 text-ink/70">{d.hr_employees?.location || "—"}</td>
                   <td className="px-5 py-3.5 font-nums text-ink/70">{formatDate(d.date)}</td>
-                  <td className="px-5 py-3.5 text-ink/70 max-w-xs">{d.reason}</td>
+                  <td className="px-5 py-3.5 text-ink/70 max-w-xs">
+                    {d.reason}
+                    {d.photo_url && (
+                      <a href={d.photo_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-jade-700 hover:underline mt-1">
+                        <Paperclip size={11} /> {d.photo_filename || "Photo"}
+                      </a>
+                    )}
+                  </td>
                   <td className="px-5 py-3.5"><StampBadge status={d.status}>{d.status}</StampBadge></td>
                 </tr>
               ))
