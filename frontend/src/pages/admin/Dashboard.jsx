@@ -1,4 +1,4 @@
-import { Bell, Cake, FileSpreadsheet, X } from "lucide-react";
+import { Award, Bell, Cake, FileSpreadsheet, X } from "lucide-react";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 
@@ -8,7 +8,7 @@ import StatCard from "../../components/StatCard.jsx";
 import api from "../../lib/api.js";
 import { exportAttendanceExcel, exportAttendanceTimingsExcel } from "../../lib/attendanceExport.js";
 import { useAuth } from "../../lib/auth.jsx";
-import { daysUntilAnnualDate, formatDate, formatHoursMins, formatINR } from "../../lib/format.js";
+import { daysUntilAnnualDate, formatDate, formatHoursMins, formatINR, nextAnniversary } from "../../lib/format.js";
 
 // recharts is a heavy dependency (~380KB) — split out of the main bundle
 // the same way Payroll.jsx lazy-imports xlsx for its Excel export.
@@ -21,6 +21,7 @@ const SEEN_KEY = "jade_hr_admin_notif_seen_at";
 // above — a birthday banner should reappear each new day it's still true,
 // not stay silenced forever after the first dismiss.
 const BIRTHDAY_DISMISS_KEY = "jade_hr_birthday_dismissed_date";
+const ANNIVERSARY_DISMISS_KEY = "jade_hr_anniversary_dismissed_date";
 const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function shiftPeriod(year, month, delta) {
@@ -49,6 +50,8 @@ export default function Dashboard() {
   const [employeeCount, setEmployeeCount] = useState(null);
   const [birthdays, setBirthdays] = useState([]);
   const [birthdayDismissed, setBirthdayDismissed] = useState(localStorage.getItem(BIRTHDAY_DISMISS_KEY) === todayIso);
+  const [anniversaries, setAnniversaries] = useState([]);
+  const [anniversaryDismissed, setAnniversaryDismissed] = useState(localStorage.getItem(ANNIVERSARY_DISMISS_KEY) === todayIso);
   const [attendanceRows, setAttendanceRows] = useState([]);
   const [attendanceLoading, setAttendanceLoading] = useState(canAttendance);
 
@@ -95,6 +98,11 @@ export default function Dashboard() {
     api.get("/api/employees/birthdays").then(({ data }) => setBirthdays(data)).catch(() => {});
   }, [canEmployees]);
 
+  useEffect(() => {
+    if (!canEmployees) return;
+    api.get("/api/employees/anniversaries").then(({ data }) => setAnniversaries(data)).catch(() => {});
+  }, [canEmployees]);
+
   const [trendRaw, setTrendRaw] = useState([]);
 
   useEffect(() => {
@@ -132,6 +140,19 @@ export default function Dashboard() {
   const dismissBirthday = () => {
     localStorage.setItem(BIRTHDAY_DISMISS_KEY, todayIso);
     setBirthdayDismissed(true);
+  };
+
+  const activeAnniversaries = anniversaries.filter((a) => a.is_active && a.date_of_joining);
+  const todaysAnniversaries = activeAnniversaries.filter((a) => nextAnniversary(a.date_of_joining).days === 0);
+  const upcomingAnniversaries = useMemo(
+    () => [...activeAnniversaries].sort((a, b) => nextAnniversary(a.date_of_joining).days - nextAnniversary(b.date_of_joining).days).slice(0, 5),
+    [anniversaries],
+  );
+  const showAnniversaryBanner = !anniversaryDismissed && todaysAnniversaries.length > 0;
+
+  const dismissAnniversary = () => {
+    localStorage.setItem(ANNIVERSARY_DISMISS_KEY, todayIso);
+    setAnniversaryDismissed(true);
   };
 
   const locations = useMemo(
@@ -252,6 +273,57 @@ export default function Dashboard() {
                   <span className="text-ink font-medium">{b.name}</span>
                   <span className="text-ink/60 ml-1.5 font-nums text-xs">
                     {formatDate(b.date_of_birth)} · {days === 0 ? "today" : days === 1 ? "tomorrow" : `in ${days}d`}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {showAnniversaryBanner && (
+        <div className="fixed inset-0 bg-ledger-900/60 flex items-center justify-center px-4 z-50">
+          <div className="bg-paper rounded-sm shadow-stamp w-full max-w-sm p-7 border-t-4 border-jade-500 relative text-center">
+            <button onClick={dismissAnniversary} aria-label="Close" className="absolute top-4 right-4 text-ink/70 hover:text-ink transition-colors">
+              <X size={18} />
+            </button>
+            <div className="w-14 h-14 rounded-full bg-jade-500/15 flex items-center justify-center mx-auto mb-4">
+              <Award size={26} className="text-jade-700" />
+            </div>
+            <p className="font-display text-lg text-ink mb-1">
+              {todaysAnniversaries.length > 1 ? "Work anniversaries today!" : "Work anniversary today!"}
+            </p>
+            <p className="text-sm text-ink/70">
+              {todaysAnniversaries
+                .map((a) => {
+                  const { years } = nextAnniversary(a.date_of_joining);
+                  return `${a.name} (${years} yr${years === 1 ? "" : "s"})`;
+                })
+                .join(", ")}
+            </p>
+            <button
+              onClick={dismissAnniversary}
+              className="mt-6 bg-ledger-800 text-manila px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+
+      {upcomingAnniversaries.length > 0 && (
+        <div className="bg-paper rounded-sm shadow-card px-5 py-4 mb-6">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70 mb-3 flex items-center gap-1.5">
+            <Award size={13} /> Upcoming Work Anniversaries (HQ)
+          </p>
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
+            {upcomingAnniversaries.map((a) => {
+              const { days, years } = nextAnniversary(a.date_of_joining);
+              return (
+                <div key={a.employee_id} className="text-sm">
+                  <span className="text-ink font-medium">{a.name}</span>
+                  <span className="text-ink/60 ml-1.5 font-nums text-xs">
+                    {years} yr{years === 1 ? "" : "s"} · {days === 0 ? "today" : days === 1 ? "tomorrow" : `in ${days}d`}
                   </span>
                 </div>
               );

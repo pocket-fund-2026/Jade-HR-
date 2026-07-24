@@ -102,3 +102,16 @@ export function daysUntilAnnualDate(isoDate) {
   if (next < today) next = new Date(today.getFullYear() + 1, month - 1, day);
   return Math.round((next - today) / 86400000);
 }
+
+// Same annual-date math as daysUntilAnnualDate, plus the completed-years
+// count as of that next occurrence — used by Work Anniversaries to show
+// "3 years" alongside the countdown (date_of_joining's actual year, unlike
+// date_of_birth, is meaningful here).
+export function nextAnniversary(isoDate) {
+  const [joinYear, month, day] = isoDate.split("-").map(Number);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  let next = new Date(today.getFullYear(), month - 1, day);
+  if (next < today) next = new Date(today.getFullYear() + 1, month - 1, day);
+  return { days: Math.round((next - today) / 86400000), years: next.getFullYear() - joinYear };
+}

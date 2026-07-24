@@ -69,6 +69,32 @@ def list_birthdays(user: dict = Depends(require_permission("employees.view"))):
     ]
 
 
+@router.get("/anniversaries")
+def list_anniversaries(user: dict = Depends(require_permission("employees.view"))):
+    """Mirrors /birthdays, but date_of_joining lives directly on hr_employees
+    (no hr_employee_profile join needed). Same HQ (Madhu Estate, Mumbai)
+    scoping as birthdays, by design — not the retail/warehouse roster."""
+    employees = (
+        supabase.table("hr_employees")
+        .select("id,employee_code,first_name,last_name,department,location,is_active,date_of_joining")
+        .eq("location", "Madhu Estate, Mumbai")
+        .execute()
+        .data
+    )
+    return [
+        {
+            "employee_id": e["id"],
+            "employee_code": e["employee_code"],
+            "name": f"{e['first_name']} {e.get('last_name', '')}".strip(),
+            "department": e.get("department", ""),
+            "location": e.get("location", ""),
+            "is_active": e["is_active"],
+            "date_of_joining": e.get("date_of_joining"),
+        }
+        for e in employees
+    ]
+
+
 @router.post("/bulk-salary")
 def bulk_import_salary(body: SalaryImportRequest, user: dict = Depends(require_permission("salary.edit"))):
     """Set Basic/HRA/Conveyance/Other/Incentive for many employees at once, matched by employee_code."""
