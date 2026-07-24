@@ -103,11 +103,14 @@ export default function Dashboard() {
     api.get("/api/employees/anniversaries").then(({ data }) => setAnniversaries(data)).catch(() => {});
   }, [canEmployees]);
 
-  const [trendRaw, setTrendRaw] = useState([]);
+  // Current month is already fetched by the payroll effect above (`rows`) —
+  // only the 5 preceding months need a separate request, avoiding a duplicate
+  // full-roster payroll compute for the same period.
+  const [priorTrendRaw, setPriorTrendRaw] = useState([]);
 
   useEffect(() => {
     if (!canPayroll) return;
-    const periods = Array.from({ length: 6 }, (_, i) => shiftPeriod(year, month, -(5 - i)));
+    const periods = Array.from({ length: 5 }, (_, i) => shiftPeriod(year, month, -(5 - i)));
     Promise.all(
       periods.map(([y, m]) =>
         api
@@ -115,9 +118,15 @@ export default function Dashboard() {
           .then(({ data }) => ({ label: `${SHORT_MONTHS[m - 1]} '${String(y).slice(2)}`, rows: data })),
       ),
     )
-      .then(setTrendRaw)
-      .catch(() => setTrendRaw([]));
+      .then(setPriorTrendRaw)
+      .catch(() => setPriorTrendRaw([]));
   }, [year, month, canPayroll]);
+
+  const trendRaw = useMemo(() => {
+    if (!canPayroll) return [];
+    const currentLabel = `${SHORT_MONTHS[month - 1]} '${String(year).slice(2)}`;
+    return [...priorTrendRaw, { label: currentLabel, rows }];
+  }, [priorTrendRaw, rows, year, month, canPayroll]);
 
   const seenAt = localStorage.getItem(SEEN_KEY) || "1970-01-01";
   const newDisputes = pendingDisputes.filter((d) => d.created_at > seenAt);
