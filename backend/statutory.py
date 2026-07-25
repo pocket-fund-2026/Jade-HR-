@@ -44,21 +44,34 @@ ZERO_PF = {
 ZERO_ESIC = {"ded_esic": 0.0, "oth_esic_wages": 0.0, "oth_esic_employer": 0.0}
 
 
+def _round_rupee(amount: float) -> float:
+    """EPFO convention: PF/EPS/EDLI contribution amounts round to the nearest
+    whole rupee (half rounds up), unlike wage bases which stay exact. Plain
+    round() disagrees with this on x.5 cases half the time (banker's
+    rounding) — e.g. round(550.5) == 550, not 551 — so this rounds explicitly
+    away from zero instead."""
+    return float(math.floor(amount + 0.5))
+
+
 def compute_pf(wage_base: float, pf_gross_limit: float, eps_applicable: bool) -> dict:
     capped_wage = min(wage_base, pf_gross_limit) if pf_gross_limit else wage_base
     eps_wage = min(capped_wage, EPS_WAGE_CEILING)
     edli_wage = min(capped_wage, EDLI_WAGE_CEILING)
-    eps = round(eps_wage * EPS_RATE, 2) if eps_applicable else 0.0
-    employer_pf_total = round(capped_wage * PF_EMPLOYER_RATE, 2)
+    # EPS is rounded to a whole rupee first (its own statutory contribution),
+    # and EPF is the remainder of the (separately rounded) total PF employer
+    # contribution — matching the reference payroll register, not
+    # employer_pf_total minus an un-rounded EPS.
+    eps = _round_rupee(eps_wage * EPS_RATE) if eps_applicable else 0.0
+    employer_pf_total = _round_rupee(capped_wage * PF_EMPLOYER_RATE)
     return {
-        "ded_pf": round(capped_wage * PF_EMPLOYEE_RATE, 2),
+        "ded_pf": _round_rupee(capped_wage * PF_EMPLOYEE_RATE),
         "oth_pf_wages": round(capped_wage, 2),
         "oth_eps_wages": round(eps_wage, 2),
         "oth_eps": eps,
-        "oth_epf": round(employer_pf_total - eps, 2),
+        "oth_epf": employer_pf_total - eps,
         "oth_edli_wages": round(edli_wage, 2),
-        "oth_edli_charges": round(edli_wage * EDLI_RATE, 2),
-        "oth_pf_admin_charges": round(capped_wage * PF_ADMIN_RATE, 2),
+        "oth_edli_charges": _round_rupee(edli_wage * EDLI_RATE),
+        "oth_pf_admin_charges": _round_rupee(capped_wage * PF_ADMIN_RATE),
     }
 
 

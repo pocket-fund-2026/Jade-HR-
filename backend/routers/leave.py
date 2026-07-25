@@ -46,14 +46,37 @@ def _carry_forward_cap(location: str | None) -> float:
     return CARRY_FORWARD_CAP_HQ if location == HQ_LOCATION else CARRY_FORWARD_CAP_RETAIL
 
 
-def _compute_carry_forward(prior_carried_forward: float, prior_accrued: float, prior_used: float, cap: float) -> float:
+def _compute_carry_forward(
+    prior_carried_forward: float, prior_accrued: float, prior_used: float, cap: float, prior_manual: float = 0.0,
+) -> float:
     """Pure math for how much of a prior leave-year's unused Paid Leave
     carries into the next year: whatever's left (never negative), capped by
     location. Split out from get_carried_forward's DB read/write so this —
     the actual money-relevant formula — is unit-testable without a live
-    Supabase connection, matching this codebase's existing test style."""
-    prior_remaining = max(0.0, prior_carried_forward + prior_accrued - prior_used)
+    Supabase connection, matching this codebase's existing test style.
+    prior_manual folds in HR's manual Leave Ledger credits/debits for that
+    year (see _manual_ledger_net) so an adjustment actually carries forward."""
+    prior_remaining = max(0.0, prior_carried_forward + prior_accrued + prior_manual - prior_used)
     return round(min(prior_remaining, cap), 2)
+
+
+def _manual_ledger_net(employee_id: str, year: int, as_of: date | None = None) -> float:
+    """Net of every manual Leave Entry (credit/debit/adjustment) posted to
+    the Paid Leave pool for this leave_year, up to an optional as-of date.
+    hr_leave_ledger is written by POST /api/leave-ledger (the "Leave Entry"
+    admin page) but, until this function, was never read back into the
+    balance that actually gates new leave requests — see
+    paid_leave_allocated_to_date / get_carried_forward callers."""
+    query = (
+        supabase.table("hr_leave_ledger")
+        .select("amount,entry_date")
+        .eq("employee_id", employee_id)
+        .eq("leave_type", "paid")
+        .gte("entry_date", f"{year}-01-01")
+        .lte("entry_date", (as_of or date(year, 12, 31)).isoformat())
+    )
+    resp = query.execute()
+    return sum(float(r["amount"]) for r in resp.data)
 
 
 def _paid_leave_used(employee_id: str, year: int, as_of: date | None = None) -> float:
@@ -98,8 +121,9 @@ def get_carried_forward(employee: dict, year: int) -> float:
     prior_carried_forward = get_carried_forward(employee, year - 1)
     prior_accrued = _pl_accrued_to_date(employee.get("date_of_joining"), date(year - 1, 12, 31), year - 1)
     prior_used = _paid_leave_used(employee["id"], year - 1)
+    prior_manual = _manual_ledger_net(employee["id"], year - 1)
     carried_forward = _compute_carry_forward(
-        prior_carried_forward, prior_accrued, prior_used, _carry_forward_cap(employee.get("location")),
+        prior_carried_forward, prior_accrued, prior_used, _carry_forward_cap(employee.get("location")), prior_manual,
     )
 
     # Don't lock this in until the prior leave-year has actually finished —
@@ -126,8 +150,13 @@ def paid_leave_allocated_to_date(employee: dict, as_of: date) -> float:
     """This leave-year's running Paid Leave entitlement as of a date: last
     year's locked carry-forward, plus this year's accrual to date (2/mo,
     capped 24/yr — same formula the old corporate-only 'earned' policy used,
-    now applied company-wide)."""
-    return get_carried_forward(employee, as_of.year) + _pl_accrued_to_date(employee.get("date_of_joining"), as_of, as_of.year)
+    now applied company-wide), plus any manual Leave Entry credit/debit
+    posted this year up to that date (see _manual_ledger_net)."""
+    return (
+        get_carried_forward(employee, as_of.year)
+        + _pl_accrued_to_date(employee.get("date_of_joining"), as_of, as_of.year)
+        + _manual_ledger_net(employee["id"], as_of.year, as_of)
+    )
 
 
 def paid_leave_balance_as_of(employee: dict, as_of: date) -> float:

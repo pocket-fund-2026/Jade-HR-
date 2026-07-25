@@ -43,3 +43,16 @@ def test_carry_forward_compounds_across_years():
     # Year 2 starts with 10 already carried in from year 1, accrues another
     # 24, uses only 2 -> 32 unused, still capped at 15 for HQ.
     assert _compute_carry_forward(10, PAID_LEAVE_ANNUAL_CAP, 2, CARRY_FORWARD_CAP_HQ) == 15
+
+
+def test_carry_forward_includes_manual_ledger_adjustment():
+    # HR granted +5 via the Leave Entry page during the year (prior_manual) —
+    # that must count toward carry-forward same as accrual, not be silently
+    # dropped (the original bug: manual adjustments never fed the real balance).
+    assert _compute_carry_forward(0, PAID_LEAVE_ANNUAL_CAP, 4, CARRY_FORWARD_CAP_RETAIL, prior_manual=5) == 7  # capped
+    assert _compute_carry_forward(0, 10, 4, CARRY_FORWARD_CAP_HQ, prior_manual=5) == 11  # 10+5-4, under cap
+
+
+def test_carry_forward_manual_debit_reduces_balance():
+    # A manual debit/correction (negative amount) lowers what carries forward.
+    assert _compute_carry_forward(0, 10, 0, CARRY_FORWARD_CAP_HQ, prior_manual=-3) == 7

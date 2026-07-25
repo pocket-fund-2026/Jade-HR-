@@ -350,6 +350,11 @@ const ESIC_WAGE_KEYS = [
   "earn_retention", "earn_incentive",
 ];
 const round2 = (n) => Math.round(n * 100) / 100;
+// EPFO convention: PF/EPS/EDLI contribution amounts round to the nearest
+// whole rupee (half rounds up) — mirrors backend/statutory.py's
+// _round_rupee. Plain Math.round already rounds half-up (unlike Python's
+// banker's rounding), but this stays a distinct name for clarity/parity.
+const roundRupee = (n) => Math.floor(n + 0.5);
 
 // PT — state-specific, mirrors backend/statutory.py's location_to_state/compute_pt.
 const LOCATION_STATE = {
@@ -404,17 +409,17 @@ function computeStatutoryPreview(record, compliance) {
     const cappedWage = pfGrossLimit ? Math.min(wageBase, pfGrossLimit) : wageBase;
     const epsWage = Math.min(cappedWage, EPS_WAGE_CEILING);
     const edliWage = Math.min(cappedWage, EDLI_WAGE_CEILING);
-    const eps = compliance.epsApplicable ? round2(epsWage * EPS_RATE) : 0;
-    const employerPfTotal = round2(cappedWage * PF_EMPLOYER_RATE);
+    const eps = compliance.epsApplicable ? roundRupee(epsWage * EPS_RATE) : 0;
+    const employerPfTotal = roundRupee(cappedWage * PF_EMPLOYER_RATE);
     pf = {
-      ded_pf: round2(cappedWage * PF_EMPLOYEE_RATE),
+      ded_pf: roundRupee(cappedWage * PF_EMPLOYEE_RATE),
       oth_pf_wages: round2(cappedWage),
       oth_eps_wages: round2(epsWage),
       oth_eps: eps,
-      oth_epf: round2(employerPfTotal - eps),
+      oth_epf: employerPfTotal - eps,
       oth_edli_wages: round2(edliWage),
-      oth_edli_charges: round2(edliWage * EDLI_RATE),
-      oth_pf_admin_charges: round2(cappedWage * PF_ADMIN_RATE),
+      oth_edli_charges: roundRupee(edliWage * EDLI_RATE),
+      oth_pf_admin_charges: roundRupee(cappedWage * PF_ADMIN_RATE),
     };
   }
 

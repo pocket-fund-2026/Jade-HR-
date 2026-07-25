@@ -22,14 +22,14 @@ function otherAllow(r) {
 function otherAllowRate(r) {
   return r.other_allowance_rate + r.monthly_bonus_rate + r.retention_rate;
 }
-// LWF has no column in this register on purpose — it's deducted half-yearly,
-// not every pay cycle (see backend/routers/salary_structure.py), so it's
-// handled outside the monthly Salary Sheet rather than folded in here.
 function totalErn(r) {
   return r.basic + r.hra + r.conveyance + otherAllow(r) + (r.arrear || 0) + r.ot_amount + r.incentive;
 }
 function totalDed(r) {
-  return r.ded_pf + r.ded_pt + r.ded_esic + r.ded_tds + (r.ded_loan || 0) + (r.ded_loan_int || 0) + (r.ded_other_ded || 0);
+  return (
+    r.ded_pf + r.ded_pt + r.ded_esic + r.ded_tds + (r.ded_loan || 0) + (r.ded_loan_int || 0)
+    + (r.ded_lwf || 0) + (r.ded_other_ded || 0)
+  );
 }
 function netSalary(r) {
   return totalErn(r) - totalDed(r);
@@ -53,6 +53,24 @@ const COLUMNS = [
   { label: "DOJ", get: (r) => r.date_of_joining, date: true },
   { label: "Grade", get: (r) => r.grade },
   { label: "Cost Center", get: (r) => r.cost_center },
+  // PT/LWF are levied on total gross earnings (attendance-adjusted Basic
+  // +HRA+Conv+OtherAllow+Arrear+OT+Incentive), same figure as TotalErn below
+  // — the reference register duplicates it under these two labels rather
+  // than computing a separate wage base.
+  { label: "PT Wages", get: totalErn, money: true },
+  { label: "LWF Wages", get: totalErn, money: true },
+  { label: "EPS Wages", get: (r) => r.eps_wages, money: true },
+  { label: "EPS", get: (r) => r.pf_employer_eps, money: true },
+  { label: "EPF", get: (r) => r.pf_employer_epf, money: true },
+  { label: "EDLI Charges", get: (r) => r.pf_edli_charges, money: true },
+  { label: "PF Admin Charges", get: (r) => r.pf_admin_charges, money: true },
+  // EDLI Admin Charges was abolished by the 2020 EPF amendment — always ₹0,
+  // no live figure to source, kept as a column only for layout parity.
+  { label: "EDLI Admin Charges", get: () => 0, money: true },
+  { label: "ESIC Wages", get: (r) => r.esic_wages, money: true },
+  { label: "ESIC Employer", get: (r) => r.esic_employer, money: true },
+  { label: "PF Wages", get: (r) => r.pf_wages, money: true },
+  { label: "EDLI Wages", get: (r) => r.edli_wages, money: true },
   { label: "Basic(Arr)", get: () => 0, money: true },
   { label: "Present", get: (r) => r.present_days, num: true },
   { label: "WeeklyOff", get: (r) => r.weekoff_days, num: true },
@@ -82,6 +100,7 @@ const COLUMNS = [
   { label: "TDS", get: (r) => r.ded_tds, money: true },
   { label: "Loan", get: (r) => r.ded_loan || 0, money: true },
   { label: "Loan_Int", get: (r) => r.ded_loan_int || 0, money: true },
+  { label: "LWF", get: (r) => r.ded_lwf || 0, money: true },
   { label: "OtherDed", get: (r) => r.ded_other_ded || 0, money: true },
   { label: "TotalDed", get: totalDed, money: true, strong: true },
   { label: "Net Salary", get: netSalary, money: true, strong: true },
@@ -94,7 +113,11 @@ const COLUMNS = [
 
 // Columns the reference register totals on its summary row — everything
 // else (names, codes, attendance counts, bank details) is left blank there.
-const TOTAL_COLUMNS = new Set(["Arrear", "TotalErn", "PF", "PT", "ESIC", "TDS", "Loan", "Loan_Int", "OtherDed", "TotalDed", "Net Salary"]);
+const TOTAL_COLUMNS = new Set([
+  "PT Wages", "LWF Wages", "EPS Wages", "EPS", "EPF", "EDLI Charges", "PF Admin Charges", "EDLI Admin Charges",
+  "ESIC Wages", "ESIC Employer", "PF Wages", "EDLI Wages",
+  "Arrear", "TotalErn", "PF", "PT", "ESIC", "TDS", "Loan", "Loan_Int", "LWF", "OtherDed", "TotalDed", "Net Salary",
+]);
 
 function cellValue(col, r, i) {
   const v = col.get(r, i);
