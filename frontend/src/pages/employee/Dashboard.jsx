@@ -209,7 +209,7 @@ export default function Dashboard() {
                     <td className="px-5 py-2.5">
                       <StampBadge status={d.status}>
                         {d.status === "leave"
-                          ? `${LEAVE_LABELS[d.leave_type]} leave${d.red_card_lop ? " · LOP (Red Card)" : ""}`
+                          ? `${LEAVE_LABELS[d.leave_type]} leave`
                           : d.status === "holiday"
                           ? d.holiday_description || "holiday"
                           : d.corrected ? `${d.status} · corrected` : d.status}

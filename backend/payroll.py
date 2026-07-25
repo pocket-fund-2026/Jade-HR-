@@ -399,18 +399,21 @@ def apply_late_coming_policy(
     after 12:00 PM (after_noon) is a ½-day LOP regardless of the late-mark
     count — even within the free allowance. Deductions are only ever ½ or full
     day (v1.1 sections 4 & 8), never a quarter, and there is no hours-shortfall
-    late rule. 5+ late marks in the cycle is a Red Card: any leave day not
-    already admin-corrected becomes LOP too (a documented medical emergency or
-    other management exception is a manual call — use the existing attendance-
-    override mechanism to restore a specific day, or the admin Leave Entry page
-    to bypass the Red Card leave-request block elsewhere).
+    late rule. 5+ late marks in the cycle is a Red Card, which still blocks
+    NEW Paid Leave/Comp-Off *requests* from being self-submitted that cycle
+    (see RED_CARD_BLOCKED_TYPES in routers/leave.py) — but an already-approved
+    leave day is left alone here: HR approving the request is itself the
+    exception-granting step, so a leave already on the books does not get
+    silently converted to LOP behind HR's back (previously it did, with no
+    warning anywhere in the Leave Approval flow — see the 2026-07 Rushikesh
+    Chande case, where an approved Paid Leave turned into unpaid LOP on the
+    payslip with no visible cause).
 
     `standard_hours_per_day`/`time_slot` are retained for call-site
     compatibility (v1.1 has no hours-shortfall late rule) — kept so the two
     callers don't have to change.
 
-    Mutates `daily` in place (tags lop_days / red_card_lop) and returns
-    (late_mark_count, red_card).
+    Mutates `daily` in place (tags lop_days) and returns (late_mark_count, red_card).
     """
     late_ordinal = 0
     for r in daily:
@@ -421,11 +424,7 @@ def apply_late_coming_policy(
             if r.get("after_noon") or late_ordinal > LATE_FREE_COUNT:
                 r["lop_days"] = LATE_LOP_DAYS
 
-    red_card = late_ordinal >= 5
-    if red_card:
-        for r in daily:
-            if r["status"] == "leave" and r.get("leave_type") != "unpaid" and not r.get("corrected"):
-                r["red_card_lop"] = True
+    return late_ordinal, late_ordinal >= 5
 
     return late_ordinal, red_card
 
@@ -502,15 +501,14 @@ def compute_monthly_summary(
     weekoff_days = sum(1 for r in daily if r["status"] == "weekoff")
     half_days = sum(1 for r in daily if r["status"] == "half_day")
     unpaid_leave_days = sum(1 for r in daily if r["status"] == "leave" and r.get("leave_type") == "unpaid")
-    red_card_lop_leave_days = sum(1 for r in daily if r.get("red_card_lop"))
     late_lop_days = round(sum(r.get("lop_days", 0) for r in daily), 2)
-    pl_days = leave_days - unpaid_leave_days - red_card_lop_leave_days
+    pl_days = leave_days - unpaid_leave_days
     paid_days = present_days + weekoff_days + holiday_days + pl_days + 0.5 * half_days - late_lop_days
     # Payslip "WithoutPayDays" — the complement of paid_days over total_days:
-    # full absences, unpaid/red-card-lop leave (excluded from pl_days above),
-    # the unpaid halves of half-days, and late-coming LOP days (already a
-    # day-amount, not a count — see LATE_LOP_DAYS).
-    without_pay_days = absent_days + unpaid_leave_days + red_card_lop_leave_days + 0.5 * half_days + late_lop_days
+    # full absences, unpaid leave (excluded from pl_days above), the unpaid
+    # halves of half-days, and late-coming LOP days (already a day-amount,
+    # not a count — see LATE_LOP_DAYS).
+    without_pay_days = absent_days + unpaid_leave_days + 0.5 * half_days + late_lop_days
     late_days = sum(1 for r in daily if r["status"] == "present" and r.get("late"))
     on_time_days = present_days - late_days
     total_hours_worked = round(sum(r["hours_worked"] for r in daily), 2)
@@ -569,11 +567,11 @@ def compute_monthly_summary(
     per_day_salary = rate_gross_for_ot / rate_divisor if rate_divisor else 0
     per_hour_salary = per_day_salary / standard_hours if standard_hours else 0
     ot_amount = per_hour_salary * total_ot_hours if employee.get("ot_applicable", True) else 0.0
-    # Informational only — red-card/late-coming LOP is already reflected in
-    # the reduced `paid_days` used to prorate Basic/HRA/Conveyance/Other
+    # Informational only — late-coming LOP is already reflected in the
+    # reduced `paid_days` used to prorate Basic/HRA/Conveyance/Other
     # Allowance/Incentive above, so it must NOT also be subtracted from
     # gross/total_payable below or it would be double-deducted.
-    lop_amount = per_day_salary * (late_lop_days + red_card_lop_leave_days)
+    lop_amount = per_day_salary * late_lop_days
 
     period_start, period_end = pay_period_bounds(year, month, calendar_month)
 

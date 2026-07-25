@@ -245,6 +245,23 @@ def test_red_card_and_lop_only_apply_to_corporate_roster():
     assert factory_summary["late_days"] == 5  # the plain "late" badge is unaffected either way
 
 
+def test_red_card_does_not_convert_an_already_approved_leave_to_lop():
+    # Same 5 late arrivals (Red Card), plus an approved Paid Leave day inside
+    # the same cycle. Approving the leave is itself the exception-granting
+    # step — Red Card must not silently turn it into unpaid LOP behind HR's
+    # back (regression for the Rushikesh Chande case, 2026-07).
+    late_days = [(2025, 12, 29), (2025, 12, 30), (2025, 12, 31), (2026, 1, 2), (2026, 1, 5)]
+    punches = [p for day in late_days for p in _late_punch(*day)]
+    leaves = {date(2026, 1, 8): "paid"}
+
+    summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 1, punches, leaves=leaves)
+    assert summary["red_card"] is True
+    leave_row = next(r for r in summary["daily"] if r["date"] == "2026-01-08")
+    assert leave_row["status"] == "leave"
+    assert not leave_row.get("red_card_lop")
+    assert summary["pl_days"] == 1  # counted as paid leave, not LOP
+
+
 def test_worked_example_two_free_then_half_day_each():
     # v1.1 §4 worked example: 30 total days in the cycle, 5 late marks ->
     # 2 free + 3 penalized at ½ day each = 1.5 LOP, i.e. paid for 28.5 days.
