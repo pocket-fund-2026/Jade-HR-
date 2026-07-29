@@ -82,6 +82,51 @@ def _fetch_all_punches_by_employee(year: int, month: int, calendar_month: bool =
     return by_employee
 
 
+def _fetch_all_punches_by_employee_range(start: date, end: date) -> dict[str, list[datetime]]:
+    """Range equivalent of _fetch_all_punches_by_employee — one (paginated)
+    query for an arbitrary [start, end] span across the whole roster,
+    instead of one query per employee."""
+    from_dt = datetime.combine(start, datetime.min.time(), tzinfo=IST).isoformat()
+    to_dt = datetime.combine(end + timedelta(days=1), datetime.min.time(), tzinfo=IST).isoformat()
+    by_employee: dict[str, list[datetime]] = {}
+    page_size = 1000
+    offset = 0
+    while True:
+        resp = (
+            supabase.table("hr_biometric_punches")
+            .select("employee_code,punch_time")
+            .gte("punch_time", from_dt)
+            .lte("punch_time", to_dt)
+            .range(offset, offset + page_size - 1)
+            .execute()
+        )
+        rows = resp.data
+        for r in rows:
+            by_employee.setdefault(r["employee_code"], []).append(datetime.fromisoformat(r["punch_time"]))
+        if len(rows) < page_size:
+            break
+        offset += page_size
+    return by_employee
+
+
+def _fetch_all_overrides_by_employee_range(start: date, end: date) -> dict[str, dict[date, dict]]:
+    resp = (
+        supabase.table("hr_attendance_overrides")
+        .select("*")
+        .gte("date", start.isoformat())
+        .lte("date", end.isoformat())
+        .execute()
+    )
+    by_employee: dict[str, dict[date, dict]] = {}
+    for r in resp.data:
+        by_employee.setdefault(r["employee_id"], {})[date.fromisoformat(r["date"])] = {
+            "status_override": r["status_override"],
+            "first_in": _parse_time(r["first_in"]),
+            "last_out": _parse_time(r["last_out"]),
+        }
+    return by_employee
+
+
 def _fetch_overrides(employee_id: str, year: int, month: int) -> dict[date, dict]:
     start, end = pay_period_bounds(year, month)
     from_d, to_d = start.isoformat(), end.isoformat()

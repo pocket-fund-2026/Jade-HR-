@@ -126,6 +126,19 @@ class AttendanceOverrideUpsert(BaseModel):
     note: str = ""
 
 
+class AttendanceImportRow(BaseModel):
+    employee_code: str
+    date: date
+    status_override: str = "present"  # present | absent | half_day
+    first_in: Optional[time] = None
+    last_out: Optional[time] = None
+    note: str = "Bulk import"
+
+
+class AttendanceImportRequest(BaseModel):
+    rows: list[AttendanceImportRow]
+
+
 class SalaryImportRow(BaseModel):
     employee_code: str
     basic: float = 0

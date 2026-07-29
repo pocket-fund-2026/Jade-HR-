@@ -1,7 +1,9 @@
-import { ArrowLeft, FileSpreadsheet, Pencil } from "lucide-react";
+import { ArrowLeft, FileSpreadsheet, Pencil, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
+import AttendanceImportModal from "../../../components/AttendanceImportModal.jsx";
+import DateRangePicker from "../../../components/DateRangePicker.jsx";
 import MonthPicker from "../../../components/MonthPicker.jsx";
 import api from "../../../lib/api.js";
 import { useAuth } from "../../../lib/auth.jsx";
@@ -124,20 +126,50 @@ export default function AttendanceReport() {
   const canEdit = can("disputes.manage");
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
+  const [mode, setMode] = useState("month"); // "month" | "range"
+  const [rangeFrom, setRangeFrom] = useState("");
+  const [rangeTo, setRangeTo] = useState("");
+  const [appliedRange, setAppliedRange] = useState(null); // { from, to } once Apply is clicked
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [rangeError, setRangeError] = useState("");
   const [editing, setEditing] = useState(null); // { employee, day }
+  const [showImport, setShowImport] = useState(false);
 
-  const load = () => {
+  const loadMonth = () => {
     setLoading(true);
     api.get("/api/reports/attendance", { params: { year, month } })
       .then(({ data }) => setRows(data))
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, [year, month]);
+  const loadRange = (from, to) => {
+    setLoading(true);
+    setRangeError("");
+    api.get("/api/reports/attendance-range", { params: { from, to } })
+      .then(({ data }) => setRows(data))
+      .catch((err) => setRangeError(err?.response?.data?.detail || "Could not load that range"))
+      .finally(() => setLoading(false));
+  };
+
+  const applyRange = () => {
+    if (!rangeFrom || !rangeTo) return;
+    setAppliedRange({ from: rangeFrom, to: rangeTo });
+    loadRange(rangeFrom, rangeTo);
+  };
+
+  const load = () => {
+    if (mode === "range") {
+      if (appliedRange) loadRange(appliedRange.from, appliedRange.to);
+      return;
+    }
+    loadMonth();
+  };
+
+  useEffect(() => { if (mode === "month") loadMonth(); }, [year, month, mode]);
 
   const days = rows[0]?.daily ?? [];
+  const exportLabel = mode === "range" && appliedRange ? `${appliedRange.from}_to_${appliedRange.to}` : undefined;
 
   return (
     <div>
@@ -157,22 +189,61 @@ export default function AttendanceReport() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          {canEdit && (
+            <button
+              onClick={() => setShowImport(true)}
+              className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
+            >
+              <Upload size={15} /> Import Attendance
+            </button>
+          )}
           <button
-            onClick={() => exportAttendanceExcel(rows, year, month)}
+            onClick={() => exportAttendanceExcel(rows, year, month, exportLabel)}
             disabled={!rows.length}
             className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
           >
             <FileSpreadsheet size={15} /> Export Excel
           </button>
           <button
-            onClick={() => exportAttendanceTimingsExcel(rows, year, month)}
+            onClick={() => exportAttendanceTimingsExcel(rows, year, month, exportLabel)}
             disabled={!rows.length}
             className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
           >
             <FileSpreadsheet size={15} /> Export Timings (Datewise)
           </button>
-          <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <div className="flex items-center gap-1 bg-paper rounded-sm shadow-card p-1">
+          <button
+            onClick={() => setMode("month")}
+            className={`px-3 py-1.5 rounded-sm text-xs font-semibold transition-colors ${mode === "month" ? "bg-ledger-800 text-manila" : "text-ink/70 hover:text-ink"}`}
+          >
+            Month
+          </button>
+          <button
+            onClick={() => { setMode("range"); if (!appliedRange) setRows([]); }}
+            className={`px-3 py-1.5 rounded-sm text-xs font-semibold transition-colors ${mode === "range" ? "bg-ledger-800 text-manila" : "text-ink/70 hover:text-ink"}`}
+          >
+            Custom Range
+          </button>
+        </div>
+        {mode === "month" ? (
+          <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
+        ) : (
+          <>
+            <DateRangePicker from={rangeFrom} to={rangeTo} onChange={(f, t) => { setRangeFrom(f); setRangeTo(t); }} disabled={loading} />
+            <button
+              onClick={applyRange}
+              disabled={loading || !rangeFrom || !rangeTo}
+              className="text-xs font-semibold text-ink bg-paper border border-ink/15 rounded-sm px-2.5 py-2 hover:border-jade-500 transition-colors disabled:opacity-50"
+            >
+              {loading ? "Loading…" : "Apply"}
+            </button>
+            {rangeError && <p className="text-xs text-rust-500">{rangeError}</p>}
+          </>
+        )}
       </div>
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
@@ -253,6 +324,13 @@ export default function AttendanceReport() {
           day={editing.day}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); load(); }}
+        />
+      )}
+
+      {showImport && (
+        <AttendanceImportModal
+          onClose={() => setShowImport(false)}
+          onImported={() => { setShowImport(false); load(); }}
         />
       )}
     </div>

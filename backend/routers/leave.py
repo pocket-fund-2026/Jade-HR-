@@ -79,6 +79,47 @@ def _manual_ledger_net(employee_id: str, year: int, as_of: date | None = None) -
     return sum(float(r["amount"]) for r in resp.data)
 
 
+def _manual_ledger_net_between(employee_id: str, start: date, end: date) -> float:
+    """Net manual Paid-Leave ledger entries (see _manual_ledger_net) posted
+    within [start, end] inclusive, not bound to a single calendar leave_year
+    — used by _pl_ledger_from_rows to fold HR's Leave Entry adjustments into
+    the payslip's own PL ledger row (opening/credit/debit), which unlike
+    paid_leave_allocated_to_date's balance never read these back before this
+    fix — a mid-year manual adjustment updated the dashboard balance/request-
+    gating check immediately but didn't reach any pay period's payslip ledger
+    until the following year's carry-forward absorbed it."""
+    resp = (
+        supabase.table("hr_leave_ledger")
+        .select("amount")
+        .eq("employee_id", employee_id)
+        .eq("leave_type", "paid")
+        .gte("entry_date", start.isoformat())
+        .lte("entry_date", end.isoformat())
+        .execute()
+    )
+    return sum(float(r["amount"]) for r in resp.data)
+
+
+def _manual_ledger_net_bulk_between(employee_ids: list[str], start: date, end: date) -> dict[str, float]:
+    """Bulk equivalent of _manual_ledger_net_between — one query for the
+    whole roster instead of one per employee."""
+    if not employee_ids:
+        return {}
+    resp = (
+        supabase.table("hr_leave_ledger")
+        .select("employee_id,amount")
+        .in_("employee_id", employee_ids)
+        .eq("leave_type", "paid")
+        .gte("entry_date", start.isoformat())
+        .lte("entry_date", end.isoformat())
+        .execute()
+    )
+    result: dict[str, float] = defaultdict(float)
+    for r in resp.data:
+        result[r["employee_id"]] += float(r["amount"])
+    return dict(result)
+
+
 def _paid_leave_used(employee_id: str, year: int, as_of: date | None = None) -> float:
     """Approved-leave days this calendar year across every merged paid-leave
     type label (see MERGED_PAID_LEAVE_TYPES) — not just 'paid' — so a
@@ -416,6 +457,8 @@ def _pl_ledger_from_rows(
     leave_rows: list[dict],
     carry_at_start: float | None = None,
     carry_at_end: float | None = None,
+    manual_before: float | None = None,
+    manual_within: float | None = None,
 ) -> dict:
     """Pure computation half of the Paid Leave ledger, given this employee's
     already-fetched approved leave rows (start_date/end_date, any merged
@@ -427,7 +470,15 @@ def _pl_ledger_from_rows(
     carry_at_start/carry_at_end let the bulk path pass in pre-fetched
     (_carried_forward_bulk) values instead of each employee hitting
     get_carried_forward individually; leave both None for the
-    single-employee path (pl_ledger_for_period)."""
+    single-employee path (pl_ledger_for_period). manual_before/manual_within
+    are the same pre-fetch pattern for _manual_ledger_net_between — HR's
+    Leave Entry adjustments (hr_leave_ledger), which carry_at_start/end only
+    ever capture for a PRIOR completed leave-year (via get_carried_forward's
+    prior_manual), never for the current, still-open one. Without folding
+    these in here too, a mid-year manual adjustment would silently vanish
+    from every payslip's PL ledger until next year's carry-forward absorbs
+    it — even though it already updates the dashboard balance/leave-request
+    gating check immediately (paid_leave_allocated_to_date)."""
     doj = employee.get("date_of_joining")
     location = employee.get("location")
     period_start, period_end = pay_period_bounds(year, month)
@@ -439,7 +490,16 @@ def _pl_ledger_from_rows(
         carry_at_start = get_carried_forward(employee, day_before_start.year) if day_before_start.year > PAID_LEAVE_POLICY_START_YEAR else 0.0
     if carry_at_end is None:
         carry_at_end = get_carried_forward(employee, period_end.year) if period_end.year > PAID_LEAVE_POLICY_START_YEAR else 0.0
+    if manual_before is None:
+        manual_before = _manual_ledger_net_between(employee["id"], date(day_before_start.year, 1, 1), day_before_start)
+    if manual_within is None:
+        manual_within = _manual_ledger_net_between(employee["id"], period_start, period_end)
+
     credit = max(0, (accrued_at_end + carry_at_end) - (accrued_at_start + carry_at_start))
+    # A manual credit adds to Cr; a manual debit (negative amount) adds to Dr
+    # instead of going negative through the Cr column.
+    credit += max(0.0, manual_within)
+    manual_within_debit = max(0.0, -manual_within)
 
     used_before = used_within = 0
     for r in leave_rows:
@@ -449,8 +509,8 @@ def _pl_ledger_from_rows(
         else:
             used_within += days
 
-    opening = accrued_at_start + carry_at_start - used_before
-    debit = used_within
+    opening = accrued_at_start + carry_at_start - used_before + manual_before
+    debit = used_within + manual_within_debit
     closing = opening + credit - debit
     return {"opening": opening, "debit": debit, "credit": credit, "closing": closing}
 
@@ -514,12 +574,18 @@ def pl_ledger_for_period_bulk(employees: list[dict], year: int, month: int) -> d
     carry_at_end_by_year = (
         carry_at_start_by_year if period_end.year == day_before_start.year else _carried_forward_bulk(employees, period_end.year)
     )
+    manual_before_by_employee = _manual_ledger_net_bulk_between(
+        employee_ids, date(day_before_start.year, 1, 1), day_before_start,
+    )
+    manual_within_by_employee = _manual_ledger_net_bulk_between(employee_ids, period_start, period_end)
 
     return {
         e["id"]: _pl_ledger_from_rows(
             e, year, month, rows_by_employee.get(e["id"], []),
             carry_at_start=carry_at_start_by_year[e["id"]],
             carry_at_end=carry_at_end_by_year[e["id"]],
+            manual_before=manual_before_by_employee.get(e["id"], 0.0),
+            manual_within=manual_within_by_employee.get(e["id"], 0.0),
         )
         for e in employees
     }
@@ -735,9 +801,12 @@ def fetch_approved_leaves(
     return by_day
 
 
-def fetch_all_approved_leaves_by_employee(year: int, month: int, calendar_month: bool = False) -> dict[str, dict[date, str]]:
-    """One query for the whole month instead of one per employee (mirrors payroll.py's punch fetcher)."""
-    from_d, to_d = pay_period_bounds(year, month, calendar_month)
+def fetch_all_approved_leaves_by_employee(
+    year: int, month: int, calendar_month: bool = False, date_range: tuple[date, date] | None = None,
+) -> dict[str, dict[date, str]]:
+    """One query for the whole month instead of one per employee (mirrors payroll.py's punch fetcher).
+    `date_range` overrides the year/month-derived pay-period bounds with an arbitrary [start, end] span."""
+    from_d, to_d = date_range if date_range else pay_period_bounds(year, month, calendar_month)
 
     resp = (
         supabase.table("hr_leave_requests")

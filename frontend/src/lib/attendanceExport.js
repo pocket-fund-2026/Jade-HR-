@@ -144,7 +144,7 @@ async function downloadWorkbook(wb, filename) {
 // Wide format: one row per employee, with a dedicated In/Out/Status column
 // group per date (rather than cramming all three into one cell) — status
 // cells are color-coded to match the on-screen Attendance Sheet.
-export async function exportAttendanceExcel(rows, year, month) {
+export async function exportAttendanceExcel(rows, year, month, rangeLabel) {
   const ExcelJS = await loadExcelJS();
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Attendance");
@@ -197,7 +197,7 @@ export async function exportAttendanceExcel(rows, year, month) {
   // stay in view while scanning across a month's worth of day-groups.
   ws.views = [{ state: "frozen", xSplit: 3, ySplit: 2 }];
 
-  await downloadWorkbook(wb, `jade-hr-attendance-${MONTH_NAMES[month - 1]}-${year}.xlsx`);
+  await downloadWorkbook(wb, `jade-hr-attendance-${rangeLabel || `${MONTH_NAMES[month - 1]}-${year}`}.xlsx`);
 }
 
 // 24-hour zero-padded "HH:MM", IST — the biometric-export convention this
@@ -234,7 +234,7 @@ const BLOCK_FONT = { name: "Arial", size: 8 };
 // stacked down a single sheet, rather than one flat table with the employee
 // repeated on every row. No color-coding here; the reference sheet is plain
 // black-on-white, unlike exportAttendanceExcel's status-colored cells.
-export async function exportAttendanceTimingsExcel(rows, year, month) {
+export async function exportAttendanceTimingsExcel(rows, year, month, rangeLabel) {
   const ExcelJS = await loadExcelJS();
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("DailyAttendance_BasicReport_Emp");
@@ -288,7 +288,7 @@ export async function exportAttendanceTimingsExcel(rows, year, month) {
   ws.getColumn(7).width = 9;
   ws.getColumn(8).width = 6;
 
-  await downloadWorkbook(wb, `jade-hr-attendance-timings-${MONTH_NAMES[month - 1]}-${year}.xlsx`);
+  await downloadWorkbook(wb, `jade-hr-attendance-timings-${rangeLabel || `${MONTH_NAMES[month - 1]}-${year}`}.xlsx`);
 }
 
 // Single-employee, one-row-per-day export for the "Daily attendance" section

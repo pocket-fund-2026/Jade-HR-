@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from auth import get_current_user, require_permission
 from database import maybe_single_data, supabase
-from models import AttendanceOverrideUpsert, DisputeCreate, DisputePhotoUpload, DisputeResolve
+from models import AttendanceImportRequest, AttendanceOverrideUpsert, DisputeCreate, DisputePhotoUpload, DisputeResolve
 
 router = APIRouter(prefix="/api", tags=["disputes"])
 
@@ -153,3 +153,51 @@ def upsert_attendance_override(
     }
     supabase.table("hr_attendance_overrides").upsert(override_row, on_conflict="employee_id,date").execute()
     return {"ok": True}
+
+
+@router.post("/attendance-overrides/bulk-import")
+def bulk_import_attendance(
+    body: AttendanceImportRequest, admin: dict = Depends(require_permission("disputes.manage"))
+):
+    """Mass-correct/backfill many employees' daily attendance at once — e.g.
+    for a unit/date range not covered by biometric sync, or a bulk
+    reconciliation against a manual register — writing to the same
+    hr_attendance_overrides row (on_conflict="employee_id,date") the
+    single-cell edit above and dispute approvals write, so payroll/OT/leave
+    recompute correctly off it afterward rather than needing a separate
+    read path."""
+    if not body.rows:
+        raise HTTPException(status_code=400, detail="No rows to import")
+
+    existing = supabase.table("hr_employees").select("id,employee_code").execute().data
+    id_by_code = {e["employee_code"]: e["id"] for e in existing}
+
+    imported, not_found, invalid_status = [], [], []
+    rows_to_upsert = []
+    for row in body.rows:
+        emp_id = id_by_code.get(row.employee_code)
+        if not emp_id:
+            not_found.append(row.employee_code)
+            continue
+        if row.status_override not in ("present", "absent", "half_day"):
+            invalid_status.append(f"{row.employee_code} ({row.date})")
+            continue
+        rows_to_upsert.append({
+            "employee_id": emp_id,
+            "date": row.date.isoformat(),
+            "status_override": row.status_override,
+            "first_in": row.first_in.isoformat() if row.first_in else None,
+            "last_out": row.last_out.isoformat() if row.last_out else None,
+            "note": row.note or "Bulk import",
+            "created_by": admin["id"],
+        })
+        imported.append(f"{row.employee_code} ({row.date})")
+
+    if rows_to_upsert:
+        supabase.table("hr_attendance_overrides").upsert(rows_to_upsert, on_conflict="employee_id,date").execute()
+
+    return {
+        "imported": len(imported),
+        "not_found": sorted(set(not_found)),
+        "invalid_status": invalid_status,
+    }

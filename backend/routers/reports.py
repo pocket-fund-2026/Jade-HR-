@@ -8,11 +8,12 @@ from auth import require_permission
 from bonus import BONUS_MIN_RATE, compute_bonus
 from database import maybe_single_data, supabase
 from gratuity import compute_gratuity
-from payroll import compute_monthly_summary, fy_month_labels, pay_period_bounds
+from payroll import compute_attendance_for_range, compute_monthly_summary, fy_month_labels, pay_period_bounds
 from routers.leave import fetch_all_approved_leaves_by_employee, fetch_approved_leaves, paid_leave_balance_as_of
 from routers.payroll import (
     _all_summaries_for_month, _fetch_all_compliance_profiles, _fetch_all_overrides_by_employee,
-    _fetch_all_punches_by_employee, _fetch_holidays, _fetch_overrides, _fetch_punch_times,
+    _fetch_all_overrides_by_employee_range, _fetch_all_punches_by_employee, _fetch_all_punches_by_employee_range,
+    _fetch_holidays, _fetch_overrides, _fetch_punch_times,
 )
 from tds import DEFAULT_DECLARATION, project_annual_tax
 
@@ -385,6 +386,64 @@ def attendance_report(
         }
         for s in summaries
     ]
+
+
+MAX_ATTENDANCE_RANGE_DAYS = 366
+
+
+@router.get("/attendance-range")
+def attendance_report_range(
+    from_date: date = Query(..., alias="from"),
+    to_date: date = Query(..., alias="to"),
+    user: dict = Depends(require_permission("payroll.view", "attendance.view")),
+):
+    """Same per-employee daily attendance grid as /attendance, but for an
+    arbitrary [from, to] span rather than one pay period — lets the
+    Attendance Sheet export cover exactly the days HR needs (e.g. a custom
+    reconciliation window spanning parts of two months) in a single file
+    instead of stitching together multiple monthly exports. Uses
+    compute_attendance_for_range (no payroll/OT/PL-ledger machinery) rather
+    than the full compute_monthly_summary per employee /attendance runs,
+    since a plain attendance lookup doesn't need any of that."""
+    if to_date < from_date:
+        raise HTTPException(status_code=400, detail="'to' must be on or after 'from'")
+    if (to_date - from_date).days + 1 > MAX_ATTENDANCE_RANGE_DAYS:
+        raise HTTPException(status_code=400, detail=f"Range cannot exceed {MAX_ATTENDANCE_RANGE_DAYS} days")
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        employees_future = pool.submit(
+            lambda: supabase.table("hr_employees").select("*").eq("is_active", True).execute().data
+        )
+        profiles_future = pool.submit(_fetch_all_compliance_profiles)
+        holidays_future = pool.submit(_fetch_holidays)
+        punches_future = pool.submit(_fetch_all_punches_by_employee_range, from_date, to_date)
+        overrides_future = pool.submit(_fetch_all_overrides_by_employee_range, from_date, to_date)
+        leaves_future = pool.submit(fetch_all_approved_leaves_by_employee, 0, 0, date_range=(from_date, to_date))
+        employees = employees_future.result()
+        profiles_by_employee = profiles_future.result()
+        holidays = holidays_future.result()
+        punches_by_employee = punches_future.result()
+        overrides_by_employee = overrides_future.result()
+        leaves_by_employee = leaves_future.result()
+
+    results = []
+    for e in employees:
+        employee = {**e, **profiles_by_employee.get(e["id"], {})}
+        daily = compute_attendance_for_range(
+            employee, from_date, to_date,
+            punches_by_employee.get(e["employee_code"], []),
+            overrides_by_employee.get(e["id"], {}),
+            leaves_by_employee.get(e["id"], {}),
+            holidays,
+        )
+        results.append({
+            "employee_id": e["id"],
+            "employee_code": e["employee_code"],
+            "name": f"{e['first_name']} {e.get('last_name', '')}".strip(),
+            "location": e.get("location"),
+            "department": e.get("department"),
+            "daily": daily,
+        })
+    return results
 
 
 @router.get("/gratuity")
