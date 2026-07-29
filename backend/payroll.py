@@ -265,8 +265,12 @@ def compute_daily_attendance(
     is_corporate: bool = False,
     time_slot: str | None = None,
     calendar_month: bool = False,
+    date_range: tuple[date, date] | None = None,
 ) -> list[dict]:
-    """One row per day in the pay period (23rd of prior month - 22nd of this month).
+    """One row per day in the pay period (23rd of prior month - 22nd of this month),
+    or per day in `date_range` (start, end) when given — an arbitrary span
+    that overrides the year/month-derived pay-period bounds, for on-demand
+    attendance lookups that aren't tied to a payroll cycle.
 
     `overrides` (keyed by date) are admin-approved corrections — e.g. from an
     employee's "I forgot to punch out" dispute — and take priority over raw
@@ -290,7 +294,7 @@ def compute_daily_attendance(
     holidays = holidays or {}
     by_day = group_punches_by_day(punch_times)
     midnight_tail_dates = _midnight_crossing_dates(by_day)
-    start, end = pay_period_bounds(year, month, calendar_month)
+    start, end = date_range if date_range else pay_period_bounds(year, month, calendar_month)
     today = datetime.now(IST).date()
 
     rows = []
@@ -463,6 +467,33 @@ def applicable_fy_months(employee: dict, financial_year: str) -> list[tuple[int,
             continue
         result.append((y, m))
     return result
+
+
+def compute_attendance_for_range(
+    employee: dict,
+    start: date,
+    end: date,
+    punch_times: list[datetime],
+    overrides: dict[date, dict] | None = None,
+    leaves: dict[date, str] | None = None,
+    holidays: list[dict] | None = None,
+) -> list[dict]:
+    """Daily attendance rows for an arbitrary [start, end] span, independent
+    of any payroll cycle — used for on-demand attendance lookups (e.g. a
+    custom date-range export) rather than a full compute_monthly_summary
+    pass, which also runs the late-coming/LOP/PF/ESIC/TDS machinery this
+    doesn't need."""
+    standard_hours = float(employee.get("standard_hours_per_day") or 8)
+    weekly_off_day = int(employee.get("weekly_off_day") if employee.get("weekly_off_day") is not None else 6)
+    is_corporate = employee.get("employee_category") == "corporate"
+    time_slot = employee.get("time_slot")
+    holidays = [h for h in (holidays or []) if h.get("day_type") != "anniversary"]
+    holidays_for_employee = _holidays_for_employee(holidays, employee.get("location"))
+    return compute_daily_attendance(
+        start.year, start.month, punch_times, standard_hours, overrides, leaves, weekly_off_day,
+        holidays=holidays_for_employee, is_corporate=is_corporate, time_slot=time_slot,
+        date_range=(start, end),
+    )
 
 
 def compute_monthly_summary(

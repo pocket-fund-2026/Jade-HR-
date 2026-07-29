@@ -290,3 +290,47 @@ export async function exportAttendanceTimingsExcel(rows, year, month) {
 
   await downloadWorkbook(wb, `jade-hr-attendance-timings-${MONTH_NAMES[month - 1]}-${year}.xlsx`);
 }
+
+// Single-employee, one-row-per-day export for the "Daily attendance" section
+// on My Payslip / an admin's payroll detail view — a flat Date/In/Out/Hours/
+// OT Hours/Status table (mirrors the on-screen columns exactly), not the
+// wide per-employee-per-month layout the two exports above use, since this
+// covers one employee over any arbitrary date range rather than every
+// employee over one calendar month.
+export async function exportDailyAttendanceExcel(daily, { employeeCode, name, rangeLabel }) {
+  const ExcelJS = await loadExcelJS();
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("Daily Attendance");
+
+  const titleRow = ws.addRow([`${name || ""} [${employeeCode || ""}]`, rangeLabel || ""]);
+  titleRow.font = { bold: true, size: 11 };
+  ws.addRow([]);
+
+  const header = ["Date", "In", "Out", "Hours", "OT Hours", "Status"];
+  styleHeaderRow(ws.addRow(header));
+
+  for (const d of daily) {
+    const row = ws.addRow([
+      formatBlockDate(d.date),
+      formatClockHHMM(d.first_in),
+      formatClockHHMM(d.last_out),
+      formatDurationHHMM(d.hours_worked),
+      formatDurationHHMM(d.ot_hours),
+      STATUS_CODE[d.status] ?? d.status,
+    ]);
+    colorRowByStatus(row, d.status, 1, 6);
+    const tier = lateTier(d);
+    if (tier) applyLateTier(row.getCell(2), tier, {});
+  }
+
+  ws.getColumn(1).width = 14;
+  ws.getColumn(2).width = 10;
+  ws.getColumn(3).width = 10;
+  ws.getColumn(4).width = 9;
+  ws.getColumn(5).width = 10;
+  ws.getColumn(6).width = 10;
+  ws.views = [{ state: "frozen", ySplit: 3 }];
+
+  const suffix = employeeCode ? `-${employeeCode}` : "";
+  await downloadWorkbook(wb, `jade-hr-daily-attendance${suffix}.xlsx`);
+}

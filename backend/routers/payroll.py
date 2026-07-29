@@ -7,7 +7,7 @@ import email_service
 from auth import CONSOLE_ROLES, get_current_user, require_console, require_permission, user_can
 from config import IST
 from database import maybe_single_data, supabase
-from payroll import compute_monthly_summary, fy_label_for_month, pay_period_bounds
+from payroll import compute_attendance_for_range, compute_monthly_summary, fy_label_for_month, pay_period_bounds
 from routers.leave import (
     fetch_all_approved_leaves_by_employee, fetch_approved_leaves, pl_ledger_for_period, pl_ledger_for_period_bulk,
 )
@@ -33,6 +33,20 @@ def _parse_time(t: str | None) -> time | None:
 
 def _fetch_punch_times(employee_code: str, year: int, month: int) -> list[datetime]:
     from_dt, to_dt = _month_bounds(year, month)
+    resp = (
+        supabase.table("hr_biometric_punches")
+        .select("punch_time")
+        .eq("employee_code", employee_code)
+        .gte("punch_time", from_dt)
+        .lte("punch_time", to_dt)
+        .execute()
+    )
+    return [datetime.fromisoformat(r["punch_time"]) for r in resp.data]
+
+
+def _fetch_punch_times_range(employee_code: str, start: date, end: date) -> list[datetime]:
+    from_dt = datetime.combine(start, datetime.min.time(), tzinfo=IST).isoformat()
+    to_dt = datetime.combine(end + timedelta(days=1), datetime.min.time(), tzinfo=IST).isoformat()
     resp = (
         supabase.table("hr_biometric_punches")
         .select("punch_time")
@@ -77,6 +91,25 @@ def _fetch_overrides(employee_id: str, year: int, month: int) -> dict[date, dict
         .eq("employee_id", employee_id)
         .gte("date", from_d)
         .lte("date", to_d)
+        .execute()
+    )
+    return {
+        date.fromisoformat(r["date"]): {
+            "status_override": r["status_override"],
+            "first_in": _parse_time(r["first_in"]),
+            "last_out": _parse_time(r["last_out"]),
+        }
+        for r in resp.data
+    }
+
+
+def _fetch_overrides_range(employee_id: str, start: date, end: date) -> dict[date, dict]:
+    resp = (
+        supabase.table("hr_attendance_overrides")
+        .select("*")
+        .eq("employee_id", employee_id)
+        .gte("date", start.isoformat())
+        .lte("date", end.isoformat())
         .execute()
     )
     return {
@@ -517,6 +550,50 @@ def payroll_for_employee(
     summary = compute_monthly_summary(employee, year, month, punches, overrides, leaves, holidays, monthly_tds)
     summary["pl_ledger"] = pl_ledger
     return summary
+
+
+MAX_ATTENDANCE_RANGE_DAYS = 366
+
+
+def _attendance_for_range(employee: dict, from_date: date, to_date: date) -> list[dict]:
+    if to_date < from_date:
+        raise HTTPException(status_code=400, detail="'to' must be on or after 'from'")
+    if (to_date - from_date).days + 1 > MAX_ATTENDANCE_RANGE_DAYS:
+        raise HTTPException(status_code=400, detail=f"Range cannot exceed {MAX_ATTENDANCE_RANGE_DAYS} days")
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        punches_future = pool.submit(_fetch_punch_times_range, employee["employee_code"], from_date, to_date)
+        overrides_future = pool.submit(_fetch_overrides_range, employee["id"], from_date, to_date)
+        leaves_future = pool.submit(fetch_approved_leaves, employee["id"], from_date.year, from_date.month, (from_date, to_date))
+        holidays_future = pool.submit(_fetch_holidays)
+        punches = punches_future.result()
+        overrides = overrides_future.result()
+        leaves = leaves_future.result()
+        holidays = holidays_future.result()
+    return compute_attendance_for_range(employee, from_date, to_date, punches, overrides, leaves, holidays)
+
+
+@router.get("/attendance/{employee_id}")
+def attendance_for_employee(
+    employee_id: str,
+    from_date: date = Query(..., alias="from"),
+    to_date: date = Query(..., alias="to"),
+    user: dict = Depends(get_current_user),
+):
+    if user["id"] != employee_id:
+        if user["role"] not in CONSOLE_ROLES or not user_can(user, "payroll.view"):
+            raise HTTPException(status_code=403, detail="Not authorized")
+    employee = _get_active_employee(employee_id)
+    return {"daily": _attendance_for_range(employee, from_date, to_date)}
+
+
+@router.get("/me/attendance")
+def my_attendance(
+    from_date: date = Query(..., alias="from"),
+    to_date: date = Query(..., alias="to"),
+    user: dict = Depends(get_current_user),
+):
+    employee = {**user, **_fetch_compliance_profile(user["id"])}
+    return {"daily": _attendance_for_range(employee, from_date, to_date)}
 
 
 @router.get("/me/payroll")

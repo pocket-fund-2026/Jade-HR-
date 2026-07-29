@@ -709,9 +709,12 @@ def grant_comp_off(body: CompOffGrant, user: dict = Depends(require_permission("
     return inserted.data[0]
 
 
-def fetch_approved_leaves(employee_id: str, year: int, month: int) -> dict[date, str]:
-    """Used by the payroll engine — maps each day in an approved leave range to its leave_type."""
-    from_d, to_d = pay_period_bounds(year, month)
+def fetch_approved_leaves(
+    employee_id: str, year: int, month: int, date_range: tuple[date, date] | None = None
+) -> dict[date, str]:
+    """Used by the payroll engine — maps each day in an approved leave range to its leave_type.
+    `date_range` overrides the year/month-derived pay-period bounds for arbitrary-span lookups."""
+    from_d, to_d = date_range if date_range else pay_period_bounds(year, month)
 
     resp = (
         supabase.table("hr_leave_requests")

@@ -1,9 +1,9 @@
 import { Printer } from "lucide-react";
 
+import DailyAttendanceSection from "./DailyAttendanceSection.jsx";
 import LedgerLine from "./LedgerLine.jsx";
-import StampBadge from "./StampBadge.jsx";
 import StatCard from "./StatCard.jsx";
-import { formatDate, formatFullDate, formatHoursMins, formatINR, formatTime, payPeriodLabel } from "../lib/format.js";
+import { formatFullDate, formatHoursMins, formatINR, payPeriodLabel } from "../lib/format.js";
 
 const OFFICE_ADDRESS = "101 Raheja Xion, Dr. Ambedkar Road, Byculla (East), Mumbai 400027, India";
 
@@ -237,38 +237,13 @@ export default function PayslipDetail({ summary, showDailyAttendance = true }) {
       />
 
       {showDailyAttendance && (
-        <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto print-hide">
-          <p className="px-5 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-ink/70">Daily attendance</p>
-          <table className="w-full text-sm mt-2">
-            <thead className="text-left sticky top-0 z-10 bg-paper">
-              <tr className="border-b-2 border-ink/10">
-                <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Date</th>
-                <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">In</th>
-                <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Out</th>
-                <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Hours</th>
-                <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">OT Hours</th>
-                <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {summary.daily?.map((d) => (
-                <tr key={d.date} className="border-b border-ink/[0.05] last:border-0">
-                  <td className="px-5 py-2 font-nums text-ink/70">{formatDate(d.date)}</td>
-                  <td className="px-5 py-2 font-nums text-ink/70">
-                    {formatTime(d.first_in)}
-                    {d.late && <span className="ml-1.5 text-[10px] font-sans font-semibold text-rust-500 uppercase tracking-wide">Late</span>}
-                  </td>
-                  <td className="px-5 py-2 font-nums text-ink/70">{formatTime(d.last_out)}</td>
-                  <td className="px-5 py-2 font-nums">{d.hours_worked ? formatHoursMins(d.hours_worked) : "—"}</td>
-                  <td className="px-5 py-2 font-nums text-ochre-700">{d.ot_hours ? formatHoursMins(d.ot_hours) : "—"}</td>
-                  <td className="px-5 py-2">
-                    <StampBadge status={d.status}>{d.status}</StampBadge>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DailyAttendanceSection
+          monthDaily={summary.daily}
+          employeeId={summary.employee_id}
+          employeeCode={summary.employee_code}
+          name={summary.name}
+          rangeLabel={payPeriodLabel(summary.year, summary.month)}
+        />
       )}
     </div>
   );
