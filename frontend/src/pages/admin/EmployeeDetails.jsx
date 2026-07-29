@@ -1,4 +1,4 @@
-import { ArrowLeft, KeyRound, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeft, KeyRound, Pencil, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
@@ -1057,6 +1057,13 @@ export default function EmployeeDetails() {
     navigate("/admin/employees");
   };
 
+  const reactivateEmployee = async () => {
+    if (!confirm("Reactivate this employee? They'll be able to log in again and show up as an active employee.")) return;
+    await api.put(`/api/employees/${id}/reactivate`);
+    setField("is_active", true);
+    load();
+  };
+
   const editing = mode === "edit" || mode === "create" || isNew;
 
   const tabs = [
@@ -1311,9 +1318,15 @@ export default function EmployeeDetails() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 sm:px-7 py-5 border-t border-ink/10 bg-manila/20">
           <div className="flex flex-wrap items-center gap-5">
             {!editing && canManage && (
-              <button type="button" onClick={deleteEmployee} className="flex items-center gap-1.5 text-sm text-rust-500 hover:text-rust-600 hover:underline">
-                <Trash2 size={14} /> Delete
-              </button>
+              form.is_active ? (
+                <button type="button" onClick={deleteEmployee} className="flex items-center gap-1.5 text-sm text-rust-500 hover:text-rust-600 hover:underline">
+                  <Trash2 size={14} /> Deactivate
+                </button>
+              ) : (
+                <button type="button" onClick={reactivateEmployee} className="flex items-center gap-1.5 text-sm text-jade-600 hover:text-jade-700 hover:underline">
+                  <RotateCcw size={14} /> Reactivate
+                </button>
+              )
             )}
             {!isNew && (
               <>

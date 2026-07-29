@@ -227,6 +227,22 @@ def deactivate_employee(employee_id: str, user: dict = Depends(require_permissio
     return {"ok": True}
 
 
+@router.put("/{employee_id}/reactivate")
+def reactivate_employee(employee_id: str, user: dict = Depends(require_permission("employees.manage"))):
+    """Undoes the soft delete above — master data (salary structure, profile,
+    payroll/attendance history) was never touched by deactivation, so this is
+    just flipping is_active back on."""
+    resp = (
+        supabase.table("hr_employees")
+        .update({"is_active": True})
+        .eq("id", employee_id)
+        .execute()
+    )
+    if not resp.data:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    return {"ok": True}
+
+
 @router.delete("/{employee_id}/permanent")
 def permanently_delete_employee(employee_id: str, user: dict = Depends(require_accounts)):
     """Irreversible — cascades every payroll/attendance/leave/salary-structure
