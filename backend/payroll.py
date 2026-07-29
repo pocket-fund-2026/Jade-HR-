@@ -58,6 +58,23 @@ SATURDAY_SHIFT_HOURS = {
 # they arrived).
 SATURDAY_OT_CUTOFF = time(15, 0)
 
+# Company policy: OT is only payable to employees whose base gross (Basic +
+# HRA + Conveyance, the same figure OT is already priced off of below) is at
+# or below this ceiling — anyone earning more than this has no OT hours/
+# amount at all, regardless of hours actually worked past standard time.
+OT_ELIGIBLE_GROSS_CEILING = 25000.0
+
+
+def _is_ot_eligible(employee: dict) -> bool:
+    if not employee.get("ot_applicable", True):
+        return False
+    gross = (
+        float(employee.get("basic") or 0)
+        + float(employee.get("hra") or 0)
+        + float(employee.get("conveyance") or 0)
+    )
+    return gross <= OT_ELIGIBLE_GROSS_CEILING
+
 
 def _standard_hours_for_day(d: date, standard_hours_per_day: float, time_slot: str | None) -> float:
     if d.weekday() == 5 and time_slot in SATURDAY_SHIFT_HOURS:
@@ -266,6 +283,7 @@ def compute_daily_attendance(
     time_slot: str | None = None,
     calendar_month: bool = False,
     date_range: tuple[date, date] | None = None,
+    ot_eligible: bool = True,
 ) -> list[dict]:
     """One row per day in the pay period (23rd of prior month - 22nd of this month),
     or per day in `date_range` (start, end) when given — an arbitrary span
@@ -288,6 +306,12 @@ def compute_daily_attendance(
     see _extended_grace_for / MIDNIGHT_TAIL_CUTOFF; a past-midnight finish is a
     grace extension, never a comp-off). Late-mark/Red-Card/LOP-by-lateness is
     cross-day cycle state, computed in compute_monthly_summary instead.
+
+    `ot_eligible=False` (see _is_ot_eligible — gross > OT_ELIGIBLE_GROSS_CEILING,
+    or the employee's own ot_applicable flag is off) zeroes every day's
+    ot_hours after the fact, rather than skipping the OT calc per-day —
+    simpler and applies uniformly whether the day came from a raw punch span
+    or an admin override.
     """
     overrides = overrides or {}
     leaves = leaves or {}
@@ -387,6 +411,9 @@ def compute_daily_attendance(
         d += timedelta(days=1)
 
     _apply_weekly_off_earning_rule(rows)
+    if not ot_eligible:
+        for row in rows:
+            row["ot_hours"] = 0.0
     return rows
 
 
@@ -492,7 +519,7 @@ def compute_attendance_for_range(
     return compute_daily_attendance(
         start.year, start.month, punch_times, standard_hours, overrides, leaves, weekly_off_day,
         holidays=holidays_for_employee, is_corporate=is_corporate, time_slot=time_slot,
-        date_range=(start, end),
+        date_range=(start, end), ot_eligible=_is_ot_eligible(employee),
     )
 
 
@@ -518,7 +545,7 @@ def compute_monthly_summary(
     daily = compute_daily_attendance(
         year, month, punch_times, standard_hours, overrides, leaves, weekly_off_day,
         holidays=holidays_for_employee, is_corporate=is_corporate, time_slot=time_slot,
-        calendar_month=calendar_month,
+        calendar_month=calendar_month, ot_eligible=_is_ot_eligible(employee),
     )
 
     late_mark_count, red_card = (

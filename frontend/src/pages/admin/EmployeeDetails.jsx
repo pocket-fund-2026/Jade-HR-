@@ -1337,6 +1337,9 @@ export default function EmployeeDetails() {
                   />
                   OT Applicable
                 </label>
+                <p className="basis-full text-[11px] text-ink/50">
+                  Company policy: OT is only paid when Basic + HRA + Conveyance is ₹25,000 or less, regardless of this checkbox.
+                </p>
               </>
             )}
           </div>

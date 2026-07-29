@@ -194,22 +194,25 @@ def test_override_takes_priority_over_raw_punches():
 
 
 def test_compute_monthly_summary_ot_formula_matches_documented_example():
-    # Single 10-hour day (2h OT) in an otherwise-empty 31-day period, so
-    # total_ot_hours is pinned to exactly 2.0 and every downstream figure
-    # is fully deterministic — same formula as the Sarita example in this
-    # module's docstring.
+    # Single 10-hour day (2h worked past standard) in an otherwise-empty
+    # 31-day period. EMPLOYEE's gross (26,800 = 16,000 + 9,600 + 1,200) is
+    # above OT_ELIGIBLE_GROSS_CEILING (25,000), so under the OT-eligibility
+    # policy this employee earns no OT at all — see
+    # test_compute_monthly_summary_ot_formula_for_ot_eligible_employee below
+    # for the same formula/arithmetic on an employee under the ceiling.
     punch_in = datetime(2026, 1, 5, 9, 0, tzinfo=IST)
     punch_out = datetime(2026, 1, 5, 19, 0, tzinfo=IST)
 
     summary = compute_monthly_summary(EMPLOYEE, 2026, 1, [punch_in, punch_out])
 
     assert summary["days_in_month"] == 31
-    assert summary["total_ot_hours"] == 2.0
+    assert summary["total_ot_hours"] == 0.0
     # OT's per-day/per-hour divisor always uses the full monthly rate
-    # (26,800 = 16,000 + 9,600 + 1,200), never the prorated actual below.
+    # (26,800 = 16,000 + 9,600 + 1,200), never the prorated actual below —
+    # still computed regardless of OT eligibility, just unused for ot_amount.
     assert summary["per_day_salary"] == 864.52  # 26800 / 31
     assert summary["per_hour_salary"] == 108.06  # per_day_salary / 8
-    assert summary["ot_amount"] == 216.13  # unrounded per_hour_salary * 2h, then rounded
+    assert summary["ot_amount"] == 0.0  # gross above the OT ceiling -> no OT pay
     # Only 1 present day in this otherwise-empty period, and every weekoff's
     # week falls short of 3 attended days / a full Paid Leave week -> none of
     # the 4 weekoffs are earned (see the weekly-off-earning-rule tests) ->
@@ -217,7 +220,52 @@ def test_compute_monthly_summary_ot_formula_matches_documented_example():
     assert summary["paid_days"] == 1.0
     assert summary["basic"] == 516.13  # 16000 * 1/31
     assert summary["gross_salary"] == 864.52  # 516.13 + 309.68 + 38.71
-    assert summary["total_payable"] == 1080.65  # gross_salary + ot_amount (no deductions apply)
+    assert summary["total_payable"] == 864.52  # gross_salary only — ot_amount is 0
+
+
+def test_compute_monthly_summary_ot_formula_for_ot_eligible_employee():
+    # Same 10-hour day (2h OT) as the test above, but for an employee whose
+    # gross (12,000 + 3,000 + 1,000 = 16,000) is at/below
+    # OT_ELIGIBLE_GROSS_CEILING (25,000) -> OT is actually paid.
+    low_gross_employee = {**EMPLOYEE, "basic": 12000, "hra": 3000, "conveyance": 1000}
+    punch_in = datetime(2026, 1, 5, 9, 0, tzinfo=IST)
+    punch_out = datetime(2026, 1, 5, 19, 0, tzinfo=IST)
+
+    summary = compute_monthly_summary(low_gross_employee, 2026, 1, [punch_in, punch_out])
+
+    assert summary["total_ot_hours"] == 2.0
+    assert summary["per_day_salary"] == 516.13  # 16000 / 31
+    assert summary["per_hour_salary"] == 64.52  # per_day_salary / 8
+    assert summary["ot_amount"] == 129.03  # unrounded per_hour_salary * 2h, then rounded
+    assert summary["total_payable"] == round(summary["gross_salary"] + 129.03, 2)
+
+
+def test_compute_monthly_summary_ot_ceiling_is_inclusive_at_exactly_25000():
+    at_ceiling = {**EMPLOYEE, "basic": 20000, "hra": 4000, "conveyance": 1000}  # gross exactly 25000
+    over_ceiling = {**EMPLOYEE, "basic": 20000, "hra": 4000, "conveyance": 1001}  # gross 25001
+    punch_in = datetime(2026, 1, 5, 9, 0, tzinfo=IST)
+    punch_out = datetime(2026, 1, 5, 19, 0, tzinfo=IST)
+
+    at_summary = compute_monthly_summary(at_ceiling, 2026, 1, [punch_in, punch_out])
+    over_summary = compute_monthly_summary(over_ceiling, 2026, 1, [punch_in, punch_out])
+
+    assert at_summary["total_ot_hours"] == 2.0
+    assert at_summary["ot_amount"] > 0
+    assert over_summary["total_ot_hours"] == 0.0
+    assert over_summary["ot_amount"] == 0.0
+
+
+def test_compute_monthly_summary_ot_applicable_false_overrides_low_gross():
+    # The pre-existing per-employee ot_applicable flag still works as an
+    # independent override even for an employee under the gross ceiling.
+    low_gross_ot_off = {**EMPLOYEE, "basic": 12000, "hra": 3000, "conveyance": 1000, "ot_applicable": False}
+    punch_in = datetime(2026, 1, 5, 9, 0, tzinfo=IST)
+    punch_out = datetime(2026, 1, 5, 19, 0, tzinfo=IST)
+
+    summary = compute_monthly_summary(low_gross_ot_off, 2026, 1, [punch_in, punch_out])
+
+    assert summary["total_ot_hours"] == 0.0
+    assert summary["ot_amount"] == 0.0
 
 
 def _late_punch(y, m, d, hour=11):
