@@ -1,9 +1,10 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 
-from auth import create_access_token, get_current_user, hash_password, verify_password
+from auth import COOKIE_NAME, create_access_token, get_current_user, hash_password, verify_password
+from config import COOKIE_SECURE, JWT_EXPIRE_MINUTES
 from database import maybe_single_data, supabase
 from models import BootstrapAdminRequest, LoginRequest, PasswordChange
 
@@ -13,8 +14,20 @@ MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
 
 
+def _set_session_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=token,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite="lax",
+        max_age=JWT_EXPIRE_MINUTES * 60,
+        path="/",
+    )
+
+
 @router.post("/login")
-def login(body: LoginRequest):
+def login(body: LoginRequest, response: Response):
     resp = (
         supabase.table("hr_employees")
         .select("*")
@@ -51,6 +64,7 @@ def login(body: LoginRequest):
         ).eq("id", employee["id"]).execute()
 
     token = create_access_token(employee)
+    _set_session_cookie(response, token)
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -59,8 +73,14 @@ def login(body: LoginRequest):
     }
 
 
+@router.post("/logout")
+def logout(response: Response):
+    response.delete_cookie(key=COOKIE_NAME, path="/")
+    return {"ok": True}
+
+
 @router.post("/change-password")
-def change_password(body: PasswordChange, user: dict = Depends(get_current_user)):
+def change_password(body: PasswordChange, response: Response, user: dict = Depends(get_current_user)):
     """Self-service password change — available to EVERY authenticated user
     (employees and console users alike), for their own account only. Requires
     the current password; distinct from the admin-only reset at
@@ -69,9 +89,14 @@ def change_password(body: PasswordChange, user: dict = Depends(get_current_user)
         raise HTTPException(status_code=400, detail="Current password is incorrect")
     if len(body.new_password) < 6:
         raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+    new_hash = hash_password(body.new_password)
     supabase.table("hr_employees").update(
-        {"password_hash": hash_password(body.new_password), "failed_login_count": 0, "locked_until": None}
+        {"password_hash": new_hash, "failed_login_count": 0, "locked_until": None}
     ).eq("id", user["id"]).execute()
+    # The old cookie's "pv" fingerprint no longer matches — issue a fresh one so
+    # the user changing their own password isn't immediately logged out by it.
+    user["password_hash"] = new_hash
+    _set_session_cookie(response, create_access_token(user))
     return {"ok": True}
 
 
@@ -95,7 +120,7 @@ def me(user: dict = Depends(get_current_user)):
 
 
 @router.post("/bootstrap-admin")
-def bootstrap_admin(body: BootstrapAdminRequest):
+def bootstrap_admin(body: BootstrapAdminRequest, response: Response):
     """Creates the first account, as 'accounts' (full access, controls what HR
     can see). Only works while hr_employees is empty."""
     existing = supabase.table("hr_employees").select("id").limit(1).execute()
@@ -115,4 +140,5 @@ def bootstrap_admin(body: BootstrapAdminRequest):
     inserted = supabase.table("hr_employees").insert(row).execute()
     employee = inserted.data[0]
     token = create_access_token(employee)
+    _set_session_cookie(response, token)
     return {"access_token": token, "token_type": "bearer", "role": "accounts"}

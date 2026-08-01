@@ -19,6 +19,11 @@ JWT_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 
 ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
 
+# The session cookie must be Secure in production (HTTPS-only, via Vercel). Local
+# dev talks to the backend over plain http through the vite proxy, so only there
+# set COOKIE_SECURE=false in backend/.env — never in a deployed environment.
+COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "true").lower() != "false"
+
 # Used by biometric_sync.py to authenticate against /api/biometric/ingest
 BIOMETRIC_SYNC_SECRET = os.environ.get("BIOMETRIC_SYNC_SECRET", "")
 

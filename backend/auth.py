@@ -1,15 +1,20 @@
+import hashlib
 import time
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import HTTPException, Request, status
 from jose import JWTError, jwt
 
 from config import JWT_ALGORITHM, JWT_EXPIRE_MINUTES, JWT_SECRET
 from database import maybe_single_data, supabase
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+# Browser sessions authenticate via this httpOnly cookie (set on login, not
+# reachable from JS — closes the XSS-can-steal-the-token gap localStorage had).
+# Non-browser callers (cron scripts: biometric_sync.py, employee_roster_sync.py,
+# late_digest_notify.py) keep using the Authorization: Bearer header they already
+# get back in the /api/auth/login response body, so both paths are accepted.
+COOKIE_NAME = "jade_hr_token"
 
 
 def hash_password(password: str) -> str:
@@ -20,6 +25,13 @@ def verify_password(password: str, password_hash: str) -> bool:
     return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
 
 
+def _password_fingerprint(password_hash: str) -> str:
+    """Short fingerprint of the current password_hash, embedded in the JWT so a
+    password change (self-service or admin reset) invalidates any tokens issued
+    before it — without needing a separate token-version column/migration."""
+    return hashlib.sha256(password_hash.encode("utf-8")).hexdigest()[:16]
+
+
 def create_access_token(employee: dict) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=JWT_EXPIRE_MINUTES)
     payload = {
@@ -27,6 +39,7 @@ def create_access_token(employee: dict) -> str:
         "id": employee["id"],
         "role": employee["role"],
         "name": f"{employee['first_name']} {employee.get('last_name', '')}".strip(),
+        "pv": _password_fingerprint(employee["password_hash"]),
         "exp": expire,
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
@@ -40,7 +53,15 @@ def _credentials_error() -> HTTPException:
     )
 
 
-def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
+def get_current_user(request: Request) -> dict:
+    token = request.cookies.get(COOKIE_NAME)
+    if not token:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+    if not token:
+        raise _credentials_error()
+
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
     except JWTError:
@@ -53,6 +74,8 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     resp = supabase.table("hr_employees").select("*").eq("id", employee_id).maybe_single().execute()
     employee = maybe_single_data(resp)
     if not employee or not employee["is_active"]:
+        raise _credentials_error()
+    if payload.get("pv") != _password_fingerprint(employee["password_hash"]):
         raise _credentials_error()
 
     employee["_claims"] = payload

@@ -1,3 +1,4 @@
+import html
 import re
 from datetime import datetime, timezone
 
@@ -40,7 +41,10 @@ def _tokens_in(body: str) -> list[str]:
 
 
 def _substitute(body: str, field_values: dict[str, str]) -> str:
-    return TOKEN_RE.sub(lambda m: field_values.get(m.group(1), ""), body)
+    # field_values come from the generate form (any letters.generate user) and are
+    # spliced into template HTML that's later rendered with dangerouslySetInnerHTML,
+    # so they must be escaped — the template body itself is trusted (letters.manage only).
+    return TOKEN_RE.sub(lambda m: html.escape(field_values.get(m.group(1), "")), body)
 
 
 @router.get("/templates")

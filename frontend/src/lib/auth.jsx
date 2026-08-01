@@ -28,13 +28,10 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // No token in localStorage to check anymore — the session lives in an
+  // httpOnly cookie the browser attaches automatically, so we just ask the
+  // backend "who am I" and treat a 401 as "not logged in".
   const loadMe = async () => {
-    const token = localStorage.getItem("jade_hr_token");
-    if (!token) {
-      setLoading(false);
-      setPermissionsLoading(false);
-      return;
-    }
     try {
       const { data } = await api.get("/api/auth/me");
       setUser(data);
@@ -44,7 +41,6 @@ export function AuthProvider({ children }) {
       if (CONSOLE_ROLES.includes(data.role)) loadPermissions();
       else setPermissionsLoading(false);
     } catch {
-      localStorage.removeItem("jade_hr_token");
       setPermissionsLoading(false);
     } finally {
       setLoading(false);
@@ -57,15 +53,16 @@ export function AuthProvider({ children }) {
 
   const login = async (employee_code, password) => {
     const { data } = await api.post("/api/auth/login", { employee_code, password });
-    localStorage.setItem("jade_hr_token", data.access_token);
-    localStorage.setItem("jade_hr_role", data.role);
     await loadMe();
     return data.role;
   };
 
-  const logout = () => {
-    localStorage.removeItem("jade_hr_token");
-    localStorage.removeItem("jade_hr_role");
+  const logout = async () => {
+    try {
+      await api.post("/api/auth/logout");
+    } catch {
+      // best-effort — clearing local state below is what actually matters for the UI
+    }
     setUser(null);
     setPermissions({});
     setPermissionsLoading(true);

@@ -16,9 +16,7 @@ export default function Setup() {
     setError("");
     setBusy(true);
     try {
-      const { data } = await api.post("/api/auth/bootstrap-admin", form);
-      localStorage.setItem("jade_hr_token", data.access_token);
-      localStorage.setItem("jade_hr_role", data.role);
+      await api.post("/api/auth/bootstrap-admin", form);
       navigate("/admin");
       window.location.reload();
     } catch (err) {
