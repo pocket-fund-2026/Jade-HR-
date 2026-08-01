@@ -3,7 +3,7 @@ import time
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
-from fastapi import HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, status
 from jose import JWTError, jwt
 
 from config import JWT_ALGORITHM, JWT_EXPIRE_MINUTES, JWT_SECRET
