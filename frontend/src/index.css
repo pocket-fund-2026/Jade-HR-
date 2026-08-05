@@ -134,4 +134,18 @@ a:focus-visible, button:focus-visible {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+  /* Mobile browsers render the print media query at the device's own CSS
+     width unless a page size is forced — without this, "Save as PDF" from
+     a phone squeezes the payslip table into a ~370px column and every cell
+     wraps mid-word instead of just fitting on one line. Pinning @page and
+     giving the payslip its own fixed A4-content width fixes both desktop
+     and mobile print the same way. */
+  @page {
+    size: A4;
+    margin: 14mm 12mm;
+  }
+  .payslip-print-page {
+    width: 186mm;
+    max-width: 186mm;
+  }
 }

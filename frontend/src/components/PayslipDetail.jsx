@@ -118,8 +118,13 @@ function PayslipLedgerTable({ earningsRows, deductionsRows, pl, netSalary }) {
 // A plain bordered-table cell — the print format's atomic unit, standing in
 // for the dotted-leader/card styling used everywhere else in the app. Print
 // output needs to read as an official payroll form, not a product screen.
-const cellCls = "border border-ink px-2 py-1";
-const labelCls = `${cellCls} font-semibold whitespace-nowrap`;
+// whitespace-nowrap on every cell (not just labels) matters more than it
+// looks: without it, a narrow print viewport (mobile "Save as PDF" renders
+// print media at the device's own width, not a fixed page size) wraps
+// short values like "Designation" or a PAN number mid-word instead of
+// just letting the column widen.
+const cellCls = "border border-ink/50 px-2.5 py-1.5 whitespace-nowrap";
+const labelCls = `${cellCls} font-semibold bg-manila/60`;
 
 // Exact replica of the company's official (pre-existing, Zoho-derived)
 // payslip form — the only thing that should render when a payslip is
@@ -158,13 +163,14 @@ function PayslipPrintFormat({ summary }) {
   const rowCount = Math.max(earningsRows.length, deductionsRows.length, pl ? 1 : 0);
 
   return (
-    <div className="hidden print:block text-black text-[11px] leading-tight font-sans">
-      <div className="text-center mb-3">
-        <p>{OFFICE_ADDRESS.replace(", India", ". India").replace(", Mumbai", ", Mumbai")}</p>
-        <p className="font-semibold mt-2">Payslip for the Month {MONTH_NAMES[summary.month - 1]} {summary.year}</p>
+    <div className="payslip-print-page hidden print:block text-ink text-[12px] leading-normal font-sans">
+      <div className="text-center mb-5 pb-3 border-b-2 border-ink/70">
+        <p className="font-display text-base tracking-wide">JADE by MK</p>
+        <p className="text-ink/75 text-[11px] mt-1">{OFFICE_ADDRESS.replace(", India", ". India")}</p>
+        <p className="font-semibold text-sm mt-3">Payslip for the Month {MONTH_NAMES[summary.month - 1]} {summary.year}</p>
       </div>
 
-      <table className="w-full border-collapse mb-2">
+      <table className="w-full border-collapse mb-3">
         <tbody>
           <tr>
             <td colSpan={4} className={`${cellCls} font-semibold`}>
@@ -208,7 +214,7 @@ function PayslipPrintFormat({ summary }) {
         </tbody>
       </table>
 
-      <table className="w-full border-collapse mb-2">
+      <table className="w-full border-collapse mb-3">
         <thead>
           <tr>
             <th className={labelCls}>Present</th>
@@ -276,20 +282,22 @@ function PayslipPrintFormat({ summary }) {
               </tr>
             );
           })}
-          <tr className="font-semibold">
+          <tr className="font-semibold bg-manila/60">
             <td className={cellCls}>Total :</td>
             <td className={`${cellCls} text-right font-nums`}>{formatPlainAmount(totalMonthly)}</td>
             <td className={`${cellCls} text-right font-nums`}>{formatPlainAmount(totalEarned)}</td>
             <td className={cellCls}>Total :</td>
             <td className={`${cellCls} text-right font-nums`}>{formatPlainAmount(totalDeductions)}</td>
-            <td className={cellCls} colSpan={pl ? 4 : 1}>
+            <td className={`${cellCls} text-jade-700`} colSpan={pl ? 4 : 1}>
               Net Salary : {formatPlainAmount(summary.total_payable)}
             </td>
           </tr>
         </tbody>
       </table>
 
-      <p className="text-center mt-4">Computer generated payslip, signature</p>
+      <p className="text-center text-ink/60 text-[10px] mt-5 pt-3 border-t border-ink/25">
+        Computer generated payslip, signature
+      </p>
     </div>
   );
 }
