@@ -72,6 +72,10 @@ def send_email_detailed(to: str, subject: str, body: str) -> tuple[bool, str | N
             "Authorization": f"Bearer {RESEND_API_KEY}",
             "Content-Type": "application/json",
             "Accept": "application/json",
+            # Resend's edge sits behind Cloudflare, which blocks the default
+            # "Python-urllib/x.y" User-Agent as a bot signature (Cloudflare
+            # error 1010) — every send silently 403'd until this was added.
+            "User-Agent": "JADE-HR/1.0 (+https://jade-hr.vercel.app)",
         },
         method="POST",
     )
