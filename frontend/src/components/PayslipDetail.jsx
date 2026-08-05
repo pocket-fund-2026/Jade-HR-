@@ -3,7 +3,7 @@ import { Printer } from "lucide-react";
 import DailyAttendanceSection from "./DailyAttendanceSection.jsx";
 import LedgerLine from "./LedgerLine.jsx";
 import StatCard from "./StatCard.jsx";
-import { formatFullDate, formatHoursMins, formatINR, payPeriodLabel } from "../lib/format.js";
+import { formatFullDate, formatHoursMins, formatINR, formatPlainAmount, payPeriodLabel } from "../lib/format.js";
 
 const OFFICE_ADDRESS = "101 Raheja Xion, Dr. Ambedkar Road, Byculla (East), Mumbai 400027, India";
 
@@ -115,6 +115,185 @@ function PayslipLedgerTable({ earningsRows, deductionsRows, pl, netSalary }) {
   );
 }
 
+// A plain bordered-table cell — the print format's atomic unit, standing in
+// for the dotted-leader/card styling used everywhere else in the app. Print
+// output needs to read as an official payroll form, not a product screen.
+const cellCls = "border border-ink px-2 py-1";
+const labelCls = `${cellCls} font-semibold whitespace-nowrap`;
+
+// Exact replica of the company's official (pre-existing, Zoho-derived)
+// payslip form — the only thing that should render when a payslip is
+// printed/saved as PDF. Kept as one self-contained block (hidden on screen,
+// shown only via the print:block/print:hidden split below) rather than
+// restyling the on-screen dashboard view, since the two have genuinely
+// different jobs: the dashboard view is for reviewing figures on screen
+// (OT breakdown, daily attendance, stat cards), this is the one artifact
+// that leaves the system and has to match the paper form employees already
+// recognize.
+function PayslipPrintFormat({ summary }) {
+  const earningsRows = [
+    { label: "Basic", rate: summary.basic_rate, value: summary.basic, always: true },
+    { label: "HRA", rate: summary.hra_rate, value: summary.hra, always: true },
+    { label: "Conveyance", rate: summary.conveyance_rate, value: summary.conveyance, always: true },
+    { label: "Other Allow", rate: summary.other_allowance_rate, value: summary.other_allowance, always: true },
+    { label: "Monthly Bonus", rate: summary.monthly_bonus_rate, value: summary.monthly_bonus },
+    { label: "Retention", rate: summary.retention_rate, value: summary.retention },
+    { label: "Incentive", rate: summary.incentive_rate, value: summary.incentive },
+    { label: "OT Amount", rate: null, value: summary.ot_amount },
+  ].filter((r) => r.always || r.value > 0);
+
+  const deductionsRows = [
+    { label: "PF", value: summary.ded_pf },
+    { label: "ESIC", value: summary.ded_esic },
+    { label: "PT", value: summary.ded_pt },
+    { label: "LWF", value: summary.ded_lwf },
+    { label: "TDS", value: summary.ded_tds },
+    { label: "Loan EMI", value: summary.ded_standing_loan },
+  ].filter((r) => r.value > 0);
+
+  const pl = summary.pl_ledger;
+  const totalMonthly = earningsRows.reduce((s, r) => s + (r.rate || 0), 0);
+  const totalEarned = earningsRows.reduce((s, r) => s + (r.value || 0), 0);
+  const totalDeductions = deductionsRows.reduce((s, r) => s + (r.value || 0), 0);
+  const rowCount = Math.max(earningsRows.length, deductionsRows.length, pl ? 1 : 0);
+
+  return (
+    <div className="hidden print:block text-black text-[11px] leading-tight font-sans">
+      <div className="text-center mb-3">
+        <p>{OFFICE_ADDRESS.replace(", India", ". India").replace(", Mumbai", ", Mumbai")}</p>
+        <p className="font-semibold mt-2">Payslip for the Month {MONTH_NAMES[summary.month - 1]} {summary.year}</p>
+      </div>
+
+      <table className="w-full border-collapse mb-2">
+        <tbody>
+          <tr>
+            <td colSpan={4} className={`${cellCls} font-semibold`}>
+              Name {summary.name} [ {summary.employee_code} ]
+            </td>
+          </tr>
+          <tr>
+            <td className={labelCls}>Designation</td>
+            <td className={cellCls}>{summary.designation || "—"}</td>
+            <td className={labelCls}>P F No</td>
+            <td className={cellCls}>{summary.pf_no || "—"}</td>
+          </tr>
+          <tr>
+            <td className={labelCls}>Department</td>
+            <td className={cellCls}>{summary.department || "—"}</td>
+            <td className={labelCls}>ESIC No</td>
+            <td className={cellCls}>{summary.esic_no || "—"}</td>
+          </tr>
+          <tr>
+            <td className={labelCls}>P A N No</td>
+            <td className={cellCls}>{summary.pan_no || "—"}</td>
+            <td className={labelCls}>Date of Join</td>
+            <td className={cellCls}>{formatFullDate(summary.date_of_joining)}</td>
+          </tr>
+          <tr>
+            <td className={labelCls}>UAN No</td>
+            <td className={cellCls}>{summary.uan_no || "—"}</td>
+            <td className={labelCls}>Location</td>
+            <td className={cellCls}>{summary.location || "—"}</td>
+          </tr>
+          <tr>
+            <td className={labelCls}>Payment Mode</td>
+            <td className={cellCls}>{summary.payment_mode || "—"}</td>
+            <td className={labelCls} rowSpan={2}></td>
+            <td className={cellCls} rowSpan={2}></td>
+          </tr>
+          <tr>
+            <td className={labelCls}>Aadhar No</td>
+            <td className={cellCls}>{summary.aadhar_no || "—"}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <table className="w-full border-collapse mb-2">
+        <thead>
+          <tr>
+            <th className={labelCls}>Present</th>
+            <th className={labelCls}>WeeklyOff</th>
+            <th className={labelCls}>Holiday</th>
+            <th className={labelCls}>LeaveAdj</th>
+            <th className={labelCls}>PaidDays</th>
+            <th className={labelCls}>WithoutPayDays</th>
+            <th className={labelCls}>Total Days</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td className={`${cellCls} text-right font-nums`}>{formatPlainAmount(summary.present_days)}</td>
+            <td className={`${cellCls} text-right font-nums`}>{formatPlainAmount(summary.weekoff_days)}</td>
+            <td className={`${cellCls} text-right font-nums`}>{formatPlainAmount(summary.holiday_days)}</td>
+            <td className={`${cellCls} text-right font-nums`}>{formatPlainAmount(summary.pl_days)}</td>
+            <td className={`${cellCls} text-right font-nums`}>{formatPlainAmount(summary.paid_days)}</td>
+            <td className={`${cellCls} text-right font-nums`}>{formatPlainAmount(summary.without_pay_days)}</td>
+            <td className={`${cellCls} text-right font-nums`}>{formatPlainAmount(summary.days_in_month)}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <table className="w-full border-collapse">
+        <thead>
+          <tr>
+            <th className={labelCls}>Earnings</th>
+            <th className={labelCls}>Monthly</th>
+            <th className={labelCls}>Amount</th>
+            <th className={labelCls}>Deductions</th>
+            <th className={labelCls}>Amount</th>
+            {pl && (
+              <>
+                <th className={labelCls}>Description</th>
+                <th className={labelCls}>Opg</th>
+                <th className={labelCls}>Dr</th>
+                <th className={labelCls}>Cr</th>
+                <th className={labelCls}>Clg</th>
+              </>
+            )}
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: rowCount }).map((_, i) => {
+            const e = earningsRows[i];
+            const d = deductionsRows[i];
+            return (
+              <tr key={i}>
+                <td className={cellCls}>{e?.label || ""}</td>
+                <td className={`${cellCls} text-right font-nums`}>{e?.rate ? formatPlainAmount(e.rate) : ""}</td>
+                <td className={`${cellCls} text-right font-nums`}>{e ? formatPlainAmount(e.value) : ""}</td>
+                <td className={cellCls}>{d?.label || ""}</td>
+                <td className={`${cellCls} text-right font-nums`}>{d ? formatPlainAmount(d.value) : ""}</td>
+                {pl && i === 0 && (
+                  <>
+                    <td className={cellCls}>PL</td>
+                    <td className={`${cellCls} text-right font-nums`}>{formatPlainAmount(pl.opening)}</td>
+                    <td className={`${cellCls} text-right font-nums`}>{formatPlainAmount(pl.debit)}</td>
+                    <td className={`${cellCls} text-right font-nums`}>{formatPlainAmount(pl.credit)}</td>
+                    <td className={`${cellCls} text-right font-nums`}>{formatPlainAmount(pl.closing)}</td>
+                  </>
+                )}
+                {pl && i !== 0 && <td className={cellCls} colSpan={4}></td>}
+              </tr>
+            );
+          })}
+          <tr className="font-semibold">
+            <td className={cellCls}>Total :</td>
+            <td className={`${cellCls} text-right font-nums`}>{formatPlainAmount(totalMonthly)}</td>
+            <td className={`${cellCls} text-right font-nums`}>{formatPlainAmount(totalEarned)}</td>
+            <td className={cellCls}>Total :</td>
+            <td className={`${cellCls} text-right font-nums`}>{formatPlainAmount(totalDeductions)}</td>
+            <td className={cellCls} colSpan={pl ? 4 : 1}>
+              Net Salary : {formatPlainAmount(summary.total_payable)}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p className="text-center mt-4">Computer generated payslip, signature</p>
+    </div>
+  );
+}
+
 export default function PayslipDetail({ summary, showDailyAttendance = true }) {
   if (!summary) return null;
 
@@ -155,7 +334,9 @@ export default function PayslipDetail({ summary, showDailyAttendance = true }) {
         </button>
       </div>
 
-      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4 pb-5 border-b-2 border-ink/10 rise-in">
+      <PayslipPrintFormat summary={summary} />
+
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4 pb-5 border-b-2 border-ink/10 rise-in print:hidden">
         <div>
           <p className="font-display text-ink text-xl leading-none">JADE by MK</p>
           <p className="text-ink/70 text-xs mt-2 max-w-[260px] leading-snug">{OFFICE_ADDRESS}</p>
@@ -166,7 +347,7 @@ export default function PayslipDetail({ summary, showDailyAttendance = true }) {
         </div>
       </div>
 
-      <div className="bg-paper rounded-sm shadow-card border border-ink/15 p-6">
+      <div className="bg-paper rounded-sm shadow-card border border-ink/15 p-6 print:hidden">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-10">
           <div className="space-y-0.5">
             <InfoRow label="Name" value={`${summary.name} [${summary.employee_code}]`} />
@@ -229,12 +410,14 @@ export default function PayslipDetail({ summary, showDailyAttendance = true }) {
         </div>
       </div>
 
-      <PayslipLedgerTable
-        earningsRows={earningsRows}
-        deductionsRows={deductionsRows}
-        pl={pl ? { label: "PL", ...pl } : null}
-        netSalary={summary.total_payable}
-      />
+      <div className="print:hidden">
+        <PayslipLedgerTable
+          earningsRows={earningsRows}
+          deductionsRows={deductionsRows}
+          pl={pl ? { label: "PL", ...pl } : null}
+          netSalary={summary.total_payable}
+        />
+      </div>
 
       {showDailyAttendance && (
         <DailyAttendanceSection

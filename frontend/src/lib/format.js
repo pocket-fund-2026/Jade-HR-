@@ -1,3 +1,10 @@
+// Plain "15000.00" — no currency symbol, no thousands separator — matching
+// the payslip print format's numeric columns (Monthly/Amount/Opg/Dr/Cr/Clg),
+// as opposed to formatINR's "₹15,000" used everywhere else in the app.
+export function formatPlainAmount(value) {
+  return (value || 0).toFixed(2);
+}
+
 export function formatINR(value) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
