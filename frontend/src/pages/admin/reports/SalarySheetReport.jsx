@@ -52,7 +52,6 @@ const COLUMNS = [
   { label: "DOB", get: (r) => r.date_of_birth, date: true },
   { label: "DOJ", get: (r) => r.date_of_joining, date: true },
   { label: "Grade", get: (r) => r.grade },
-  { label: "Cost Center", get: (r) => r.cost_center },
   // PT/LWF are levied on total gross earnings (attendance-adjusted Basic
   // +HRA+Conv+OtherAllow+Arrear+OT+Incentive), same figure as TotalErn below
   // — the reference register duplicates it under these two labels rather
@@ -101,22 +100,20 @@ const COLUMNS = [
   { label: "Loan", get: (r) => r.ded_loan || 0, money: true },
   { label: "Loan_Int", get: (r) => r.ded_loan_int || 0, money: true },
   { label: "LWF", get: (r) => r.ded_lwf || 0, money: true },
-  { label: "OtherDed", get: (r) => r.ded_other_ded || 0, money: true },
   { label: "TotalDed", get: totalDed, money: true, strong: true },
   { label: "Net Salary", get: netSalary, money: true, strong: true },
-  { label: "Bank Name", get: (r) => r.bank_name },
-  { label: "IFSC Code", get: (r) => r.bank_ifsc },
-  { label: "Bank A/C No.", get: (r) => r.bank_account_no },
-  { label: "Beneficiary", get: (r) => r.name },
   { label: "Remarks", get: () => "" },
 ];
 
-// Columns the reference register totals on its summary row — everything
-// else (names, codes, attendance counts, bank details) is left blank there.
+// Columns the reference register totals on its summary row — the employer-
+// side statutory wage/charge columns (PT Wages..EDLI Wages) and
+// LeaveWithoutPay1 are deliberately left blank there, matching the sheet
+// this report is a column-for-column replica of.
 const TOTAL_COLUMNS = new Set([
-  "PT Wages", "LWF Wages", "EPS Wages", "EPS", "EPF", "EDLI Charges", "PF Admin Charges", "EDLI Admin Charges",
-  "ESIC Wages", "ESIC Employer", "PF Wages", "EDLI Wages",
-  "Arrear", "TotalErn", "PF", "PT", "ESIC", "TDS", "Loan", "Loan_Int", "LWF", "OtherDed", "TotalDed", "Net Salary",
+  "Basic(Arr)", "Present", "WeeklyOff", "Absent", "OTHrs", "PaidDays", "PL", "Payable Days",
+  "Basic", "Basic(Rate)", "HRA", "HRA(Rate)", "Conv", "Conv(Rate)", "Other Allow", "Other Allow(Rate)",
+  "Arrear", "OTAmt", "CTC", "Incentive", "Incentive(Rate)", "TotalErn",
+  "PF", "PT", "ESIC", "TDS", "Loan", "Loan_Int", "LWF", "TotalDed", "Net Salary",
 ]);
 
 function cellValue(col, r, i) {

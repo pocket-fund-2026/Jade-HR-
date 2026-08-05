@@ -104,18 +104,23 @@ def change_password(body: PasswordChange, response: Response, user: dict = Depen
 def me(user: dict = Depends(get_current_user)):
     user.pop("password_hash", None)
     user.pop("_claims", None)
-    # Two independent tables — fires on ~every page load across the whole
-    # console, so it's worth collapsing to one round-trip's wait instead of two.
-    with ThreadPoolExecutor(max_workers=2) as pool:
+    # Three independent tables — fires on ~every page load across the whole
+    # console, so it's worth collapsing to one round-trip's wait instead of three.
+    with ThreadPoolExecutor(max_workers=3) as pool:
         direct_future = pool.submit(
             lambda: supabase.table("hr_employees").select("id").eq("leave_approver_id", user["id"]).limit(1).execute()
         )
         reporting_future = pool.submit(
             lambda: supabase.table("hr_employee_profile").select("employee_id").eq("reporting_to_id", user["id"]).limit(1).execute()
         )
+        profile_future = pool.submit(
+            lambda: supabase.table("hr_employee_profile").select("head_of_department").eq("employee_id", user["id"]).maybe_single().execute()
+        )
         direct_resp = direct_future.result()
         reporting_resp = reporting_future.result()
+        profile_data = maybe_single_data(profile_future.result())
     user["is_leave_approver"] = bool(direct_resp.data or reporting_resp.data)
+    user["is_head_of_department"] = bool(profile_data and profile_data.get("head_of_department"))
     return user
 
 

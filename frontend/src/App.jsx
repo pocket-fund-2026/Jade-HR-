@@ -72,6 +72,7 @@ const EmployeeLayout = lazyWithReload(() => import("./pages/employee/EmployeeLay
 const EmployeeDashboard = lazyWithReload(() => import("./pages/employee/Dashboard.jsx"));
 const TeamLeave = lazyWithReload(() => import("./pages/employee/TeamLeave.jsx"));
 const TaxDeclaration = lazyWithReload(() => import("./pages/employee/TaxDeclaration.jsx"));
+const EmployeeMyPayslip = lazyWithReload(() => import("./pages/employee/MyPayslip.jsx"));
 
 const CONSOLE_ROLES = ["accounts", "hr"];
 
@@ -175,6 +176,7 @@ export default function App() {
             <Route index element={<EmployeeDashboard />} />
             <Route path="team-leave" element={<TeamLeave />} />
             <Route path="tax-declaration" element={<TaxDeclaration />} />
+            <Route path="my-payslip" element={<EmployeeMyPayslip />} />
             <Route path="*" element={<Navigate to="/employee" replace />} />
           </Route>
 

@@ -1,4 +1,4 @@
-import { KeyRound, LogOut, Receipt, Users } from "lucide-react";
+import { FileText, KeyRound, LogOut, Receipt, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
@@ -99,6 +99,19 @@ export default function EmployeeLayout() {
               <Receipt size={14} />
               Tax Declaration
             </NavLink>
+            {user?.is_head_of_department && (
+              <NavLink
+                to="/employee/my-payslip"
+                className={({ isActive }) =>
+                  `flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                    isActive ? "border-manila text-manila" : "border-transparent text-manila/50 hover:text-manila/80"
+                  }`
+                }
+              >
+                <FileText size={14} />
+                My Payslip
+              </NavLink>
+            )}
           </nav>
         </div>
       </header>
