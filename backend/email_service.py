@@ -42,11 +42,22 @@ def is_configured() -> bool:
 
 
 def send_email(to: str, subject: str, body: str) -> bool:
+    ok, _ = send_email_detailed(to, subject, body)
+    return ok
+
+
+def send_email_detailed(to: str, subject: str, body: str) -> tuple[bool, str | None]:
+    """Same as send_email, but also returns a short failure reason
+    ("no_recipient" | "not_configured" | "http_<code>" | "exception:<msg>" |
+    None on success) — callers that need to surface *why* a send didn't go
+    through (e.g. the late-digest endpoint, which was silently returning
+    emailed=False in production for weeks with `logger.error`/`.info` never
+    showing up anywhere reachable) should use this instead of send_email."""
     if not to:
-        return False
+        return False, "no_recipient"
     if not is_configured():
         logger.info("Email not configured — skipping send to %s: %s", to, subject)
-        return False
+        return False, "not_configured"
 
     payload = {
         "from": f"Tina at JADE HR <{EMAIL_FROM}>",
@@ -68,13 +79,14 @@ def send_email(to: str, subject: str, body: str) -> bool:
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
             resp.read()
-        return True
+        return True, None
     except urllib.error.HTTPError as e:
-        logger.error("Resend send to %s failed: HTTP %s %s", to, e.code, e.read().decode(errors="replace"))
-        return False
-    except Exception:
+        detail = e.read().decode(errors="replace")
+        logger.error("Resend send to %s failed: HTTP %s %s", to, e.code, detail)
+        return False, f"http_{e.code}:{detail[:200]}"
+    except Exception as e:
         logger.exception("Failed to send email to %s", to)
-        return False
+        return False, f"exception:{e}"
 
 
 def notify_leave_submitted(
@@ -105,14 +117,17 @@ def notify_leave_approved(employee_email: str, employee_name: str, leave_type: s
     send_email(employee_email, subject, body)
 
 
-def notify_late_digest(date_iso: str, late_employees: list[dict], hr_email: str) -> bool:
+def notify_late_digest(date_iso: str, late_employees: list[dict], hr_email: str) -> tuple[bool, str | None]:
     """One daily digest email to HR listing everyone who clocked in late on
     date_iso. `late_employees` is a list of {name, employee_code, location,
     time} dicts (time already IST-formatted by the caller). Sends nothing —
-    and returns False — when the list is empty or no HR recipient is set, so
-    HR never gets an empty "0 late today" email."""
-    if not hr_email or not late_employees:
-        return False
+    and returns (False, "empty_list"/"no_recipient") — when the list is
+    empty or no HR recipient is set, so HR never gets an empty "0 late
+    today" email."""
+    if not hr_email:
+        return False, "no_recipient"
+    if not late_employees:
+        return False, "empty_list"
     n = len(late_employees)
     lines = [
         f"{n} employee{'s' if n != 1 else ''} clocked in late on {date_iso}:",
@@ -127,7 +142,7 @@ def notify_late_digest(date_iso: str, late_employees: list[dict], hr_email: str)
         "Full attendance sheet: https://jade-hr.vercel.app/admin/reports/attendance",
     ]
     subject = f"Late arrivals — {date_iso} ({n})"
-    return send_email(hr_email, subject, "\n".join(lines))
+    return send_email_detailed(hr_email, subject, "\n".join(lines))
 
 
 def notify_absence_submitted(

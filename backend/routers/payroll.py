@@ -469,10 +469,10 @@ def late_digest(
     for e in late:
         e.pop("sort_key", None)
 
-    emailed = False
+    emailed, email_error = False, None
     if not dry_run:
-        emailed = email_service.notify_late_digest(target_iso, late, email_service.HR_NOTIFY_EMAIL)
-    return {"date": target_iso, "count": len(late), "late": late, "emailed": emailed}
+        emailed, email_error = email_service.notify_late_digest(target_iso, late, email_service.HR_NOTIFY_EMAIL)
+    return {"date": target_iso, "count": len(late), "late": late, "emailed": emailed, "email_error": email_error}
 
 
 MAX_RANGE_MONTHS = 12  # each month re-fetches punches/overrides/leaves/declarations
