@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 const SHIFT_TIMINGS = [
   { name: "Peddar Road", opening: "9:00 am", trading: "10:30 am – 8:00 pm", closing: "8:30 pm" },
   { name: "Emporio", opening: "10:30 am", trading: "11:00 am – 7:30 pm", closing: "8:00 pm" },
@@ -36,14 +38,23 @@ function Bullets({ items }) {
   );
 }
 
-export default function PolicyDocument() {
+const HOLIDAYS_2025 = [
+  { date: "1st Jan 2025", day: "Wednesday", desc: "New Year" },
+  { date: "26th Jan 2025", day: "Sunday", desc: "Republic Day" },
+  { date: "14th March 2025", day: "Friday", desc: "Holi – Mumbai" },
+  { date: "30th March 2025", day: "Sunday", desc: "Gudi Padwa" },
+  { date: "1st May 2025", day: "Thursday", desc: "Labour Day" },
+  { date: "15th Aug 2025", day: "Friday", desc: "Independence Day" },
+  { date: "27th Aug 2025", day: "Wednesday", desc: "Ganesh Chaturthi" },
+  { date: "2nd Oct 2025", day: "Thursday", desc: "Gandhi Jayanti & Dussehra" },
+  { date: "21st Oct 2025", day: "Tuesday", desc: "Diwali" },
+  { date: "22nd Oct 2025", day: "Wednesday", desc: "Diwali" },
+  { date: "23rd Oct 2025", day: "Thursday", desc: "Diwali" },
+];
+
+function Policy2026() {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-2xl text-ink">Working Hours, Attendance &amp; Leave Policy</h1>
-        <p className="text-sm text-ink/60 mt-1">Revised 2026 · working days Monday–Saturday · no work-from-home policy at JADE</p>
-      </div>
-
       <Section title="Retail store timings">
         <p>
           All employees have a buffer of coming late by 10 minutes (basis their shift time) for up to three times a
@@ -256,6 +267,242 @@ export default function PolicyDocument() {
           Policies are subject to change at management's discretion.
         </p>
       </Section>
+    </div>
+  );
+}
+
+function Policy2025() {
+  return (
+    <div className="space-y-6">
+      <Section title="Timings by department">
+        <Bullets
+          items={[
+            "Retail stores: 10:00am – 8:00pm, buffer 10:00–10:10am up to 3 times a month. Monday–Saturday/Sunday, 1 weekly off on a roster set by the department HOD.",
+            "Corporate office: 10:00am – 6:30pm, same 10-minute buffer. Monday–Saturday with all Saturdays as half-days. Work exigencies expect attendance, with a planned comp-off on another day, HOD and team informed.",
+            "Factory & Inventory (raw material and finished goods): 10:00am – 7:00pm, Monday–Saturday, same buffer. 1 weekly off on Sunday unless called in by the HOD.",
+            "OT-eligible departments (RM store, FG store, CAD, DEO): 10:00am – 7:00pm, Monday–Saturday. Non-OT departments: 10:00am – 6:30pm Monday–Friday, 10:00am – 3:00pm on Saturday.",
+          ]}
+        />
+        <p className="font-medium text-ink">Partial-shift rounding</p>
+        <p>
+          Under 5 hours worked: leave without pay. Exactly 5 hours: ½ day. 6+ hours: ¾ day. 6.5 hours: ¾ day.
+        </p>
+        <p className="font-medium text-ink">Lunch &amp; breaks</p>
+        <p>
+          Lunch window is 1–2pm, 30 minutes per employee within that window (dept heads have flexible timing). Any
+          break requires a biometric punch-out and punch-in; the break must fit inside the 30-minute lunch allowance —
+          e.g. 15 minutes lunch + 15 minutes break. Longer breaks are deducted based on biometric data.
+        </p>
+        <p className="font-medium text-ink">Overtime</p>
+        <p>
+          OT is only for exceptional circumstances on HOD instruction, with prior email approval from the HOD for
+          staying back.
+        </p>
+        <p>
+          Employees with a fully disciplined attendance record — on time every working day, no ad-hoc/unplanned leave
+          — are eligible for a ₹1,000 Amazon voucher as appreciation.
+        </p>
+      </Section>
+
+      <Section title="Late-coming policy">
+        <p>
+          Grace time is 10 minutes, until 10:10am, after which you're marked late. No deduction for the first 3 late
+          markings in a month.
+        </p>
+        <Bullets
+          items={[
+            "4th late marking onward: ¼-day pay deducted if arriving by 10:30am; ½-day if arriving by 10:45am.",
+            "6th late marking onward in the same month: ½-day deducted each time.",
+            "All late-coming deductions are treated as leave without pay — never adjusted against the paid leave balance.",
+          ]}
+        />
+        <p className="font-medium text-ink">Staying back late (not applicable to OT-eligible depts/designations)</p>
+        <Bullets
+          items={[
+            "Stayed back past 8:30pm (2+ hours extra): may come in late the next day, up to 11:00am.",
+            "Stayed back past 10:30pm (4+ hours extra): may come in late the next day, up to 12:00pm.",
+            "Stayed back past midnight (6+ hours extra): eligible for a comp-off within 90 days.",
+            "Needs HOD approval with the date and reason for staying back, to regularize the late-arrival grace.",
+            "No grace time beyond the tiers above.",
+          ]}
+        />
+        <p>
+          If called in on a holiday/Sunday for a work exigency (launches, events, trainings, shows, audits,
+          deadlines, or similar), you're entitled to a compensatory off within 90 days, or as otherwise accepted by
+          the HOD — approval must come via email from the HOD, with the date awaited/worked noted.
+        </p>
+      </Section>
+
+      <Section title="Leave entitlement">
+        <p>
+          24 all-purpose leaves per year, credited on a pro-rata basis of 2 days/month after successful completion of
+          probation (employees joining mid-year accrue pro-rata from their join date).
+        </p>
+        <Bullets
+          items={[
+            "5+ day leaves: apply at least 30 days in advance.",
+            "3–4 day leaves: apply at least 15 days in advance.",
+            "Up to 2 day leaves: apply at least 5 days in advance.",
+            "Never proceed on leave until it's approved — unapproved leave is treated as absence and is unpaid, even against an available leave balance.",
+            "Weekends/holidays inside a sanctioned leave period aren't counted as leave days.",
+            "Set an Out-of-Office reply for the duration of leave, naming who is covering.",
+          ]}
+        />
+        <p className="font-medium text-ink">Encashment &amp; carry-forward</p>
+        <Bullets
+          items={[
+            "Balance leave can be encashed at F&F, or once a year in January (application accepted till Jan 10th) — only the eligible carry-forward, capped at 15 days.",
+            "Only accrued earned leave is eligible; anything above 15 days lapses. Calculated on basic salary, not gross.",
+            "Up to 15 days can be carried into the next year — anything above lapses.",
+          ]}
+        />
+        <p className="font-medium text-ink">On resignation / termination</p>
+        <Bullets
+          items={[
+            "Earned leave is calculated pro-rata to the last working day, settled as encashment in the F&F.",
+            "Leave during the notice period is disallowed unless HOD-approved, and can't be adjusted against a shorter notice period without management approval.",
+            "Any shortfall in serving full notice is deducted from the F&F (e.g. serving only 15 of a required 30-day notice means those 15 days are recovered from the F&F); serving no notice at all, without consent, forfeits full pay and F&F, and the company will withhold relieving/experience/recommendation letters.",
+            "Standard F&F processing timeline is 45 days from the last working day, subject to completed exit formalities and department clearance.",
+          ]}
+        />
+        <p className="font-medium text-ink">Comp-off</p>
+        <p>
+          1 day comp-off for working a Sunday or public holiday, to be taken within 90 days or it lapses, subject to
+          reporting-manager/HOD approval. Up to 3 continuous comp-off days are allowed — beyond 3 continuous days it
+          counts as regular leave instead.
+        </p>
+        <p className="font-medium text-ink">Long / extended leave</p>
+        <Bullets
+          items={[
+            "Leave beyond 2 continuous weeks needs 3-level approval: HOD/Reporting Manager, Head of HR, and Directors — granted only when planned well in advance or for genuine emergencies.",
+            "Extending leave requires advance approval via the leave application form; unapproved extension is treated as absence and renders the whole leave unpaid.",
+            "Absence beyond 2 weeks carries no notice-period protection — reinstatement isn't guaranteed even if someone was kept informed.",
+            "The leave calendar year runs January–December.",
+          ]}
+        />
+      </Section>
+
+      <Section title="Statutory &amp; special leave">
+        <Bullets
+          items={[
+            "Maternity leave: 26 weeks for female employees with 1+ year of uninterrupted service (Maternity Benefit Act 1961), over and above other leave/holidays. Can start up to 10 weeks before expected delivery; case-by-case exceptions need senior-management approval.",
+            "Paternity leave: 3 days for male employees, over and above other leave/holidays, with supporting documents. Must be taken within 15 days of the child's birth or it lapses.",
+            "Compassionate / bereavement leave: 2 days, within 14 days of the death of an immediate family member (mother, father, spouse, children, sister, brother).",
+          ]}
+        />
+      </Section>
+
+      <Section title="General leave notes">
+        <Bullets
+          items={[
+            "Leave is not a matter of right and can be refused for work exigencies — even after approval, it can be cancelled if exigencies arise.",
+            "The policy (or any part of it) can be withdrawn, modified, or substituted at management's sole discretion, at any time.",
+            "Overlapping leave within a department should be avoided at the planning stage.",
+          ]}
+        />
+        <p>
+          Leave application form:{" "}
+          <a
+            href="https://forms.zohopublic.in/JADEbyMonicaandKarishma/form/Leaveapplicationform/formperma/w107-bKl4ikf_4GYWwaxecWolYLiWhITJxnt4S25vh4"
+            target="_blank"
+            rel="noreferrer"
+            className="text-jade-600 underline"
+          >
+            forms.zohopublic.in — Leave Application Form
+          </a>
+        </p>
+      </Section>
+
+      <Section title="Loan">
+        <p>
+          Minimum 3 years of service and positive L1 feedback required to apply. Loan amount can be up to double the
+          employee's salary, at 12% interest, repayable within one year.
+        </p>
+      </Section>
+
+      <Section title="Reimbursement (expenses)">
+        <Bullets
+          items={[
+            <>
+              All reimbursements go through the expense app:{" "}
+              <a href="https://zfrmz.in/GeGtj13HiHnjHsLDfsgJ" target="_blank" rel="noreferrer" className="text-jade-600 underline">
+                zfrmz.in expense form
+              </a>
+            </>,
+            "Submit within 15 days of the expense, or before the 24th of the month to get approved in that month's cycle.",
+            "Other expenses need a valid invoice or supporting document.",
+            "Ola/Uber travel: upload the emailed bill.",
+            "Local taxi (Kaali Peeli) travel needs a time-stamped photo — use the \"Timestamp Camera\" app if your phone doesn't stamp photos natively.",
+          ]}
+        />
+      </Section>
+
+      <Section title="Public holidays — 2025">
+        <div className="overflow-x-auto -mx-1">
+          <table className="min-w-full text-sm border-collapse">
+            <thead>
+              <tr className="text-left text-xs font-semibold uppercase tracking-wider text-ink/60 border-b border-ink/10">
+                <th className="py-2 px-1">Date</th>
+                <th className="py-2 px-1">Day</th>
+                <th className="py-2 px-1">Festival / occasion</th>
+              </tr>
+            </thead>
+            <tbody className="font-nums">
+              {HOLIDAYS_2025.map((row) => (
+                <tr key={row.date} className="border-b border-ink/5">
+                  <td className="py-2 px-1">{row.date}</td>
+                  <td className="py-2 px-1">{row.day}</td>
+                  <td className="py-2 px-1 font-medium text-ink">{row.desc}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+
+      <Section title="Policy interpretation">
+        <p>
+          Explanation of any company policy should be sought from the HR department — HR's interpretation is final.
+          Policies are subject to change at management's discretion.
+        </p>
+      </Section>
+    </div>
+  );
+}
+
+const TABS = [
+  { key: "2026", label: "2026 Revision (Retail)", render: Policy2026 },
+  { key: "2025", label: "2025 (Retail, Corporate & Factory)", render: Policy2025 },
+];
+
+export default function PolicyDocument() {
+  const [tab, setTab] = useState("2026");
+  const Active = TABS.find((t) => t.key === tab)?.render ?? Policy2026;
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="font-display text-2xl text-ink">Working Hours, Attendance &amp; Leave Policy</h1>
+        <p className="text-sm text-ink/60 mt-1">
+          Two versions are on file — pick the one that applies to your department. Where they disagree, HR's
+          interpretation of which one governs is final.
+        </p>
+        <div className="flex gap-2 mt-4">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`px-4 py-2 rounded-sm text-sm font-medium border transition-colors ${
+                tab === t.key
+                  ? "bg-ledger-800 text-manila border-ledger-800"
+                  : "bg-paper text-ink/70 border-ink/15 hover:border-ink/30"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <Active />
     </div>
   );
 }
