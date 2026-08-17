@@ -69,16 +69,40 @@ def test_late_grace_boundary_is_exclusive():
 
 
 def test_late_grace_default_10am_shift_unaffected_by_time_slot_change():
-    # No time_slot (or "Flexible"/unrecognized) must still behave exactly
-    # like the old single-global-constant 10:11 AM grace.
+    # No time_slot (or an unrecognized value) must still behave exactly like
+    # the old single-global-constant 10:11 AM grace. "Flexible" is NOT part of
+    # this fallback — see the flexible-time_slot tests below.
     on_time = datetime(2026, 1, 5, 10, 11, 0, tzinfo=IST)
     late = datetime(2026, 1, 5, 10, 11, 1, tzinfo=IST)
     out = datetime(2026, 1, 5, 18, 0, tzinfo=IST)
-    for time_slot in (None, "Flexible", "some-unrecognized-value"):
+    for time_slot in (None, "some-unrecognized-value"):
         rows_on_time = compute_daily_attendance(2026, 1, [on_time, out], 8, weekly_off_day=6, time_slot=time_slot)
         rows_late = compute_daily_attendance(2026, 1, [late, out], 8, weekly_off_day=6, time_slot=time_slot)
         assert next(r for r in rows_on_time if r["date"] == "2026-01-05")["late"] is False
         assert next(r for r in rows_late if r["date"] == "2026-01-05")["late"] is True
+
+
+def test_flexible_time_slot_late_arrival_but_full_hours_is_not_late():
+    # A "Flexible" employee (e.g. Sagar) has no fixed clock-in cutoff at all —
+    # arriving at 1 PM is fine as long as they complete their 8 standard
+    # hours that day. Previously this fell back to the 10:11 AM default grace
+    # and got wrongly flagged late.
+    in_time = datetime(2026, 1, 5, 13, 0, tzinfo=IST)
+    out = datetime(2026, 1, 5, 21, 0, tzinfo=IST)  # exactly 8 hours
+    rows = compute_daily_attendance(2026, 1, [in_time, out], 8, weekly_off_day=6, time_slot="Flexible")
+    row = next(r for r in rows if r["date"] == "2026-01-05")
+    assert row["late"] is False
+
+
+def test_flexible_time_slot_short_hours_is_late():
+    # Same Flexible employee, but they left early and fell short of their 8
+    # standard hours — this is what should now trip the late flag instead of
+    # arrival time.
+    in_time = datetime(2026, 1, 5, 10, 0, tzinfo=IST)
+    out = datetime(2026, 1, 5, 17, 0, tzinfo=IST)  # only 7 hours
+    rows = compute_daily_attendance(2026, 1, [in_time, out], 8, weekly_off_day=6, time_slot="Flexible")
+    row = next(r for r in rows if r["date"] == "2026-01-05")
+    assert row["late"] is True
 
 
 def test_late_grace_11am_shift_employee_arriving_1030am_not_late():

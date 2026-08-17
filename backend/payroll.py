@@ -21,9 +21,10 @@ from config import IST
 from statutory import ZERO_ESIC, ZERO_PF, compute_esic, compute_lwf, compute_pf, compute_pt, location_to_state
 
 # Grace period: clocking in by 10:11 AM IST counts as on time. This is the
-# 10:00 AM shift's grace — the default/fallback for "Flexible" and any
-# unrecognized/blank time_slot (see SHIFT_START_BY_TIME_SLOT / _late_grace_for
-# below, which generalize this to every other time_slot).
+# 10:00 AM shift's grace — the default/fallback for any unrecognized/blank
+# time_slot (see SHIFT_START_BY_TIME_SLOT / _late_grace_for below, which
+# generalize this to every other time_slot). "Flexible" does NOT use this
+# fallback — see FLEXIBLE_TIME_SLOT below, it's graded on hours, not arrival.
 LATE_GRACE = time(10, 11)
 LATE_GRACE_MINUTES = 11
 
@@ -31,9 +32,9 @@ LATE_GRACE_MINUTES = 11
 # each employee's own late-grace cutoff (start + LATE_GRACE_MINUTES) instead
 # of the single global LATE_GRACE constant above — an employee moved to a
 # later shift (e.g. "11:00 AM – 8:00 PM") must be graced against THAT shift's
-# start, not everyone's 10:11 AM. "Flexible" and any time_slot not listed here
-# (including None/blank) fall back to DEFAULT_SHIFT_START so nobody currently
-# on the standard shift regresses.
+# start, not everyone's 10:11 AM. Any time_slot not listed here (including
+# None/blank) falls back to DEFAULT_SHIFT_START so nobody currently on the
+# standard shift regresses. Never consulted for FLEXIBLE_TIME_SLOT.
 DEFAULT_SHIFT_START = time(10, 0)
 SHIFT_START_BY_TIME_SLOT = {
     "10:00 AM – 6:30 PM": time(10, 0),
@@ -41,6 +42,11 @@ SHIFT_START_BY_TIME_SLOT = {
     "11:00 AM – 8:00 PM": time(11, 0),
     "Intern (10:00 AM – 6:00 PM)": time(10, 0),
 }
+
+# "Flexible" has no fixed clock-in time to grade against at all — lateness for
+# these employees is judged purely on whether they completed their standard
+# shift-length hours that day, never on arrival time.
+FLEXIBLE_TIME_SLOT = "Flexible"
 
 
 def _late_grace_for(time_slot: str | None) -> time:
@@ -192,13 +198,14 @@ def _apply_override(d: date, override: dict, standard_hours_per_day: float, time
     first_in_iso = last_out_iso = None
     late = False
     grace = _late_grace_for(time_slot)
+    is_flexible = time_slot == FLEXIBLE_TIME_SLOT
     if status == "present" and first_in and last_out:
         start = datetime.combine(d, first_in, tzinfo=IST)
         end = datetime.combine(d, last_out, tzinfo=IST)
         hours_worked = max(0.0, (end - start).total_seconds() / 3600.0)
         ot_hours = _ot_hours(d, start, end, day_standard)
         first_in_iso, last_out_iso = start.isoformat(), end.isoformat()
-        late = first_in > grace
+        late = (hours_worked < day_standard) if is_flexible else (first_in > grace)
     elif status == "present":
         # Only one side (or neither) of the punch was corrected — a "forgot to
         # clock in/out" dispute usually fills just one time. Still surface the
@@ -208,7 +215,7 @@ def _apply_override(d: date, override: dict, standard_hours_per_day: float, time
         hours_worked = day_standard
         if first_in:
             first_in_iso = datetime.combine(d, first_in, tzinfo=IST).isoformat()
-            late = first_in > grace
+            late = first_in > grace and not is_flexible
         if last_out:
             last_out_iso = datetime.combine(d, last_out, tzinfo=IST).isoformat()
     elif status == "half_day":
@@ -447,7 +454,11 @@ def compute_daily_attendance(
             "hours_worked": round(hours_worked, 2),
             "ot_hours": round(ot_hours, 2),
             "status": "present",
-            "late": first_in_local > _extended_grace_for(d, by_day, midnight_tail_dates, time_slot),
+            "late": (
+                hours_worked < day_standard
+                if time_slot == FLEXIBLE_TIME_SLOT
+                else first_in_local > _extended_grace_for(d, by_day, midnight_tail_dates, time_slot)
+            ),
         }
         if is_corporate:
             row["after_noon"] = first_in_local > NOON
@@ -509,8 +520,6 @@ def apply_late_coming_policy(
                 r["lop_days"] = LATE_LOP_DAYS
 
     return late_ordinal, late_ordinal >= 5
-
-    return late_ordinal, red_card
 
 
 def fy_label_for_month(year: int, month: int) -> str:
