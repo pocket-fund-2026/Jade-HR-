@@ -68,6 +68,44 @@ def test_late_grace_boundary_is_exclusive():
     assert row_late["late"] is True
 
 
+def test_late_grace_default_10am_shift_unaffected_by_time_slot_change():
+    # No time_slot (or "Flexible"/unrecognized) must still behave exactly
+    # like the old single-global-constant 10:11 AM grace.
+    on_time = datetime(2026, 1, 5, 10, 11, 0, tzinfo=IST)
+    late = datetime(2026, 1, 5, 10, 11, 1, tzinfo=IST)
+    out = datetime(2026, 1, 5, 18, 0, tzinfo=IST)
+    for time_slot in (None, "Flexible", "some-unrecognized-value"):
+        rows_on_time = compute_daily_attendance(2026, 1, [on_time, out], 8, weekly_off_day=6, time_slot=time_slot)
+        rows_late = compute_daily_attendance(2026, 1, [late, out], 8, weekly_off_day=6, time_slot=time_slot)
+        assert next(r for r in rows_on_time if r["date"] == "2026-01-05")["late"] is False
+        assert next(r for r in rows_late if r["date"] == "2026-01-05")["late"] is True
+
+
+def test_late_grace_11am_shift_employee_arriving_1030am_not_late():
+    # An employee moved to "11:00 AM – 8:00 PM" must be graced against THAT
+    # shift's start (11:00 + 11min = 11:11), not the global 10:11 default —
+    # 10:30 AM would have been incorrectly flagged late under the old
+    # single-global-constant logic.
+    in_time = datetime(2026, 1, 5, 10, 30, tzinfo=IST)
+    out = datetime(2026, 1, 5, 20, 0, tzinfo=IST)
+    rows = compute_daily_attendance(
+        2026, 1, [in_time, out], 8, weekly_off_day=6, time_slot="11:00 AM – 8:00 PM",
+    )
+    row = next(r for r in rows if r["date"] == "2026-01-05")
+    assert row["late"] is False
+
+
+def test_late_grace_11am_shift_employee_arriving_1115am_is_late():
+    # Same 11 AM shift employee, but now past their 11:11 grace cutoff.
+    in_time = datetime(2026, 1, 5, 11, 15, tzinfo=IST)
+    out = datetime(2026, 1, 5, 20, 0, tzinfo=IST)
+    rows = compute_daily_attendance(
+        2026, 1, [in_time, out], 8, weekly_off_day=6, time_slot="11:00 AM – 8:00 PM",
+    )
+    row = next(r for r in rows if r["date"] == "2026-01-05")
+    assert row["late"] is True
+
+
 def test_stay_back_past_830pm_extends_next_day_grace_to_11am():
     day1 = [datetime(2026, 1, 5, 10, 0, tzinfo=IST), datetime(2026, 1, 5, 20, 31, tzinfo=IST)]
     # 10:45am would normally be late (past 10:11) but is within the extended 11am grace.

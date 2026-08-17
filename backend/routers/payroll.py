@@ -1,3 +1,4 @@
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, time, timedelta
 
@@ -7,21 +8,60 @@ import email_service
 from auth import CONSOLE_ROLES, get_current_user, require_console, require_permission, user_can
 from config import IST
 from database import maybe_single_data, supabase
-from payroll import compute_attendance_for_range, compute_monthly_summary, fy_label_for_month, pay_period_bounds
+from payroll import (
+    WEEKOFF_LOOKBACK_DAYS, compute_attendance_for_range, compute_monthly_summary, fy_label_for_month,
+    pay_period_bounds,
+)
 from routers.leave import (
     fetch_all_approved_leaves_by_employee, fetch_approved_leaves, pl_ledger_for_period, pl_ledger_for_period_bulk,
 )
 from tds import DEFAULT_DECLARATION, project_annual_tax
 
 router = APIRouter(prefix="/api", tags=["payroll"])
+logger = logging.getLogger("jade_hr.payroll")
+
+
+def _hod_emails_for_departments(departments: set[str]) -> list[str]:
+    """Resolves late_digest's late-employee departments to their Head of
+    Department's email(s), so the digest reaches HODs too, not just HR.
+    HOD-ness is per-employee (hr_employee_profile.head_of_department=true),
+    matched against hr_employees.department — there's no separate
+    departments/HOD table. A department with zero flagged HODs contributes
+    no email (logged, not an error); one with 2+ emails all of them."""
+    departments = {d for d in departments if d}
+    if not departments:
+        return []
+    profile_resp = (
+        supabase.table("hr_employee_profile").select("employee_id").eq("head_of_department", True).execute()
+    )
+    hod_ids = [p["employee_id"] for p in (profile_resp.data or []) if p.get("employee_id")]
+    if not hod_ids:
+        logger.warning("late_digest: no employees flagged head_of_department at all")
+        return []
+    emp_resp = supabase.table("hr_employees").select("email,department,is_active").in_("id", hod_ids).execute()
+    emails = [
+        e["email"] for e in (emp_resp.data or [])
+        if e.get("email") and e.get("is_active", True) and e.get("department") in departments
+    ]
+    matched_departments = {e.get("department") for e in (emp_resp.data or []) if e.get("department") in departments}
+    for missing in departments - matched_departments:
+        logger.warning("late_digest: no HOD email found for department %r", missing)
+    return emails
 
 
 def _month_bounds(year: int, month: int, calendar_month: bool = False) -> tuple[str, str]:
     """Pay-period bounds (23rd of prior month - 22nd of this month), as UTC
     instants — the period is defined in IST wall-clock time, so midnight IST
     on each boundary date is what actually delimits it. calendar_month=True
-    spans the true calendar month instead (ESIC report)."""
+    spans the true calendar month instead (ESIC report).
+
+    Widened WEEKOFF_LOOKBACK_DAYS earlier at the start so the punch fetchers
+    below always pull enough prior-period data for compute_daily_attendance's
+    weekly-off earning-rule lookback (see WEEKOFF_LOOKBACK_DAYS in payroll.py)
+    — compute_daily_attendance trims the extra lead-in days itself before
+    returning, so callers never see them in the final result."""
     start, end = pay_period_bounds(year, month, calendar_month)
+    start -= timedelta(days=WEEKOFF_LOOKBACK_DAYS)
     from_dt = datetime.combine(start, datetime.min.time(), tzinfo=IST).isoformat()
     to_dt = datetime.combine(end + timedelta(days=1), datetime.min.time(), tzinfo=IST).isoformat()
     return from_dt, to_dt
@@ -45,6 +85,10 @@ def _fetch_punch_times(employee_code: str, year: int, month: int) -> list[dateti
 
 
 def _fetch_punch_times_range(employee_code: str, start: date, end: date) -> list[datetime]:
+    """`start`/`end` are the range actually requested by the caller — widened
+    by WEEKOFF_LOOKBACK_DAYS at the front here for the same reason as
+    _month_bounds; compute_attendance_for_range trims the lead-in days."""
+    start -= timedelta(days=WEEKOFF_LOOKBACK_DAYS)
     from_dt = datetime.combine(start, datetime.min.time(), tzinfo=IST).isoformat()
     to_dt = datetime.combine(end + timedelta(days=1), datetime.min.time(), tzinfo=IST).isoformat()
     resp = (
@@ -85,7 +129,9 @@ def _fetch_all_punches_by_employee(year: int, month: int, calendar_month: bool =
 def _fetch_all_punches_by_employee_range(start: date, end: date) -> dict[str, list[datetime]]:
     """Range equivalent of _fetch_all_punches_by_employee — one (paginated)
     query for an arbitrary [start, end] span across the whole roster,
-    instead of one query per employee."""
+    instead of one query per employee. `start` widened by WEEKOFF_LOOKBACK_DAYS
+    at the front for the same reason as _fetch_punch_times_range."""
+    start -= timedelta(days=WEEKOFF_LOOKBACK_DAYS)
     from_dt = datetime.combine(start, datetime.min.time(), tzinfo=IST).isoformat()
     to_dt = datetime.combine(end + timedelta(days=1), datetime.min.time(), tzinfo=IST).isoformat()
     by_employee: dict[str, list[datetime]] = {}
@@ -110,6 +156,9 @@ def _fetch_all_punches_by_employee_range(start: date, end: date) -> dict[str, li
 
 
 def _fetch_all_overrides_by_employee_range(start: date, end: date) -> dict[str, dict[date, dict]]:
+    """`start` widened by WEEKOFF_LOOKBACK_DAYS at the front for the same
+    reason as _fetch_punch_times_range."""
+    start -= timedelta(days=WEEKOFF_LOOKBACK_DAYS)
     resp = (
         supabase.table("hr_attendance_overrides")
         .select("*")
@@ -129,6 +178,7 @@ def _fetch_all_overrides_by_employee_range(start: date, end: date) -> dict[str, 
 
 def _fetch_overrides(employee_id: str, year: int, month: int) -> dict[date, dict]:
     start, end = pay_period_bounds(year, month)
+    start -= timedelta(days=WEEKOFF_LOOKBACK_DAYS)
     from_d, to_d = start.isoformat(), end.isoformat()
     resp = (
         supabase.table("hr_attendance_overrides")
@@ -149,6 +199,9 @@ def _fetch_overrides(employee_id: str, year: int, month: int) -> dict[date, dict
 
 
 def _fetch_overrides_range(employee_id: str, start: date, end: date) -> dict[date, dict]:
+    """`start` widened by WEEKOFF_LOOKBACK_DAYS at the front for the same
+    reason as _fetch_punch_times_range."""
+    start -= timedelta(days=WEEKOFF_LOOKBACK_DAYS)
     resp = (
         supabase.table("hr_attendance_overrides")
         .select("*")
@@ -169,6 +222,7 @@ def _fetch_overrides_range(employee_id: str, start: date, end: date) -> dict[dat
 
 def _fetch_all_overrides_by_employee(year: int, month: int, calendar_month: bool = False) -> dict[str, dict[date, dict]]:
     start, end = pay_period_bounds(year, month, calendar_month)
+    start -= timedelta(days=WEEKOFF_LOOKBACK_DAYS)
     from_d, to_d = start.isoformat(), end.isoformat()
     resp = (
         supabase.table("hr_attendance_overrides")
@@ -450,6 +504,7 @@ def late_digest(
     )
 
     late = []
+    late_departments: set[str] = set()
     for summary in summaries:
         row = next((r for r in summary["daily"] if r["date"] == target_iso), None)
         if row and row["status"] == "present" and row.get("late"):
@@ -465,13 +520,17 @@ def late_digest(
                 "time": in_time,
                 "sort_key": first_in or "",
             })
+            late_departments.add(summary.get("department"))
     late.sort(key=lambda x: x["sort_key"])
     for e in late:
         e.pop("sort_key", None)
 
     emailed, email_error = False, None
     if not dry_run:
-        emailed, email_error = email_service.notify_late_digest(target_iso, late, email_service.HR_NOTIFY_EMAIL)
+        hod_emails = _hod_emails_for_departments(late_departments)
+        emailed, email_error = email_service.notify_late_digest(
+            target_iso, late, email_service.HR_NOTIFY_EMAIL, extra_recipients=hod_emails,
+        )
     return {"date": target_iso, "count": len(late), "late": late, "emailed": emailed, "email_error": email_error}
 
 

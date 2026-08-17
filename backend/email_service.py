@@ -121,14 +121,21 @@ def notify_leave_approved(employee_email: str, employee_name: str, leave_type: s
     send_email(employee_email, subject, body)
 
 
-def notify_late_digest(date_iso: str, late_employees: list[dict], hr_email: str) -> tuple[bool, str | None]:
-    """One daily digest email to HR listing everyone who clocked in late on
-    date_iso. `late_employees` is a list of {name, employee_code, location,
-    time} dicts (time already IST-formatted by the caller). Sends nothing —
-    and returns (False, "empty_list"/"no_recipient") — when the list is
-    empty or no HR recipient is set, so HR never gets an empty "0 late
-    today" email."""
-    if not hr_email:
+def notify_late_digest(
+    date_iso: str, late_employees: list[dict], hr_email: str, extra_recipients: list[str] | None = None,
+) -> tuple[bool, str | None]:
+    """One daily digest email listing everyone who clocked in late on
+    date_iso, sent to HR (`hr_email`) AND, in addition, the Head of
+    Department of each late employee's department (`extra_recipients` —
+    resolved by the caller via hr_employee_profile.head_of_department; see
+    routers/payroll.py's late_digest endpoint). `late_employees` is a list of
+    {name, employee_code, location, time} dicts (time already IST-formatted
+    by the caller). Sends nothing — and returns (False, "empty_list"/
+    "no_recipient") — when the list is empty or there's no recipient at all,
+    so nobody gets an empty "0 late today" email. Duplicate recipients (e.g.
+    a HOD who is also the HR contact) are only emailed once."""
+    recipients = list(dict.fromkeys(r for r in [hr_email, *(extra_recipients or [])] if r))
+    if not recipients:
         return False, "no_recipient"
     if not late_employees:
         return False, "empty_list"
@@ -142,11 +149,20 @@ def notify_late_digest(date_iso: str, late_employees: list[dict], hr_email: str)
         lines.append(f"  • {e.get('name', '')} ({e.get('employee_code', '')}){location}: in at {e.get('time', '—')}")
     lines += [
         "",
-        "Grace is 10:11 AM (extended to 11 AM / noon if they stayed back late the previous evening).",
+        "Grace is 10:11 AM for the standard shift (later for a later time slot; extended further to 11 AM / "
+        "noon if they stayed back late the previous evening).",
         "Full attendance sheet: https://jade-hr.vercel.app/admin/reports/attendance",
     ]
     subject = f"Late arrivals — {date_iso} ({n})"
-    return send_email_detailed(hr_email, subject, "\n".join(lines))
+    body = "\n".join(lines)
+    sent_ok = False
+    last_error: str | None = None
+    for recipient in recipients:
+        ok, err = send_email_detailed(recipient, subject, body)
+        sent_ok = sent_ok or ok
+        if err:
+            last_error = err
+    return sent_ok, (None if sent_ok else last_error)
 
 
 def notify_absence_submitted(

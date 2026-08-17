@@ -20,8 +20,35 @@ from datetime import date, datetime, time, timedelta
 from config import IST
 from statutory import ZERO_ESIC, ZERO_PF, compute_esic, compute_lwf, compute_pf, compute_pt, location_to_state
 
-# Grace period: clocking in by 10:11 AM IST counts as on time.
+# Grace period: clocking in by 10:11 AM IST counts as on time. This is the
+# 10:00 AM shift's grace — the default/fallback for "Flexible" and any
+# unrecognized/blank time_slot (see SHIFT_START_BY_TIME_SLOT / _late_grace_for
+# below, which generalize this to every other time_slot).
 LATE_GRACE = time(10, 11)
+LATE_GRACE_MINUTES = 11
+
+# Per-time_slot (hr_employee_profile.time_slot) shift start used to derive
+# each employee's own late-grace cutoff (start + LATE_GRACE_MINUTES) instead
+# of the single global LATE_GRACE constant above — an employee moved to a
+# later shift (e.g. "11:00 AM – 8:00 PM") must be graced against THAT shift's
+# start, not everyone's 10:11 AM. "Flexible" and any time_slot not listed here
+# (including None/blank) fall back to DEFAULT_SHIFT_START so nobody currently
+# on the standard shift regresses.
+DEFAULT_SHIFT_START = time(10, 0)
+SHIFT_START_BY_TIME_SLOT = {
+    "10:00 AM – 6:30 PM": time(10, 0),
+    "10:00 AM – 7:00 PM": time(10, 0),
+    "11:00 AM – 8:00 PM": time(11, 0),
+    "Intern (10:00 AM – 6:00 PM)": time(10, 0),
+}
+
+
+def _late_grace_for(time_slot: str | None) -> time:
+    """This employee's late-grace cutoff: their shift's start time (per
+    SHIFT_START_BY_TIME_SLOT, DEFAULT_SHIFT_START for "Flexible"/unrecognized/
+    blank) plus the standard LATE_GRACE_MINUTES-minute grace window."""
+    start = SHIFT_START_BY_TIME_SLOT.get(time_slot, DEFAULT_SHIFT_START)
+    return (datetime.combine(date(2000, 1, 1), start) + timedelta(minutes=LATE_GRACE_MINUTES)).time()
 
 # Stay-back policy (Leave & Attendance Policy v1.1, section 4): a late FINISH
 # the prior day earns a later grace THE FOLLOWING day. Two tiers by how late
@@ -164,13 +191,14 @@ def _apply_override(d: date, override: dict, standard_hours_per_day: float, time
     hours_worked = ot_hours = 0.0
     first_in_iso = last_out_iso = None
     late = False
+    grace = _late_grace_for(time_slot)
     if status == "present" and first_in and last_out:
         start = datetime.combine(d, first_in, tzinfo=IST)
         end = datetime.combine(d, last_out, tzinfo=IST)
         hours_worked = max(0.0, (end - start).total_seconds() / 3600.0)
         ot_hours = _ot_hours(d, start, end, day_standard)
         first_in_iso, last_out_iso = start.isoformat(), end.isoformat()
-        late = first_in > LATE_GRACE
+        late = first_in > grace
     elif status == "present":
         # Only one side (or neither) of the punch was corrected — a "forgot to
         # clock in/out" dispute usually fills just one time. Still surface the
@@ -180,7 +208,7 @@ def _apply_override(d: date, override: dict, standard_hours_per_day: float, time
         hours_worked = day_standard
         if first_in:
             first_in_iso = datetime.combine(d, first_in, tzinfo=IST).isoformat()
-            late = first_in > LATE_GRACE
+            late = first_in > grace
         if last_out:
             last_out_iso = datetime.combine(d, last_out, tzinfo=IST).isoformat()
     elif status == "half_day":
@@ -211,21 +239,25 @@ def _midnight_crossing_dates(by_day: dict[date, list[datetime]]) -> set[date]:
     return result
 
 
-def _extended_grace_for(d: date, by_day: dict[date, list[datetime]], midnight_tail_dates: set[date]) -> time:
+def _extended_grace_for(
+    d: date, by_day: dict[date, list[datetime]], midnight_tail_dates: set[date], time_slot: str | None = None,
+) -> time:
     """Late-grace cutoff for day `d`, extended if the PRIOR calendar day's
     shift ran late enough to earn it (stay-back policy above). A prior shift
     that ran past midnight earns the 12:00 PM grace; one that merely finished
-    past 8:30 PM earns 11:00 AM; otherwise the normal 10:11 AM."""
+    past 8:30 PM earns 11:00 AM; otherwise this employee's own shift-derived
+    grace (see _late_grace_for — 10:11 AM for the standard 10 AM shift, later
+    for a later time_slot)."""
     prior = d - timedelta(days=1)
     if prior in midnight_tail_dates:
         return MIDNIGHT_GRACE
     prior_punches = by_day.get(prior, [])
     if not prior_punches:
-        return LATE_GRACE
+        return _late_grace_for(time_slot)
     prior_last = prior_punches[-1].astimezone(IST).time()
     if prior_last > STAY_BACK_CUTOFF:
         return STAY_BACK_GRACE
-    return LATE_GRACE
+    return _late_grace_for(time_slot)
 
 
 # Leave-type labels treated as Paid Leave for the weekly-off earning rule
@@ -233,6 +265,19 @@ def _extended_grace_for(d: date, by_day: dict[date, list[datetime]], midnight_ta
 # imported) because leave.py already imports from this module, and Python
 # can't resolve the resulting circular import.
 _PAID_LEAVE_LIKE_TYPES = {"paid", "casual", "sick", "earned"}
+
+# _apply_weekly_off_earning_rule looks 6 days back from each weekoff. A
+# weekoff in the first ~6 days of a pay period/range needs visibility into
+# the PRIOR period's attendance to be judged correctly — otherwise it's
+# silently starved of data and misjudged as unearned (2026-07-26 Jagdish
+# Kantilal Sain case: a genuine Sunday weekoff with 5 of 6 real prior days
+# present got flipped to "absent" because only 3 of those days fell inside
+# the new pay period). compute_daily_attendance below builds rows starting
+# this many days before the requested/period start so the rule always has
+# a full 6-day window to look at, then trims the extra lookback-only rows
+# before returning — callers must fetch punch/leave/override data starting
+# this many days early too (see routers/payroll.py, routers/leave.py).
+WEEKOFF_LOOKBACK_DAYS = 6
 
 
 def _apply_weekly_off_earning_rule(rows: list[dict]) -> None:
@@ -321,8 +366,15 @@ def compute_daily_attendance(
     start, end = date_range if date_range else pay_period_bounds(year, month, calendar_month)
     today = datetime.now(IST).date()
 
+    # Build from WEEKOFF_LOOKBACK_DAYS before `start` so the weekly-off
+    # earning rule below always has a full 6-day lookback available, even
+    # for a weekoff that falls in the first few days of the range — see
+    # WEEKOFF_LOOKBACK_DAYS's comment. These extra lead-in rows are trimmed
+    # off before returning; they exist only to feed that rule.
+    fetch_start = start - timedelta(days=WEEKOFF_LOOKBACK_DAYS)
+
     rows = []
-    d = start
+    d = fetch_start
     while d <= end:
         if d in overrides:
             rows.append(_apply_override(d, overrides[d], standard_hours_per_day, time_slot))
@@ -395,7 +447,7 @@ def compute_daily_attendance(
             "hours_worked": round(hours_worked, 2),
             "ot_hours": round(ot_hours, 2),
             "status": "present",
-            "late": first_in_local > _extended_grace_for(d, by_day, midnight_tail_dates),
+            "late": first_in_local > _extended_grace_for(d, by_day, midnight_tail_dates, time_slot),
         }
         if is_corporate:
             row["after_noon"] = first_in_local > NOON
@@ -411,6 +463,7 @@ def compute_daily_attendance(
         d += timedelta(days=1)
 
     _apply_weekly_off_earning_rule(rows)
+    rows = [r for r in rows if date.fromisoformat(r["date"]) >= start]
     if not ot_eligible:
         for row in rows:
             row["ot_hours"] = 0.0
