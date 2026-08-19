@@ -7,7 +7,7 @@ import email_service
 from auth import get_current_user, require_permission, user_can
 from database import maybe_single_data, supabase
 from models import CompOffGrant, LeaveRequestCreate, LeaveResolve
-from payroll import apply_late_coming_policy, compute_daily_attendance, pay_period_bounds
+from payroll import WEEKOFF_LOOKBACK_DAYS, apply_late_coming_policy, compute_daily_attendance, pay_period_bounds
 
 router = APIRouter(prefix="/api", tags=["leave"])
 
@@ -779,8 +779,14 @@ def fetch_approved_leaves(
     employee_id: str, year: int, month: int, date_range: tuple[date, date] | None = None
 ) -> dict[date, str]:
     """Used by the payroll engine — maps each day in an approved leave range to its leave_type.
-    `date_range` overrides the year/month-derived pay-period bounds for arbitrary-span lookups."""
+    `date_range` overrides the year/month-derived pay-period bounds for arbitrary-span lookups.
+
+    `from_d` is widened by WEEKOFF_LOOKBACK_DAYS at the front — compute_daily_attendance's
+    weekly-off earning-rule lookback needs to see leave days from just before the
+    requested range too (see WEEKOFF_LOOKBACK_DAYS in payroll.py); it trims the
+    extra lead-in days itself before returning."""
     from_d, to_d = date_range if date_range else pay_period_bounds(year, month)
+    from_d -= timedelta(days=WEEKOFF_LOOKBACK_DAYS)
 
     resp = (
         supabase.table("hr_leave_requests")
@@ -805,8 +811,10 @@ def fetch_all_approved_leaves_by_employee(
     year: int, month: int, calendar_month: bool = False, date_range: tuple[date, date] | None = None,
 ) -> dict[str, dict[date, str]]:
     """One query for the whole month instead of one per employee (mirrors payroll.py's punch fetcher).
-    `date_range` overrides the year/month-derived pay-period bounds with an arbitrary [start, end] span."""
+    `date_range` overrides the year/month-derived pay-period bounds with an arbitrary [start, end] span.
+    `from_d` widened by WEEKOFF_LOOKBACK_DAYS at the front — see fetch_approved_leaves above."""
     from_d, to_d = date_range if date_range else pay_period_bounds(year, month, calendar_month)
+    from_d -= timedelta(days=WEEKOFF_LOOKBACK_DAYS)
 
     resp = (
         supabase.table("hr_leave_requests")
