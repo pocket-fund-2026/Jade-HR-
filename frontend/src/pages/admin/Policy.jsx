@@ -1,4 +1,4 @@
-import { Cake, CalendarDays, Clock3, Pencil, Plus, X } from "lucide-react";
+import { Cake, CalendarDays, Clock3, Pencil, Plus, ShieldAlert, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import api from "../../lib/api.js";
@@ -355,6 +355,183 @@ function CompOffGrant({ corporateEmployees }) {
   );
 }
 
+const FY_OPTIONS = (() => {
+  // India's FY runs Apr-Mar; offer the current one plus the two before it.
+  const y = today.getFullYear();
+  const startYear = today.getMonth() + 1 >= 4 ? y : y - 1;
+  return [startYear, startYear - 1, startYear - 2].map((sy) => `${sy}-${String(sy + 1).slice(2)}`);
+})();
+
+const QUARTER_LABELS = { 1: "Q1 (Apr–Jun)", 2: "Q2 (Jul–Sep)", 3: "Q3 (Oct–Dec)", 4: "Q4 (Jan–Mar)" };
+
+function currentQuarter() {
+  const m = today.getMonth() + 1;
+  return m >= 4 && m <= 6 ? 1 : m >= 7 && m <= 9 ? 2 : m >= 10 ? 3 : 4;
+}
+
+function LateMarkCards() {
+  const [policy, setPolicy] = useState(null);
+  const [financialYear, setFinancialYear] = useState(FY_OPTIONS[0]);
+  const [quarter, setQuarter] = useState(currentQuarter());
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [running, setRunning] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    api.get("/api/late-policy").then(({ data }) => setPolicy(data)).catch(() => setPolicy(null));
+  }, []);
+
+  const load = () => {
+    setLoading(true);
+    setError("");
+    return api
+      .get("/api/late-policy/quarter-red-cards", { params: { financial_year: financialYear, quarter } })
+      .then(({ data }) => setData(data))
+      .catch((err) => setError(err.response?.data?.detail || "Could not load late-mark cards"))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, [financialYear, quarter]);
+
+  const qualifying = (data?.employees || []).filter((e) => e.quarter_red_card);
+  const pending = qualifying.filter((e) => !e.action);
+  // Listed on ANY Red Card month, including ones before the policy took
+  // effect — those can't count toward the penalty but HR still needs to see
+  // them in a quarter that straddles the effective date.
+  const flagged = (data?.employees || [])
+    .filter((e) => e.red_card_months_all > 0)
+    .sort((a, b) => b.red_card_months - a.red_card_months
+      || b.red_card_months_all - a.red_card_months_all
+      || a.name.localeCompare(b.name));
+
+  const runQuarter = async () => {
+    setRunning(true);
+    setMessage("");
+    setError("");
+    try {
+      const { data: result } = await api.post("/api/late-policy/quarter-red-cards/run", null, {
+        params: { financial_year: financialYear, quarter },
+      });
+      setMessage(
+        `${result.applied} Quarter Red Card${result.applied === 1 ? "" : "s"} issued — Final Warning letter generated and ` +
+        `${result.pl_forfeit_each} PL forfeited each.`,
+      );
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.detail || "Could not issue Quarter Red Cards");
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <div>
+      <p className="text-sm text-ink/70 mb-4">
+        Late-arrival cards for the corporate roster, counted per pay cycle (23rd–22nd).
+        {policy && (
+          <>
+            {" "}In force from <span className="font-nums">{policy.effective_from}</span>: on time until{" "}
+            <span className="font-nums">10:{policy.grace_minutes}</span> am, first {policy.free_late_marks} late marks
+            are a Yellow Card with no deduction, then {policy.quarter_day_deduction} day each (
+            {policy.half_day_deduction} day from <span className="font-nums">{policy.half_day_from}</span>), and{" "}
+            {policy.red_card_at}+ late marks in a cycle is a Red Card.
+          </>
+        )}
+      </p>
+
+      <div className="bg-paper rounded-sm shadow-card p-5 mb-6">
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label htmlFor="qrc_fy" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Financial year</label>
+            <select id="qrc_fy" value={financialYear} onChange={(e) => setFinancialYear(e.target.value)}
+              className="rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
+              {FY_OPTIONS.map((fy) => <option key={fy} value={fy}>{fy}</option>)}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="qrc_q" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Quarter</label>
+            <select id="qrc_q" value={quarter} onChange={(e) => setQuarter(Number(e.target.value))}
+              className="rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
+              {Object.entries(QUARTER_LABELS).map(([q, l]) => <option key={q} value={q}>{l}</option>)}
+            </select>
+          </div>
+          <button type="button" onClick={runQuarter} disabled={running || loading || pending.length === 0}
+            className="flex items-center gap-1.5 bg-rust-500 text-white px-4 py-2.5 rounded-sm text-sm font-semibold hover:opacity-90 disabled:opacity-40 transition-opacity">
+            <ShieldAlert size={14} />
+            {pending.length === 0 ? "No Quarter Red Cards to issue" : `Issue ${pending.length} Quarter Red Card${pending.length === 1 ? "" : "s"}`}
+          </button>
+        </div>
+        <p className="text-xs text-ink/60 mt-3">
+          Issuing generates each employee's Final Warning letter and posts a {data?.pl_forfeit ?? 2}-day Paid Leave
+          debit to their ledger. It runs once per employee per quarter — re-running never double-deducts.
+        </p>
+        {message && <p className="text-sm text-jade-700 mt-3">{message}</p>}
+        {error && <p className="text-sm text-rust-500 mt-3">{error}</p>}
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-ink/70">Loading late marks…</p>
+      ) : flagged.length === 0 ? (
+        <p className="bg-paper rounded-sm shadow-card px-5 py-8 text-center text-sm text-ink/70">
+          No Red Cards in {data?.quarter_label || "this quarter"}.
+        </p>
+      ) : (
+        <div className="bg-paper rounded-sm shadow-card overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs font-semibold uppercase tracking-wider text-ink/60 border-b border-ink/10">
+                <th className="px-5 py-3">Employee</th>
+                {(data?.months || []).map((m) => <th key={m} className="px-3 py-3 font-nums">{m}</th>)}
+                <th className="px-5 py-3">Quarter</th>
+              </tr>
+            </thead>
+            <tbody>
+              {flagged.map((e) => (
+                <tr key={e.employee_id} className="border-b border-ink/[0.06] last:border-0">
+                  <td className="px-5 py-3">
+                    <span className="text-ink font-medium">{e.name}</span>
+                    <div className="text-xs text-ink/70 font-nums">{e.employee_code}</div>
+                  </td>
+                  {e.months.map((m) => (
+                    <td key={m.label} className="px-3 py-3 font-nums">
+                      <span className={m.red_card ? "text-rust-500 font-semibold" : "text-ink/70"}>
+                        {m.late_mark_count}
+                      </span>
+                      {!m.in_policy && <span className="ml-1 text-[10px] text-ink/40 uppercase">pre-policy</span>}
+                      {m.in_policy && !m.complete && <span className="ml-1 text-[10px] text-ink/40 uppercase">running</span>}
+                    </td>
+                  ))}
+                  <td className="px-5 py-3">
+                    {e.quarter_red_card ? (
+                      e.action ? (
+                        <span className="text-xs font-semibold uppercase tracking-wide text-ink/60">
+                          Issued — {e.action.pl_forfeited} PL forfeited
+                        </span>
+                      ) : (
+                        <span className="text-xs font-semibold uppercase tracking-wide text-rust-500">
+                          Quarter Red Card — pending
+                        </span>
+                      )
+                    ) : (
+                      <span className="text-xs text-ink/50">
+                        {e.red_card_months} of 3 months
+                        {e.red_card_months_all > e.red_card_months
+                          && ` (${e.red_card_months_all - e.red_card_months} pre-policy)`}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Policy() {
   const [tab, setTab] = useState("holidays");
   const [holidays, setHolidays] = useState([]);
@@ -401,14 +578,15 @@ export default function Policy() {
   };
 
   return (
-    <div className="max-w-2xl">
+    <div className={tab === "latemarks" ? "max-w-5xl" : "max-w-2xl"}>
       <div className="flex items-center gap-2 mb-1">
         <CalendarDays size={20} className="text-jade-600" />
         <h2 className="font-display text-2xl text-ink">Leave Policy</h2>
       </div>
       <p className="text-sm text-ink/70 mb-6">
-        Corporate Leave &amp; Attendance Policy v1.1 — holiday calendar and Comp-Off. Applies to corporate roster
-        staff only; factory, warehouse and retail attendance is unaffected.
+        Corporate Leave &amp; Attendance Policy v1.1 plus the late-arrival revision of 22 Sept 2026 — holiday
+        calendar, Comp-Off and late-mark cards. Applies to corporate roster staff only; factory, warehouse and retail
+        attendance is unaffected.
       </p>
 
       <div className="flex gap-1 mb-6">
@@ -419,6 +597,10 @@ export default function Policy() {
         <button onClick={() => setTab("compoff")}
           className={`flex items-center gap-1.5 px-4 py-2 rounded-sm text-sm font-medium transition-colors ${tab === "compoff" ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}>
           <Clock3 size={14} /> Comp-Off
+        </button>
+        <button onClick={() => setTab("latemarks")}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-sm text-sm font-medium transition-colors ${tab === "latemarks" ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}>
+          <ShieldAlert size={14} /> Late Marks
         </button>
         <button onClick={() => setTab("birthdays")}
           className={`flex items-center gap-1.5 px-4 py-2 rounded-sm text-sm font-medium transition-colors ${tab === "birthdays" ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}>
@@ -435,6 +617,8 @@ export default function Policy() {
         />
       ) : tab === "compoff" ? (
         <CompOffGrant corporateEmployees={corporateEmployees} />
+      ) : tab === "latemarks" ? (
+        <LateMarkCards />
       ) : (
         <Birthdays />
       )}

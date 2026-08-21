@@ -20,13 +20,38 @@ from datetime import date, datetime, time, timedelta
 from config import IST
 from statutory import ZERO_ESIC, ZERO_PF, compute_esic, compute_lwf, compute_pf, compute_pt, location_to_state
 
-# Grace period: clocking in by 10:11 AM IST counts as on time. This is the
-# 10:00 AM shift's grace — the default/fallback for any unrecognized/blank
+# ── Late-coming policy generations ──────────────────────────────────────────
+# JADE HR's Sept 2026 policy change (w.e.f. 22 Sept 2026) widens the grace
+# window, gives a 3-late Yellow Card allowance and splits the deduction into
+# two tiers. Both generations live side by side because payroll for periods
+# BEFORE the effective date must keep recomputing exactly as it did when it
+# was run — a payslip already issued under v1.1 can never silently change.
+#
+# Which generation applies is decided in two places, deliberately:
+#   * per DAY   — the grace cutoff and the deduction tier (a 15 Sept arrival is
+#                 judged on v1.1's 10:11 grace, a 25 Sept one on v2's 10:20)
+#   * per CYCLE — the free-late allowance and the Yellow/Red Card thresholds,
+#                 since those are inherently monthly counters and can't be
+#                 split mid-month (gated on the pay period's END date, so the
+#                 transitional 23 Aug–22 Sept 2026 cycle already counts under
+#                 v2 — the cycle the policy takes effect in).
+LATE_POLICY_V2_EFFECTIVE = date(2026, 9, 22)
+
+
+def late_policy_v2_active(d: date) -> bool:
+    """Is the 22-Sept-2026 late-coming revision in force on day `d`?"""
+    return d >= LATE_POLICY_V2_EFFECTIVE
+
+
+# Grace period: clocking in by 10:11 AM IST (v1.1) / 10:20 AM IST (v2, w.e.f.
+# 22 Sept 2026) counts as on time. This is the 10:00 AM shift's grace — the
+# default/fallback for any unrecognized/blank
 # time_slot (see SHIFT_START_BY_TIME_SLOT / _late_grace_for below, which
 # generalize this to every other time_slot). "Flexible" does NOT use this
 # fallback — see FLEXIBLE_TIME_SLOT below, it's graded on hours, not arrival.
 LATE_GRACE = time(10, 11)
 LATE_GRACE_MINUTES = 11
+LATE_GRACE_MINUTES_V2 = 20  # w.e.f. 22 Sept 2026: "beyond 10:20 am" is late
 
 # Per-time_slot (hr_employee_profile.time_slot) shift start used to derive
 # each employee's own late-grace cutoff (start + LATE_GRACE_MINUTES) instead
@@ -49,12 +74,14 @@ SHIFT_START_BY_TIME_SLOT = {
 FLEXIBLE_TIME_SLOT = "Flexible"
 
 
-def _late_grace_for(time_slot: str | None) -> time:
-    """This employee's late-grace cutoff: their shift's start time (per
-    SHIFT_START_BY_TIME_SLOT, DEFAULT_SHIFT_START for "Flexible"/unrecognized/
-    blank) plus the standard LATE_GRACE_MINUTES-minute grace window."""
+def _late_grace_for(time_slot: str | None, day: date) -> time:
+    """This employee's late-grace cutoff on `day`: their shift's start time
+    (per SHIFT_START_BY_TIME_SLOT, DEFAULT_SHIFT_START for "Flexible"/
+    unrecognized/blank) plus that day's grace window — 11 minutes under v1.1,
+    20 minutes from 22 Sept 2026 (LATE_GRACE_MINUTES_V2)."""
     start = SHIFT_START_BY_TIME_SLOT.get(time_slot, DEFAULT_SHIFT_START)
-    return (datetime.combine(date(2000, 1, 1), start) + timedelta(minutes=LATE_GRACE_MINUTES)).time()
+    minutes = LATE_GRACE_MINUTES_V2 if late_policy_v2_active(day) else LATE_GRACE_MINUTES
+    return (datetime.combine(date(2000, 1, 1), start) + timedelta(minutes=minutes)).time()
 
 # Stay-back policy (Leave & Attendance Policy v1.1, section 4): a late FINISH
 # the prior day earns a later grace THE FOLLOWING day. Two tiers by how late
@@ -197,7 +224,7 @@ def _apply_override(d: date, override: dict, standard_hours_per_day: float, time
     hours_worked = ot_hours = 0.0
     first_in_iso = last_out_iso = None
     late = False
-    grace = _late_grace_for(time_slot)
+    grace = _late_grace_for(time_slot, d)
     is_flexible = time_slot == FLEXIBLE_TIME_SLOT
     if status == "present" and first_in and last_out:
         start = datetime.combine(d, first_in, tzinfo=IST)
@@ -221,6 +248,16 @@ def _apply_override(d: date, override: dict, standard_hours_per_day: float, time
     elif status == "half_day":
         hours_worked = day_standard / 2
 
+    # An HR-corrected punch has to be graded on the same arrival-time tier as
+    # a biometric one — this path set no tier flag at all before the Sept 2026
+    # revision, so a corrected 11:30 AM arrival would otherwise price at v2's
+    # cheaper ¼-day tier than the identical raw punch.
+    #
+    # Deliberately NOT setting after_noon here: that flag is consumed only by
+    # the v1.1 branch of apply_late_coming_policy, so populating it now would
+    # retroactively add a ½-day LOP to already-issued pre-revision payslips
+    # for anyone whose after-noon arrival was entered as a correction.
+    corrected_in = first_in if status == "present" else None
     return {
         "date": d.isoformat(),
         "first_in": first_in_iso,
@@ -229,6 +266,7 @@ def _apply_override(d: date, override: dict, standard_hours_per_day: float, time
         "ot_hours": round(ot_hours, 2),
         "status": status,
         "late": late,
+        "late_half_day_tier": bool(corrected_in and corrected_in >= LATE_HALF_DAY_CUTOFF_V2),
         "corrected": True,
     }
 
@@ -253,18 +291,18 @@ def _extended_grace_for(
     shift ran late enough to earn it (stay-back policy above). A prior shift
     that ran past midnight earns the 12:00 PM grace; one that merely finished
     past 8:30 PM earns 11:00 AM; otherwise this employee's own shift-derived
-    grace (see _late_grace_for — 10:11 AM for the standard 10 AM shift, later
-    for a later time_slot)."""
+    grace (see _late_grace_for — 10:11 AM under v1.1 / 10:20 AM from 22 Sept
+    2026 for the standard 10 AM shift, later for a later time_slot)."""
     prior = d - timedelta(days=1)
     if prior in midnight_tail_dates:
         return MIDNIGHT_GRACE
     prior_punches = by_day.get(prior, [])
     if not prior_punches:
-        return _late_grace_for(time_slot)
+        return _late_grace_for(time_slot, d)
     prior_last = prior_punches[-1].astimezone(IST).time()
     if prior_last > STAY_BACK_CUTOFF:
         return STAY_BACK_GRACE
-    return _late_grace_for(time_slot)
+    return _late_grace_for(time_slot, d)
 
 
 # Leave-type labels treated as Paid Leave for the weekly-off earning rule
@@ -320,6 +358,12 @@ def _apply_weekly_off_earning_rule(rows: list[dict]) -> None:
 
 
 NOON = time(12, 0)
+
+# v2 (w.e.f. 22 Sept 2026) deduction tiers for a CHARGEABLE late mark — i.e.
+# one beyond the 3-late Yellow Card allowance. Arriving from 11:00 AM onwards
+# costs ½ a day; anything earlier than that but past the 10:20 grace costs ¼.
+# Under v1.1 the equivalent cutoff was NOON above and the only amount was ½.
+LATE_HALF_DAY_CUTOFF_V2 = time(11, 0)
 
 
 def compute_daily_attendance(
@@ -462,6 +506,10 @@ def compute_daily_attendance(
         }
         if is_corporate:
             row["after_noon"] = first_in_local > NOON
+            # v2's ½-day tier (11:00 AM onwards) — flagged here alongside
+            # after_noon so apply_late_coming_policy never has to re-parse
+            # first_in back out of the row's ISO string.
+            row["late_half_day_tier"] = first_in_local >= LATE_HALF_DAY_CUTOFF_V2
             # Comp-off is earned ONLY by working a weekly off or a declared
             # holiday (v1.1 section 5). A past-midnight finish does NOT earn a
             # comp-off — it extends the NEXT day's grace to 12 PM instead
@@ -483,12 +531,54 @@ def compute_daily_attendance(
 
 LATE_FREE_COUNT = 2  # v1.1 §4: first 2 late arrivals in a cycle are free
 LATE_LOP_DAYS = 0.5  # ½-day LOP per chargeable late mark (v1.1 §§4,8: deductions only in ½/full-day units)
+RED_CARD_LATE_MARKS = 5  # v1.1: 5+ late marks in a cycle is a Red Card
+
+# v2, w.e.f. 22 Sept 2026 (see LATE_POLICY_V2_EFFECTIVE):
+#   * the first 3 late arrivals in the cycle are a YELLOW CARD, no deduction —
+#     unconditionally, including an arrival after noon (v1.1 charged those
+#     even inside the free allowance; the revision does not)
+#   * the 4th late mark onward is ¼ day, or ½ day from 11:00 AM onwards
+#   * "late beyond 3 times in a month" is a RED CARD, i.e. at 4 late marks
+LATE_FREE_COUNT_V2 = 3
+LATE_LOP_QUARTER_DAY_V2 = 0.25
+LATE_LOP_HALF_DAY_V2 = 0.5
+RED_CARD_LATE_MARKS_V2 = 4
+
+
+def late_policy_params(period_end: date) -> dict:
+    """The cycle-level late-policy numbers in force for a pay period ending
+    on `period_end` — see LATE_POLICY_V2_EFFECTIVE on why these are gated per
+    cycle while the grace/tier are gated per day."""
+    if late_policy_v2_active(period_end):
+        return {"free_count": LATE_FREE_COUNT_V2, "red_card_at": RED_CARD_LATE_MARKS_V2}
+    return {"free_count": LATE_FREE_COUNT, "red_card_at": RED_CARD_LATE_MARKS}
+
+
+def late_card_status(late_mark_count: int, period_end: date) -> str:
+    """The card this many late marks earns in a cycle: "red", "yellow" or
+    "none". The Yellow Card only exists from 22 Sept 2026 — a pre-revision
+    cycle is never relabelled retrospectively, it stays "none" below the Red
+    Card threshold."""
+    params = late_policy_params(period_end)
+    if late_mark_count >= params["red_card_at"]:
+        return "red"
+    if late_mark_count > 0 and late_policy_v2_active(period_end):
+        return "yellow"
+    return "none"
 
 
 def apply_late_coming_policy(
     daily: list[dict], standard_hours_per_day: float, time_slot: str | None = None
 ) -> tuple[int, bool]:
-    """Corporate-roster-only (Leave & Attendance Policy v1.1, section 4):
+    """Corporate-roster-only. Two policy generations, selected as described on
+    LATE_POLICY_V2_EFFECTIVE:
+
+    From 22 Sept 2026 (v2): the first 3 late arrivals in the cycle are a
+    Yellow Card with no deduction whatsoever; the 4th onward is ¼ day, or
+    ½ day when the arrival was at/after 11:00 AM (late_half_day_tier). 4+ late
+    marks in the cycle (i.e. "late beyond 3 times") is a Red Card.
+
+    Before that (Leave & Attendance Policy v1.1, section 4):
     the first LATE_FREE_COUNT (2) late arrivals in the cycle are free; from the
     3rd late arrival onward each is a ½-day LOP (LATE_LOP_DAYS). An arrival
     after 12:00 PM (after_noon) is a ½-day LOP regardless of the late-mark
@@ -510,16 +600,30 @@ def apply_late_coming_policy(
 
     Mutates `daily` in place (tags lop_days) and returns (late_mark_count, red_card).
     """
+    if not daily:
+        return 0, False
+    params = late_policy_params(date.fromisoformat(daily[-1]["date"]))
+    free_count = params["free_count"]
+
     late_ordinal = 0
     for r in daily:
         if r["status"] == "present" and r.get("late"):
             late_ordinal += 1
-            # After-noon (>12 PM) is a ½-day LOP regardless of count; otherwise
-            # the 3rd late mark onward in the cycle is a ½-day LOP.
-            if r.get("after_noon") or late_ordinal > LATE_FREE_COUNT:
+            v2 = late_policy_v2_active(date.fromisoformat(r["date"]))
+            if late_ordinal > free_count:
+                if v2:
+                    # ¼ day past the 10:20 grace, ½ day from 11:00 AM onwards.
+                    r["lop_days"] = (
+                        LATE_LOP_HALF_DAY_V2 if r.get("late_half_day_tier") else LATE_LOP_QUARTER_DAY_V2
+                    )
+                else:
+                    r["lop_days"] = LATE_LOP_DAYS
+            elif not v2 and r.get("after_noon"):
+                # v1.1 only: after-noon is a ½-day LOP even inside the free
+                # allowance. v2's Yellow Card carries no deduction at all.
                 r["lop_days"] = LATE_LOP_DAYS
 
-    return late_ordinal, late_ordinal >= 5
+    return late_ordinal, late_ordinal >= params["red_card_at"]
 
 
 def fy_label_for_month(year: int, month: int) -> str:
@@ -536,6 +640,35 @@ def fy_month_labels(financial_year: str) -> list[tuple[int, int]]:
     start_year = int(financial_year.split("-")[0])
     end_year = start_year + 1
     return [(start_year, m) for m in range(4, 13)] + [(end_year, m) for m in range(1, 4)]
+
+
+# Financial-year quarters (India's Apr-Mar year, same convention as
+# fy_label_for_month above) — Q1 Apr-Jun, Q2 Jul-Sep, Q3 Oct-Dec, Q4 Jan-Mar.
+FY_QUARTER_MONTHS = {1: (4, 5, 6), 2: (7, 8, 9), 3: (10, 11, 12), 4: (1, 2, 3)}
+
+# Quarter Red Card (w.e.f. 22 Sept 2026): an employee who earns a Red Card in
+# EVERY month of a financial-year quarter gets a Final Warning letter and
+# forfeits this many Paid Leave days.
+QUARTER_RED_CARD_PL_FORFEIT = 2.0
+
+
+def fy_quarter_for_month(year: int, month: int) -> tuple[str, int]:
+    """The financial year and quarter a pay-period label falls in, e.g.
+    (2026, 8) -> ('2026-27', 2)."""
+    for quarter, months in FY_QUARTER_MONTHS.items():
+        if month in months:
+            return fy_label_for_month(year, month), quarter
+    raise ValueError(f"month out of range: {month}")
+
+
+def quarter_month_labels(financial_year: str, quarter: int) -> list[tuple[int, int]]:
+    """The three pay-period (year, month) labels in an FY quarter — Q4's
+    Jan-Mar fall in the FY's SECOND calendar year."""
+    if quarter not in FY_QUARTER_MONTHS:
+        raise ValueError(f"quarter must be 1-4, got {quarter}")
+    start_year = int(financial_year.split("-")[0])
+    year = start_year if quarter <= 3 else start_year + 1
+    return [(year, m) for m in FY_QUARTER_MONTHS[quarter]]
 
 
 def applicable_fy_months(employee: dict, financial_year: str) -> list[tuple[int, int]]:
@@ -694,6 +827,7 @@ def compute_monthly_summary(
     lop_amount = per_day_salary * late_lop_days
 
     period_start, period_end = pay_period_bounds(year, month, calendar_month)
+    late_card = late_card_status(late_mark_count, period_end) if is_corporate else "none"
 
     return {
         "employee_id": employee["id"],
@@ -734,6 +868,11 @@ def compute_monthly_summary(
         "on_time_days": on_time_days,
         "late_mark_count": late_mark_count,
         "red_card": red_card,
+        # "none" | "yellow" | "red" — the Yellow Card exists only from the
+        # 22 Sept 2026 revision (late_card_status).
+        "late_card": late_card,
+        "yellow_card": late_card == "yellow",
+        "late_policy_version": 2 if late_policy_v2_active(period_end) else 1,
         "lop_days": late_lop_days,
         "lop_amount": round(lop_amount, 2),
         "without_pay_days": round(without_pay_days, 1),

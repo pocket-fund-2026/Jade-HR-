@@ -27,11 +27,14 @@ const HEADER_FONT = "FFEFE9DA"; // manila
 
 // Late arrivals are graded by severity, not just flagged — a bare "red or
 // not" (the previous version) used the exact same red as Absent, so a late
-// cell and an absent cell read identically at a glance. Cutoff must match
-// backend/payroll.py's LATE_GRACE = time(10, 11) exactly, since that's the
-// authority for whether a day is late at all (`d.late`) — this only grades
-// *how* late, purely for display.
-const LATE_GRACE_MINUTES = 10 * 60 + 11; // 10:11 AM IST
+// cell and an absent cell read identically at a glance. Cutoffs must match
+// backend/payroll.py's LATE_GRACE_MINUTES / LATE_GRACE_MINUTES_V2 and
+// LATE_POLICY_V2_EFFECTIVE exactly, since the backend is the authority for
+// whether a day is late at all (`d.late`) — this only grades *how* late,
+// purely for display.
+const LATE_POLICY_V2_EFFECTIVE = "2026-09-22"; // late-arrival policy revision
+const LATE_GRACE_MINUTES = 10 * 60 + 11; // v1.1: 10:11 AM IST
+const LATE_GRACE_MINUTES_V2 = 10 * 60 + 20; // from 22 Sept 2026: 10:20 AM IST
 const LATE_TIERS = [
   { label: "1–15m", maxMinutes: 15, fill: "FFFCEFC2", font: "FF8A6D1D" }, // mild — soft gold
   { label: "16–45m", maxMinutes: 45, fill: "FFFAD9B3", font: "FFA6531B" }, // moderate — soft orange
@@ -41,15 +44,18 @@ const LATE_TIERS = [
 function minutesLate(firstInIso) {
   if (!firstInIso) return null;
   const parts = new Intl.DateTimeFormat("en-GB", {
+    year: "numeric", month: "2-digit", day: "2-digit",
     hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "Asia/Kolkata",
   }).formatToParts(new Date(firstInIso));
-  const hour = Number(parts.find((p) => p.type === "hour").value);
-  const minute = Number(parts.find((p) => p.type === "minute").value);
-  return hour * 60 + minute - LATE_GRACE_MINUTES;
+  const part = (type) => parts.find((p) => p.type === type).value;
+  const istDate = `${part("year")}-${part("month")}-${part("day")}`;
+  const grace = istDate >= LATE_POLICY_V2_EFFECTIVE ? LATE_GRACE_MINUTES_V2 : LATE_GRACE_MINUTES;
+  return Number(part("hour")) * 60 + Number(part("minute")) - grace;
 }
 
 // `d.late` (from the API) is the authority on WHETHER a day is late, computed
-// backend-side at second precision (`first_in > time(10, 11)`). This only
+// backend-side at second precision (past 10:11, or 10:20 from 22 Sept 2026,
+// with each employee's own shift start and stay-back extensions). This only
 // picks a severity tier for display once that's already true.
 function lateTier(d) {
   if (!d.late) return null;

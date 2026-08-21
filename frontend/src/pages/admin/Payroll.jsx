@@ -127,11 +127,17 @@ export default function Payroll() {
                 <tr key={r.employee_id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
                   <td className="px-5 py-3.5">
                     <span className="text-ink font-medium">{r.name}</span>
-                    {r.red_card && (
-                      <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-rust-500 bg-rust-50 border border-rust-500/40 rounded-sm px-1.5 py-0.5">
+                    {r.red_card ? (
+                      <span title={`${r.late_mark_count} late marks this cycle`}
+                        className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-rust-500 bg-rust-50 border border-rust-500/40 rounded-sm px-1.5 py-0.5">
                         Red Card
                       </span>
-                    )}
+                    ) : r.yellow_card ? (
+                      <span title={`${r.late_mark_count} of 3 free late marks used`}
+                        className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-ink/70 bg-manila border border-ink/20 rounded-sm px-1.5 py-0.5">
+                        Yellow
+                      </span>
+                    ) : null}
                     <div className="text-xs text-ink/70 font-nums">{r.employee_code}</div>
                   </td>
                   <td className="px-5 py-3.5 font-nums text-ink/70">{r.days_in_month}</td>

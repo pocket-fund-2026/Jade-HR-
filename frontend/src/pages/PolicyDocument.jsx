@@ -52,13 +52,146 @@ const HOLIDAYS_2025 = [
   { date: "23rd Oct 2025", day: "Thursday", desc: "Diwali" },
 ];
 
+const LATE_TIER_ROWS = [
+  { arrival: "Up to 10:20 am", marking: "On time", deduction: "None" },
+  { arrival: "10:21 am – 10:59 am", marking: "Late marking", deduction: "¼ day (0.25) from the 4th late marking" },
+  { arrival: "11:00 am onwards", marking: "Late marking", deduction: "½ day (0.50) from the 4th late marking" },
+];
+
+const CARD_ROWS = [
+  {
+    card: "Yellow Card",
+    trigger: "1st, 2nd and 3rd late marking in the month",
+    consequence: "Warning only — no deduction, whatever time you arrived",
+  },
+  {
+    card: "Red Card",
+    trigger: "Late more than 3 times in the month",
+    consequence:
+      "Recorded against the month, shown on your dashboard and payslip. New Paid Leave and Comp-Off requests can't be self-submitted for the rest of that cycle (HR can still file an approved exception on your behalf).",
+  },
+  {
+    card: "Quarter Red Card",
+    trigger: "A Red Card in every month of a quarter",
+    consequence: "Final Warning letter, and 2 days of Paid Leave are forfeited from your balance.",
+  },
+];
+
+function PolicyTable({ columns, rows }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-full text-sm border-collapse">
+        <thead>
+          <tr className="bg-manila/60 text-left">
+            {columns.map((c) => (
+              <th key={c} className="border border-ink/10 px-3 py-2 font-semibold">{c}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((cells, i) => (
+            <tr key={i}>
+              {cells.map((cell, j) => (
+                <td key={j} className={`border border-ink/10 px-3 py-2 ${j === 0 ? "whitespace-nowrap" : ""}`}>
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// The late-arrival rules in force from 22 September 2026. Rendered both as its
+// own policy tab and inline inside the 2026/2025 documents' own late-coming
+// sections, so the rules appear where you'd look for them without the text
+// being duplicated in three places and left to drift apart.
+function LateArrivalRules() {
+  return (
+    <>
+      <p>
+        Grace time is <strong>20 minutes</strong>: you are on time until <strong>10:20 am</strong>, or 20 minutes past
+        your rostered shift start if your shift begins later than 10:00 am. Arriving after that is recorded as a late
+        marking.
+      </p>
+      <PolicyTable
+        columns={["Arrival", "Recorded as", "Deduction"]}
+        rows={LATE_TIER_ROWS.map((r) => [
+          <span className="font-nums">{r.arrival}</span>, r.marking, r.deduction,
+        ])}
+      />
+      <p>
+        The <strong>first 3 late markings in a month carry no deduction at all</strong> — they are issued as a Yellow
+        Card. Deductions begin at the 4th late marking, at the rate shown above for the time you arrived that day.
+      </p>
+      <p className="font-medium text-ink">Yellow Card, Red Card &amp; Quarter Red Card</p>
+      <PolicyTable
+        columns={["Card", "When it's issued", "What it means"]}
+        rows={CARD_ROWS.map((r) => [<strong>{r.card}</strong>, r.trigger, r.consequence])}
+      />
+      <p>
+        Quarters follow the financial year — April–June, July–September, October–December and January–March. A Quarter
+        Red Card needs a Red Card in <em>all three</em> months of the quarter; the Final Warning letter and the 2-day
+        Paid Leave forfeiture are issued once the quarter closes.
+      </p>
+    </>
+  );
+}
+
+function LateArrivalInForceNote() {
+  return (
+    <p className="bg-manila/60 border-l-2 border-jade-600 px-4 py-3">
+      <strong>In force from 22 September 2026.</strong> These late-arrival rules apply to all employees and replace the
+      earlier grace window, deduction tiers and late-mark thresholds. The rest of this section still stands.
+    </p>
+  );
+}
+
+const LATE_COUNTING_ITEMS = [
+  "Late markings are counted per pay cycle — the 23rd of one month to the 22nd of the next — the same period your payslip covers, so your card status always matches the payslip you're looking at.",
+  "Late-arrival deductions are Loss of Pay. They are never adjusted against your Paid Leave balance (the only exception is the 2-day forfeiture that comes with a Quarter Red Card).",
+  "Clock-in time comes from the biometric punch. If a punch is wrong or missing, raise an attendance dispute in the console rather than letting it stand — corrected timings are graded exactly like a real punch, on the time actually recorded.",
+  "Your current cycle's late markings and card status are on your dashboard, so nothing here should ever come as a surprise at payslip time.",
+];
+
+function LatePolicySept2026() {
+  return (
+    <div className="space-y-6">
+      <Section title="Late arrival — with effect from 22 September 2026">
+        <p className="bg-manila/60 border-l-2 border-jade-600 px-4 py-3">
+          This is the late-arrival policy currently in force, for <strong>all employees</strong>. It replaces the
+          late-coming/grace rules in the 2026 and 2025 policies on the other tabs — where it also appears inline —
+          and everything else in those documents (leave, comp-off, holidays, notice period, and so on) still stands
+          unchanged.
+        </p>
+        <LateArrivalRules />
+      </Section>
+
+      <Section title="How this is counted">
+        <Bullets
+          items={[
+            ...LATE_COUNTING_ITEMS,
+            "Stay-back grace still applies: if you finished past 8:30 pm the previous day you may report by 11:00 am, and if you worked past midnight, by 12:00 pm — with your HOD's approval on record.",
+          ]}
+        />
+        <p className="text-ink/60">
+          Effective 22 September 2026. Anything unclear should be taken to the HR department — HR's interpretation is
+          final, and policies are subject to change at management's discretion.
+        </p>
+      </Section>
+    </div>
+  );
+}
+
 function Policy2026() {
   return (
     <div className="space-y-6">
       <Section title="Retail store timings">
         <p>
-          All employees have a buffer of coming late by 10 minutes (basis their shift time) for up to three times a
-          month — see Early Going &amp; Late Coming below. Retail teams work Monday–Saturday/Sunday with one weekly
+          All employees have a grace buffer of 20 minutes from their shift time (until 10:20am on a 10:00am shift);
+          the first 3 late markings in a month carry no deduction — see Early going &amp; late coming below. Retail teams work Monday–Saturday/Sunday with one weekly
           off (6-day work week), on a roster set by the department HOD. One team member must be present at opening to
           ready the front store and stay responsible for it during that window.
         </p>
@@ -87,15 +220,12 @@ function Policy2026() {
       </Section>
 
       <Section title="Early going &amp; late coming">
-        <p>
-          Grace time is 10 minutes per shift (e.g. until 10:10am, or 10 minutes past the rostered shift time), after
-          which you are marked late. No deduction for the first 3 late markings in a month.
-        </p>
+        <LateArrivalInForceNote />
+        <LateArrivalRules />
         <Bullets
           items={[
-            "4th late mark onward: pay cut applies.",
-            "Reaching 11–29 minutes late (up to 10:30am or half an hour past rostered time): ¼-day deduction each time.",
-            "Reaching 30+ minutes late: ½-day deduction each time, and it affects performance appraisals.",
+            ...LATE_COUNTING_ITEMS,
+            "Repeated late arrival is taken into account in performance appraisals.",
             "Early leaving and personal exigencies must be pre-approved by the reporting manager / department head.",
           ]}
         />
@@ -277,7 +407,7 @@ function Policy2025() {
       <Section title="Timings by department">
         <Bullets
           items={[
-            "Retail stores: 10:00am – 8:00pm, buffer 10:00–10:10am up to 3 times a month. Monday–Saturday/Sunday, 1 weekly off on a roster set by the department HOD.",
+            "Retail stores: 10:00am – 8:00pm, buffer 10:00–10:20am (from 22 Sept 2026), first 3 late markings free. Monday–Saturday/Sunday, 1 weekly off on a roster set by the department HOD.",
             "Corporate office: 10:00am – 6:30pm, same 10-minute buffer. Monday–Saturday with all Saturdays as half-days. Work exigencies expect attendance, with a planned comp-off on another day, HOD and team informed.",
             "Factory & Inventory (raw material and finished goods): 10:00am – 7:00pm, Monday–Saturday, same buffer. 1 weekly off on Sunday unless called in by the HOD.",
             "OT-eligible departments (RM store, FG store, CAD, DEO): 10:00am – 7:00pm, Monday–Saturday. Non-OT departments: 10:00am – 6:30pm Monday–Friday, 10:00am – 3:00pm on Saturday.",
@@ -298,24 +428,12 @@ function Policy2025() {
           OT is only for exceptional circumstances on HOD instruction, with prior email approval from the HOD for
           staying back.
         </p>
-        <p>
-          Employees with a fully disciplined attendance record — on time every working day, no ad-hoc/unplanned leave
-          — are eligible for a ₹1,000 Amazon voucher as appreciation.
-        </p>
       </Section>
 
       <Section title="Late-coming policy">
-        <p>
-          Grace time is 10 minutes, until 10:10am, after which you're marked late. No deduction for the first 3 late
-          markings in a month.
-        </p>
-        <Bullets
-          items={[
-            "4th late marking onward: ¼-day pay deducted if arriving by 10:30am; ½-day if arriving by 10:45am.",
-            "6th late marking onward in the same month: ½-day deducted each time.",
-            "All late-coming deductions are treated as leave without pay — never adjusted against the paid leave balance.",
-          ]}
-        />
+        <LateArrivalInForceNote />
+        <LateArrivalRules />
+        <Bullets items={LATE_COUNTING_ITEMS} />
         <p className="font-medium text-ink">Staying back late (not applicable to OT-eligible depts/designations)</p>
         <Bullets
           items={[
@@ -470,21 +588,29 @@ function Policy2025() {
   );
 }
 
-const TABS = [
+// Exported so the login-time acknowledgement gate
+// (pages/PolicyAcknowledgement.jsx) shows exactly the same documents people
+// are signing off on, and so the keys it records match the tabs one-for-one.
+// Keys must stay in step with POLICY_DOCUMENTS in backend/routers/policy_ack.py.
+export const POLICY_TABS = [
+  { key: "late-2026-09", label: "Late Arrival (from 22 Sept 2026)", render: LatePolicySept2026 },
   { key: "2026", label: "2026 Revision (Retail)", render: Policy2026 },
   { key: "2025", label: "2025 (Retail, Corporate & Factory)", render: Policy2025 },
 ];
 
+const TABS = POLICY_TABS;
+
 export default function PolicyDocument() {
-  const [tab, setTab] = useState("2026");
-  const Active = TABS.find((t) => t.key === tab)?.render ?? Policy2026;
+  const [tab, setTab] = useState("late-2026-09");
+  const Active = TABS.find((t) => t.key === tab)?.render ?? LatePolicySept2026;
   return (
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-2xl text-ink">Working Hours, Attendance &amp; Leave Policy</h1>
         <p className="text-sm text-ink/60 mt-1">
-          Two versions are on file — pick the one that applies to your department. Where they disagree, HR's
-          interpretation of which one governs is final.
+          The late-arrival rules effective 22 September 2026 apply to everyone, and appear on the first tab as well as
+          inline in the late-coming section of each document below. For everything else, pick the version that applies
+          to your department — where they disagree, HR's interpretation of which one governs is final.
         </p>
         <div className="flex gap-2 mt-4">
           {TABS.map((t) => (

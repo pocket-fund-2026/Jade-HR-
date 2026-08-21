@@ -116,8 +116,17 @@ export default function Dashboard() {
         <div className="print-area">
           {summary.red_card && (
             <div className="bg-rust-50 border border-rust-500/40 rounded-sm px-4 py-3 mb-6 text-sm text-rust-500 no-print">
-              <strong>Red Card this cycle</strong> — {summary.late_mark_count} late marks recorded (23rd–22nd cycle). Leave
-              taken during a Red Card cycle is treated as Loss of Pay unless corrected by HR.
+              <strong>Red Card this cycle</strong> — {summary.late_mark_count} late marks recorded (23rd–22nd cycle).
+              {summary.late_policy_version === 2
+                ? " New Paid Leave and Comp-Off requests can't be self-submitted for the rest of this cycle. A Red Card in every month of the quarter is a Quarter Red Card: Final Warning letter and 2 Paid Leave days forfeited."
+                : " Leave taken during a Red Card cycle is treated as Loss of Pay unless corrected by HR."}
+            </div>
+          )}
+          {summary.yellow_card && (
+            <div className="bg-manila border border-ink/15 rounded-sm px-4 py-3 mb-6 text-sm text-ink no-print">
+              <strong>Yellow Card this cycle</strong> — {summary.late_mark_count} of 3 free late marks used (23rd–22nd
+              cycle), no deduction. From the 4th late mark each one costs ¼ day, or ½ day if you arrive at 11:00 am or
+              later. More than 3 is a Red Card.
             </div>
           )}
           <div className="mb-6">
