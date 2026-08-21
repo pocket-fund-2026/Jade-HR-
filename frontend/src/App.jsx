@@ -46,6 +46,8 @@ const Payroll = lazyWithReload(() => import("./pages/admin/Payroll.jsx"));
 const PayrollDetail = lazyWithReload(() => import("./pages/admin/PayrollDetail.jsx"));
 const Policy = lazyWithReload(() => import("./pages/admin/Policy.jsx"));
 const PolicyDocument = lazyWithReload(() => import("./pages/PolicyDocument.jsx"));
+const PolicyAcknowledgement = lazyWithReload(() => import("./pages/PolicyAcknowledgement.jsx"));
+const PolicyAcknowledgements = lazyWithReload(() => import("./pages/admin/PolicyAcknowledgements.jsx"));
 const Reports = lazyWithReload(() => import("./pages/admin/Reports.jsx"));
 const SalarySheetReport = lazyWithReload(() => import("./pages/admin/reports/SalarySheetReport.jsx"));
 const YearlySalaryReport = lazyWithReload(() => import("./pages/admin/reports/YearlySalaryReport.jsx"));
@@ -86,12 +88,20 @@ function PageFallback() {
 }
 
 function Protected({ roles, children }) {
-  const { user, loading } = useAuth();
+  const { user, loading, policyAck } = useAuth();
   if (loading) return <PageFallback />;
   if (!user) return <Navigate to="/login" replace />;
   if (roles && !roles.includes(user.role)) {
     return <Navigate to={CONSOLE_ROLES.includes(user.role) ? "/admin" : "/employee"} replace />;
   }
+  // Policy read & acknowledge gate: until it's signed off for the current
+  // policy version, every protected route renders the acknowledgement screen
+  // instead of its own content. Rendered in place rather than redirected to,
+  // so the URL the user was heading for survives and they land on it the
+  // moment they accept. `policyAck === null` means the status hasn't arrived
+  // yet — don't decide either way on it.
+  if (policyAck && !policyAck.acknowledged) return <PolicyAcknowledgement />;
+  if (!policyAck) return <PageFallback />;
   return children;
 }
 
@@ -163,6 +173,7 @@ export default function App() {
             <Route path="letters" element={<RequirePermission anyOf={["letters.generate", "letters.manage"]}><Letters /></RequirePermission>} />
             <Route path="policy" element={<RequirePermission anyOf={["employees.manage", "policy.manage"]}><Policy /></RequirePermission>} />
             <Route path="policy-document" element={<PolicyDocument />} />
+            <Route path="policy-acknowledgements" element={<RequirePermission anyOf={["employees.view"]}><PolicyAcknowledgements /></RequirePermission>} />
             <Route path="team-access" element={<RequirePermission anyOf={["permissions.manage"]}><TeamAccess /></RequirePermission>} />
             <Route path="onboarding" element={<RequirePermission anyOf={["onboarding.manage"]}><OnboardingReview /></RequirePermission>} />
           </Route>

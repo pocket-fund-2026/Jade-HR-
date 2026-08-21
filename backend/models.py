@@ -553,3 +553,10 @@ class AbsenceRequestCreate(BaseModel):
 class AbsenceResolve(BaseModel):
     action: str  # approve | reject
     admin_note: str = ""
+
+
+class PolicyAcknowledgementCreate(BaseModel):
+    # Keys of the policy documents the user opened and read to the end — the
+    # console requires all of them before it lets the acknowledgement through
+    # (see routers/policy_ack.py POLICY_DOCUMENTS).
+    documents_read: list[str] = []

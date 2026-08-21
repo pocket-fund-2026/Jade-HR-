@@ -15,6 +15,23 @@ export function AuthProvider({ children }) {
   // still-empty `permissions` object as denied and bounces to /admin before
   // the fetch below resolves, even for a permission the caller actually has.
   const [permissionsLoading, setPermissionsLoading] = useState(true);
+  // Policy read & acknowledge gate. null = not determined yet, which must be
+  // treated as "don't decide" — deciding early would either flash the console
+  // to someone who hasn't signed off or bounce someone who has.
+  const [policyAck, setPolicyAck] = useState(null);
+
+  const loadPolicyAck = async () => {
+    try {
+      const { data } = await api.get("/api/policy/acknowledgement/me");
+      setPolicyAck(data);
+      return data;
+    } catch {
+      // Never hard-block the console on a failed status read — an outage on
+      // this one endpoint shouldn't lock the whole company out of payroll.
+      setPolicyAck({ acknowledged: true, unavailable: true });
+      return null;
+    }
+  };
 
   const loadPermissions = async () => {
     setPermissionsLoading(true);
@@ -40,6 +57,7 @@ export function AuthProvider({ children }) {
       // pop in. Saves a full extra network round-trip before anything paints.
       if (CONSOLE_ROLES.includes(data.role)) loadPermissions();
       else setPermissionsLoading(false);
+      loadPolicyAck();
     } catch {
       setPermissionsLoading(false);
     } finally {
@@ -66,6 +84,7 @@ export function AuthProvider({ children }) {
     setUser(null);
     setPermissions({});
     setPermissionsLoading(true);
+    setPolicyAck(null);
   };
 
   // accounts always has full access; hr is gated per-key by what accounts has granted.
@@ -77,7 +96,10 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, permissionsLoading, login, logout, permissions, can, reloadPermissions: loadPermissions }}>
+    <AuthContext.Provider value={{
+      user, loading, permissionsLoading, login, logout, permissions, can,
+      reloadPermissions: loadPermissions, policyAck, reloadPolicyAck: loadPolicyAck,
+    }}>
       {children}
     </AuthContext.Provider>
   );
