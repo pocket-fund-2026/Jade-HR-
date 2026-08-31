@@ -126,6 +126,16 @@ function PayslipLedgerTable({ earningsRows, deductionsRows, pl, netSalary }) {
 const cellCls = "border border-ink/50 px-2.5 py-1.5 whitespace-nowrap";
 const labelCls = `${cellCls} font-semibold bg-manila/60`;
 
+// The Earnings/Deductions/Description ledger table can run to 10 columns
+// (with a PL ledger) — at that width, cellCls's whitespace-nowrap on every
+// cell pushed the table's natural content width past the 186mm print page,
+// clipping the rightmost column(s) off the printed/PDF'd page. table-fixed
+// + explicit per-column widths keeps it within the page regardless of
+// content; dropping whitespace-nowrap here lets a cell wrap instead of
+// bleeding off the edge in the rare case content doesn't fit its column.
+const ledgerCellCls = "border border-ink/50 px-1.5 py-1.5 text-[11px] break-words";
+const ledgerLabelCls = `${ledgerCellCls} font-semibold bg-manila/60`;
+
 // Exact replica of the company's official (pre-existing, Zoho-derived)
 // payslip form — the only thing that should render when a payslip is
 // printed/saved as PDF. Kept as one self-contained block (hidden on screen,
@@ -239,21 +249,37 @@ function PayslipPrintFormat({ summary }) {
         </tbody>
       </table>
 
-      <table className="w-full border-collapse">
+      <table className="w-full border-collapse table-fixed">
+        <colgroup>
+          <col style={{ width: pl ? "13%" : "22%" }} />
+          <col style={{ width: pl ? "11%" : "20%" }} />
+          <col style={{ width: pl ? "11%" : "20%" }} />
+          <col style={{ width: pl ? "13%" : "22%" }} />
+          <col style={{ width: pl ? "11%" : "16%" }} />
+          {pl && (
+            <>
+              <col style={{ width: "9%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "8%" }} />
+            </>
+          )}
+        </colgroup>
         <thead>
           <tr>
-            <th className={labelCls}>Earnings</th>
-            <th className={labelCls}>Monthly</th>
-            <th className={labelCls}>Amount</th>
-            <th className={labelCls}>Deductions</th>
-            <th className={labelCls}>Amount</th>
+            <th className={ledgerLabelCls}>Earnings</th>
+            <th className={ledgerLabelCls}>Monthly</th>
+            <th className={ledgerLabelCls}>Amount</th>
+            <th className={ledgerLabelCls}>Deductions</th>
+            <th className={ledgerLabelCls}>Amount</th>
             {pl && (
               <>
-                <th className={labelCls}>Description</th>
-                <th className={labelCls}>Opg</th>
-                <th className={labelCls}>Dr</th>
-                <th className={labelCls}>Cr</th>
-                <th className={labelCls}>Clg</th>
+                <th className={ledgerLabelCls}>Description</th>
+                <th className={ledgerLabelCls}>Opg</th>
+                <th className={ledgerLabelCls}>Dr</th>
+                <th className={ledgerLabelCls}>Cr</th>
+                <th className={ledgerLabelCls}>Clg</th>
               </>
             )}
           </tr>
@@ -264,31 +290,31 @@ function PayslipPrintFormat({ summary }) {
             const d = deductionsRows[i];
             return (
               <tr key={i}>
-                <td className={cellCls}>{e?.label || ""}</td>
-                <td className={`${cellCls} text-right font-nums`}>{e?.rate ? formatPlainAmount(e.rate) : ""}</td>
-                <td className={`${cellCls} text-right font-nums`}>{e ? formatPlainAmount(e.value) : ""}</td>
-                <td className={cellCls}>{d?.label || ""}</td>
-                <td className={`${cellCls} text-right font-nums`}>{d ? formatPlainAmount(d.value) : ""}</td>
+                <td className={ledgerCellCls}>{e?.label || ""}</td>
+                <td className={`${ledgerCellCls} text-right font-nums`}>{e?.rate ? formatPlainAmount(e.rate) : ""}</td>
+                <td className={`${ledgerCellCls} text-right font-nums`}>{e ? formatPlainAmount(e.value) : ""}</td>
+                <td className={ledgerCellCls}>{d?.label || ""}</td>
+                <td className={`${ledgerCellCls} text-right font-nums`}>{d ? formatPlainAmount(d.value) : ""}</td>
                 {pl && i === 0 && (
                   <>
-                    <td className={cellCls}>PL</td>
-                    <td className={`${cellCls} text-right font-nums`}>{formatPlainAmount(pl.opening)}</td>
-                    <td className={`${cellCls} text-right font-nums`}>{formatPlainAmount(pl.debit)}</td>
-                    <td className={`${cellCls} text-right font-nums`}>{formatPlainAmount(pl.credit)}</td>
-                    <td className={`${cellCls} text-right font-nums`}>{formatPlainAmount(pl.closing)}</td>
+                    <td className={ledgerCellCls}>PL</td>
+                    <td className={`${ledgerCellCls} text-right font-nums`}>{formatPlainAmount(pl.opening)}</td>
+                    <td className={`${ledgerCellCls} text-right font-nums`}>{formatPlainAmount(pl.debit)}</td>
+                    <td className={`${ledgerCellCls} text-right font-nums`}>{formatPlainAmount(pl.credit)}</td>
+                    <td className={`${ledgerCellCls} text-right font-nums`}>{formatPlainAmount(pl.closing)}</td>
                   </>
                 )}
-                {pl && i !== 0 && <td className={cellCls} colSpan={4}></td>}
+                {pl && i !== 0 && <td className={ledgerCellCls} colSpan={4}></td>}
               </tr>
             );
           })}
           <tr className="font-semibold bg-manila/60">
-            <td className={cellCls}>Total :</td>
-            <td className={`${cellCls} text-right font-nums`}>{formatPlainAmount(totalMonthly)}</td>
-            <td className={`${cellCls} text-right font-nums`}>{formatPlainAmount(totalEarned)}</td>
-            <td className={cellCls}>Total :</td>
-            <td className={`${cellCls} text-right font-nums`}>{formatPlainAmount(totalDeductions)}</td>
-            <td className={`${cellCls} text-jade-700`} colSpan={pl ? 4 : 1}>
+            <td className={ledgerCellCls}>Total :</td>
+            <td className={`${ledgerCellCls} text-right font-nums`}>{formatPlainAmount(totalMonthly)}</td>
+            <td className={`${ledgerCellCls} text-right font-nums`}>{formatPlainAmount(totalEarned)}</td>
+            <td className={ledgerCellCls}>Total :</td>
+            <td className={`${ledgerCellCls} text-right font-nums`}>{formatPlainAmount(totalDeductions)}</td>
+            <td className={`${ledgerCellCls} text-jade-700`} colSpan={pl ? 4 : 1}>
               Net Salary : {formatPlainAmount(summary.total_payable)}
             </td>
           </tr>
