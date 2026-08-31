@@ -550,6 +550,7 @@ function StoreTimings() {
   const [slotStart, setSlotStart] = useState("10:00");
   const [slotError, setSlotError] = useState("");
   const [storeName, setStoreName] = useState("");
+  const [storeState, setStoreState] = useState("");
   const [storeOpening, setStoreOpening] = useState("");
   const [storeTrading, setStoreTrading] = useState("");
   const [storeClosing, setStoreClosing] = useState("");
@@ -588,10 +589,10 @@ function StoreTimings() {
     setStoreError("");
     try {
       await api.post("/api/store-timings", {
-        store: storeName, opening: storeOpening, trading: storeTrading, closing: storeClosing,
+        store: storeName, state: storeState, opening: storeOpening, trading: storeTrading, closing: storeClosing,
         default_time_slot: storeDefaultSlot || null, sort_order: stores.length + 1,
       });
-      setStoreName(""); setStoreOpening(""); setStoreTrading(""); setStoreClosing(""); setStoreDefaultSlot("");
+      setStoreName(""); setStoreState(""); setStoreOpening(""); setStoreTrading(""); setStoreClosing(""); setStoreDefaultSlot("");
       load();
     } catch (err) {
       setStoreError(err.response?.data?.detail || "Could not add — try again");
@@ -658,6 +659,12 @@ function StoreTimings() {
             className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
         </div>
         <div>
+          <label htmlFor="store_state" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">State</label>
+          <input id="store_state" type="text" value={storeState} onChange={(e) => setStoreState(e.target.value)}
+            placeholder="e.g. Maharashtra"
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+        </div>
+        <div>
           <label htmlFor="store_default_slot" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Default time slot</label>
           <select id="store_default_slot" value={storeDefaultSlot} onChange={(e) => setStoreDefaultSlot(e.target.value)}
             className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
@@ -690,26 +697,33 @@ function StoreTimings() {
           </button>
         </div>
       </form>
-      <div className="bg-paper rounded-sm shadow-card divide-y divide-ink/[0.06]">
-        {stores.length === 0 ? (
+      {stores.length === 0 ? (
+        <div className="bg-paper rounded-sm shadow-card">
           <p className="px-5 py-8 text-ink/70 text-center text-sm">No store timings on file.</p>
-        ) : (
-          stores.map((s) => (
-            <div key={s.id} className="flex items-center justify-between gap-4 px-5 py-3">
-              <div>
-                <p className="text-sm text-ink font-medium">{s.store}</p>
-                <p className="text-xs text-ink/70 mt-0.5">
-                  {s.opening && `Opens ${s.opening}`}{s.trading && ` · Trading ${s.trading}`}{s.closing && ` · Closes ${s.closing}`}
-                  {s.default_time_slot && ` · Default slot: ${s.default_time_slot}`}
-                </p>
-              </div>
-              <button type="button" onClick={() => removeStore(s.id)} aria-label="Remove store" className="text-ink/70 hover:text-rust-500 p-1">
-                <X size={16} />
-              </button>
+        </div>
+      ) : (
+        [...new Map(stores.map((s) => [s.state || "Other", null])).keys()].sort().map((state) => (
+          <div key={state} className="mb-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-ink/60 mb-1.5">{state}</p>
+            <div className="bg-paper rounded-sm shadow-card divide-y divide-ink/[0.06]">
+              {stores.filter((s) => (s.state || "Other") === state).map((s) => (
+                <div key={s.id} className="flex items-center justify-between gap-4 px-5 py-3">
+                  <div>
+                    <p className="text-sm text-ink font-medium">{s.store}</p>
+                    <p className="text-xs text-ink/70 mt-0.5">
+                      {s.opening && `Opens ${s.opening}`}{s.trading && ` · Trading ${s.trading}`}{s.closing && ` · Closes ${s.closing}`}
+                      {s.default_time_slot && ` · Default slot: ${s.default_time_slot}`}
+                    </p>
+                  </div>
+                  <button type="button" onClick={() => removeStore(s.id)} aria-label="Remove store" className="text-ink/70 hover:text-rust-500 p-1">
+                    <X size={16} />
+                  </button>
+                </div>
+              ))}
             </div>
-          ))
-        )}
-      </div>
+          </div>
+        ))
+      )}
     </div>
   );
 }

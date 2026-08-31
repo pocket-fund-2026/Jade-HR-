@@ -18,6 +18,7 @@ class TimeSlotCreate(BaseModel):
 
 class StoreTimingCreate(BaseModel):
     store: str
+    state: str = ""
     opening: str = ""
     trading: str = ""
     closing: str = ""

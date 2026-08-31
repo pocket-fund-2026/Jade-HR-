@@ -55,33 +55,51 @@ function LeaveLink() {
   );
 }
 
+// Grouped location-wise (each store its own row), then state-wise (stores
+// under the same state grouped together) per the retail policy rollout doc,
+// rather than one flat list.
+function groupStoresByState(stores) {
+  const groups = new Map();
+  for (const row of stores) {
+    const state = row.state || "Other";
+    if (!groups.has(state)) groups.set(state, []);
+    groups.get(state).push(row);
+  }
+  return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
+}
+
 function StoreTimingsTable() {
   const stores = useStoreTimings();
   if (stores.length === 0) {
     return <p className="text-sm text-ink/70">No store timings on file yet — set them in the Leave Policy console.</p>;
   }
   return (
-    <div className="overflow-x-auto -mx-1">
-      <table className="min-w-full text-sm border-collapse">
-        <thead>
-          <tr className="text-left text-xs font-semibold uppercase tracking-wider text-ink/70 border-b border-ink/10">
-            <th className="py-2 px-1">Store</th>
-            <th className="py-2 px-1">Opening</th>
-            <th className="py-2 px-1">Trading time</th>
-            <th className="py-2 px-1">Closing</th>
-          </tr>
-        </thead>
-        <tbody className="font-nums">
-          {stores.map((row) => (
-            <tr key={row.id} className="border-b border-ink/5">
-              <td className="py-2 px-1 font-medium text-ink">{row.store}</td>
-              <td className="py-2 px-1">{row.opening}</td>
-              <td className="py-2 px-1">{row.trading}</td>
-              <td className="py-2 px-1">{row.closing}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="overflow-x-auto -mx-1 space-y-4">
+      {groupStoresByState(stores).map(([state, rows]) => (
+        <div key={state}>
+          <p className="text-xs font-semibold uppercase tracking-wider text-ink/60 mb-1">{state}</p>
+          <table className="min-w-full text-sm border-collapse">
+            <thead>
+              <tr className="text-left text-xs font-semibold uppercase tracking-wider text-ink/70 border-b border-ink/10">
+                <th className="py-2 px-1">Store</th>
+                <th className="py-2 px-1">Opening</th>
+                <th className="py-2 px-1">Trading time</th>
+                <th className="py-2 px-1">Closing</th>
+              </tr>
+            </thead>
+            <tbody className="font-nums">
+              {rows.map((row) => (
+                <tr key={row.id} className="border-b border-ink/5">
+                  <td className="py-2 px-1 font-medium text-ink">{row.store}</td>
+                  <td className="py-2 px-1">{row.opening}</td>
+                  <td className="py-2 px-1">{row.trading}</td>
+                  <td className="py-2 px-1">{row.closing}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
     </div>
   );
 }
@@ -270,38 +288,49 @@ function LateArrivalPolicyV3() {
   );
 }
 
-function Policy2026() {
+// Policy2026's own two sections below are retail-operational specifics
+// (store timings, retail late-coming) inside an otherwise shared document
+// (leave/loan/reimbursement/holidays/women's-safety apply to everyone) — so
+// rather than hiding this whole tab from corporate employees (which would
+// also take away their 2026 holiday calendar and the women's-safety
+// clause), only these two sections are gated by viewer category. Console
+// users (accounts/hr) always see both, same as every other section here.
+function Policy2026({ showRetailSections = true }) {
   return (
     <div className="space-y-6">
-      <Section title="Retail store timings">
-        <p>
-          On-time cutoff is your own store/time slot's shift start (set per store below, by Nimit/HR in the console).
-          Retail teams work Monday–Saturday/Sunday with one weekly off (6-day work week), on a roster set by the
-          department HOD. One team member must be present at opening to ready the front store and stay responsible
-          for it during that window.
-        </p>
-        <StoreTimingsTable />
-      </Section>
+      {showRetailSections && (
+        <Section title="Retail store timings">
+          <p>
+            On-time cutoff is your own store/time slot's shift start (set per store below, by Nimit/HR in the console).
+            Retail teams work Monday–Saturday/Sunday with one weekly off (6-day work week), on a roster set by the
+            department HOD. One team member must be present at opening to ready the front store and stay responsible
+            for it during that window.
+          </p>
+          <StoreTimingsTable />
+        </Section>
+      )}
 
-      <Section title="Early going &amp; late coming">
-        <p className="bg-manila/60 border-l-2 border-jade-600 px-4 py-3">
-          The Yellow Card / Red Card / Attendance Improvement Plan system (the "Attendance &amp; WFH Policy" tab)
-          applies to the corporate roster only — it is not in force for retail. Lateness here is managed by your
-          store's roster and your HOD, against your own shift's start time.
-        </p>
-        <Bullets
-          items={[
-            "Clock-in time comes from the biometric punch, verified against CCTV timestamps where a punch is missing. If a punch is wrong or missing, raise an attendance dispute in the console rather than letting it stand.",
-            "Repeated late arrival is taken into account in performance appraisals.",
-            "Early leaving and personal exigencies must be pre-approved by the reporting manager / department head.",
-          ]}
-        />
-        <p>
-          If called in on a holiday/Sunday for a work exigency (launches, events, trainings, shows, audits, deadlines,
-          or similar), you're entitled to a compensatory off within the next 120 days, or as otherwise accepted by the
-          HOD — approval must come via email from the HOD.
-        </p>
-      </Section>
+      {showRetailSections && (
+        <Section title="Early going &amp; late coming">
+          <p className="bg-manila/60 border-l-2 border-jade-600 px-4 py-3">
+            The Yellow Card / Red Card / Attendance Improvement Plan system (the "Attendance &amp; WFH Policy" tab)
+            applies to the corporate roster only — it is not in force for retail. Lateness here is managed by your
+            store's roster and your HOD, against your own shift's start time.
+          </p>
+          <Bullets
+            items={[
+              "Clock-in time comes from the biometric punch, verified against CCTV timestamps where a punch is missing. If a punch is wrong or missing, raise an attendance dispute in the console rather than letting it stand.",
+              "Repeated late arrival is taken into account in performance appraisals.",
+              "Early leaving and personal exigencies must be pre-approved by the reporting manager / department head.",
+            ]}
+          />
+          <p>
+            If called in on a holiday/Sunday for a work exigency (launches, events, trainings, shows, audits, deadlines,
+            or similar), you're entitled to a compensatory off within the next 120 days, or as otherwise accepted by the
+            HOD — approval must come via email from the HOD.
+          </p>
+        </Section>
+      )}
 
       <Section title="Leave entitlement">
         <p>
@@ -605,6 +634,10 @@ export default function PolicyDocument({ scope = "console" }) {
   const employeeCategory = user?.employee_category;
   const TABS = visibleTabsFor(scope, employeeCategory);
   const isRetail = TABS.length !== POLICY_TABS.length;
+  // Console/admin viewers and retail employees see the retail-operational
+  // sections inside the "2026" tab; a corporate employee viewing their own
+  // policy does not (see the comment on Policy2026 above).
+  const showRetailSections = !(scope === "employee" && employeeCategory === "corporate");
   const [tab, setTab] = useState("late-v3-2026-08");
 
   useEffect(() => {
@@ -639,7 +672,7 @@ export default function PolicyDocument({ scope = "console" }) {
           ))}
         </div>
       </div>
-      <Active />
+      <Active showRetailSections={showRetailSections} />
     </div>
   );
 }

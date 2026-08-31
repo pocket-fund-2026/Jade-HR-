@@ -93,12 +93,19 @@ def acknowledgement_register(
     policy_version: str = Query(default=POLICY_VERSION),
     status: str = Query(default="all", description="all | acknowledged | pending"),
     include_inactive: bool = Query(default=False),
-    user: dict = Depends(require_permission("employees.view")),
+    user: dict = Depends(require_permission("policy.acknowledgements.view")),
 ):
-    """Who has and hasn't signed off, for HR/Accounts. Every employee on the
-    roster is listed — the point of the register is the people MISSING an
-    acknowledgement, so it can't be driven off the acknowledgements table
-    alone."""
+    """Who has and hasn't signed off, for Accounts and the genuine HR team
+    only — deliberately narrower than 'employees.view', which any hr-role
+    account (including a team lead who only needs the directory) gets by
+    default. There's no schema-level "team lead" vs "HR team" distinction in
+    this system (both are just 'hr'-role accounts), so this uses a dedicated
+    permission key that defaults OFF for 'hr' (sql/042) — Accounts grants it
+    per-person, via the same override mechanism used for every other
+    permission, only to accounts that are actually HR team members. Every
+    employee on the roster is listed — the point of the register is the
+    people MISSING an acknowledgement, so it can't be driven off the
+    acknowledgements table alone."""
     employees = (
         supabase.table("hr_employees")
         .select("id,employee_code,first_name,last_name,department,designation,location,role,is_active,employee_category")
