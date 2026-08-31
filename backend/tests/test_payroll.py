@@ -2,7 +2,9 @@ from datetime import date, datetime, time, timezone
 
 from config import IST
 from payroll import (
+    FLEXIBLE_TIME_SLOT,
     LATE_POLICY_V2_EFFECTIVE,
+    apply_late_coming_policy,
     compute_daily_attendance,
     compute_monthly_summary,
     days_in_month,
@@ -540,10 +542,14 @@ def test_standard_working_days_per_month_overrides_the_per_day_rate_divisor():
 
 
 # ── Late-coming policy v2, w.e.f. 22 Sept 2026 ──────────────────────────────
-# Cycle Oct-2026 = 23 Sept - 22 Oct 2026, entirely on/after the effective date,
-# so both the per-day rules (grace, tier) and the per-cycle rules (allowance,
-# card thresholds) are v2. Cycle Sept-2026 = 23 Aug - 22 Sept is the
-# transitional one: v2 counters, but each day priced on its own generation.
+# v2 was superseded before it ever went live: Policy v3 (LATE_POLICY_V3_EFFECTIVE
+# = 23 Aug 2026, see below) is checked FIRST in compute_monthly_summary and wins
+# for any pay period ending on/after that date — which includes every cycle
+# that would ever reach v2's own 22 Sept 2026 effective date, since 23 Aug
+# precedes 22 Sept. v2's tiering can therefore never actually run through
+# compute_monthly_summary in production; apply_late_coming_policy is exercised
+# directly below purely to keep its internal v1.1<->v2 transition logic under
+# regression coverage, in case LATE_POLICY_V3_EFFECTIVE is ever pushed later.
 
 def _punch_at(y, m, d, hour, minute=0, second=0, out_hour=19):
     return [
@@ -552,38 +558,53 @@ def _punch_at(y, m, d, hour, minute=0, second=0, out_hour=19):
     ]
 
 
+def _legacy_late_summary(year, month, punches, overrides=None):
+    """Runs apply_late_coming_policy (v1.1/v2) directly, bypassing the v3 gate
+    in compute_monthly_summary — see note above on why v2 is otherwise
+    unreachable."""
+    daily = compute_daily_attendance(
+        year, month, punches, 8, overrides=overrides, weekly_off_day=6, is_corporate=True,
+    )
+    late_mark_count, red_card = apply_late_coming_policy(daily, 8, None)
+    return {
+        "late_mark_count": late_mark_count,
+        "red_card": red_card,
+        "lop_days": round(sum(r.get("lop_days", 0) for r in daily), 2),
+        "daily": {r["date"]: r for r in daily},
+    }
+
+
 def test_v2_grace_runs_to_1020_not_1011():
     # 10:20:00 exactly is on time from 22 Sept 2026; a second later is late.
-    on_time = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 10, _punch_at(2026, 9, 23, 10, 20, 0))
-    late = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 10, _punch_at(2026, 9, 23, 10, 20, 1))
+    on_time = _legacy_late_summary(2026, 10, _punch_at(2026, 9, 23, 10, 20, 0))
+    late = _legacy_late_summary(2026, 10, _punch_at(2026, 9, 23, 10, 20, 1))
     assert on_time["late_mark_count"] == 0
     assert late["late_mark_count"] == 1
     # 10:15 was late under v1.1's 10:11 grace — now inside the window.
-    assert compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 10, _punch_at(2026, 9, 24, 10, 15))["late_days"] == 0
+    assert _legacy_late_summary(2026, 10, _punch_at(2026, 9, 24, 10, 15))["daily"]["2026-09-24"]["late"] is False
 
 
 def test_v2_first_three_lates_are_a_yellow_card_with_no_deduction():
     late_days = [(2026, 9, 23), (2026, 9, 24), (2026, 9, 25)]
     punches = [p for day in late_days for p in _punch_at(*day, 10, 30)]
-    summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 10, punches)
+    summary = _legacy_late_summary(2026, 10, punches)
     assert summary["late_mark_count"] == 3
     assert summary["lop_days"] == 0
-    assert summary["late_card"] == "yellow"
-    assert summary["yellow_card"] is True
     assert summary["red_card"] is False
-    assert summary["late_policy_version"] == 2
+    period_end = pay_period_bounds(2026, 10)[1]
+    assert late_card_status(summary["late_mark_count"], period_end) == "yellow"
 
 
 def test_v2_fourth_late_is_quarter_day_and_triggers_the_red_card():
     late_days = [(2026, 9, 23), (2026, 9, 24), (2026, 9, 25), (2026, 9, 28)]
     punches = [p for day in late_days for p in _punch_at(*day, 10, 30)]
-    summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 10, punches)
+    summary = _legacy_late_summary(2026, 10, punches)
     assert summary["late_mark_count"] == 4
     assert summary["lop_days"] == 0.25  # only the 4th is chargeable, at ¼ day
     # "Red Card issued to individuals late beyond 3 times in a month."
     assert summary["red_card"] is True
-    assert summary["late_card"] == "red"
-    assert summary["yellow_card"] is False
+    period_end = pay_period_bounds(2026, 10)[1]
+    assert late_card_status(summary["late_mark_count"], period_end) == "red"
 
 
 def test_v2_chargeable_late_from_11am_is_half_a_day():
@@ -594,7 +615,7 @@ def test_v2_chargeable_late_from_11am_is_half_a_day():
     punches += _punch_at(2026, 9, 28, 10, 45)
     punches += _punch_at(2026, 9, 29, 11, 0)      # boundary: 11:00 itself is ½
     punches += _punch_at(2026, 9, 30, 11, 45)
-    summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 10, punches)
+    summary = _legacy_late_summary(2026, 10, punches)
     assert summary["late_mark_count"] == 6
     assert summary["lop_days"] == 1.25
 
@@ -603,19 +624,19 @@ def test_v2_after_noon_arrival_inside_the_yellow_card_is_no_longer_charged():
     # Deliberate softening vs v1.1, which charged ½ day for an after-noon
     # arrival even on the 1st late mark: v2's Yellow Card covers the first 3
     # late arrivals unconditionally.
-    summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 10, _punch_at(2026, 9, 23, 13, 0))
+    summary = _legacy_late_summary(2026, 10, _punch_at(2026, 9, 23, 13, 0))
     assert summary["late_mark_count"] == 1
     assert summary["lop_days"] == 0
-    assert summary["late_card"] == "yellow"
 
 
 def test_transitional_cycle_prices_each_day_on_its_own_generation():
     # 23 Aug - 22 Sept 2026. Cycle-level counters are v2 (3 free), but the
     # 4th late mark falls on a pre-22-Sept day, so it prices at v1.1's flat
-    # ½ day rather than v2's ¼.
+    # ½ day rather than v2's ¼. (Direct apply_late_coming_policy call — see
+    # note above; through compute_monthly_summary this cycle is v3.)
     late_days = [(2026, 9, 1), (2026, 9, 2), (2026, 9, 3), (2026, 9, 4)]
     punches = [p for day in late_days for p in _punch_at(*day, 10, 30)]
-    summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 9, punches)
+    summary = _legacy_late_summary(2026, 9, punches)
     assert summary["late_mark_count"] == 4
     assert summary["lop_days"] == 0.5
     assert summary["red_card"] is True
@@ -625,12 +646,11 @@ def test_transitional_cycle_switches_grace_on_the_effective_date():
     # Same 10:15 arrival: late on 21 Sept (v1.1's 10:11 grace), on time on
     # 22 Sept (v2's 10:20) — both inside the one Sept-2026 cycle.
     punches = _punch_at(2026, 9, 21, 10, 15) + _punch_at(2026, 9, 22, 10, 15)
-    summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 9, punches)
+    summary = _legacy_late_summary(2026, 9, punches)
     assert summary["late_mark_count"] == 1
     assert summary["lop_days"] == 0
-    rows = {r["date"]: r for r in summary["daily"]}
-    assert rows["2026-09-21"]["late"] is True
-    assert rows["2026-09-22"]["late"] is False
+    assert summary["daily"]["2026-09-21"]["late"] is True
+    assert summary["daily"]["2026-09-22"]["late"] is False
 
 
 def test_pre_effective_cycles_are_untouched_by_the_revision():
@@ -647,16 +667,77 @@ def test_pre_effective_cycles_are_untouched_by_the_revision():
 
 
 def test_corrected_punch_is_tiered_on_arrival_time_like_a_raw_one():
-    # An HR attendance override filling in an 11:30 arrival must reach v2's
-    # ½-day tier, not the ¼-day one (the override path set neither tier flag
-    # before this revision).
+    # An HR attendance override filling in an 11:30 arrival must be graded on
+    # arrival time exactly like a raw punch would be. Through the real
+    # compute_monthly_summary codepath this cycle is v3 (not v2): 11:30 is 90
+    # minutes past the 10:00 shift start, landing in v3's level2 band
+    # (46-105 min), charged ¼ day every occurrence — no free allowance.
     overrides = {
         d: {"status_override": "present", "first_in": time(11, 30), "last_out": time(19, 0)}
         for d in [date(2026, 9, 23), date(2026, 9, 24), date(2026, 9, 25), date(2026, 9, 28)]
     }
     summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 10, [], overrides=overrides)
     assert summary["late_mark_count"] == 4
+    assert summary["lop_days"] == 1.0
+    assert summary["late_policy_version"] == 3
+
+
+# ── Late-coming policy v3 ("JADE BY MONICA & KARISHMA: Attendance,
+# Punctuality, Leave & WFH Policy" v2.0), activated 23 Aug 2026 — see
+# LATE_POLICY_V3_EFFECTIVE in payroll.py. This is what actually governs every
+# real payroll cycle today, via compute_monthly_summary directly (unlike the
+# v1.1/v2 tests above, which only reach their code through a direct call).
+
+def test_v3_has_no_blanket_grace_but_daily_tolerance_is_free():
+    # +1..+10 min = Daily Tolerance: a Yellow Card, unlimited, no deduction —
+    # unlike v1.1/v2 there is no true "on time" grace window at all.
+    summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 10, _punch_at(2026, 9, 23, 10, 5))
+    assert summary["late_mark_count"] == 1
+    assert summary["lop_days"] == 0
+    assert summary["late_card"] == "yellow"
+    assert summary["late_policy_version"] == 3
+
+
+def test_v3_extended_buffer_first_three_free_then_charged_as_level1():
+    # +11..+20 min = Extended Monthly Buffer: first 3/cycle free, 4th+ priced
+    # as level1 (¼ day).
+    late_days = [(2026, 9, 23), (2026, 9, 24), (2026, 9, 25), (2026, 9, 28)]
+    punches = [p for day in late_days for p in _punch_at(*day, 10, 15)]
+    summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 10, punches)
+    assert summary["late_mark_count"] == 4
+    assert summary["lop_days"] == 0.25
+
+
+def test_v3_levels_1_and_2_charge_a_quarter_day_every_occurrence():
+    # Unlike Extended Buffer, levels 1/2 have no free allowance at all.
+    punches = _punch_at(2026, 9, 23, 10, 30) + _punch_at(2026, 9, 24, 11, 45)
+    summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 10, punches)
+    assert summary["late_mark_count"] == 2
     assert summary["lop_days"] == 0.5
+
+
+def test_v3_level3_beyond_105_minutes_charges_half_a_day():
+    summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 10, _punch_at(2026, 9, 23, 13, 0))
+    assert summary["late_mark_count"] == 1
+    assert summary["lop_days"] == 0.5
+    assert summary["late_card"] == "yellow"
+
+
+def test_v3_red_card_at_seven_yellow_cards():
+    late_days = [(2026, 9, 23), (2026, 9, 24), (2026, 9, 25), (2026, 9, 26),
+                 (2026, 9, 28), (2026, 9, 29), (2026, 9, 30)]  # skips Sun 27
+    punches = [p for day in late_days for p in _punch_at(*day, 10, 5)]  # Daily Tolerance, still a Yellow Card
+    summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 10, punches)
+    assert summary["late_mark_count"] == 7
+    assert summary["red_card"] is True
+    assert summary["late_card"] == "red"
+
+
+def test_v3_flexible_time_slot_is_exempt_from_banding():
+    flexible_employee = {**CORPORATE_EMPLOYEE, "time_slot": FLEXIBLE_TIME_SLOT}
+    summary = compute_monthly_summary(flexible_employee, 2026, 10, _punch_at(2026, 9, 23, 13, 0))
+    assert summary["late_mark_count"] == 0
+    assert summary["lop_days"] == 0
 
 
 def test_late_policy_params_and_cards_switch_on_the_effective_date():
