@@ -15,38 +15,41 @@ from payroll import (
 from routers.leave import (
     fetch_all_approved_leaves_by_employee, fetch_approved_leaves, pl_ledger_for_period, pl_ledger_for_period_bulk,
 )
+from routers.wfh import fetch_all_confirmed_wfh_by_employee, fetch_confirmed_wfh
 from tds import DEFAULT_DECLARATION, project_annual_tax
 
 router = APIRouter(prefix="/api", tags=["payroll"])
 logger = logging.getLogger("jade_hr.payroll")
 
 
-def _hod_emails_for_departments(departments: set[str]) -> list[str]:
+def _hod_emails_by_department(departments: set[str]) -> dict[str, list[str]]:
     """Resolves late_digest's late-employee departments to their Head of
-    Department's email(s), so the digest reaches HODs too, not just HR.
-    HOD-ness is per-employee (hr_employee_profile.head_of_department=true),
-    matched against hr_employees.department — there's no separate
-    departments/HOD table. A department with zero flagged HODs contributes
-    no email (logged, not an error); one with 2+ emails all of them."""
+    Department's email(s), keyed by department — each HOD's digest must only
+    ever list THEIR OWN department's late employees, never every department's
+    (that would defeat the point of a per-HOD digest). HOD-ness is
+    per-employee (hr_employee_profile.head_of_department=true), matched
+    against hr_employees.department — there's no separate departments/HOD
+    table. A department with zero flagged HODs contributes no entry (logged,
+    not an error); one with 2+ HODs gets all of them."""
     departments = {d for d in departments if d}
     if not departments:
-        return []
+        return {}
     profile_resp = (
         supabase.table("hr_employee_profile").select("employee_id").eq("head_of_department", True).execute()
     )
     hod_ids = [p["employee_id"] for p in (profile_resp.data or []) if p.get("employee_id")]
     if not hod_ids:
         logger.warning("late_digest: no employees flagged head_of_department at all")
-        return []
+        return {}
     emp_resp = supabase.table("hr_employees").select("email,department,is_active").in_("id", hod_ids).execute()
-    emails = [
-        e["email"] for e in (emp_resp.data or [])
-        if e.get("email") and e.get("is_active", True) and e.get("department") in departments
-    ]
-    matched_departments = {e.get("department") for e in (emp_resp.data or []) if e.get("department") in departments}
-    for missing in departments - matched_departments:
+    by_department: dict[str, list[str]] = {}
+    for e in emp_resp.data or []:
+        dept = e.get("department")
+        if dept in departments and e.get("email") and e.get("is_active", True):
+            by_department.setdefault(dept, []).append(e["email"])
+    for missing in departments - by_department.keys():
         logger.warning("late_digest: no HOD email found for department %r", missing)
-    return emails
+    return by_department
 
 
 def _month_bounds(year: int, month: int, calendar_month: bool = False) -> tuple[str, str]:
@@ -355,14 +358,16 @@ def _all_summaries_for_month(
     data dependency on each other) — running them concurrently instead of
     one after another cuts this function's network-wait time roughly 4x,
     since each one is pure I/O wait on the same shared httpx client."""
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=5) as pool:
         punches_future = pool.submit(_fetch_all_punches_by_employee, year, month, calendar_month)
         overrides_future = pool.submit(_fetch_all_overrides_by_employee, year, month, calendar_month)
         leaves_future = pool.submit(fetch_all_approved_leaves_by_employee, year, month, calendar_month)
+        wfh_future = pool.submit(fetch_all_confirmed_wfh_by_employee, year, month, calendar_month)
         declarations_future = pool.submit(_fetch_all_tax_declarations, fy_label_for_month(year, month))
         punches_by_employee = punches_future.result()
         overrides_by_employee = overrides_future.result()
         leaves_by_employee = leaves_future.result()
+        wfh_by_employee = wfh_future.result()
         declarations_by_employee = declarations_future.result()
     summaries = []
     for employee in employees:
@@ -370,6 +375,7 @@ def _all_summaries_for_month(
         punches = punches_by_employee.get(employee["employee_code"], [])
         overrides = overrides_by_employee.get(employee["id"], {})
         leaves = leaves_by_employee.get(employee["id"], {})
+        wfh_days = wfh_by_employee.get(employee["id"], {})
         # Bulk path: a missing entry means "no declaration saved", not "go
         # fetch it individually" — must never fall through to _monthly_tds's
         # per-employee DB query, or this reintroduces an N+1 for every
@@ -378,7 +384,7 @@ def _all_summaries_for_month(
         monthly_tds = _monthly_tds(employee, year, month, declaration)
         summary = compute_monthly_summary(
             employee, year, month, punches, overrides, leaves, holidays, monthly_tds,
-            calendar_month=calendar_month,
+            calendar_month=calendar_month, wfh_days=wfh_days,
         )
         if not keep_daily:
             summary.pop("daily")
@@ -466,15 +472,20 @@ def late_digest(
     dry_run: bool = Query(default=False),
     user: dict = Depends(require_console),
 ):
-    """Daily late-marking digest — one email to HR listing every corporate
+    """Daily late-marking digest: one email to HR listing every corporate
     employee whose first punch on `for_date` (default: today, IST) was after
-    their applicable grace (10:11 AM, or the stay-back-extended 11 AM / noon).
+    their applicable on-time cutoff (10:00 AM under Policy v3, banded from
+    there — or the pre-v3 10:11 AM grace for a date before v3 took effect;
+    either way, extended by the stay-back grace to 11 AM / noon when it
+    applies). Separately, each department's Head of Department gets their OWN
+    email listing ONLY their department's late employees that day — never
+    the full company-wide list HR gets (see _hod_emails_by_department).
 
     'Late' here is exactly the payslip's own late flag: it runs the same
     attendance engine (overrides, approved leave, holidays, weekly-off and
     stay-back grace all honoured), then reads out that one day's row — so the
     digest and the month-end payslip can never disagree. Only corporate-roster
-    staff are included, since the 10:11 late policy only governs them.
+    staff are included, since the late policy only governs them.
 
     Triggered once a day by the cron in /etc/cron.d/jade-hr-sync, after the
     morning punch sync has landed the day's clock-ins. Note the punch data is
@@ -517,6 +528,7 @@ def late_digest(
                 "employee_code": summary["employee_code"],
                 "name": summary["name"],
                 "location": summary["location"],
+                "department": summary.get("department"),
                 "time": in_time,
                 "sort_key": first_in or "",
             })
@@ -526,12 +538,22 @@ def late_digest(
         e.pop("sort_key", None)
 
     emailed, email_error = False, None
+    hod_digests: list[dict] = []
     if not dry_run:
-        hod_emails = _hod_emails_for_departments(late_departments)
-        emailed, email_error = email_service.notify_late_digest(
-            target_iso, late, email_service.HR_NOTIFY_EMAIL, extra_recipients=hod_emails,
-        )
-    return {"date": target_iso, "count": len(late), "late": late, "emailed": emailed, "email_error": email_error}
+        emailed, email_error = email_service.notify_late_digest(target_iso, late, email_service.HR_NOTIFY_EMAIL)
+        # Each HOD gets their OWN department's late list only — never the
+        # full company-wide one HR gets above (see _hod_emails_by_department).
+        hod_emails_by_dept = _hod_emails_by_department(late_departments)
+        for dept, emails in hod_emails_by_dept.items():
+            dept_late = [e for e in late if e.get("department") == dept]
+            if not dept_late:
+                continue
+            ok, err = email_service.notify_late_digest(target_iso, dept_late, emails[0], extra_recipients=emails[1:])
+            hod_digests.append({"department": dept, "recipients": emails, "count": len(dept_late), "emailed": ok, "email_error": err})
+    return {
+        "date": target_iso, "count": len(late), "late": late,
+        "emailed": emailed, "email_error": email_error, "hod_digests": hod_digests,
+    }
 
 
 MAX_RANGE_MONTHS = 12  # each month re-fetches punches/overrides/leaves/declarations
@@ -638,20 +660,24 @@ def payroll_for_employee(
         if user["role"] not in CONSOLE_ROLES or not user_can(user, "payroll.view"):
             raise HTTPException(status_code=403, detail="Not authorized")
     employee = _get_active_employee(employee_id)
-    with ThreadPoolExecutor(max_workers=6) as pool:
+    with ThreadPoolExecutor(max_workers=7) as pool:
         punches_future = pool.submit(_fetch_punch_times, employee["employee_code"], year, month)
         overrides_future = pool.submit(_fetch_overrides, employee_id, year, month)
         leaves_future = pool.submit(fetch_approved_leaves, employee_id, year, month)
+        wfh_future = pool.submit(fetch_confirmed_wfh, employee_id, year, month)
         holidays_future = pool.submit(_fetch_holidays)
         pl_ledger_future = pool.submit(pl_ledger_for_period, employee, year, month)
         monthly_tds_future = pool.submit(_monthly_tds, employee, year, month)
         punches = punches_future.result()
         overrides = overrides_future.result()
         leaves = leaves_future.result()
+        wfh_days = wfh_future.result()
         holidays = holidays_future.result()
         pl_ledger = pl_ledger_future.result()
         monthly_tds = monthly_tds_future.result()
-    summary = compute_monthly_summary(employee, year, month, punches, overrides, leaves, holidays, monthly_tds)
+    summary = compute_monthly_summary(
+        employee, year, month, punches, overrides, leaves, holidays, monthly_tds, wfh_days=wfh_days,
+    )
     summary["pl_ledger"] = pl_ledger
     return summary
 
@@ -664,16 +690,18 @@ def _attendance_for_range(employee: dict, from_date: date, to_date: date) -> lis
         raise HTTPException(status_code=400, detail="'to' must be on or after 'from'")
     if (to_date - from_date).days + 1 > MAX_ATTENDANCE_RANGE_DAYS:
         raise HTTPException(status_code=400, detail=f"Range cannot exceed {MAX_ATTENDANCE_RANGE_DAYS} days")
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=5) as pool:
         punches_future = pool.submit(_fetch_punch_times_range, employee["employee_code"], from_date, to_date)
         overrides_future = pool.submit(_fetch_overrides_range, employee["id"], from_date, to_date)
         leaves_future = pool.submit(fetch_approved_leaves, employee["id"], from_date.year, from_date.month, (from_date, to_date))
+        wfh_future = pool.submit(fetch_confirmed_wfh, employee["id"], from_date.year, from_date.month, (from_date, to_date))
         holidays_future = pool.submit(_fetch_holidays)
         punches = punches_future.result()
         overrides = overrides_future.result()
         leaves = leaves_future.result()
+        wfh_days = wfh_future.result()
         holidays = holidays_future.result()
-    return compute_attendance_for_range(employee, from_date, to_date, punches, overrides, leaves, holidays)
+    return compute_attendance_for_range(employee, from_date, to_date, punches, overrides, leaves, holidays, wfh_days=wfh_days)
 
 
 @router.get("/attendance/{employee_id}")
@@ -707,19 +735,23 @@ def my_payroll(
     user: dict = Depends(get_current_user),
 ):
     employee = {**user, **_fetch_compliance_profile(user["id"])}
-    with ThreadPoolExecutor(max_workers=6) as pool:
+    with ThreadPoolExecutor(max_workers=7) as pool:
         punches_future = pool.submit(_fetch_punch_times, employee["employee_code"], year, month)
         overrides_future = pool.submit(_fetch_overrides, employee["id"], year, month)
         leaves_future = pool.submit(fetch_approved_leaves, employee["id"], year, month)
+        wfh_future = pool.submit(fetch_confirmed_wfh, employee["id"], year, month)
         holidays_future = pool.submit(_fetch_holidays)
         pl_ledger_future = pool.submit(pl_ledger_for_period, employee, year, month)
         monthly_tds_future = pool.submit(_monthly_tds, employee, year, month)
         punches = punches_future.result()
         overrides = overrides_future.result()
         leaves = leaves_future.result()
+        wfh_days = wfh_future.result()
         holidays = holidays_future.result()
         pl_ledger = pl_ledger_future.result()
         monthly_tds = monthly_tds_future.result()
-    summary = compute_monthly_summary(employee, year, month, punches, overrides, leaves, holidays, monthly_tds)
+    summary = compute_monthly_summary(
+        employee, year, month, punches, overrides, leaves, holidays, monthly_tds, wfh_days=wfh_days,
+    )
     summary["pl_ledger"] = pl_ledger
     return summary

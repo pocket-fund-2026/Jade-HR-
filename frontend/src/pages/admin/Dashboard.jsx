@@ -280,7 +280,7 @@ export default function Dashboard() {
               return (
                 <div key={b.employee_id} className="text-sm">
                   <span className="text-ink font-medium">{b.name}</span>
-                  <span className="text-ink/60 ml-1.5 font-nums text-xs">
+                  <span className="text-ink/70 ml-1.5 font-nums text-xs">
                     {formatDate(b.date_of_birth)} · {days === 0 ? "today" : days === 1 ? "tomorrow" : `in ${days}d`}
                   </span>
                 </div>
@@ -331,7 +331,7 @@ export default function Dashboard() {
               return (
                 <div key={a.employee_id} className="text-sm">
                   <span className="text-ink font-medium">{a.name}</span>
-                  <span className="text-ink/60 ml-1.5 font-nums text-xs">
+                  <span className="text-ink/70 ml-1.5 font-nums text-xs">
                     {years} yr{years === 1 ? "" : "s"} · {days === 0 ? "today" : days === 1 ? "tomorrow" : `in ${days}d`}
                   </span>
                 </div>

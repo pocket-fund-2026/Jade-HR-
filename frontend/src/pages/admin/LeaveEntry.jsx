@@ -250,7 +250,7 @@ export default function LeaveEntry() {
                     {r.amount > 0 ? "+" : ""}{Number(r.amount).toFixed(2)}
                   </td>
                   <td className="px-4 py-3">
-                    <button onClick={() => remove(r.id)} aria-label="Delete entry" className="text-ink/50 hover:text-rust-500 transition-colors">
+                    <button onClick={() => remove(r.id)} aria-label="Delete entry" className="text-ink/70 hover:text-rust-500 transition-colors">
                       <Trash2 size={15} />
                     </button>
                   </td>

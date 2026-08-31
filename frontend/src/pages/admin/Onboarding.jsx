@@ -24,7 +24,7 @@ function DocLink({ label, url }) {
 function DetailField({ label, value }) {
   return (
     <div>
-      <p className="text-[10px] uppercase tracking-wider text-ink/50">{label}</p>
+      <p className="text-[10px] uppercase tracking-wider text-ink/70">{label}</p>
       <p className="text-sm text-ink">{value || "—"}</p>
     </div>
   );
@@ -115,7 +115,7 @@ function SubmissionDetail({ id, onBack, onResolved, canViewSalary }) {
           </DetailGroup>
           {submission.kra && (
             <div className="mt-3">
-              <p className="text-[10px] uppercase tracking-wider text-ink/50">KRA</p>
+              <p className="text-[10px] uppercase tracking-wider text-ink/70">KRA</p>
               <p className="text-sm text-ink whitespace-pre-line">{submission.kra}</p>
             </div>
           )}
@@ -173,7 +173,7 @@ function SubmissionDetail({ id, onBack, onResolved, canViewSalary }) {
         {submission.status === "pending" ? (
           <div className="border-t border-ink/10 pt-5">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1">Resolve</h4>
-            <p className="text-xs text-ink/50 mb-3">
+            <p className="text-xs text-ink/70 mb-3">
               Approving creates the real employee record — Employee Code must match whatever's assigned on the biometric device.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-3">

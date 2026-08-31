@@ -20,13 +20,16 @@ router = APIRouter(prefix="/api/policy", tags=["policy-acknowledgement"])
 # Bump this whenever the policy text changes materially. Every acknowledgement
 # is stored against the version it was given for, so raising it re-prompts the
 # whole company on their next login without destroying the older sign-offs.
-# Current value covers the late-arrival revision effective 22 Sept 2026.
-POLICY_VERSION = "2026-09-22"
+# Current value covers the Attendance, Punctuality, Leave & WFH Policy v2.0,
+# in force from the pay cycle beginning 23 Aug 2026 (LATE_POLICY_V3_EFFECTIVE)
+# — supersedes the earlier 22-Sept-2026 late-arrival revision before it ever
+# took effect.
+POLICY_VERSION = "2026-08-23"
 
 # The documents the console requires people to read, keyed to the tabs in
 # frontend/src/pages/PolicyDocument.jsx. Order is the order they're shown in.
 POLICY_DOCUMENTS = [
-    {"key": "late-2026-09", "label": "Late Arrival (from 22 Sept 2026)"},
+    {"key": "late-v3-2026-08", "label": "Attendance & WFH Policy (from 23 Aug 2026)"},
     {"key": "2026", "label": "2026 Revision (Retail)"},
     {"key": "2025", "label": "2025 (Retail, Corporate & Factory)"},
 ]

@@ -1,4 +1,4 @@
-import { BookOpen, FileText, KeyRound, LogOut, Receipt, Users } from "lucide-react";
+import { BookOpen, FileText, Home, KeyRound, LogOut, Receipt, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
@@ -37,7 +37,7 @@ export default function EmployeeLayout() {
             <img src="/jade-logo.png" alt="" className="w-8 h-8 flex-shrink-0" />
             <div>
               <p className="font-display text-manila text-lg leading-none">JADE HR</p>
-              <p className="text-manila/40 text-xs mt-1">{user?.name}</p>
+              <p className="text-manila/60 text-xs mt-1">{user?.name}</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -64,7 +64,7 @@ export default function EmployeeLayout() {
               end
               className={({ isActive }) =>
                 `px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-manila text-manila" : "border-transparent text-manila/50 hover:text-manila/80"
+                  isActive ? "border-manila text-manila" : "border-transparent text-manila/60 hover:text-manila/80"
                 }`
               }
             >
@@ -75,7 +75,7 @@ export default function EmployeeLayout() {
                 to="/employee/team-leave"
                 className={({ isActive }) =>
                   `flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                    isActive ? "border-manila text-manila" : "border-transparent text-manila/50 hover:text-manila/80"
+                    isActive ? "border-manila text-manila" : "border-transparent text-manila/60 hover:text-manila/80"
                   }`
                 }
               >
@@ -88,11 +88,24 @@ export default function EmployeeLayout() {
                 )}
               </NavLink>
             )}
+            {user?.is_leave_approver && (
+              <NavLink
+                to="/employee/team-wfh"
+                className={({ isActive }) =>
+                  `flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                    isActive ? "border-manila text-manila" : "border-transparent text-manila/60 hover:text-manila/80"
+                  }`
+                }
+              >
+                <Home size={14} />
+                Team WFH
+              </NavLink>
+            )}
             <NavLink
               to="/employee/tax-declaration"
               className={({ isActive }) =>
                 `flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-manila text-manila" : "border-transparent text-manila/50 hover:text-manila/80"
+                  isActive ? "border-manila text-manila" : "border-transparent text-manila/60 hover:text-manila/80"
                 }`
               }
             >
@@ -103,7 +116,7 @@ export default function EmployeeLayout() {
               to="/employee/my-payslip"
               className={({ isActive }) =>
                 `flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-manila text-manila" : "border-transparent text-manila/50 hover:text-manila/80"
+                  isActive ? "border-manila text-manila" : "border-transparent text-manila/60 hover:text-manila/80"
                 }`
               }
             >
@@ -114,7 +127,7 @@ export default function EmployeeLayout() {
               to="/employee/policy"
               className={({ isActive }) =>
                 `flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-manila text-manila" : "border-transparent text-manila/50 hover:text-manila/80"
+                  isActive ? "border-manila text-manila" : "border-transparent text-manila/60 hover:text-manila/80"
                 }`
               }
             >

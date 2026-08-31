@@ -141,7 +141,7 @@ function FileField({ label, hint, multiple, count, onUploaded }) {
   return (
     <div>
       <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">{label}</label>
-      {hint && <p className="text-xs text-ink/50 mb-1.5">{hint}</p>}
+      {hint && <p className="text-xs text-ink/70 mb-1.5">{hint}</p>}
       <input
         type="file"
         accept="image/*,.pdf"
@@ -211,7 +211,7 @@ export default function Onboarding() {
         <div className="text-center mb-8">
           <img src="/jade-logo.png" alt="" className="w-24 h-24 mx-auto mb-3" />
           <p className="font-display text-manila text-2xl">New Joinee Details</p>
-          <p className="text-manila/50 text-sm mt-1">Please fill in your details to complete your joining formalities with JADE</p>
+          <p className="text-manila/60 text-sm mt-1">Please fill in your details to complete your joining formalities with JADE</p>
         </div>
 
         <form onSubmit={submit} className="space-y-5">

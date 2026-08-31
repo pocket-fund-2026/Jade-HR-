@@ -9,6 +9,7 @@ from models import PayslipApprovalCreate, PayslipApprovalResolve
 from payroll import compute_monthly_summary
 from routers.leave import fetch_approved_leaves
 from routers.payroll import _fetch_compliance_profile, _fetch_holidays, _fetch_overrides, _fetch_punch_times
+from routers.wfh import fetch_confirmed_wfh
 
 router = APIRouter(prefix="/api", tags=["payslip-approvals"])
 
@@ -70,7 +71,10 @@ def _net_salary_for(employee_id: str, period_year: int, period_month: int, holid
     punches = _fetch_punch_times(employee["employee_code"], period_year, period_month)
     overrides = _fetch_overrides(employee_id, period_year, period_month)
     leaves = fetch_approved_leaves(employee_id, period_year, period_month)
-    summary = compute_monthly_summary(employee, period_year, period_month, punches, overrides, leaves, holidays)
+    wfh_days = fetch_confirmed_wfh(employee_id, period_year, period_month)
+    summary = compute_monthly_summary(
+        employee, period_year, period_month, punches, overrides, leaves, holidays, wfh_days=wfh_days,
+    )
     return summary["total_payable"]
 
 

@@ -275,7 +275,7 @@ function TemplateEditor({ template, onClose, onSaved, onDeleted }) {
         <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Letter Body</label>
         <RichTextEditor value={body} onChange={setBody} />
         {tokens.length > 0 && (
-          <p className="text-xs text-ink/60 mt-2">Tokens found: {tokens.join(", ")}</p>
+          <p className="text-xs text-ink/70 mt-2">Tokens found: {tokens.join(", ")}</p>
         )}
         {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5 mt-3">{error}</p>}
         <div className="flex justify-between items-center mt-4">

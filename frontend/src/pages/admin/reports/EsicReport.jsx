@@ -138,7 +138,7 @@ export default function EsicReport() {
                     <td className="px-4 py-3 font-nums">{formatINR(r.esic_employer)}</td>
                     <td className="px-4 py-3 font-nums font-semibold">{formatINR(r.ded_esic + r.esic_employer)}</td>
                     <td className="px-4 py-3 font-nums">{formatINR(r.dailyWages)}</td>
-                    <td className="px-4 py-3 font-nums text-ink/40">—</td>
+                    <td className="px-4 py-3 font-nums text-ink/70">—</td>
                   </tr>
                 );
               })

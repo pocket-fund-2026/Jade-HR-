@@ -15,6 +15,7 @@ from routers.payroll import (
     _fetch_all_overrides_by_employee_range, _fetch_all_punches_by_employee, _fetch_all_punches_by_employee_range,
     _fetch_holidays, _fetch_overrides, _fetch_punch_times,
 )
+from routers.wfh import fetch_all_confirmed_wfh_by_employee, fetch_confirmed_wfh
 from tds import DEFAULT_DECLARATION, project_annual_tax
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
@@ -193,16 +194,20 @@ def full_and_final(employee_id: str, user: dict = Depends(require_permission("pa
     reference_date = date.fromisoformat(exit_date_str) if exit_date_str else date.today()
     period_year, period_month = _pay_period_for_date(reference_date)
 
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=5) as pool:
         punches_future = pool.submit(_fetch_punch_times, employee["employee_code"], period_year, period_month)
         overrides_future = pool.submit(_fetch_overrides, employee_id, period_year, period_month)
         leaves_future = pool.submit(fetch_approved_leaves, employee_id, period_year, period_month)
+        wfh_future = pool.submit(fetch_confirmed_wfh, employee_id, period_year, period_month)
         holidays_future = pool.submit(_fetch_holidays)
         punches = punches_future.result()
         overrides = overrides_future.result()
         leaves = leaves_future.result()
+        wfh_days = wfh_future.result()
         holidays = holidays_future.result()
-    last_payslip = compute_monthly_summary(merged, period_year, period_month, punches, overrides, leaves, holidays)
+    last_payslip = compute_monthly_summary(
+        merged, period_year, period_month, punches, overrides, leaves, holidays, wfh_days=wfh_days,
+    )
 
     leave_balance = paid_leave_balance_as_of(merged, reference_date)
     leave_encashment = round(leave_balance * last_payslip["per_day_salary"], 2)
@@ -270,13 +275,15 @@ def _month_bonus_contributions(y: int, m: int, employees: list[dict], holidays: 
     """One FY month's (paid_days, basic_wage) contribution per eligible
     employee — the 3 bulk fetches below are independent (different tables),
     same pattern as _all_summaries_for_month."""
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ThreadPoolExecutor(max_workers=4) as pool:
         punches_future = pool.submit(_fetch_all_punches_by_employee, y, m)
         overrides_future = pool.submit(_fetch_all_overrides_by_employee, y, m)
         leaves_future = pool.submit(fetch_all_approved_leaves_by_employee, y, m)
+        wfh_future = pool.submit(fetch_all_confirmed_wfh_by_employee, y, m)
         punches_by_employee = punches_future.result()
         overrides_by_employee = overrides_future.result()
         leaves_by_employee = leaves_future.result()
+        wfh_by_employee = wfh_future.result()
 
     _, period_end = pay_period_bounds(y, m)
     contributions: dict[str, tuple[float, float]] = {}
@@ -287,7 +294,8 @@ def _month_bonus_contributions(y: int, m: int, employees: list[dict], holidays: 
         punches = punches_by_employee.get(emp["employee_code"], [])
         overrides = overrides_by_employee.get(emp["id"], {})
         leaves = leaves_by_employee.get(emp["id"], {})
-        summary = compute_monthly_summary(emp, y, m, punches, overrides, leaves, holidays)
+        wfh_days = wfh_by_employee.get(emp["id"], {})
+        summary = compute_monthly_summary(emp, y, m, punches, overrides, leaves, holidays, wfh_days=wfh_days)
         contributions[emp["id"]] = (summary["paid_days"], summary["basic"])
     return contributions
 
@@ -359,7 +367,10 @@ def bonus_report(
 def attendance_report(
     year: int = Query(...),
     month: int = Query(..., ge=1, le=12),
-    user: dict = Depends(require_permission("payroll.view", "attendance.view")),
+    # Restricted to a dedicated permission (see sql/036, sql/037) — the whole
+    # HR team has it by default, but it's still NOT the general
+    # 'attendance.view'/'payroll.view' that gate every other report.
+    user: dict = Depends(require_permission("attendance.restricted_reports")),
 ):
     """Full pay-period daily attendance grid, every active employee — the
     same per-day rows the payslip's own daily breakdown uses (see
@@ -395,7 +406,10 @@ MAX_ATTENDANCE_RANGE_DAYS = 366
 def attendance_report_range(
     from_date: date = Query(..., alias="from"),
     to_date: date = Query(..., alias="to"),
-    user: dict = Depends(require_permission("payroll.view", "attendance.view")),
+    # Restricted to a dedicated permission (see sql/036, sql/037) — the whole
+    # HR team has it by default, but it's still NOT the general
+    # 'attendance.view'/'payroll.view' that gate every other report.
+    user: dict = Depends(require_permission("attendance.restricted_reports")),
 ):
     """Same per-employee daily attendance grid as /attendance, but for an
     arbitrary [from, to] span rather than one pay period — lets the
@@ -409,7 +423,7 @@ def attendance_report_range(
         raise HTTPException(status_code=400, detail="'to' must be on or after 'from'")
     if (to_date - from_date).days + 1 > MAX_ATTENDANCE_RANGE_DAYS:
         raise HTTPException(status_code=400, detail=f"Range cannot exceed {MAX_ATTENDANCE_RANGE_DAYS} days")
-    with ThreadPoolExecutor(max_workers=6) as pool:
+    with ThreadPoolExecutor(max_workers=7) as pool:
         employees_future = pool.submit(
             lambda: supabase.table("hr_employees").select("*").eq("is_active", True).execute().data
         )
@@ -418,12 +432,14 @@ def attendance_report_range(
         punches_future = pool.submit(_fetch_all_punches_by_employee_range, from_date, to_date)
         overrides_future = pool.submit(_fetch_all_overrides_by_employee_range, from_date, to_date)
         leaves_future = pool.submit(fetch_all_approved_leaves_by_employee, 0, 0, date_range=(from_date, to_date))
+        wfh_future = pool.submit(fetch_all_confirmed_wfh_by_employee, 0, 0, date_range=(from_date, to_date))
         employees = employees_future.result()
         profiles_by_employee = profiles_future.result()
         holidays = holidays_future.result()
         punches_by_employee = punches_future.result()
         overrides_by_employee = overrides_future.result()
         leaves_by_employee = leaves_future.result()
+        wfh_by_employee = wfh_future.result()
 
     results = []
     for e in employees:
@@ -434,6 +450,7 @@ def attendance_report_range(
             overrides_by_employee.get(e["id"], {}),
             leaves_by_employee.get(e["id"], {}),
             holidays,
+            wfh_days=wfh_by_employee.get(e["id"], {}),
         )
         results.append({
             "employee_id": e["id"],

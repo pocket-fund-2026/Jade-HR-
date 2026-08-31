@@ -67,9 +67,9 @@ export default function MyLeave() {
               {balance.filter((b) => b.allocated !== null).map((b) => (
                 <div key={b.leave_type} className="bg-paper rounded-sm shadow-card px-4 py-3 border-t-2 border-ink/10">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70">{LEAVE_LABELS[b.leave_type] || b.leave_type}</p>
-                  <p className="font-display text-lg text-ink mt-0.5">{b.remaining} <span className="text-xs text-ink/50 font-sans">/ {b.allocated}</span></p>
+                  <p className="font-display text-lg text-ink mt-0.5">{b.remaining} <span className="text-xs text-ink/70 font-sans">/ {b.allocated}</span></p>
                   {b.carried_forward > 0 && (
-                    <p className="text-[10px] text-ink/50 mt-0.5">incl. {Number(b.carried_forward).toFixed(1)} carried forward</p>
+                    <p className="text-[10px] text-ink/70 mt-0.5">incl. {Number(b.carried_forward).toFixed(1)} carried forward</p>
                   )}
                 </div>
               ))}

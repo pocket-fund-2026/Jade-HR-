@@ -11,7 +11,7 @@ export default function DateRangePicker({ from, to, onChange, onClear, disabled 
         disabled={disabled}
         className="text-xs font-nums text-ink bg-transparent border border-ink/15 rounded-sm px-2 py-1 disabled:opacity-50"
       />
-      <span className="text-ink/50 text-xs">to</span>
+      <span className="text-ink/70 text-xs">to</span>
       <input
         type="date"
         value={to}
@@ -24,7 +24,7 @@ export default function DateRangePicker({ from, to, onChange, onClear, disabled 
         <button
           onClick={onClear}
           disabled={disabled}
-          className="text-xs text-ink/60 hover:text-ink underline disabled:opacity-50"
+          className="text-xs text-ink/70 hover:text-ink underline disabled:opacity-50"
         >
           Clear
         </button>

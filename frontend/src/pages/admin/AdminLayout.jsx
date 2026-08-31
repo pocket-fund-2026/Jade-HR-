@@ -1,4 +1,4 @@
-import { Briefcase, BookOpen, CalendarDays, CalendarPlus, ClipboardList, FileBarChart, FileText, Flag, KeyRound, LayoutDashboard, LogOut, Menu, Plane, Receipt, Shield, ShieldCheck, Stamp, UserPlus, Users, X } from "lucide-react";
+import { Briefcase, BookOpen, CalendarDays, CalendarPlus, ClipboardList, FileBarChart, FileText, Flag, Home, KeyRound, LayoutDashboard, LogOut, Menu, Plane, Receipt, Shield, ShieldAlert, ShieldCheck, Stamp, UserPlus, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
@@ -13,9 +13,11 @@ const navItems = [
   { to: "/admin/employees", label: "Employees", icon: Users, permission: "employees.view" },
   { to: "/admin/onboarding", label: "Onboarding", icon: UserPlus, badgeKey: "onboarding", permission: "onboarding.manage" },
   { to: "/admin/payroll", label: "Payroll & OT", icon: Receipt, permission: "payroll.view" },
-  { to: "/admin/reports", label: "Reports", icon: FileBarChart, permission: "payroll.view" },
+  { to: "/admin/reports", label: "Reports", icon: FileBarChart, permission: ["payroll.view", "attendance.restricted_reports"] },
   { to: "/admin/disputes", label: "Disputes", icon: Flag, badgeKey: "disputes", permission: "disputes.manage" },
   { to: "/admin/leave", label: "Leave", icon: Plane, badgeKey: "leave", permission: "leave.manage" },
+  { to: "/admin/wfh-requests", label: "WFH Requests", icon: Home, badgeKey: "wfh", permission: ["leave.manage", "wfh.approve"] },
+  { to: "/admin/aip", label: "AIP", icon: ShieldAlert, permission: "leave.manage" },
   { to: "/admin/work-absence", label: "Work Absence", icon: Briefcase, badgeKey: "workAbsence", permission: "absence.manage" },
   { to: "/admin/leave-entry", label: "Leave Entry", icon: ClipboardList, permission: "leave.manage" },
   { to: "/admin/payslip-approvals", label: "Payslip Approvals", icon: Stamp, badgeKey: "payslipApprovals", permission: "payslip_approvals.manage" },
@@ -37,7 +39,7 @@ function SidebarContent({ user, can, logout, pendingCounts, onNavigate }) {
         <img src="/jade-logo.png" alt="" className="w-9 h-9 flex-shrink-0" />
         <div>
           <p className="font-display text-manila text-xl leading-none">JADE HR</p>
-          <p className="text-manila/40 text-[11px] uppercase tracking-[0.2em] mt-1.5">
+          <p className="text-manila/60 text-[11px] uppercase tracking-[0.2em] mt-1.5">
             {user?.role === "accounts" ? "Accounts Ledger" : "HR Ledger"}
           </p>
         </div>
@@ -72,7 +74,7 @@ function SidebarContent({ user, can, logout, pendingCounts, onNavigate }) {
         <div className="border-t border-manila/10 pt-4">
           <div className="px-3 pb-2">
             <p className="text-manila text-sm font-medium">{user?.name}</p>
-            <p className="text-manila/40 text-xs font-nums">{user?.employee_code}</p>
+            <p className="text-manila/60 text-xs font-nums">{user?.employee_code}</p>
           </div>
           <button
             onClick={() => setShowPw(true)}
@@ -102,6 +104,7 @@ export default function AdminLayout() {
   const [pendingPayslipApprovals, setPendingPayslipApprovals] = useState([]);
   const [pendingOnboarding, setPendingOnboarding] = useState([]);
   const [pendingWorkAbsence, setPendingWorkAbsence] = useState([]);
+  const [pendingWfh, setPendingWfh] = useState([]);
   // True once the first poll below has resolved — lets pages seed their own
   // "pending" tab from this data instead of re-fetching it themselves on
   // mount (an empty pending* array is ambiguous with "not fetched yet"
@@ -111,13 +114,14 @@ export default function AdminLayout() {
   const pendingCounts = {
     disputes: pendingDisputes.length, leave: pendingLeave.length,
     payslipApprovals: pendingPayslipApprovals.length, onboarding: pendingOnboarding.length,
-    workAbsence: pendingWorkAbsence.length,
+    workAbsence: pendingWorkAbsence.length, wfh: pendingWfh.length,
   };
   const canDisputes = can("disputes.manage");
   const canLeave = can("leave.manage");
   const canPayslipApprovals = can("payslip_approvals.manage");
   const canOnboarding = can("onboarding.manage");
   const canWorkAbsence = can("absence.manage");
+  const canWfh = can("leave.manage", "wfh.approve");
 
   useEffect(() => {
     let cancelled = false;
@@ -128,14 +132,16 @@ export default function AdminLayout() {
         canPayslipApprovals ? api.get("/api/payslip-approvals", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
         canOnboarding ? api.get("/api/onboarding/submissions", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
         canWorkAbsence ? api.get("/api/absence-requests", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
+        canWfh ? api.get("/api/wfh-requests", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
       ])
-        .then(([disputesRes, leaveRes, payslipApprovalsRes, onboardingRes, workAbsenceRes]) => {
+        .then(([disputesRes, leaveRes, payslipApprovalsRes, onboardingRes, workAbsenceRes, wfhRes]) => {
           if (cancelled) return;
           setPendingDisputes(disputesRes.data);
           setPendingLeave(leaveRes.data);
           setPendingPayslipApprovals(payslipApprovalsRes.data);
           setPendingOnboarding(onboardingRes.data);
           setPendingWorkAbsence(workAbsenceRes.data);
+          setPendingWfh(wfhRes.data);
           setPendingLoaded(true);
         })
         .catch(() => {});
@@ -143,7 +149,7 @@ export default function AdminLayout() {
     poll();
     const interval = setInterval(poll, POLL_MS);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [canDisputes, canLeave, canPayslipApprovals, canOnboarding, canWorkAbsence]);
+  }, [canDisputes, canLeave, canPayslipApprovals, canOnboarding, canWorkAbsence, canWfh]);
 
   return (
     <div className="h-screen flex bg-manila overflow-hidden">

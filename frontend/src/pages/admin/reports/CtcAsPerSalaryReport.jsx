@@ -98,7 +98,7 @@ export default function CtcAsPerSalaryReport() {
                     <div className="text-xs text-ink/70 font-nums">{r.employee_code} · {r.location}</div>
                   </td>
                   <td className="px-4 py-3 font-nums text-ink/70">
-                    {r.has_structure ? formatFullDate(r.effective_date) : <span className="italic text-ink/50">No structure recorded</span>}
+                    {r.has_structure ? formatFullDate(r.effective_date) : <span className="italic text-ink/70">No structure recorded</span>}
                   </td>
                   <td className="px-4 py-3 font-nums">{formatINR(r.net_salary)}</td>
                   <td className="px-4 py-3 font-nums">{formatINR(r.ctc_monthly)}</td>

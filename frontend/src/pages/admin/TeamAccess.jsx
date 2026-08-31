@@ -95,7 +95,7 @@ function PersonOverrides({ permissionKeys, hrEmployees, overrides, onApplyBulk, 
         <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-2">HR logins</p>
         <div className="max-h-48 overflow-y-auto border border-ink/10 rounded-sm mb-4">
           {hrEmployees.length === 0 ? (
-            <p className="px-3 py-4 text-sm text-ink/40">No HR-role employees yet.</p>
+            <p className="px-3 py-4 text-sm text-ink/70">No HR-role employees yet.</p>
           ) : (
             hrEmployees.map((e) => (
               <label key={e.id} className="flex items-center gap-2.5 px-3 py-2 border-b border-ink/[0.06] last:border-0 cursor-pointer hover:bg-manila/30">
@@ -106,7 +106,7 @@ function PersonOverrides({ permissionKeys, hrEmployees, overrides, onApplyBulk, 
                   className="w-4 h-4 accent-jade-600"
                 />
                 <span className="text-sm text-ink">{e.name}</span>
-                <span className="text-xs text-ink/40 font-nums">{e.employee_code}</span>
+                <span className="text-xs text-ink/70 font-nums">{e.employee_code}</span>
               </label>
             ))
           )}
@@ -134,7 +134,7 @@ function PersonOverrides({ permissionKeys, hrEmployees, overrides, onApplyBulk, 
 
       <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-3">Current overrides</p>
       {overrides.length === 0 ? (
-        <p className="text-sm text-ink/40">No per-person overrides set.</p>
+        <p className="text-sm text-ink/70">No per-person overrides set.</p>
       ) : (
         <div className="bg-paper rounded-sm shadow-card divide-y divide-ink/[0.06]">
           {overrides.map((o) => (
@@ -142,7 +142,7 @@ function PersonOverrides({ permissionKeys, hrEmployees, overrides, onApplyBulk, 
               <div>
                 <p className="text-sm text-ink font-medium">
                   {o.hr_employees?.first_name} {o.hr_employees?.last_name}
-                  <span className="text-xs text-ink/40 font-nums ml-2">{o.hr_employees?.employee_code}</span>
+                  <span className="text-xs text-ink/70 font-nums ml-2">{o.hr_employees?.employee_code}</span>
                 </p>
                 <p className="text-xs text-ink/70 mt-0.5">
                   {labelFor(o.permission_key)} — {o.granted ? "Granted" : "Denied"}
@@ -152,7 +152,7 @@ function PersonOverrides({ permissionKeys, hrEmployees, overrides, onApplyBulk, 
                 type="button"
                 onClick={() => onRemove(o.employee_id, o.permission_key)}
                 aria-label="Remove override"
-                className="text-ink/40 hover:text-rust-500 p-1"
+                className="text-ink/70 hover:text-rust-500 p-1"
               >
                 <X size={16} />
               </button>

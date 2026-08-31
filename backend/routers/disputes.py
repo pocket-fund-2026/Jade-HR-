@@ -149,6 +149,7 @@ def upsert_attendance_override(
         "first_in": body.first_in.isoformat() if body.first_in else None,
         "last_out": body.last_out.isoformat() if body.last_out else None,
         "note": body.note or "Manual correction",
+        "verification_source": body.verification_source,
         "created_by": admin["id"],
     }
     supabase.table("hr_attendance_overrides").upsert(override_row, on_conflict="employee_id,date").execute()

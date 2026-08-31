@@ -74,6 +74,19 @@ SHIFT_START_BY_TIME_SLOT = {
 FLEXIBLE_TIME_SLOT = "Flexible"
 
 
+def register_time_slot(label: str, shift_start: time) -> None:
+    """Adds/updates a time_slot's shift start at runtime, so slots defined
+    by HR in the console (hr_time_slots table, routers/store_timings.py)
+    grade lateness correctly without a code deploy. Called once at backend
+    startup for every row on file, and again after any admin add/edit/delete
+    so the change takes effect immediately."""
+    SHIFT_START_BY_TIME_SLOT[label] = shift_start
+
+
+def unregister_time_slot(label: str) -> None:
+    SHIFT_START_BY_TIME_SLOT.pop(label, None)
+
+
 def _late_grace_for(time_slot: str | None, day: date) -> time:
     """This employee's late-grace cutoff on `day`: their shift's start time
     (per SHIFT_START_BY_TIME_SLOT, DEFAULT_SHIFT_START for "Flexible"/
@@ -100,6 +113,12 @@ MIDNIGHT_GRACE = time(12, 0)      # ran past midnight -> next day 12:00 PM
 # hour is never a genuine fresh arrival for this company's shifts (earliest
 # is 10 AM) — it's the tail of the PRIOR day's overnight finish.
 MIDNIGHT_TAIL_CUTOFF = time(6, 0)
+
+# v3 doc §21: work continuing past 12:30 AM earns an actual Comp-Off credit
+# (distinct from the §20/v1.1 grace-only extension above, which fires at a
+# looser "past 8:30 PM" / "past midnight" threshold). Dormant with the rest
+# of Policy v3 — see LATE_POLICY_V3_EFFECTIVE.
+MIDNIGHT_COMP_OFF_CUTOFF_V3 = time(0, 30)
 
 # Employees on this time_slot (hr_employee_profile.time_slot) get a shortened
 # Saturday — 10:00 AM - 3:00 PM (5h) — instead of their usual weekday
@@ -284,6 +303,23 @@ def _midnight_crossing_dates(by_day: dict[date, list[datetime]]) -> set[date]:
     return result
 
 
+def _stay_back_extension_for(
+    d: date, by_day: dict[date, list[datetime]], midnight_tail_dates: set[date],
+) -> time | None:
+    """Just the stay-back-earned grace extension (v1.1 section 4 / v3 doc
+    §20-21) for day `d` — None if the prior day didn't earn one. Split out of
+    _extended_grace_for so Policy v3's banding (which has NO blanket grace-
+    minutes addition of its own, only this extension) can reuse the exact
+    same stay-back detection without duplicating it."""
+    prior = d - timedelta(days=1)
+    if prior in midnight_tail_dates:
+        return MIDNIGHT_GRACE
+    prior_punches = by_day.get(prior, [])
+    if prior_punches and prior_punches[-1].astimezone(IST).time() > STAY_BACK_CUTOFF:
+        return STAY_BACK_GRACE
+    return None
+
+
 def _extended_grace_for(
     d: date, by_day: dict[date, list[datetime]], midnight_tail_dates: set[date], time_slot: str | None = None,
 ) -> time:
@@ -293,16 +329,8 @@ def _extended_grace_for(
     past 8:30 PM earns 11:00 AM; otherwise this employee's own shift-derived
     grace (see _late_grace_for — 10:11 AM under v1.1 / 10:20 AM from 22 Sept
     2026 for the standard 10 AM shift, later for a later time_slot)."""
-    prior = d - timedelta(days=1)
-    if prior in midnight_tail_dates:
-        return MIDNIGHT_GRACE
-    prior_punches = by_day.get(prior, [])
-    if not prior_punches:
-        return _late_grace_for(time_slot, d)
-    prior_last = prior_punches[-1].astimezone(IST).time()
-    if prior_last > STAY_BACK_CUTOFF:
-        return STAY_BACK_GRACE
-    return _late_grace_for(time_slot, d)
+    extension = _stay_back_extension_for(d, by_day, midnight_tail_dates)
+    return extension if extension else _late_grace_for(time_slot, d)
 
 
 # Leave-type labels treated as Paid Leave for the weekly-off earning rule
@@ -330,7 +358,9 @@ def _apply_weekly_off_earning_rule(rows: list[dict]) -> None:
     over the 6 days before it, the employee was EITHER (a) on Paid Leave
     every one of those days — in which case the weekly-off itself also
     counts as Paid Leave, matching how the week reads on the leave ledger —
-    or (b) actually present at least 3 of those days, in which case it
+    or (b) actually present (or on a confirmed WFH day — doc §25 pays WFH
+    like a working day, so it must count toward earning the week's off too,
+    same as a real in-office day) at least 3 of those days, in which case it
     stays a normal paid weekoff (unchanged from before this rule existed).
     Any other mix means the weekly-off was not earned and becomes unpaid
     (absent) that week.
@@ -351,7 +381,7 @@ def _apply_weekly_off_earning_rule(rows: list[dict]) -> None:
             row["status"] = "leave"
             row["leave_type"] = "paid"
             row["late"] = False
-        elif sum(1 for r in week_rows if r["status"] == "present") >= 3:
+        elif sum(1 for r in week_rows if r["status"] in ("present", "wfh")) >= 3:
             continue
         else:
             row["status"] = "absent"
@@ -380,6 +410,7 @@ def compute_daily_attendance(
     calendar_month: bool = False,
     date_range: tuple[date, date] | None = None,
     ot_eligible: bool = True,
+    wfh_days: dict[date, dict] | None = None,
 ) -> list[dict]:
     """One row per day in the pay period (23rd of prior month - 22nd of this month),
     or per day in `date_range` (start, end) when given — an arbitrary span
@@ -390,7 +421,16 @@ def compute_daily_attendance(
     employee's "I forgot to punch out" dispute — and take priority over raw
     punch data for that day. `leaves` (date -> leave_type) are approved leave
     requests; a day with no punches falls back to "leave" instead of "absent"
-    when one covers it. `weekly_off_day` follows date.weekday() (0=Mon..6=Sun,
+    when one covers it.
+
+    `wfh_days` (date -> the hr_wfh_requests row) are Policy v3 §24-25 Work
+    From Home days that are BOTH approved AND had their completed work
+    confirmed — the caller (routers/wfh.py's fetch helpers) is responsible
+    for only including dates that pass both gates; this function trusts the
+    dict as final. Ranks below an admin override (a correction always wins)
+    but above leave/punches — an employee physically present that day or one
+    who separately filed leave should still show as "wfh", since the
+    approved+confirmed WFH record is the authoritative account of that day. `weekly_off_day` follows date.weekday() (0=Mon..6=Sun,
     default Sunday) and is set per-employee for staff with a rotational off.
 
     `holidays` and `is_corporate` implement the corporate-roster-only Leave &
@@ -412,6 +452,7 @@ def compute_daily_attendance(
     overrides = overrides or {}
     leaves = leaves or {}
     holidays = holidays or {}
+    wfh_days = wfh_days or {}
     by_day = group_punches_by_day(punch_times)
     midnight_tail_dates = _midnight_crossing_dates(by_day)
     start, end = date_range if date_range else pay_period_bounds(year, month, calendar_month)
@@ -429,6 +470,26 @@ def compute_daily_attendance(
     while d <= end:
         if d in overrides:
             rows.append(_apply_override(d, overrides[d], standard_hours_per_day, time_slot))
+            d += timedelta(days=1)
+            continue
+
+        if d in wfh_days:
+            # Doc §25: 50% pay, contingent on the Reporting Manager's
+            # completion confirmation — the caller only puts a date in this
+            # dict once both that and the Senior-Mgmt/HR-Head approval have
+            # happened, so this branch never itself checks work_completed.
+            # Never late/absent-flagged and carries no lop_days; the actual
+            # 0.5-pay effect is applied in compute_monthly_summary the same
+            # way a "half_day" status already is.
+            rows.append({
+                "date": d.isoformat(),
+                "first_in": None,
+                "last_out": None,
+                "hours_worked": 0.0,
+                "ot_hours": 0.0,
+                "status": "wfh",
+                "late": False,
+            })
             d += timedelta(days=1)
             continue
 
@@ -518,6 +579,20 @@ def compute_daily_attendance(
             if d.weekday() == weekly_off_day or is_closed_holiday:
                 row["comp_off_eligible"] = True
                 row["comp_off_units"] = 0.5 if hours_worked <= 4 else 1.0
+            # ── Policy v3 (LIVE from 23 Aug 2026 — see LATE_POLICY_V3_EFFECTIVE)
+            # additive fields only; nothing above this reads or is affected by them.
+            extension = _stay_back_extension_for(d, by_day, midnight_tail_dates)
+            row["stay_back_grace_until_v3"] = extension.isoformat() if extension else None
+            # v3 doc §21: Comp-Off for work continuing past 12:30 AM — distinct
+            # from the §20 grace-only extension above. The actual post-midnight
+            # finish time is on the NEXT calendar day's punch bucket (see
+            # MIDNIGHT_TAIL_CUTOFF/_midnight_crossing_dates), not in this row's
+            # own last_out, so it has to be looked up there.
+            if d in midnight_tail_dates:
+                tail_punches = by_day.get(d + timedelta(days=1), [])
+                tail_time = tail_punches[0].astimezone(IST).time() if tail_punches else None
+                row["midnight_tail_punch_time"] = tail_time.isoformat() if tail_time else None
+                row["comp_off_eligible_v3"] = bool(tail_time and tail_time > MIDNIGHT_COMP_OFF_CUTOFF_V3)
         rows.append(row)
         d += timedelta(days=1)
 
@@ -626,6 +701,129 @@ def apply_late_coming_policy(
     return late_ordinal, late_ordinal >= params["red_card_at"]
 
 
+# ── Policy v3 — "JADE BY MONICA & KARISHMA: Attendance, Punctuality, Leave &
+# WFH Policy" v2.0, supplied 2026-08-25. The source document itself left its
+# Effective Date blank ("To be notified") and marked the 0.25/0.50-day pay
+# treatments "subject to applicable law and final payroll/legal validation
+# before implementation" (doc §34) — LATE_POLICY_V3_EFFECTIVE was therefore
+# originally a far-future placeholder while this was built dormant. The user
+# explicitly activated it on 2026-08-25 (see the constant below); it is now
+# LIVE for every real payroll cycle from 23 Aug 2026 onward. Never move this
+# constant again without an equally explicit go-ahead.
+#
+# v3 replaces v1.1/v2's late-mark-count Red Card with a Yellow/Red Card
+# system: EVERY late arrival (even a penalty-free one) earns a Yellow Card;
+# 7 Yellow Cards in a cycle earns a Red Card and an Attendance Improvement
+# Plan (AIP), not v2's Quarter Red Card/PL-forfeit mechanism (see
+# routers/late_policy.py's `in_policy` gating — a cycle governed by v3 is
+# excluded from ever completing a Quarter Red Card).
+LATE_POLICY_V3_EFFECTIVE = date(2026, 8, 23)  # ACTIVATED per user go-ahead 2026-08-25 — start of the current pay cycle (23 Aug-22 Sep 2026), so this in-progress cycle is governed by v3 from its own first day
+
+
+def late_policy_v3_active(d: date) -> bool:
+    return d >= LATE_POLICY_V3_EFFECTIVE
+
+
+# Minutes after this employee's OWN shift start (SHIFT_START_BY_TIME_SLOT /
+# DEFAULT_SHIFT_START — same per-shift resolution v1.1/v2 already use).
+# Unlike v1.1/v2, v3 has NO blanket grace before the very first band: on
+# time IS the shift's own start time (doc §4/§8), so there's no analogue to
+# LATE_GRACE_MINUTES/_V2 here — only band boundaries.
+V3_DAILY_TOLERANCE_END_MIN = 10   # §9:  +1..+10 min  => Daily Tolerance (Yellow, unlimited, no deduction)
+V3_EXTENDED_BUFFER_END_MIN = 20   # §10: +11..+20 min => Extended Monthly Buffer (Yellow; first 3/cycle free)
+V3_LEVEL1_END_MIN = 45            # §11: +21..+45 min => Level 1 (Yellow + 0.25)
+V3_LEVEL2_END_MIN = 105           # §12: +46..+105 min (11:45 - 10:00) => Level 2 (Yellow + 0.25)
+# §13: beyond +105 min (11:46 onward) => Level 3 (Yellow + 0.50)
+
+V3_FREE_BUFFER_COUNT = 3          # §10: first 3 Extended-Buffer arrivals/cycle are free
+V3_LEVEL_LOP_DAYS = {"level1": 0.25, "level2": 0.25, "level3": 0.5}
+V3_YELLOW_CARDS_FOR_RED = 7       # §14: 7 Yellow Cards/cycle => Red Card
+V3_AIP_DEFAULT_DAYS = 30          # §15: HR chooses 30 or 60
+
+
+def _v3_band(minutes_late: float) -> str | None:
+    """Which v3 band a `minutes_late` (arrival minus this employee's own
+    shift start, already stay-back-extended if applicable) falls in. None =
+    on time — not even a Yellow Card."""
+    if minutes_late <= 0:
+        return None
+    if minutes_late <= V3_DAILY_TOLERANCE_END_MIN:
+        return "daily_tolerance"
+    if minutes_late <= V3_EXTENDED_BUFFER_END_MIN:
+        return "extended_buffer"
+    if minutes_late <= V3_LEVEL1_END_MIN:
+        return "level1"
+    if minutes_late <= V3_LEVEL2_END_MIN:
+        return "level2"
+    return "level3"
+
+
+def apply_late_coming_policy_v3(daily: list[dict], time_slot: str | None) -> dict:
+    """Corporate-roster-only. Mirrors apply_late_coming_policy's job (mutates
+    `daily` in place tagging `lop_days`/`late_band_v3`, returns a cycle
+    summary) but for the v3 doc's Yellow/Red Card mechanics.
+
+    Reads each present day's own `first_in` directly rather than the v1/v2
+    `late` boolean, because v3's on-time cutoff (the bare shift start) is
+    stricter than v2's 20-minute grace — a 10:05 arrival is "on time" under
+    v2 but already a Yellow Card (Daily Tolerance) under v3. An authorised
+    stay-back extension (`stay_back_grace_until_v3`, doc §20/21 — set by
+    compute_daily_attendance) still makes an arrival fully on time with no
+    card at all, same as v1.1/v2.
+
+    FLEXIBLE_TIME_SLOT employees are exempt from arrival-based banding
+    entirely — every other v1.1/v2/v3 caller respects this (see the
+    `is_flexible` branch feeding the `late` flag in compute_daily_attendance),
+    but this function initially didn't check it at all, silently grading
+    Flexible staff against DEFAULT_SHIFT_START (SHIFT_START_BY_TIME_SLOT has
+    no entry for "Flexible") as if they had a fixed 10 AM start. Flexible
+    staff are judged on completed hours, never on when they walked in, so
+    they must never earn a Yellow/Red Card or a lateness LOP here.
+    """
+    if time_slot == FLEXIBLE_TIME_SLOT:
+        return {
+            "yellow_card_count": 0, "red_card": False, "daily_tolerance_count": 0,
+            "extended_buffer_count": 0, "level1_count": 0, "level2_count": 0, "level3_count": 0,
+            "midnight_comp_off_eligible_dates_v3": [r["date"] for r in daily if r.get("comp_off_eligible_v3")],
+        }
+    shift_start = SHIFT_START_BY_TIME_SLOT.get(time_slot, DEFAULT_SHIFT_START)
+    shift_start_dt = datetime.combine(date(2000, 1, 1), shift_start)
+    buffer_ordinal = 0
+    for r in daily:
+        if r["status"] != "present" or not r.get("first_in"):
+            continue
+        arrival = datetime.fromisoformat(r["first_in"]).astimezone(IST).time()
+        grace_until = r.get("stay_back_grace_until_v3")
+        if grace_until and arrival <= time.fromisoformat(grace_until):
+            continue
+        minutes_late = (datetime.combine(date(2000, 1, 1), arrival) - shift_start_dt).total_seconds() / 60
+        band = _v3_band(minutes_late)
+        if band is None:
+            continue
+        r["late_band_v3"] = band
+        if band == "extended_buffer":
+            buffer_ordinal += 1
+            if buffer_ordinal > V3_FREE_BUFFER_COUNT:
+                r["lop_days"] = V3_LEVEL_LOP_DAYS["level1"]
+        elif band in V3_LEVEL_LOP_DAYS:
+            r["lop_days"] = V3_LEVEL_LOP_DAYS[band]
+        # "daily_tolerance" => Yellow Card only, no deduction, no free-count consumed.
+
+    yellow_cards = sum(1 for r in daily if r.get("late_band_v3"))
+    return {
+        "yellow_card_count": yellow_cards,
+        "red_card": yellow_cards >= V3_YELLOW_CARDS_FOR_RED,
+        "daily_tolerance_count": sum(1 for r in daily if r.get("late_band_v3") == "daily_tolerance"),
+        "extended_buffer_count": sum(1 for r in daily if r.get("late_band_v3") == "extended_buffer"),
+        "level1_count": sum(1 for r in daily if r.get("late_band_v3") == "level1"),
+        "level2_count": sum(1 for r in daily if r.get("late_band_v3") == "level2"),
+        "level3_count": sum(1 for r in daily if r.get("late_band_v3") == "level3"),
+        "midnight_comp_off_eligible_dates_v3": [
+            r["date"] for r in daily if r.get("comp_off_eligible_v3")
+        ],
+    }
+
+
 def fy_label_for_month(year: int, month: int) -> str:
     """India's financial year runs April-March; e.g. (2026, 7) and (2027, 2)
     both fall in FY '2026-27'. Mirrors the tds/bonus/gratuity modules'
@@ -699,6 +897,7 @@ def compute_attendance_for_range(
     overrides: dict[date, dict] | None = None,
     leaves: dict[date, str] | None = None,
     holidays: list[dict] | None = None,
+    wfh_days: dict[date, dict] | None = None,
 ) -> list[dict]:
     """Daily attendance rows for an arbitrary [start, end] span, independent
     of any payroll cycle — used for on-demand attendance lookups (e.g. a
@@ -714,7 +913,7 @@ def compute_attendance_for_range(
     return compute_daily_attendance(
         start.year, start.month, punch_times, standard_hours, overrides, leaves, weekly_off_day,
         holidays=holidays_for_employee, is_corporate=is_corporate, time_slot=time_slot,
-        date_range=(start, end), ot_eligible=_is_ot_eligible(employee),
+        date_range=(start, end), ot_eligible=_is_ot_eligible(employee), wfh_days=wfh_days,
     )
 
 
@@ -728,6 +927,7 @@ def compute_monthly_summary(
     holidays: list[dict] | None = None,
     monthly_tds: float = 0.0,
     calendar_month: bool = False,
+    wfh_days: dict[date, dict] | None = None,
 ) -> dict:
     standard_hours = float(employee.get("standard_hours_per_day") or 8)
     weekly_off_day = int(employee.get("weekly_off_day") if employee.get("weekly_off_day") is not None else 6)
@@ -741,11 +941,18 @@ def compute_monthly_summary(
         year, month, punch_times, standard_hours, overrides, leaves, weekly_off_day,
         holidays=holidays_for_employee, is_corporate=is_corporate, time_slot=time_slot,
         calendar_month=calendar_month, ot_eligible=_is_ot_eligible(employee),
+        wfh_days=wfh_days,
     )
 
-    late_mark_count, red_card = (
-        apply_late_coming_policy(daily, standard_hours, time_slot) if is_corporate else (0, False)
-    )
+    _, period_end_for_v3 = pay_period_bounds(year, month, calendar_month)
+    v3_active = is_corporate and late_policy_v3_active(period_end_for_v3)
+    v3_summary = apply_late_coming_policy_v3(daily, time_slot) if v3_active else None
+    if v3_active:
+        late_mark_count, red_card = v3_summary["yellow_card_count"], v3_summary["red_card"]
+    else:
+        late_mark_count, red_card = (
+            apply_late_coming_policy(daily, standard_hours, time_slot) if is_corporate else (0, False)
+        )
 
     present_days = sum(1 for r in daily if r["status"] == "present")
     absent_days = sum(1 for r in daily if r["status"] == "absent")
@@ -753,15 +960,19 @@ def compute_monthly_summary(
     leave_days = sum(1 for r in daily if r["status"] == "leave")
     weekoff_days = sum(1 for r in daily if r["status"] == "weekoff")
     half_days = sum(1 for r in daily if r["status"] == "half_day")
+    wfh_day_count = sum(1 for r in daily if r["status"] == "wfh")
     unpaid_leave_days = sum(1 for r in daily if r["status"] == "leave" and r.get("leave_type") == "unpaid")
     late_lop_days = round(sum(r.get("lop_days", 0) for r in daily), 2)
     pl_days = leave_days - unpaid_leave_days
-    paid_days = present_days + weekoff_days + holiday_days + pl_days + 0.5 * half_days - late_lop_days
+    # A confirmed WFH day (doc §25) is paid the same way a half_day already
+    # is — 50% — reusing that exact fractional-day mechanism rather than a
+    # new one, per PAY_TREATMENT_PERCENT in routers/wfh.py.
+    paid_days = present_days + weekoff_days + holiday_days + pl_days + 0.5 * half_days + 0.5 * wfh_day_count - late_lop_days
     # Payslip "WithoutPayDays" — the complement of paid_days over total_days:
     # full absences, unpaid leave (excluded from pl_days above), the unpaid
-    # halves of half-days, and late-coming LOP days (already a day-amount,
-    # not a count — see LATE_LOP_DAYS).
-    without_pay_days = absent_days + unpaid_leave_days + 0.5 * half_days + late_lop_days
+    # halves of half-days and WFH days, and late-coming LOP days (already a
+    # day-amount, not a count — see LATE_LOP_DAYS).
+    without_pay_days = absent_days + unpaid_leave_days + 0.5 * half_days + 0.5 * wfh_day_count + late_lop_days
     late_days = sum(1 for r in daily if r["status"] == "present" and r.get("late"))
     on_time_days = present_days - late_days
     total_hours_worked = round(sum(r["hours_worked"] for r in daily), 2)
@@ -827,7 +1038,10 @@ def compute_monthly_summary(
     lop_amount = per_day_salary * late_lop_days
 
     period_start, period_end = pay_period_bounds(year, month, calendar_month)
-    late_card = late_card_status(late_mark_count, period_end) if is_corporate else "none"
+    if v3_active:
+        late_card = "red" if red_card else ("yellow" if late_mark_count > 0 else "none")
+    else:
+        late_card = late_card_status(late_mark_count, period_end) if is_corporate else "none"
 
     return {
         "employee_id": employee["id"],
@@ -862,6 +1076,7 @@ def compute_monthly_summary(
         "holiday_days": holiday_days,
         "leave_days": leave_days,
         "weekoff_days": weekoff_days,
+        "wfh_days": wfh_day_count,
         "pl_days": pl_days,
         "paid_days": round(paid_days, 1),
         "late_days": late_days,
@@ -869,10 +1084,12 @@ def compute_monthly_summary(
         "late_mark_count": late_mark_count,
         "red_card": red_card,
         # "none" | "yellow" | "red" — the Yellow Card exists only from the
-        # 22 Sept 2026 revision (late_card_status).
+        # 22 Sept 2026 revision (late_card_status) / v3 (every late arrival).
         "late_card": late_card,
         "yellow_card": late_card == "yellow",
-        "late_policy_version": 2 if late_policy_v2_active(period_end) else 1,
+        "late_policy_version": 3 if v3_active else (2 if late_policy_v2_active(period_end) else 1),
+        # v3-only breakdown (None under v1.1/v2) — see apply_late_coming_policy_v3.
+        "late_policy_v3": v3_summary,
         "lop_days": late_lop_days,
         "lop_amount": round(lop_amount, 2),
         "without_pay_days": round(without_pay_days, 1),

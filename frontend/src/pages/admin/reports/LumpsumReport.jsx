@@ -114,7 +114,7 @@ export default function LumpsumReport() {
               ))}
               <th className="px-3 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">
                 TDS
-                <span className="block normal-case font-normal text-ink/50 text-[10px]">from Tax Declaration</span>
+                <span className="block normal-case font-normal text-ink/70 text-[10px]">from Tax Declaration</span>
               </th>
             </tr>
           </thead>

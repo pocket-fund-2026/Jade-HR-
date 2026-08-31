@@ -106,7 +106,7 @@ export default function GratuityReport() {
                   </td>
                   <td className="px-4 py-3 text-ink/70">{r.is_active ? "Active" : "Inactive"}</td>
                   <td className="px-4 py-3">
-                    <span className={r.eligible ? "text-jade-700 font-medium" : "text-ink/40"}>{r.eligible ? "Yes" : "No"}</span>
+                    <span className={r.eligible ? "text-jade-700 font-medium" : "text-ink/70"}>{r.eligible ? "Yes" : "No"}</span>
                   </td>
                   <td className="px-4 py-3 font-nums text-ink/70">{r.years_of_service}</td>
                   <td className="px-4 py-3 font-nums font-semibold text-jade-700">

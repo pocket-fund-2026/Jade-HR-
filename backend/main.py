@@ -5,7 +5,7 @@ from config import ALLOWED_ORIGINS
 from routers import (
     absence, auth, biometric, disputes, employee_profile, employees, holidays, late_policy, leave, leave_ledger,
     letters, onboarding, payroll, payslip_approvals, permissions, policy_ack, reports, salary_structure, selfie,
-    tax_declaration,
+    store_timings, tax_declaration, wfh,
 )
 
 app = FastAPI(title="JADE HR")
@@ -39,6 +39,14 @@ app.include_router(onboarding.router)
 app.include_router(absence.router)
 app.include_router(late_policy.router)
 app.include_router(policy_ack.router)
+app.include_router(wfh.router)
+app.include_router(store_timings.router)
+
+# Loads admin-defined shift time slots (hr_time_slots) into payroll.py's
+# in-memory SHIFT_START_BY_TIME_SLOT so lateness grading picks them up from
+# the first request — the 4 slots hardcoded there as defaults keep working
+# even if this fails (e.g. DB unreachable at boot).
+store_timings.load_time_slots_into_payroll()
 
 
 @app.get("/api/health")

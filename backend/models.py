@@ -124,6 +124,10 @@ class AttendanceOverrideUpsert(BaseModel):
     first_in: Optional[time] = None
     last_out: Optional[time] = None
     note: str = ""
+    # v3 doc §6/§17 — missed-punch verification source. There's no CCTV feed
+    # integration here; this just records HOW HR established the time being
+    # entered, distinct from an ordinary correction with no such backing.
+    verification_source: Optional[str] = None  # "cctv" | "system_correction" | "other"
 
 
 class AttendanceImportRow(BaseModel):
@@ -215,6 +219,37 @@ class CompOffGrant(BaseModel):
     employee_id: str
     earned_date: date
     units: float  # 0.5 or 1.0
+
+
+class AIPCreate(BaseModel):
+    """Policy v3 §15 — Attendance Improvement Plan. Dormant until v3 activates
+    (see LATE_POLICY_V3_EFFECTIVE) but the request/close workflow itself is
+    just record-keeping and safe to expose now."""
+    employee_id: str
+    duration_days: int  # 30 or 60 per the doc
+    start_date: date
+    notes: str = ""
+
+
+class AIPClose(BaseModel):
+    status: str  # "passed" | "failed"
+    notes: str = ""
+
+
+class WFHRequestCreate(BaseModel):
+    start_date: date
+    end_date: date
+    reason: str
+
+
+class WFHResolve(BaseModel):
+    action: str  # "approve" | "reject"
+    note: str = ""
+
+
+class WFHCompletionConfirm(BaseModel):
+    confirmed: bool
+    note: str = ""
 
 
 class LeaveLedgerEntryCreate(BaseModel):

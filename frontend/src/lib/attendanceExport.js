@@ -6,7 +6,7 @@ const MONTH_NAMES = [
 ];
 
 export const STATUS_CODE = {
-  present: "P", absent: "A", weekoff: "WO", holiday: "H", leave: "L", half_day: "HD", future: "",
+  present: "P", absent: "A", weekoff: "WO", holiday: "H", leave: "L", half_day: "HD", wfh: "WFH", future: "",
 };
 
 // Mirrors AttendanceReport.jsx's STATUS_CLASS (tailwind.config.js jade/rust/
@@ -20,6 +20,7 @@ const STATUS_COLORS = {
   holiday: { fill: "FFFBF0E2", font: "FF8B5219" },
   leave: { fill: "FFEFE9DA", font: "FF5B5952" },
   half_day: { fill: "FFFBF0E2", font: "FF8B5219" },
+  wfh: { fill: "FFEFECE5", font: "FF1B4A37" },
 };
 
 const HEADER_FILL = "FF16302A"; // ledger-800
@@ -28,47 +29,63 @@ const HEADER_FONT = "FFEFE9DA"; // manila
 // Late arrivals are graded by severity, not just flagged — a bare "red or
 // not" (the previous version) used the exact same red as Absent, so a late
 // cell and an absent cell read identically at a glance. Cutoffs must match
-// backend/payroll.py's LATE_GRACE_MINUTES / LATE_GRACE_MINUTES_V2 and
-// LATE_POLICY_V2_EFFECTIVE exactly, since the backend is the authority for
+// backend/payroll.py's LATE_GRACE_MINUTES / _V3_*_END_MIN and
+// LATE_POLICY_V3_EFFECTIVE exactly, since the backend is the authority for
 // whether a day is late at all (`d.late`) — this only grades *how* late,
-// purely for display.
-const LATE_POLICY_V2_EFFECTIVE = "2026-09-22"; // late-arrival policy revision
+// purely for display. Policy v2 (the 22-Sept-2026 revision) never actually
+// governs a real day: Policy v3 was activated from the 23-Aug-2026 pay cycle
+// — a date BEFORE v2's own effective date — so v2 is superseded before it
+// could ever take effect and is intentionally omitted here (v1.1 through
+// 22 Aug 2026, v3 from 23 Aug 2026 onward).
+const LATE_POLICY_V3_EFFECTIVE = "2026-08-23"; // Attendance, Punctuality, Leave & WFH Policy v2.0
 const LATE_GRACE_MINUTES = 10 * 60 + 11; // v1.1: 10:11 AM IST
-const LATE_GRACE_MINUTES_V2 = 10 * 60 + 20; // from 22 Sept 2026: 10:20 AM IST
+const LATE_ON_TIME_MINUTES_V3 = 10 * 60; // v3: 10:00 AM IST, no grace before banding starts
 const LATE_TIERS = [
   { label: "1–15m", maxMinutes: 15, fill: "FFFCEFC2", font: "FF8A6D1D" }, // mild — soft gold
   { label: "16–45m", maxMinutes: 45, fill: "FFFAD9B3", font: "FFA6531B" }, // moderate — soft orange
   { label: "46m+", maxMinutes: Infinity, fill: "FFF6C6C0", font: "FFA3241B", bold: true }, // severe — soft red, bold
 ];
+// v3's 5 bands (doc §9-13): Daily Tolerance/Extended Buffer carry no
+// deduction at all (still shaded, distinctly, since they still earn a
+// Yellow Card), Level 1/2 are ¼-day, Level 3 is ½-day.
+const LATE_TIERS_V3 = [
+  { label: "Daily Tolerance (1–10m)", maxMinutes: 10, fill: "FFEFECE5", font: "FF5B5952" },
+  { label: "Extended Buffer (11–20m)", maxMinutes: 20, fill: "FFFCEFC2", font: "FF8A6D1D" },
+  { label: "Level 1 (21–45m)", maxMinutes: 45, fill: "FFFAD9B3", font: "FFA6531B" },
+  { label: "Level 2 (46–105m)", maxMinutes: 105, fill: "FFF6AFA6", font: "FFA3241B" },
+  { label: "Level 3 (106m+)", maxMinutes: Infinity, fill: "FFF6C6C0", font: "FFA3241B", bold: true },
+];
 
-function minutesLate(firstInIso) {
+function minutesLate(firstInIso, istDate) {
   if (!firstInIso) return null;
   const parts = new Intl.DateTimeFormat("en-GB", {
     year: "numeric", month: "2-digit", day: "2-digit",
     hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "Asia/Kolkata",
   }).formatToParts(new Date(firstInIso));
   const part = (type) => parts.find((p) => p.type === type).value;
-  const istDate = `${part("year")}-${part("month")}-${part("day")}`;
-  const grace = istDate >= LATE_POLICY_V2_EFFECTIVE ? LATE_GRACE_MINUTES_V2 : LATE_GRACE_MINUTES;
+  const grace = istDate >= LATE_POLICY_V3_EFFECTIVE ? LATE_ON_TIME_MINUTES_V3 : LATE_GRACE_MINUTES;
   return Number(part("hour")) * 60 + Number(part("minute")) - grace;
 }
 
 // `d.late` (from the API) is the authority on WHETHER a day is late, computed
-// backend-side at second precision (past 10:11, or 10:20 from 22 Sept 2026,
-// with each employee's own shift start and stay-back extensions). This only
-// picks a severity tier for display once that's already true.
+// backend-side at second precision (past 10:11 under v1.1, or past 10:00 —
+// banded — under v3, with each employee's own shift start and stay-back
+// extensions). This only picks a severity tier for display once that's
+// already true.
 function lateTier(d) {
   if (!d.late) return null;
-  const late = minutesLate(d.first_in);
+  const v3 = d.date >= LATE_POLICY_V3_EFFECTIVE;
+  const tiers = v3 ? LATE_TIERS_V3 : LATE_TIERS;
+  const late = minutesLate(d.first_in, d.date);
   // late===null: no timestamp to grade at all (shouldn't happen given
   // d.late is true, but flag for review rather than silently no-op).
-  if (late === null) return LATE_TIERS[LATE_TIERS.length - 1];
+  if (late === null) return tiers[tiers.length - 1];
   // late<=0: minute-level rounding lost the seconds that actually tripped
-  // `late` backend-side (e.g. 10:11:47) — genuinely only seconds over, not
-  // "0 or negative minutes", so it belongs in the mildest tier, not a
-  // fall-through to the harshest one.
-  if (late <= 0) return LATE_TIERS[0];
-  return LATE_TIERS.find((t) => late <= t.maxMinutes);
+  // `late` backend-side (e.g. 10:11:47, or 10:00:30 under v3) — genuinely
+  // only seconds over, not "0 or negative minutes", so it belongs in the
+  // mildest tier, not a fall-through to the harshest one.
+  if (late <= 0) return tiers[0];
+  return tiers.find((t) => late <= t.maxMinutes);
 }
 
 function applyLateTier(cell, tier, baseFont) {
@@ -80,10 +97,18 @@ function applyLateTier(cell, tier, baseFont) {
 // the real tier colors) explaining the late-shading gradient, prepended to
 // a sheet. Mirrors the on-screen Attendance Sheet's own legend caption
 // ("P = Present · A = Absent · ...") as an export-side equivalent.
-function addLateLegend(ws, font) {
-  const row = ws.addRow(["Late shading (In Time, past 10:11 AM):", ...LATE_TIERS.map((t) => t.label)]);
+function addLateLegend(ws, font, days) {
+  // A sheet's dates fall entirely on one side of LATE_POLICY_V3_EFFECTIVE in
+  // practice (pay cycles run 23rd-22nd and v3 activated exactly on a cycle
+  // boundary), so picking the legend off the first day is representative of
+  // the whole sheet — see lateTier's own per-day check for why this can
+  // never actually straddle within one export.
+  const v3 = (days || []).some((d) => d.date >= LATE_POLICY_V3_EFFECTIVE);
+  const tiers = v3 ? LATE_TIERS_V3 : LATE_TIERS;
+  const label = v3 ? "Late shading (In Time, past 10:00 AM):" : "Late shading (In Time, past 10:11 AM):";
+  const row = ws.addRow([label, ...tiers.map((t) => t.label)]);
   row.getCell(1).font = { ...font, bold: true };
-  LATE_TIERS.forEach((t, i) => {
+  tiers.forEach((t, i) => {
     const cell = row.getCell(2 + i);
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: t.fill } };
     cell.font = { ...font, color: { argb: t.font }, bold: true };
@@ -156,7 +181,7 @@ export async function exportAttendanceExcel(rows, year, month, rangeLabel) {
   const ws = wb.addWorksheet("Attendance");
   const days = rows[0]?.daily ?? [];
 
-  addLateLegend(ws, { size: 10 });
+  addLateLegend(ws, { size: 10 }, days);
 
   const header = ["Employee Code", "Name", "Department"];
   for (const d of days) {
@@ -245,7 +270,7 @@ export async function exportAttendanceTimingsExcel(rows, year, month, rangeLabel
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("DailyAttendance_BasicReport_Emp");
 
-  addLateLegend(ws, BLOCK_FONT);
+  addLateLegend(ws, BLOCK_FONT, rows[0]?.daily ?? []);
   ws.addRow([]);
 
   for (const r of rows) {
@@ -262,14 +287,25 @@ export async function exportAttendanceTimingsExcel(rows, year, month, rangeLabel
       // system's "GS"/etc) — Shift mirrors Status (WO shows in both, same
       // as the reference) rather than inventing a code jade-hr can't back.
       const status = STATUS_CODE[d.status] ?? d.status;
+      // `hours_worked` is the RAW in-to-out span and already contains
+      // whatever portion of it counts as OT (e.g. a Saturday shift worked
+      // 10:08-18:33 has hours_worked=8:25, of which 3:34 past the 3pm
+      // cutoff is also ot_hours — OT is a subset of the same span, not
+      // extra time on top of it). W. Duration must show only the
+      // non-OT/regular portion so it and OT sum to the real total instead
+      // of double-counting the OT hours into both W. Duration AND T
+      // Duration (was `hours_worked + ot_hours`, which for the Saturday
+      // example above produced 11:59 — a number that isn't anyone's real
+      // clock-in-to-clock-out span).
+      const regularHours = Math.max(0, (d.hours_worked || 0) - (d.ot_hours || 0));
       const dataRow = ws.addRow([
         formatBlockDate(d.date),
         status,
         formatClockHHMM(d.first_in),
         formatClockHHMM(d.last_out),
-        formatDurationHHMM(d.hours_worked),
+        formatDurationHHMM(regularHours),
         formatDurationHHMM(d.ot_hours),
-        formatDurationHHMM((d.hours_worked || 0) + (d.ot_hours || 0)),
+        formatDurationHHMM(d.hours_worked),
         status,
       ]);
       dataRow.eachCell((cell) => { cell.font = BLOCK_FONT; cell.alignment = { horizontal: "left", vertical: "top" }; });

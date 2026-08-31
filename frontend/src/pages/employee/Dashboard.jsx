@@ -1,4 +1,4 @@
-import { Bell, Briefcase, Flag, Paperclip, Plane, Printer, X } from "lucide-react";
+import { Bell, Briefcase, Flag, Home, Paperclip, Plane, Printer, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import AbsenceRequestModal from "../../components/AbsenceRequestModal.jsx";
@@ -8,6 +8,7 @@ import MonthPicker from "../../components/MonthPicker.jsx";
 import PayslipDetail from "../../components/PayslipDetail.jsx";
 import SelfieCheckinCard from "../../components/SelfieCheckinCard.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
+import WFHRequestModal from "../../components/WFHRequestModal.jsx";
 import api from "../../lib/api.js";
 import { currentPayPeriod, formatDate, formatHolidayDate, formatHoursMins, formatTime } from "../../lib/format.js";
 import { LEAVE_LABELS } from "../../lib/leaveTypes.js";
@@ -30,11 +31,14 @@ export default function Dashboard() {
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [leaveBalance, setLeaveBalance] = useState([]);
   const [absenceRequests, setAbsenceRequests] = useState([]);
+  const [wfhRequests, setWfhRequests] = useState([]);
+  const [aip, setAip] = useState(null);
   const [holidays, setHolidays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [disputeDate, setDisputeDate] = useState(null);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showAbsenceModal, setShowAbsenceModal] = useState(false);
+  const [showWfhModal, setShowWfhModal] = useState(false);
   const [dismissedNotice, setDismissedNotice] = useState(false);
 
   const load = () => {
@@ -46,14 +50,18 @@ export default function Dashboard() {
       api.get("/api/me/leave-balance"),
       api.get("/api/me/absence-requests"),
       api.get("/api/me/holidays", { params: { year: today.getFullYear() } }),
+      api.get("/api/wfh-requests/mine"),
+      api.get("/api/late-policy/v3/aip/mine"),
     ])
-      .then(([payroll, disputesRes, leaveRes, balanceRes, absenceRes, holidaysRes]) => {
+      .then(([payroll, disputesRes, leaveRes, balanceRes, absenceRes, holidaysRes, wfhRes, aipRes]) => {
         setSummary(payroll.data);
         setDisputes(disputesRes.data);
         setLeaveRequests(leaveRes.data);
         setLeaveBalance(balanceRes.data);
         setAbsenceRequests(absenceRes.data);
         setHolidays(holidaysRes.data);
+        setWfhRequests(wfhRes.data);
+        setAip(aipRes.data);
         setDismissedNotice(false);
       })
       .finally(() => setLoading(false));
@@ -114,15 +122,45 @@ export default function Dashboard() {
         <p className="text-ink/70">Loading ledger…</p>
       ) : (
         <div className="print-area">
-          {summary.red_card && (
+          {aip && aip.status === "active" && (
             <div className="bg-rust-50 border border-rust-500/40 rounded-sm px-4 py-3 mb-6 text-sm text-rust-500 no-print">
-              <strong>Red Card this cycle</strong> — {summary.late_mark_count} late marks recorded (23rd–22nd cycle).
-              {summary.late_policy_version === 2
-                ? " New Paid Leave and Comp-Off requests can't be self-submitted for the rest of this cycle. A Red Card in every month of the quarter is a Quarter Red Card: Final Warning letter and 2 Paid Leave days forfeited."
-                : " Leave taken during a Red Card cycle is treated as Loss of Pay unless corrected by HR."}
+              <strong>You are on an Attendance Improvement Plan</strong> — {formatDate(aip.start_date)} to{" "}
+              {formatDate(aip.end_date)} ({aip.duration_days} days). Only one late arrival is permitted for its
+              entire length; a further one is a failure of the AIP. This stays in effect across pay cycles until HR
+              closes it, even in a cycle where you haven't earned a new Red Card.
             </div>
           )}
-          {summary.yellow_card && (
+          {summary.red_card && (
+            <div className="bg-rust-50 border border-rust-500/40 rounded-sm px-4 py-3 mb-6 text-sm text-rust-500 no-print">
+              {summary.late_policy_version === 3 ? (
+                <>
+                  <strong>Red Card this cycle</strong> — {summary.late_mark_count} Yellow Cards recorded (23rd–22nd
+                  cycle). You have been placed on an Attendance Improvement Plan (AIP) — see HR for its duration and
+                  terms. Only one late arrival is permitted for its entire length.
+                </>
+              ) : summary.late_policy_version === 2 ? (
+                <>
+                  <strong>Red Card this cycle</strong> — {summary.late_mark_count} late marks recorded (23rd–22nd
+                  cycle). New Paid Leave and Comp-Off requests can't be self-submitted for the rest of this cycle. A
+                  Red Card in every month of the quarter is a Quarter Red Card: Final Warning letter and 2 Paid Leave
+                  days forfeited.
+                </>
+              ) : (
+                <>
+                  <strong>Red Card this cycle</strong> — {summary.late_mark_count} late marks recorded (23rd–22nd
+                  cycle). Leave taken during a Red Card cycle is treated as Loss of Pay unless corrected by HR.
+                </>
+              )}
+            </div>
+          )}
+          {summary.yellow_card && summary.late_policy_version === 3 && (
+            <div className="bg-manila border border-ink/15 rounded-sm px-4 py-3 mb-6 text-sm text-ink no-print">
+              <strong>Yellow Card this cycle</strong> — {summary.late_mark_count} of 7 Yellow Cards used (23rd–22nd
+              cycle; every late arrival earns one, even a penalty-free Daily Tolerance or Extended Buffer arrival). 7
+              Yellow Cards in a cycle is a Red Card and an Attendance Improvement Plan.
+            </div>
+          )}
+          {summary.yellow_card && summary.late_policy_version !== 3 && (
             <div className="bg-manila border border-ink/15 rounded-sm px-4 py-3 mb-6 text-sm text-ink no-print">
               <strong>Yellow Card this cycle</strong> — {summary.late_mark_count} of 3 free late marks used (23rd–22nd
               cycle), no deduction. From the 4th late mark each one costs ¼ day, or ½ day if you arrive at 11:00 am or
@@ -149,6 +187,12 @@ export default function Dashboard() {
                 >
                   <Briefcase size={13} /> Report Work Absence
                 </button>
+                <button
+                  onClick={() => setShowWfhModal(true)}
+                  className="flex items-center gap-1.5 bg-paper border border-ink/15 text-ink px-3 py-1.5 rounded-sm text-xs font-semibold hover:border-jade-500 transition-colors"
+                >
+                  <Home size={13} /> Request WFH
+                </button>
               </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -159,7 +203,7 @@ export default function Dashboard() {
                     {b.remaining} <span className="text-ink/65 text-sm">/ {b.allocated}</span>
                   </p>
                   {b.leave_type === "paid" && b.carried_forward > 0 && (
-                    <p className="text-[10px] text-ink/50 mt-0.5">
+                    <p className="text-[10px] text-ink/70 mt-0.5">
                       incl. {Math.round(b.carried_forward * 10) / 10} carried forward
                     </p>
                   )}
@@ -313,6 +357,34 @@ export default function Dashboard() {
               </table>
             </div>
           )}
+          {wfhRequests.length > 0 && (
+            <div className="bg-paper rounded-sm shadow-card overflow-hidden mt-6">
+              <p className="px-5 pt-4 pb-3 text-xs font-semibold uppercase tracking-wider text-ink/70">My WFH requests</p>
+              <table className="w-full text-sm">
+                <tbody>
+                  {wfhRequests.map((w) => (
+                    <tr key={w.id} className="border-t border-ink/[0.06]">
+                      <td className="px-5 py-3 font-nums text-ink/70 w-40">{formatDate(w.start_date)}–{formatDate(w.end_date)}</td>
+                      <td className="px-5 py-3 text-ink/70">{w.reason}</td>
+                      <td className="px-5 py-3">
+                        <StampBadge status={w.status}>{w.status}</StampBadge>
+                        {w.status === "approved" && (
+                          <div className="text-xs text-ink/70 mt-1">
+                            {w.work_completed === true
+                              ? "Completion confirmed — 50% pay"
+                              : w.work_completed === false
+                              ? "Completion not confirmed — normal attendance/leave rules apply"
+                              : "Awaiting Reporting Manager's completion confirmation"}
+                          </div>
+                        )}
+                        {w.resolution_note && <div className="text-xs text-ink/70 mt-1">{w.resolution_note}</div>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -333,6 +405,12 @@ export default function Dashboard() {
         <AbsenceRequestModal
           onClose={() => setShowAbsenceModal(false)}
           onSubmitted={() => { setShowAbsenceModal(false); load(); }}
+        />
+      )}
+      {showWfhModal && (
+        <WFHRequestModal
+          onClose={() => setShowWfhModal(false)}
+          onSubmitted={() => { setShowWfhModal(false); load(); }}
         />
       )}
     </div>

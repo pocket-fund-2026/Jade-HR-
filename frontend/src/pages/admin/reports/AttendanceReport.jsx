@@ -13,8 +13,9 @@ import { formatHoursMins, formatTime } from "../../../lib/format.js";
 const today = new Date();
 
 const STATUS_CLASS = {
-  present: "bg-jade-50 text-jade-700", absent: "bg-rust-50 text-rust-600", weekoff: "bg-ink/5 text-ink/40",
+  present: "bg-jade-50 text-jade-700", absent: "bg-rust-50 text-rust-600", weekoff: "bg-ink/5 text-ink/70",
   holiday: "bg-ochre-50 text-ochre-700", leave: "bg-manila text-ink/70", half_day: "bg-ochre-50 text-ochre-700",
+  wfh: "bg-ink/5 text-jade-700",
   future: "text-ink/20",
 };
 
@@ -293,12 +294,12 @@ export default function AttendanceReport() {
                               )}
                             </span>
                             {d.first_in && (
-                              <span className="text-[9px] leading-none text-ink/50 font-nums whitespace-nowrap">
+                              <span className="text-[9px] leading-none text-ink/70 font-nums whitespace-nowrap">
                                 {formatTime(d.first_in)}
                               </span>
                             )}
                             {d.first_in && (
-                              <span className="text-[9px] leading-none text-ink/50 font-nums whitespace-nowrap">
+                              <span className="text-[9px] leading-none text-ink/70 font-nums whitespace-nowrap">
                                 {formatTime(d.last_out)}
                               </span>
                             )}

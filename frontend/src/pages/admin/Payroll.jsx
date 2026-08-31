@@ -23,6 +23,7 @@ async function exportExcel(rows, year, month) {
     "Weekoff": r.weekoff_days,
     "PL": r.pl_days,
     "Absent": r.absent_days,
+    "WFH": r.wfh_days,
     "Paid Days": r.paid_days,
     "Late": r.late_days,
     "On Time": r.on_time_days,
@@ -105,6 +106,7 @@ export default function Payroll() {
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Weekoff</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">PL</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Absent</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">WFH</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Paid Days</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Late</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">On Time</th>
@@ -119,9 +121,9 @@ export default function Payroll() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={16}>Loading ledger…</td></tr>
+              <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={17}>Loading ledger…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={16}>No employees match.</td></tr>
+              <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={17}>No employees match.</td></tr>
             ) : (
               filtered.map((r) => (
                 <tr key={r.employee_id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
@@ -145,6 +147,7 @@ export default function Payroll() {
                   <td className="px-5 py-3.5 font-nums text-ink/70">{r.weekoff_days}</td>
                   <td className="px-5 py-3.5 font-nums text-ink/70">{r.pl_days}</td>
                   <td className="px-5 py-3.5 font-nums text-rust-500">{r.absent_days}</td>
+                  <td className="px-5 py-3.5 font-nums text-ink/70">{r.wfh_days}</td>
                   <td className="px-5 py-3.5 font-nums font-semibold text-ink">{r.paid_days}</td>
                   <td className="px-5 py-3.5 font-nums text-rust-500">{r.late_days}</td>
                   <td className="px-5 py-3.5 font-nums text-jade-700">{r.on_time_days}</td>

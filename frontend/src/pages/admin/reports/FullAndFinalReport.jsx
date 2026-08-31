@@ -134,7 +134,7 @@ export default function FullAndFinalReport() {
                     <tr className="border-b border-ink/[0.06]">
                       <td className="px-5 py-3 text-ink/80">
                         Gratuity — {settlement.gratuity.years_of_service} year{settlement.gratuity.years_of_service === 1 ? "" : "s"} of service
-                        {!settlement.gratuity.eligible && <span className="text-ink/60 italic"> (not eligible — under 5 years)</span>}
+                        {!settlement.gratuity.eligible && <span className="text-ink/70 italic"> (not eligible — under 5 years)</span>}
                         {settlement.gratuity.capped && <span className="text-ochre-700 italic"> (capped at the ₹20L statutory ceiling)</span>}
                       </td>
                       <td className="px-5 py-3 text-right font-nums text-ink">{formatINR(settlement.gratuity.gratuity_amount)}</td>

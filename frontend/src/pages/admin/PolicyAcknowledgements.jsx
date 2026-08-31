@@ -82,17 +82,17 @@ export default function PolicyAcknowledgements() {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             <div className="bg-paper rounded-sm shadow-card p-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-ink/60">On roster</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-ink/70">On roster</p>
               <p className="font-display text-2xl text-ink font-nums mt-1">{data.total}</p>
             </div>
             <div className="bg-paper rounded-sm shadow-card p-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-ink/60 flex items-center gap-1">
+              <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 flex items-center gap-1">
                 <CheckCircle2 size={12} className="text-jade-600" /> Acknowledged
               </p>
               <p className="font-display text-2xl text-jade-700 font-nums mt-1">{data.acknowledged}</p>
             </div>
             <div className="bg-paper rounded-sm shadow-card p-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-ink/60 flex items-center gap-1">
+              <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 flex items-center gap-1">
                 <Clock size={12} className="text-rust-500" /> Pending
               </p>
               <p className="font-display text-2xl text-rust-500 font-nums mt-1">{data.pending}</p>
@@ -101,7 +101,7 @@ export default function PolicyAcknowledgements() {
 
           <div className="flex flex-wrap items-center gap-3 mb-3">
             <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/70" />
               <input
                 type="text" value={search} onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search name, code, department…"
@@ -121,13 +121,13 @@ export default function PolicyAcknowledgements() {
               className="flex items-center gap-1.5 bg-paper border border-ink/15 text-ink/80 px-3 py-2 rounded-sm text-xs font-medium hover:border-ink/30 transition-colors">
               <Download size={13} /> Export CSV
             </button>
-            <span className="text-xs text-ink/50 font-nums ml-auto">{rows.length} shown</span>
+            <span className="text-xs text-ink/70 font-nums ml-auto">{rows.length} shown</span>
           </div>
 
           <div className="bg-paper rounded-sm shadow-card overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="text-left text-xs font-semibold uppercase tracking-wider text-ink/60 border-b border-ink/10">
+                <tr className="text-left text-xs font-semibold uppercase tracking-wider text-ink/70 border-b border-ink/10">
                   <th className="px-5 py-3">Employee</th>
                   <th className="px-5 py-3">Department</th>
                   <th className="px-5 py-3">Location</th>
@@ -144,7 +144,7 @@ export default function PolicyAcknowledgements() {
                       <td className="px-5 py-3">
                         <span className="text-ink font-medium">{r.name}</span>
                         {!r.is_active && (
-                          <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-ink/50">inactive</span>
+                          <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-ink/70">inactive</span>
                         )}
                         <div className="text-xs text-ink/70 font-nums">{r.employee_code}</div>
                       </td>

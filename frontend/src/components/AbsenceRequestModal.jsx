@@ -130,7 +130,7 @@ export default function AbsenceRequestModal({ onClose, onSubmitted }) {
 
         <form onSubmit={submit} className="space-y-6">
           <div className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-ink/50">Employee Details</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-ink/70">Employee Details</p>
             <Field label="Dept." required>
               <input className={inputCls} required value={department} onChange={(e) => setDepartment(e.target.value)} />
             </Field>
@@ -146,7 +146,7 @@ export default function AbsenceRequestModal({ onClose, onSubmitted }) {
           </div>
 
           <div className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-ink/50">Details</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-ink/70">Details</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="From" required>
                 <input
@@ -180,7 +180,7 @@ export default function AbsenceRequestModal({ onClose, onSubmitted }) {
           </div>
 
           <div className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-ink/50">Approver Details</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-ink/70">Approver Details</p>
             <p className="text-xs text-ink/70 -mt-1">Enter below the details of your reporting manager who approves your leaves</p>
             <Field label="Name" required>
               <input className={inputCls} required value={approverName} onChange={(e) => setApproverName(e.target.value)} />
@@ -195,7 +195,7 @@ export default function AbsenceRequestModal({ onClose, onSubmitted }) {
 
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">
-              Attachment <span className="normal-case font-normal text-ink/50">(optional)</span>
+              Attachment <span className="normal-case font-normal text-ink/70">(optional)</span>
             </label>
             <label className="flex items-center gap-2 w-full rounded-sm border border-dashed border-ink/20 bg-manila/40 px-3 py-2.5 text-sm text-ink/70 cursor-pointer hover:bg-manila/60 transition-colors">
               <Paperclip size={14} />

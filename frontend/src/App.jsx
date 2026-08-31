@@ -71,9 +71,14 @@ const AttendanceReport = lazyWithReload(() => import("./pages/admin/reports/Atte
 const TeamAccess = lazyWithReload(() => import("./pages/admin/TeamAccess.jsx"));
 const OnboardingReview = lazyWithReload(() => import("./pages/admin/Onboarding.jsx"));
 const WorkAbsence = lazyWithReload(() => import("./pages/admin/WorkAbsence.jsx"));
+const WFHRequests = lazyWithReload(() => import("./pages/admin/WFHRequests.jsx"));
+const AIP = lazyWithReload(() => import("./pages/admin/AIP.jsx"));
+const PunctualityReport = lazyWithReload(() => import("./pages/admin/reports/PunctualityReport.jsx"));
+const LateNightSafetyReport = lazyWithReload(() => import("./pages/admin/reports/LateNightSafetyReport.jsx"));
 const EmployeeLayout = lazyWithReload(() => import("./pages/employee/EmployeeLayout.jsx"));
 const EmployeeDashboard = lazyWithReload(() => import("./pages/employee/Dashboard.jsx"));
 const TeamLeave = lazyWithReload(() => import("./pages/employee/TeamLeave.jsx"));
+const TeamWFH = lazyWithReload(() => import("./pages/employee/TeamWFH.jsx"));
 const TaxDeclaration = lazyWithReload(() => import("./pages/employee/TaxDeclaration.jsx"));
 const EmployeeMyPayslip = lazyWithReload(() => import("./pages/employee/MyPayslip.jsx"));
 
@@ -143,7 +148,7 @@ export default function App() {
             <Route path="employees/:id" element={<RequirePermission anyOf={["employees.view"]}><EmployeeDetails /></RequirePermission>} />
             <Route path="payroll" element={<RequirePermission anyOf={["payroll.view"]}><Payroll /></RequirePermission>} />
             <Route path="payroll/:id" element={<RequirePermission anyOf={["payroll.view"]}><PayrollDetail /></RequirePermission>} />
-            <Route path="reports" element={<RequirePermission anyOf={["payroll.view"]}><Reports /></RequirePermission>} />
+            <Route path="reports" element={<RequirePermission anyOf={["payroll.view", "attendance.restricted_reports"]}><Reports /></RequirePermission>} />
             <Route path="reports/salary-sheet" element={<RequirePermission anyOf={["payroll.view"]}><SalarySheetReport /></RequirePermission>} />
             <Route path="reports/yearly-salary" element={<RequirePermission anyOf={["payroll.view"]}><YearlySalaryReport /></RequirePermission>} />
             <Route path="reports/ctc-as-per-salary" element={<RequirePermission anyOf={["payroll.view"]}><CtcAsPerSalaryReport /></RequirePermission>} />
@@ -162,9 +167,13 @@ export default function App() {
             <Route path="reports/gratuity" element={<RequirePermission anyOf={["payroll.view"]}><GratuityReport /></RequirePermission>} />
             <Route path="reports/leave-ledger" element={<RequirePermission anyOf={["leave.manage", "payroll.view"]}><LeaveLedgerReport /></RequirePermission>} />
             <Route path="reports/lumpsum" element={<RequirePermission anyOf={["payroll.view"]}><LumpsumReport /></RequirePermission>} />
-            <Route path="reports/attendance" element={<RequirePermission anyOf={["payroll.view", "attendance.view"]}><AttendanceReport /></RequirePermission>} />
+            <Route path="reports/attendance" element={<RequirePermission anyOf={["attendance.restricted_reports"]}><AttendanceReport /></RequirePermission>} />
+            <Route path="reports/punctuality" element={<RequirePermission anyOf={["attendance.restricted_reports"]}><PunctualityReport /></RequirePermission>} />
+            <Route path="reports/late-night-safety" element={<RequirePermission anyOf={["attendance.restricted_reports"]}><LateNightSafetyReport /></RequirePermission>} />
             <Route path="disputes" element={<RequirePermission anyOf={["disputes.manage"]}><Disputes /></RequirePermission>} />
             <Route path="leave" element={<RequirePermission anyOf={["leave.manage"]}><Leave /></RequirePermission>} />
+            <Route path="wfh-requests" element={<RequirePermission anyOf={["leave.manage", "wfh.approve"]}><WFHRequests /></RequirePermission>} />
+            <Route path="aip" element={<RequirePermission anyOf={["leave.manage"]}><AIP /></RequirePermission>} />
             <Route path="work-absence" element={<RequirePermission anyOf={["absence.manage"]}><WorkAbsence /></RequirePermission>} />
             <Route path="leave-entry" element={<RequirePermission anyOf={["leave.manage"]}><LeaveEntry /></RequirePermission>} />
             <Route path="my-leave" element={<MyLeave />} />
@@ -188,9 +197,10 @@ export default function App() {
           >
             <Route index element={<EmployeeDashboard />} />
             <Route path="team-leave" element={<TeamLeave />} />
+            <Route path="team-wfh" element={<TeamWFH />} />
             <Route path="tax-declaration" element={<TaxDeclaration />} />
             <Route path="my-payslip" element={<EmployeeMyPayslip />} />
-            <Route path="policy" element={<PolicyDocument />} />
+            <Route path="policy" element={<PolicyDocument scope="employee" />} />
             <Route path="*" element={<Navigate to="/employee" replace />} />
           </Route>
 

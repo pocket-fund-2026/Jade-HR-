@@ -98,7 +98,7 @@ export default function PolicyAcknowledgement() {
           })}
         </div>
 
-        <p className="text-xs text-ink/60 mb-3 flex items-center gap-1.5">
+        <p className="text-xs text-ink/70 mb-3 flex items-center gap-1.5">
           <FileText size={13} />
           {allRead
             ? "All documents read. Confirm below to continue."
@@ -112,7 +112,7 @@ export default function PolicyAcknowledgement() {
           style={{ maxHeight: "58vh" }}
         >
           <Active />
-          <div className="mt-6 pt-4 border-t border-ink/10 text-xs text-ink/50 text-center">
+          <div className="mt-6 pt-4 border-t border-ink/10 text-xs text-ink/70 text-center">
             End of this document.
           </div>
         </div>
@@ -126,9 +126,9 @@ export default function PolicyAcknowledgement() {
               onChange={(e) => setConfirmed(e.target.checked)}
               className="mt-0.5 h-4 w-4 rounded-sm border-ink/30 text-jade-600 focus:ring-jade-500 disabled:opacity-40"
             />
-            <span className={allRead ? "" : "text-ink/50"}>
+            <span className={allRead ? "" : "text-ink/70"}>
               I confirm that I have read and understood all {POLICY_TABS.length} policy documents above, including the
-              late-arrival policy effective 22 September 2026, and I accept them.
+              Attendance, Punctuality, Leave &amp; WFH Policy effective from the 23 Aug 2026 pay cycle, and I accept them.
             </span>
           </label>
           {error && <p className="text-sm text-rust-500 mt-3">{error}</p>}

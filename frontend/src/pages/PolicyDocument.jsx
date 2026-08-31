@@ -1,23 +1,123 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-const SHIFT_TIMINGS = [
-  { name: "Peddar Road", opening: "9:00 am", trading: "10:30 am – 8:00 pm", closing: "8:30 pm" },
-  { name: "Emporio", opening: "10:30 am", trading: "11:00 am – 7:30 pm", closing: "8:00 pm" },
-  { name: "Ambawatta", opening: "9:00 am", trading: "10:30 am – 8:00 pm", closing: "8:30 pm" },
-  { name: "Ahmedabad", opening: "9:00 am", trading: "10:30 am – 8:00 pm", closing: "8:30 pm" },
-  { name: "Hyderabad", opening: "9:00 am", trading: "10:30 am – 8:00 pm", closing: "8:30 pm" },
-];
+import { Link } from "react-router-dom";
 
-const HOLIDAYS_2026 = [
-  { date: "1st Jan 2026", desc: "New Year", delhi: "Closed", hyderabad: "Closed", ahmedabad: "Closed", mumbai: "Closed" },
-  { date: "26th Jan 2026", desc: "Republic Day", delhi: "Open; statutory pay", hyderabad: "Open; statutory pay", ahmedabad: "Open; statutory pay", mumbai: "Open; statutory pay" },
-  { date: "4th March 2026", desc: "Holi", delhi: "Open from 3:00 PM", hyderabad: "Open from 3:00 PM", ahmedabad: "Open from 3:00 PM", mumbai: "Open from 3:00 PM" },
-  { date: "1st May 2026", desc: "Labour Day", delhi: "Open", hyderabad: "Open", ahmedabad: "Open", mumbai: "Open; statutory pay" },
-  { date: "15th Aug 2026", desc: "Independence Day", delhi: "Open; statutory pay", hyderabad: "Open; statutory pay", ahmedabad: "Open; statutory pay", mumbai: "Open; statutory pay" },
-  { date: "2nd Oct 2026", desc: "Gandhi Jayanti", delhi: "Open; statutory pay", hyderabad: "Open; statutory pay", ahmedabad: "Open; statutory pay", mumbai: "Open; statutory pay" },
-  { date: "9th Nov 2026", desc: "Diwali", delhi: "Closed", hyderabad: "Closed", ahmedabad: "Closed", mumbai: "Closed" },
-  { date: "31st Dec 2026", desc: "New Year's Eve", delhi: "Open till 4:00 PM", hyderabad: "Open till 4:00 PM", ahmedabad: "Open till 4:00 PM", mumbai: "Open till 4:00 PM" },
-];
+import api from "../lib/api.js";
+import { useAuth } from "../lib/auth.jsx";
+
+const DAY_TYPE_LABELS = {
+  closed: "Closed",
+  day_off: "Day Off (paid, same as closed)",
+  open_statutory: "Open; statutory pay",
+  open_till_4pm: "Open till 4:00 PM",
+  open_normal: "Open",
+  anniversary: "Anniversary",
+};
+
+function formatHolidayDate(iso) {
+  const d = new Date(`${iso}T00:00:00`);
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+}
+
+// Reads the caller's own holiday calendar (auto-scoped by location server
+// side, GET /api/me/holidays) so this page never drifts from what the
+// console's Holiday Calendar (admin/Policy.jsx) actually has on file —
+// HR can add next year's dates there and this page just picks them up.
+function useMyHolidays(year) {
+  const [holidays, setHolidays] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    api.get("/api/me/holidays", { params: { year } }).then(({ data }) => {
+      if (!cancelled) setHolidays(data);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [year]);
+  return holidays;
+}
+
+function useStoreTimings() {
+  const [stores, setStores] = useState([]);
+  useEffect(() => {
+    api.get("/api/store-timings").then(({ data }) => setStores(data)).catch(() => {});
+  }, []);
+  return stores;
+}
+
+function LeaveLink() {
+  const { user } = useAuth() || {};
+  const to = user?.role === "employee" ? "/employee/my-leave" : "/admin/my-leave";
+  return (
+    <p>
+      Apply for leave from this console's{" "}
+      <Link to={to} className="text-jade-600 underline">My Leave</Link> section — leave no longer goes through the
+      old Zoho form.
+    </p>
+  );
+}
+
+function StoreTimingsTable() {
+  const stores = useStoreTimings();
+  if (stores.length === 0) {
+    return <p className="text-sm text-ink/70">No store timings on file yet — set them in the Leave Policy console.</p>;
+  }
+  return (
+    <div className="overflow-x-auto -mx-1">
+      <table className="min-w-full text-sm border-collapse">
+        <thead>
+          <tr className="text-left text-xs font-semibold uppercase tracking-wider text-ink/70 border-b border-ink/10">
+            <th className="py-2 px-1">Store</th>
+            <th className="py-2 px-1">Opening</th>
+            <th className="py-2 px-1">Trading time</th>
+            <th className="py-2 px-1">Closing</th>
+          </tr>
+        </thead>
+        <tbody className="font-nums">
+          {stores.map((row) => (
+            <tr key={row.id} className="border-b border-ink/5">
+              <td className="py-2 px-1 font-medium text-ink">{row.store}</td>
+              <td className="py-2 px-1">{row.opening}</td>
+              <td className="py-2 px-1">{row.trading}</td>
+              <td className="py-2 px-1">{row.closing}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function HolidayTable({ year }) {
+  const holidays = useMyHolidays(year);
+  if (holidays.length === 0) {
+    return <p className="text-sm text-ink/70">No holidays on file yet for {year} — set them in the Leave Policy console.</p>;
+  }
+  return (
+    <div className="overflow-x-auto -mx-1">
+      <table className="min-w-full text-sm border-collapse">
+        <thead>
+          <tr className="text-left text-xs font-semibold uppercase tracking-wider text-ink/70 border-b border-ink/10">
+            <th className="py-2 px-1">Date</th>
+            <th className="py-2 px-1">Holiday</th>
+            <th className="py-2 px-1">Status</th>
+          </tr>
+        </thead>
+        <tbody className="font-nums">
+          {holidays.map((h) => (
+            <tr key={h.id} className="border-b border-ink/5">
+              <td className="py-2 px-1">{formatHolidayDate(h.holiday_date)}</td>
+              <td className="py-2 px-1 font-medium text-ink">{h.description}</td>
+              <td className="py-2 px-1">
+                {DAY_TYPE_LABELS[h.day_type] || h.day_type}
+                {h.close_time && ` (${h.close_time.slice(0, 5)})`}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="text-xs text-ink/70 mt-2">Shown for your own store/location. This list is finalized by management and is not subject to change.</p>
+    </div>
+  );
+}
 
 function Section({ title, children }) {
   return (
@@ -38,42 +138,26 @@ function Bullets({ items }) {
   );
 }
 
-const HOLIDAYS_2025 = [
-  { date: "1st Jan 2025", day: "Wednesday", desc: "New Year" },
-  { date: "26th Jan 2025", day: "Sunday", desc: "Republic Day" },
-  { date: "14th March 2025", day: "Friday", desc: "Holi – Mumbai" },
-  { date: "30th March 2025", day: "Sunday", desc: "Gudi Padwa" },
-  { date: "1st May 2025", day: "Thursday", desc: "Labour Day" },
-  { date: "15th Aug 2025", day: "Friday", desc: "Independence Day" },
-  { date: "27th Aug 2025", day: "Wednesday", desc: "Ganesh Chaturthi" },
-  { date: "2nd Oct 2025", day: "Thursday", desc: "Gandhi Jayanti & Dussehra" },
-  { date: "21st Oct 2025", day: "Tuesday", desc: "Diwali" },
-  { date: "22nd Oct 2025", day: "Wednesday", desc: "Diwali" },
-  { date: "23rd Oct 2025", day: "Thursday", desc: "Diwali" },
-];
-
 const LATE_TIER_ROWS = [
-  { arrival: "Up to 10:20 am", marking: "On time", deduction: "None" },
-  { arrival: "10:21 am – 10:59 am", marking: "Late marking", deduction: "¼ day (0.25) from the 4th late marking" },
-  { arrival: "11:00 am onwards", marking: "Late marking", deduction: "½ day (0.50) from the 4th late marking" },
+  { arrival: "10:00 am or earlier", marking: "On time", deduction: "None" },
+  { arrival: "10:01 am – 10:10 am", marking: "Daily Tolerance — Yellow Card", deduction: "None, every time, no monthly limit" },
+  { arrival: "10:11 am – 10:20 am", marking: "Extended Monthly Buffer — Yellow Card", deduction: "None for the first 3 occurrences in the cycle; ¼ day (0.25) from the 4th onward" },
+  { arrival: "10:21 am – 10:45 am", marking: "Level 1 — Late", deduction: "¼ day (0.25) + Yellow Card" },
+  { arrival: "10:46 am – 11:45 am", marking: "Level 2 — Late", deduction: "¼ day (0.25) + Yellow Card" },
+  { arrival: "11:46 am onwards", marking: "Level 3 — Severe Late", deduction: "½ day (0.50) + Yellow Card" },
 ];
 
 const CARD_ROWS = [
   {
     card: "Yellow Card",
-    trigger: "1st, 2nd and 3rd late marking in the month",
-    consequence: "Warning only — no deduction, whatever time you arrived",
+    trigger: "Every late arrival after 10:00 am — including a Daily Tolerance or Extended Buffer arrival that carries no deduction",
+    consequence: "Recorded against the cycle, shown on your dashboard.",
   },
   {
     card: "Red Card",
-    trigger: "Late more than 3 times in the month",
+    trigger: "7 Yellow Cards in one pay cycle",
     consequence:
-      "Recorded against the month, shown on your dashboard and payslip. New Paid Leave and Comp-Off requests can't be self-submitted for the rest of that cycle (HR can still file an approved exception on your behalf).",
-  },
-  {
-    card: "Quarter Red Card",
-    trigger: "A Red Card in every month of a quarter",
-    consequence: "Final Warning letter, and 2 days of Paid Leave are forfeited from your balance.",
+      "You are placed on an Attendance Improvement Plan (AIP) for 30 or 60 days, set by HR. Only one late arrival is permitted during the entire AIP — a further late arrival is a failure of the AIP, which may lead to disciplinary action.",
   },
 ];
 
@@ -104,7 +188,7 @@ function PolicyTable({ columns, rows }) {
   );
 }
 
-// The late-arrival rules in force from 22 September 2026. Rendered both as its
+// The late-arrival rules in force from the pay cycle beginning 23 August 2026. Rendered both as its
 // own policy tab and inline inside the 2026/2025 documents' own late-coming
 // sections, so the rules appear where you'd look for them without the text
 // being duplicated in three places and left to drift apart.
@@ -112,9 +196,9 @@ function LateArrivalRules() {
   return (
     <>
       <p>
-        Grace time is <strong>20 minutes</strong>: you are on time until <strong>10:20 am</strong>, or 20 minutes past
-        your rostered shift start if your shift begins later than 10:00 am. Arriving after that is recorded as a late
-        marking.
+        Your official reporting time is <strong>10:00 am</strong> (or your rostered shift start, if it begins later).
+        There is no blanket grace period before that time — arriving even a minute after is recorded as a late
+        arrival, banded by how late, as below.
       </p>
       <PolicyTable
         columns={["Arrival", "Recorded as", "Deduction"]}
@@ -123,19 +207,16 @@ function LateArrivalRules() {
         ])}
       />
       <p>
-        The <strong>first 3 late markings in a month carry no deduction at all</strong> — they are issued as a Yellow
-        Card. Deductions begin at the 4th late marking, at the rate shown above for the time you arrived that day.
+        Every late arrival earns a <strong>Yellow Card</strong>, even the penalty-free ones in the Daily Tolerance and
+        Extended Monthly Buffer bands above — a deduction and a Yellow Card are two separate things. Only the
+        Extended Monthly Buffer band (10:11–10:20 am) has a free allowance, and only for the first 3 occurrences in
+        the cycle.
       </p>
-      <p className="font-medium text-ink">Yellow Card, Red Card &amp; Quarter Red Card</p>
+      <p className="font-medium text-ink">Yellow Card &amp; Red Card</p>
       <PolicyTable
         columns={["Card", "When it's issued", "What it means"]}
         rows={CARD_ROWS.map((r) => [<strong>{r.card}</strong>, r.trigger, r.consequence])}
       />
-      <p>
-        Quarters follow the financial year — April–June, July–September, October–December and January–March. A Quarter
-        Red Card needs a Red Card in <em>all three</em> months of the quarter; the Final Warning letter and the 2-day
-        Paid Leave forfeiture are issued once the quarter closes.
-      </p>
     </>
   );
 }
@@ -143,28 +224,32 @@ function LateArrivalRules() {
 function LateArrivalInForceNote() {
   return (
     <p className="bg-manila/60 border-l-2 border-jade-600 px-4 py-3">
-      <strong>In force from 22 September 2026.</strong> These late-arrival rules apply to all employees and replace the
-      earlier grace window, deduction tiers and late-mark thresholds. The rest of this section still stands.
+      <strong>In force from the pay cycle beginning 23 August 2026.</strong> These late-arrival rules apply to the
+      corporate roster (retail and factory teams are not covered by this Yellow/Red Card/AIP system) and replace
+      every earlier grace window, deduction tier and late-mark/Red Card threshold for corporate staff. The rest of
+      this section still stands.
     </p>
   );
 }
 
 const LATE_COUNTING_ITEMS = [
-  "Late markings are counted per pay cycle — the 23rd of one month to the 22nd of the next — the same period your payslip covers, so your card status always matches the payslip you're looking at.",
-  "Late-arrival deductions are Loss of Pay. They are never adjusted against your Paid Leave balance (the only exception is the 2-day forfeiture that comes with a Quarter Red Card).",
-  "Clock-in time comes from the biometric punch. If a punch is wrong or missing, raise an attendance dispute in the console rather than letting it stand — corrected timings are graded exactly like a real punch, on the time actually recorded.",
+  "Late markings, Yellow Cards and Red Cards are counted per pay cycle — the 23rd of one month to the 22nd of the next — the same period your payslip covers, so your card status always matches the payslip you're looking at.",
+  "Late-arrival deductions are Loss of Pay, applied in ¼-day or ½-day units only.",
+  "Clock-in time comes from the biometric punch, verified against CCTV timestamps where a punch is missing. If a punch is wrong or missing, raise an attendance dispute in the console rather than letting it stand — corrected timings are graded exactly like a real punch, on the time actually recorded.",
   "Your current cycle's late markings and card status are on your dashboard, so nothing here should ever come as a surprise at payslip time.",
+  "Working from home is not an entitlement — it requires Senior Management/HR Head approval in advance and your Reporting Manager confirming the assigned work was completed, and is paid at 50% of that day's salary.",
+  "If you (as a woman employee) leave the workplace after 10:00 pm, the Company will provide or reimburse approved safe transportation home.",
 ];
 
-function LatePolicySept2026() {
+function LateArrivalPolicyV3() {
   return (
     <div className="space-y-6">
-      <Section title="Late arrival — with effect from 22 September 2026">
+      <Section title="Attendance, Punctuality, Leave &amp; WFH Policy — v2.0">
         <p className="bg-manila/60 border-l-2 border-jade-600 px-4 py-3">
-          This is the late-arrival policy currently in force, for <strong>all employees</strong>. It replaces the
-          late-coming/grace rules in the 2026 and 2025 policies on the other tabs — where it also appears inline —
-          and everything else in those documents (leave, comp-off, holidays, notice period, and so on) still stands
-          unchanged.
+          This is the late-arrival, Yellow/Red Card, AIP and WFH policy currently in force, for the <strong>corporate
+          roster</strong> — it does not apply to retail or factory teams. It replaces every earlier late-coming/grace
+          rule in the 2026 and 2025 policies on the other tabs — where it also appears inline — and everything else
+          in those documents (leave, comp-off, holidays, notice period, and so on) still stands unchanged.
         </p>
         <LateArrivalRules />
       </Section>
@@ -173,12 +258,12 @@ function LatePolicySept2026() {
         <Bullets
           items={[
             ...LATE_COUNTING_ITEMS,
-            "Stay-back grace still applies: if you finished past 8:30 pm the previous day you may report by 11:00 am, and if you worked past midnight, by 12:00 pm — with your HOD's approval on record.",
+            "Stay-back grace still applies: if you finished past 8:30 pm the previous day you may report by 11:00 am, and if you worked past midnight, by 12:00 pm — with your HOD's approval on record. Separately, if you are required to keep working past 12:30 am, that earns an actual Compensatory Off (not just next-day grace).",
           ]}
         />
-        <p className="text-ink/60">
-          Effective 22 September 2026. Anything unclear should be taken to the HR department — HR's interpretation is
-          final, and policies are subject to change at management's discretion.
+        <p className="text-ink/70">
+          Effective from the pay cycle beginning 23 August 2026. Anything unclear should be taken to the HR
+          department — HR's interpretation is final, and policies are subject to change at management's discretion.
         </p>
       </Section>
     </div>
@@ -190,41 +275,23 @@ function Policy2026() {
     <div className="space-y-6">
       <Section title="Retail store timings">
         <p>
-          All employees have a grace buffer of 20 minutes from their shift time (until 10:20am on a 10:00am shift);
-          the first 3 late markings in a month carry no deduction — see Early going &amp; late coming below. Retail teams work Monday–Saturday/Sunday with one weekly
-          off (6-day work week), on a roster set by the department HOD. One team member must be present at opening to
-          ready the front store and stay responsible for it during that window.
+          On-time cutoff is your own store/time slot's shift start (set per store below, by Nimit/HR in the console).
+          Retail teams work Monday–Saturday/Sunday with one weekly off (6-day work week), on a roster set by the
+          department HOD. One team member must be present at opening to ready the front store and stay responsible
+          for it during that window.
         </p>
-        <div className="overflow-x-auto -mx-1">
-          <table className="min-w-full text-sm border-collapse">
-            <thead>
-              <tr className="text-left text-xs font-semibold uppercase tracking-wider text-ink/60 border-b border-ink/10">
-                <th className="py-2 px-1">Store</th>
-                <th className="py-2 px-1">Opening</th>
-                <th className="py-2 px-1">Trading time</th>
-                <th className="py-2 px-1">Closing</th>
-              </tr>
-            </thead>
-            <tbody className="font-nums">
-              {SHIFT_TIMINGS.map((row) => (
-                <tr key={row.name} className="border-b border-ink/5">
-                  <td className="py-2 px-1 font-medium text-ink">{row.name}</td>
-                  <td className="py-2 px-1">{row.opening}</td>
-                  <td className="py-2 px-1">{row.trading}</td>
-                  <td className="py-2 px-1">{row.closing}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <StoreTimingsTable />
       </Section>
 
       <Section title="Early going &amp; late coming">
-        <LateArrivalInForceNote />
-        <LateArrivalRules />
+        <p className="bg-manila/60 border-l-2 border-jade-600 px-4 py-3">
+          The Yellow Card / Red Card / Attendance Improvement Plan system (the "Attendance &amp; WFH Policy" tab)
+          applies to the corporate roster only — it is not in force for retail. Lateness here is managed by your
+          store's roster and your HOD, against your own shift's start time.
+        </p>
         <Bullets
           items={[
-            ...LATE_COUNTING_ITEMS,
+            "Clock-in time comes from the biometric punch, verified against CCTV timestamps where a punch is missing. If a punch is wrong or missing, raise an attendance dispute in the console rather than letting it stand.",
             "Repeated late arrival is taken into account in performance appraisals.",
             "Early leaving and personal exigencies must be pre-approved by the reporting manager / department head.",
           ]}
@@ -305,17 +372,7 @@ function Policy2026() {
             "Overlapping leave within a department should be avoided at the planning stage.",
           ]}
         />
-        <p>
-          Leave application form:{" "}
-          <a
-            href="https://forms.zohopublic.in/JADEbyMonicaandKarishma/form/Leaveapplicationform/formperma/w107-bKl4ikf_4GYWwaxecWolYLiWhITJxnt4S25vh4"
-            target="_blank"
-            rel="noreferrer"
-            className="text-jade-600 underline"
-          >
-            forms.zohopublic.in — Leave Application Form
-          </a>
-        </p>
+        <LeaveLink />
       </Section>
 
       <Section title="Loan">
@@ -348,47 +405,11 @@ function Policy2026() {
       </Section>
 
       <Section title="Public holidays — 2026">
-        <div className="overflow-x-auto -mx-1">
-          <table className="min-w-full text-sm border-collapse">
-            <thead>
-              <tr className="text-left text-xs font-semibold uppercase tracking-wider text-ink/60 border-b border-ink/10">
-                <th className="py-2 px-1">Date</th>
-                <th className="py-2 px-1">Holiday</th>
-                <th className="py-2 px-1">Delhi</th>
-                <th className="py-2 px-1">Hyderabad</th>
-                <th className="py-2 px-1">Ahmedabad</th>
-                <th className="py-2 px-1">Mumbai</th>
-              </tr>
-            </thead>
-            <tbody className="font-nums">
-              {HOLIDAYS_2026.map((row) => (
-                <tr key={row.date} className="border-b border-ink/5">
-                  <td className="py-2 px-1">{row.date}</td>
-                  <td className="py-2 px-1 font-medium text-ink">{row.desc}</td>
-                  <td className="py-2 px-1">{row.delhi}</td>
-                  <td className="py-2 px-1">{row.hyderabad}</td>
-                  <td className="py-2 px-1">{row.ahmedabad}</td>
-                  <td className="py-2 px-1">{row.mumbai}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="text-xs text-ink/50">This list is finalized by management and is not subject to change.</p>
-      </Section>
-
-      <Section title="Incentives">
-        <Bullets
-          items={[
-            "Incentives are based on monthly target achievement, calculated per month.",
-            "Paid out after each quarter closes — only for the months actually achieved, not a lump sum on cumulative target.",
-            "Employees who hit target earn 1% commission on sales achieved, monthly.",
-          ]}
-        />
+        <HolidayTable year={2026} />
       </Section>
 
       <Section title="Women safety">
-        <p>Post 9pm, all female employees are eligible to travel by Cab/Ola/Uber, with bills attached and submitted on time.</p>
+        <p>Post 10pm, all female employees are eligible to travel by Cab/Ola/Uber, with bills attached and submitted on time.</p>
       </Section>
 
       <Section title="Policy interpretation">
@@ -407,7 +428,7 @@ function Policy2025() {
       <Section title="Timings by department">
         <Bullets
           items={[
-            "Retail stores: 10:00am – 8:00pm, buffer 10:00–10:20am (from 22 Sept 2026), first 3 late markings free. Monday–Saturday/Sunday, 1 weekly off on a roster set by the department HOD.",
+            "Retail stores: 10:00am – 8:00pm, on-time cutoff 10:00am with the tolerance/buffer bands below (from the pay cycle beginning 23 Aug 2026), first 3 Extended Buffer arrivals free. Monday–Saturday/Sunday, 1 weekly off on a roster set by the department HOD.",
             "Corporate office: 10:00am – 6:30pm, same 10-minute buffer. Monday–Saturday with all Saturdays as half-days. Work exigencies expect attendance, with a planned comp-off on another day, HOD and team informed.",
             "Factory & Inventory (raw material and finished goods): 10:00am – 7:00pm, Monday–Saturday, same buffer. 1 weekly off on Sunday unless called in by the HOD.",
             "OT-eligible departments (RM store, FG store, CAD, DEO): 10:00am – 7:00pm, Monday–Saturday. Non-OT departments: 10:00am – 6:30pm Monday–Friday, 10:00am – 3:00pm on Saturday.",
@@ -518,17 +539,7 @@ function Policy2025() {
             "Overlapping leave within a department should be avoided at the planning stage.",
           ]}
         />
-        <p>
-          Leave application form:{" "}
-          <a
-            href="https://forms.zohopublic.in/JADEbyMonicaandKarishma/form/Leaveapplicationform/formperma/w107-bKl4ikf_4GYWwaxecWolYLiWhITJxnt4S25vh4"
-            target="_blank"
-            rel="noreferrer"
-            className="text-jade-600 underline"
-          >
-            forms.zohopublic.in — Leave Application Form
-          </a>
-        </p>
+        <LeaveLink />
       </Section>
 
       <Section title="Loan">
@@ -556,26 +567,7 @@ function Policy2025() {
       </Section>
 
       <Section title="Public holidays — 2025">
-        <div className="overflow-x-auto -mx-1">
-          <table className="min-w-full text-sm border-collapse">
-            <thead>
-              <tr className="text-left text-xs font-semibold uppercase tracking-wider text-ink/60 border-b border-ink/10">
-                <th className="py-2 px-1">Date</th>
-                <th className="py-2 px-1">Day</th>
-                <th className="py-2 px-1">Festival / occasion</th>
-              </tr>
-            </thead>
-            <tbody className="font-nums">
-              {HOLIDAYS_2025.map((row) => (
-                <tr key={row.date} className="border-b border-ink/5">
-                  <td className="py-2 px-1">{row.date}</td>
-                  <td className="py-2 px-1">{row.day}</td>
-                  <td className="py-2 px-1 font-medium text-ink">{row.desc}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <HolidayTable year={2025} />
       </Section>
 
       <Section title="Policy interpretation">
@@ -593,23 +585,42 @@ function Policy2025() {
 // are signing off on, and so the keys it records match the tabs one-for-one.
 // Keys must stay in step with POLICY_DOCUMENTS in backend/routers/policy_ack.py.
 export const POLICY_TABS = [
-  { key: "late-2026-09", label: "Late Arrival (from 22 Sept 2026)", render: LatePolicySept2026 },
+  { key: "late-v3-2026-08", label: "Attendance & WFH Policy (from 23 Aug 2026)", render: LateArrivalPolicyV3 },
   { key: "2026", label: "2026 Revision (Retail)", render: Policy2026 },
   { key: "2025", label: "2025 (Retail, Corporate & Factory)", render: Policy2025 },
 ];
 
-const TABS = POLICY_TABS;
+// The standalone "Attendance & WFH Policy" tab is a corporate-only
+// document (see LateArrivalPolicyV3 above) — hidden from retail/factory
+// employees browsing their own policy so they aren't shown a tab that
+// doesn't apply to them. Console users (accounts/hr, scope="console")
+// always see every tab regardless of their own employee_category.
+function visibleTabsFor(scope, employeeCategory) {
+  if (scope !== "employee" || employeeCategory === "corporate" || !employeeCategory) return POLICY_TABS;
+  return POLICY_TABS.filter((t) => t.key !== "late-v3-2026-08");
+}
 
-export default function PolicyDocument() {
-  const [tab, setTab] = useState("late-2026-09");
-  const Active = TABS.find((t) => t.key === tab)?.render ?? LatePolicySept2026;
+export default function PolicyDocument({ scope = "console" }) {
+  const { user } = useAuth() || {};
+  const employeeCategory = user?.employee_category;
+  const TABS = visibleTabsFor(scope, employeeCategory);
+  const isRetail = TABS.length !== POLICY_TABS.length;
+  const [tab, setTab] = useState("late-v3-2026-08");
+
+  useEffect(() => {
+    if (isRetail && tab === "late-v3-2026-08") setTab("2026");
+  }, [isRetail]);
+
+  const Active = TABS.find((t) => t.key === tab)?.render ?? TABS[0]?.render ?? LateArrivalPolicyV3;
   return (
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-2xl text-ink">Working Hours, Attendance &amp; Leave Policy</h1>
-        <p className="text-sm text-ink/60 mt-1">
-          The late-arrival rules effective 22 September 2026 apply to everyone, and appear on the first tab as well as
-          inline in the late-coming section of each document below. For everything else, pick the version that applies
+        <p className="text-sm text-ink/70 mt-1">
+          {isRetail
+            ? "The Yellow/Red Card Attendance & WFH Policy applies to the corporate roster only and isn't shown here — your applicable document is below."
+            : "The Attendance, Punctuality, Leave & WFH Policy effective from the 23 Aug 2026 pay cycle applies to the corporate roster, and appears on the first tab as well as inline in the late-coming section of each document below."}{" "}
+          For everything else, pick the version that applies
           to your department — where they disagree, HR's interpretation of which one governs is final.
         </p>
         <div className="flex gap-2 mt-4">

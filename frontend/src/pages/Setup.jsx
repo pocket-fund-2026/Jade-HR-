@@ -45,7 +45,7 @@ export default function Setup() {
       <div className="w-full max-w-sm relative">
         <div className="text-center mb-8">
           <p className="font-display text-manila text-2xl">First-time setup</p>
-          <p className="text-manila/50 text-sm mt-1">Open a new ledger — create the first admin account</p>
+          <p className="text-manila/60 text-sm mt-1">Open a new ledger — create the first admin account</p>
         </div>
 
         <div className="bg-paper rounded-sm shadow-stamp px-8 pt-8 pb-7 border-t-4 border-ochre-500 rise-in">

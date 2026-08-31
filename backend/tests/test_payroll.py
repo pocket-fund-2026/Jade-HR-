@@ -377,6 +377,41 @@ def test_red_card_does_not_convert_an_already_approved_leave_to_lop():
     assert summary["pl_days"] == 1  # counted as paid leave, not LOP
 
 
+def test_wfh_day_pays_half_and_is_never_late_or_absent():
+    # Policy v3 doc §25: an approved+completion-confirmed WFH day is paid
+    # 50%, the same fractional treatment as an existing half_day status, and
+    # must never be flagged late/absent/LOP — regardless of whether the
+    # employee also happened to badge in that day (the approved+confirmed
+    # WFH record is authoritative, per compute_daily_attendance's docstring).
+    wfh_days = {date(2026, 1, 5): {"id": "req-1", "pay_treatment_percent": 50.0}}
+    summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 1, [], wfh_days=wfh_days)
+    wfh_row = next(r for r in summary["daily"] if r["date"] == "2026-01-05")
+    assert wfh_row["status"] == "wfh"
+    assert wfh_row["late"] is False
+    assert "lop_days" not in wfh_row
+    assert summary["wfh_days"] == 1
+    assert summary["late_mark_count"] == 0
+    assert summary["red_card"] is False
+    # 31-day Jan 2026 cycle, 1 WFH day at 0.5, no other present/paid days:
+    # only weekoffs/holidays plus the 0.5 WFH contribute to paid_days.
+    baseline = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 1, [])
+    assert round(summary["paid_days"] - baseline["paid_days"], 2) == 0.5
+    assert round(baseline["without_pay_days"] - summary["without_pay_days"], 2) == 0.5
+
+
+def test_wfh_absent_zero_impact_when_no_wfh_days_passed():
+    # Safety proof for the default (wfh_days=None) path used by every
+    # production call site today, since no real hr_wfh_requests rows exist
+    # yet — must be byte-identical to pre-WFH behavior.
+    punches = [p for day in [(2025, 12, 29), (2026, 1, 5)] for p in _late_punch(*day)]
+    before = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 1, punches)
+    after = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 1, punches, wfh_days=None)
+    before.pop("daily")
+    after.pop("daily")
+    assert before == after
+    assert before["wfh_days"] == 0
+
+
 def test_worked_example_two_free_then_half_day_each():
     # v1.1 §4 worked example: 30 total days in the cycle, 5 late marks ->
     # 2 free + 3 penalized at ½ day each = 1.5 LOP, i.e. paid for 28.5 days.

@@ -1,4 +1,4 @@
-import { Cake, CalendarDays, Clock3, Pencil, Plus, ShieldAlert, X } from "lucide-react";
+import { Cake, CalendarDays, Clock3, Pencil, Plus, ShieldAlert, Store, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import api from "../../lib/api.js";
@@ -141,7 +141,7 @@ function HolidayCalendar({ holidays, onAdd, onRemove, adding, year, onYearChange
                   {h.remarks && ` · ${h.remarks}`}
                 </p>
               </div>
-              <button type="button" onClick={() => onRemove(h.id)} aria-label="Remove holiday" className="text-ink/40 hover:text-rust-500 p-1">
+              <button type="button" onClick={() => onRemove(h.id)} aria-label="Remove holiday" className="text-ink/70 hover:text-rust-500 p-1">
                 <X size={16} />
               </button>
             </div>
@@ -184,7 +184,7 @@ function BirthdayRow({ b, onSave }) {
             <input type="date" value={dob} onChange={(e) => setDob(e.target.value)}
               className="rounded-sm border border-ink/15 bg-manila/40 px-2 py-1.5 text-xs font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
             <button onClick={save} disabled={saving || !dob} className="text-xs font-semibold text-jade-600 hover:underline disabled:opacity-50">Save</button>
-            <button onClick={() => setEditing(false)} aria-label="Cancel" className="text-ink/40 hover:text-ink">
+            <button onClick={() => setEditing(false)} aria-label="Cancel" className="text-ink/70 hover:text-ink">
               <X size={14} />
             </button>
           </>
@@ -196,7 +196,7 @@ function BirthdayRow({ b, onSave }) {
                 {days === 0 ? "Today!" : days === 1 ? "Tomorrow" : `in ${days} days`}
               </span>
             )}
-            <button onClick={() => setEditing(true)} aria-label="Edit birthday" className="text-ink/40 hover:text-jade-600">
+            <button onClick={() => setEditing(true)} aria-label="Edit birthday" className="text-ink/70 hover:text-jade-600">
               <Pencil size={14} />
             </button>
           </>
@@ -342,7 +342,7 @@ function CompOffGrant({ corporateEmployees }) {
                   <p className="text-xs text-ink/70 mt-0.5">Expires {formatDate(l.expiry_date)}</p>
                 </div>
                 <span className={`text-xs font-semibold uppercase tracking-wide ${
-                  l.status === "available" ? "text-jade-600" : l.status === "used" ? "text-ink/50" : "text-rust-500"
+                  l.status === "available" ? "text-jade-600" : l.status === "used" ? "text-ink/70" : "text-rust-500"
                 }`}>
                   {l.status}
                 </span>
@@ -428,11 +428,21 @@ function LateMarkCards() {
 
   return (
     <div>
+      {policy?.v3?.in_force && (
+        <p className="bg-manila/60 border-l-2 border-jade-600 px-4 py-3 mb-4 text-sm text-ink">
+          <strong>Superseded from the pay cycle beginning {policy.v3.effective_from}.</strong> The Attendance,
+          Punctuality, Leave &amp; WFH Policy v2.0 replaces this Quarter Red Card mechanism with its own Yellow/Red
+          Card system ({policy.v3.yellow_cards_for_red} Yellow Cards → an Attendance Improvement Plan). No cycle from{" "}
+          {policy.v3.effective_from} onward can complete a Quarter Red Card — the numbers below are historical, for
+          quarters that finished under the earlier policy.
+        </p>
+      )}
       <p className="text-sm text-ink/70 mb-4">
         Late-arrival cards for the corporate roster, counted per pay cycle (23rd–22nd).
         {policy && (
           <>
-            {" "}In force from <span className="font-nums">{policy.effective_from}</span>: on time until{" "}
+            {" "}In force from <span className="font-nums">{policy.effective_from}</span> through{" "}
+            <span className="font-nums">{policy.v3?.effective_from}</span>: on time until{" "}
             <span className="font-nums">10:{policy.grace_minutes}</span> am, first {policy.free_late_marks} late marks
             are a Yellow Card with no deduction, then {policy.quarter_day_deduction} day each (
             {policy.half_day_deduction} day from <span className="font-nums">{policy.half_day_from}</span>), and{" "}
@@ -463,7 +473,7 @@ function LateMarkCards() {
             {pending.length === 0 ? "No Quarter Red Cards to issue" : `Issue ${pending.length} Quarter Red Card${pending.length === 1 ? "" : "s"}`}
           </button>
         </div>
-        <p className="text-xs text-ink/60 mt-3">
+        <p className="text-xs text-ink/70 mt-3">
           Issuing generates each employee's Final Warning letter and posts a {data?.pl_forfeit ?? 2}-day Paid Leave
           debit to their ledger. It runs once per employee per quarter — re-running never double-deducts.
         </p>
@@ -481,7 +491,7 @@ function LateMarkCards() {
         <div className="bg-paper rounded-sm shadow-card overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="text-left text-xs font-semibold uppercase tracking-wider text-ink/60 border-b border-ink/10">
+              <tr className="text-left text-xs font-semibold uppercase tracking-wider text-ink/70 border-b border-ink/10">
                 <th className="px-5 py-3">Employee</th>
                 {(data?.months || []).map((m) => <th key={m} className="px-3 py-3 font-nums">{m}</th>)}
                 <th className="px-5 py-3">Quarter</th>
@@ -499,14 +509,14 @@ function LateMarkCards() {
                       <span className={m.red_card ? "text-rust-500 font-semibold" : "text-ink/70"}>
                         {m.late_mark_count}
                       </span>
-                      {!m.in_policy && <span className="ml-1 text-[10px] text-ink/40 uppercase">pre-policy</span>}
-                      {m.in_policy && !m.complete && <span className="ml-1 text-[10px] text-ink/40 uppercase">running</span>}
+                      {!m.in_policy && <span className="ml-1 text-[10px] text-ink/70 uppercase">pre-policy</span>}
+                      {m.in_policy && !m.complete && <span className="ml-1 text-[10px] text-ink/70 uppercase">running</span>}
                     </td>
                   ))}
                   <td className="px-5 py-3">
                     {e.quarter_red_card ? (
                       e.action ? (
-                        <span className="text-xs font-semibold uppercase tracking-wide text-ink/60">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-ink/70">
                           Issued — {e.action.pl_forfeited} PL forfeited
                         </span>
                       ) : (
@@ -515,7 +525,7 @@ function LateMarkCards() {
                         </span>
                       )
                     ) : (
-                      <span className="text-xs text-ink/50">
+                      <span className="text-xs text-ink/70">
                         {e.red_card_months} of 3 months
                         {e.red_card_months_all > e.red_card_months
                           && ` (${e.red_card_months_all - e.red_card_months} pre-policy)`}
@@ -528,6 +538,178 @@ function LateMarkCards() {
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+function StoreTimings() {
+  const [timeSlots, setTimeSlots] = useState([]);
+  const [stores, setStores] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [slotLabel, setSlotLabel] = useState("");
+  const [slotStart, setSlotStart] = useState("10:00");
+  const [slotError, setSlotError] = useState("");
+  const [storeName, setStoreName] = useState("");
+  const [storeOpening, setStoreOpening] = useState("");
+  const [storeTrading, setStoreTrading] = useState("");
+  const [storeClosing, setStoreClosing] = useState("");
+  const [storeDefaultSlot, setStoreDefaultSlot] = useState("");
+  const [storeError, setStoreError] = useState("");
+
+  const load = () => {
+    setLoading(true);
+    Promise.all([
+      api.get("/api/time-slots").then(({ data }) => setTimeSlots(data)),
+      api.get("/api/store-timings").then(({ data }) => setStores(data)),
+    ]).finally(() => setLoading(false));
+  };
+
+  useEffect(load, []);
+
+  const addSlot = async (e) => {
+    e.preventDefault();
+    setSlotError("");
+    try {
+      await api.post("/api/time-slots", { label: slotLabel, shift_start: slotStart, sort_order: timeSlots.length + 1 });
+      setSlotLabel(""); setSlotStart("10:00");
+      load();
+    } catch (err) {
+      setSlotError(err.response?.data?.detail || "Could not add — try again");
+    }
+  };
+
+  const removeSlot = async (id) => {
+    await api.delete(`/api/time-slots/${id}`);
+    load();
+  };
+
+  const addStore = async (e) => {
+    e.preventDefault();
+    setStoreError("");
+    try {
+      await api.post("/api/store-timings", {
+        store: storeName, opening: storeOpening, trading: storeTrading, closing: storeClosing,
+        default_time_slot: storeDefaultSlot || null, sort_order: stores.length + 1,
+      });
+      setStoreName(""); setStoreOpening(""); setStoreTrading(""); setStoreClosing(""); setStoreDefaultSlot("");
+      load();
+    } catch (err) {
+      setStoreError(err.response?.data?.detail || "Could not add — try again");
+    }
+  };
+
+  const removeStore = async (id) => {
+    await api.delete(`/api/store-timings/${id}`);
+    load();
+  };
+
+  if (loading) return <p className="text-ink/70 text-sm">Loading…</p>;
+
+  return (
+    <div>
+      <p className="text-sm text-ink/70 mb-4">
+        Time slots feed the Time Slot field on every employee's Details page and are what payroll grades lateness
+        against — adding one here makes it selectable and enforced immediately, no deploy needed. Store timings are
+        the per-store defaults Nimit/HR set for new starters at that store, and are also what the employee-facing
+        policy page shows under "Retail store timings".
+      </p>
+
+      <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-2">Time slots</p>
+      <form onSubmit={addSlot} className="bg-paper rounded-sm shadow-card p-5 mb-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <label htmlFor="slot_label" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Label</label>
+          <input id="slot_label" type="text" required value={slotLabel} onChange={(e) => setSlotLabel(e.target.value)}
+            placeholder="e.g. 9:30 AM – 6:00 PM"
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+        </div>
+        <div>
+          <label htmlFor="slot_start" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Shift start</label>
+          <input id="slot_start" type="time" required value={slotStart} onChange={(e) => setSlotStart(e.target.value)}
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+        </div>
+        <div className="flex items-end">
+          <button type="submit" className="flex items-center gap-1.5 bg-jade-600 text-white px-4 py-2.5 rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors">
+            <Plus size={14} /> Add slot
+          </button>
+        </div>
+        {slotError && <p className="sm:col-span-3 text-sm text-rust-500">{slotError}</p>}
+      </form>
+      <div className="bg-paper rounded-sm shadow-card divide-y divide-ink/[0.06] mb-6">
+        {timeSlots.length === 0 ? (
+          <p className="px-5 py-8 text-ink/70 text-center text-sm">No time slots on file.</p>
+        ) : (
+          timeSlots.map((t) => (
+            <div key={t.id} className="flex items-center justify-between gap-4 px-5 py-3">
+              <p className="text-sm text-ink"><span className="font-medium">{t.label}</span> <span className="text-ink/70 font-nums">— starts {t.shift_start?.slice(0, 5)}</span></p>
+              <button type="button" onClick={() => removeSlot(t.id)} aria-label="Remove time slot" className="text-ink/70 hover:text-rust-500 p-1">
+                <X size={16} />
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+
+      <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-2">Store timings</p>
+      <form onSubmit={addStore} className="bg-paper rounded-sm shadow-card p-5 mb-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="store_name" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Store</label>
+          <input id="store_name" type="text" required value={storeName} onChange={(e) => setStoreName(e.target.value)}
+            placeholder="e.g. Peddar Road"
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+        </div>
+        <div>
+          <label htmlFor="store_default_slot" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Default time slot</label>
+          <select id="store_default_slot" value={storeDefaultSlot} onChange={(e) => setStoreDefaultSlot(e.target.value)}
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
+            <option value="">— None —</option>
+            {timeSlots.map((t) => <option key={t.id} value={t.label}>{t.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="store_opening" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Opening</label>
+          <input id="store_opening" type="text" value={storeOpening} onChange={(e) => setStoreOpening(e.target.value)}
+            placeholder="9:00 am"
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+        </div>
+        <div>
+          <label htmlFor="store_trading" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Trading time</label>
+          <input id="store_trading" type="text" value={storeTrading} onChange={(e) => setStoreTrading(e.target.value)}
+            placeholder="10:30 am – 8:00 pm"
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+        </div>
+        <div>
+          <label htmlFor="store_closing" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Closing</label>
+          <input id="store_closing" type="text" value={storeClosing} onChange={(e) => setStoreClosing(e.target.value)}
+            placeholder="8:30 pm"
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+        </div>
+        {storeError && <p className="sm:col-span-2 text-sm text-rust-500">{storeError}</p>}
+        <div className="sm:col-span-2">
+          <button type="submit" className="flex items-center gap-1.5 bg-jade-600 text-white px-4 py-2 rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors">
+            <Plus size={14} /> Add store
+          </button>
+        </div>
+      </form>
+      <div className="bg-paper rounded-sm shadow-card divide-y divide-ink/[0.06]">
+        {stores.length === 0 ? (
+          <p className="px-5 py-8 text-ink/70 text-center text-sm">No store timings on file.</p>
+        ) : (
+          stores.map((s) => (
+            <div key={s.id} className="flex items-center justify-between gap-4 px-5 py-3">
+              <div>
+                <p className="text-sm text-ink font-medium">{s.store}</p>
+                <p className="text-xs text-ink/70 mt-0.5">
+                  {s.opening && `Opens ${s.opening}`}{s.trading && ` · Trading ${s.trading}`}{s.closing && ` · Closes ${s.closing}`}
+                  {s.default_time_slot && ` · Default slot: ${s.default_time_slot}`}
+                </p>
+              </div>
+              <button type="button" onClick={() => removeStore(s.id)} aria-label="Remove store" className="text-ink/70 hover:text-rust-500 p-1">
+                <X size={16} />
+              </button>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }
@@ -578,15 +760,15 @@ export default function Policy() {
   };
 
   return (
-    <div className={tab === "latemarks" ? "max-w-5xl" : "max-w-2xl"}>
+    <div className={tab === "latemarks" || tab === "timings" ? "max-w-5xl" : "max-w-2xl"}>
       <div className="flex items-center gap-2 mb-1">
         <CalendarDays size={20} className="text-jade-600" />
         <h2 className="font-display text-2xl text-ink">Leave Policy</h2>
       </div>
       <p className="text-sm text-ink/70 mb-6">
-        Corporate Leave &amp; Attendance Policy v1.1 plus the late-arrival revision of 22 Sept 2026 — holiday
-        calendar, Comp-Off and late-mark cards. Applies to corporate roster staff only; factory, warehouse and retail
-        attendance is unaffected.
+        Corporate Leave &amp; Attendance Policy v1.1 plus the Attendance, Punctuality, Leave &amp; WFH Policy v2.0 in
+        force from the 23 Aug 2026 pay cycle — holiday calendar, Comp-Off and late-mark cards. Applies to corporate
+        roster staff only; factory, warehouse and retail attendance is unaffected.
       </p>
 
       <div className="flex gap-1 mb-6">
@@ -606,6 +788,10 @@ export default function Policy() {
           className={`flex items-center gap-1.5 px-4 py-2 rounded-sm text-sm font-medium transition-colors ${tab === "birthdays" ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}>
           <Cake size={14} /> Birthdays
         </button>
+        <button onClick={() => setTab("timings")}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-sm text-sm font-medium transition-colors ${tab === "timings" ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}>
+          <Store size={14} /> Store Timings
+        </button>
       </div>
 
       {loading ? (
@@ -619,6 +805,8 @@ export default function Policy() {
         <CompOffGrant corporateEmployees={corporateEmployees} />
       ) : tab === "latemarks" ? (
         <LateMarkCards />
+      ) : tab === "timings" ? (
+        <StoreTimings />
       ) : (
         <Birthdays />
       )}

@@ -182,7 +182,7 @@ export default function LeaveLedgerReport() {
                   <td className="px-3 py-2.5"></td>
                   <td className="px-3 py-2.5">
                     CLOSING BALANCE
-                    <div className="text-[11px] font-normal text-ink/60">(higher value taken between Approved and Payslip)</div>
+                    <div className="text-[11px] font-normal text-ink/70">(higher value taken between Approved and Payslip)</div>
                   </td>
                   <td className="px-3 py-2.5 font-nums text-right" colSpan={4}>{report.closing_balance}</td>
                 </tr>

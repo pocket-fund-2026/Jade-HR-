@@ -842,7 +842,7 @@ function SalaryStructureSection({ employeeId, dateOfJoining, canView, canEdit, p
             type="button"
             onClick={() => setSubTab(t.key)}
             className={`px-4 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap border-b-2 transition-colors ${
-              subTab === t.key ? "border-jade-500 text-ink" : "border-transparent text-ink/40 hover:text-ink/70"
+              subTab === t.key ? "border-jade-500 text-ink" : "border-transparent text-ink/70 hover:text-ink/70"
             }`}
           >
             {t.label}
@@ -932,6 +932,11 @@ export default function EmployeeDetails() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [employeesList, setEmployeesList] = useState([]);
+  // Falls back to the 4 slots always registered in payroll.py until this
+  // loads, so the field never renders empty.
+  const [timeSlotOptions, setTimeSlotOptions] = useState([
+    "10:00 AM – 6:30 PM", "10:00 AM – 7:00 PM", "11:00 AM – 8:00 PM", "Flexible", "Intern (10:00 AM – 6:00 PM)",
+  ]);
 
   useEffect(() => {
     api.get("/api/employees", { params: { lite: true } }).then(({ data }) => {
@@ -943,6 +948,15 @@ export default function EmployeeDetails() {
       );
     });
   }, [canManage]);
+
+  useEffect(() => {
+    api.get("/api/time-slots").then(({ data }) => {
+      const labels = data.map((t) => t.label);
+      // "Flexible" has no shift start to register (graded on hours, not
+      // arrival) so it isn't in hr_time_slots — keep it in the option list.
+      setTimeSlotOptions([...labels, "Flexible"]);
+    }).catch(() => {});
+  }, []);
 
   const load = () => {
     setLoading(true);
@@ -1251,7 +1265,13 @@ export default function EmployeeDetails() {
                             );
                           }
                           return (
-                            <Field key={field.k} field={field} value={form[field.k]} editing={editing} onChange={(v) => setField(field.k, v)} />
+                            <Field
+                              key={field.k}
+                              field={field.k === "time_slot" ? { ...field, options: timeSlotOptions } : field}
+                              value={form[field.k]}
+                              editing={editing}
+                              onChange={(v) => setField(field.k, v)}
+                            />
                           );
                         })}
                       </div>
@@ -1350,7 +1370,7 @@ export default function EmployeeDetails() {
                   />
                   OT Applicable
                 </label>
-                <p className="basis-full text-[11px] text-ink/50">
+                <p className="basis-full text-[11px] text-ink/70">
                   Company policy: OT is only paid when Basic + HRA + Conveyance is ₹25,000 or less, regardless of this checkbox.
                 </p>
               </>

@@ -151,7 +151,7 @@ export default function BonusReport() {
                   ))}
                   <td className="px-4 py-3 font-nums text-right">{formatINR(r.salary_amount)}</td>
                   <td className="px-4 py-3 font-nums text-right">{round2(r.rate * 100)}%</td>
-                  <td className={`px-4 py-3 font-nums font-semibold text-right ${r.eligible ? "text-jade-700" : "text-ink/40"}`}>{formatINR(r.bonus_amount)}</td>
+                  <td className={`px-4 py-3 font-nums font-semibold text-right ${r.eligible ? "text-jade-700" : "text-ink/70"}`}>{formatINR(r.bonus_amount)}</td>
                   <td className="px-4 py-3 font-nums text-right">{formatINR(r.exgratia_amount)}</td>
                 </tr>
               ))

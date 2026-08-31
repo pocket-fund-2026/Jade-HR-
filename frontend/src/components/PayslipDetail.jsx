@@ -295,7 +295,7 @@ function PayslipPrintFormat({ summary }) {
         </tbody>
       </table>
 
-      <p className="text-center text-ink/60 text-[10px] mt-5 pt-3 border-t border-ink/25">
+      <p className="text-center text-ink/70 text-[10px] mt-5 pt-3 border-t border-ink/25">
         Computer generated payslip, signature
       </p>
     </div>

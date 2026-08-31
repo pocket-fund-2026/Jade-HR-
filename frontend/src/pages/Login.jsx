@@ -33,7 +33,7 @@ export default function Login() {
         <div className="text-center mb-10">
           <img src="/jade-logo.png" alt="JADE" className="w-24 h-24 mx-auto -rotate-2 mb-3" />
           <p className="font-display text-manila text-lg tracking-[0.15em] uppercase">HR</p>
-          <p className="text-manila/50 text-sm font-nums tracking-wide mt-1">Madhu Estate &middot; Mumbai</p>
+          <p className="text-manila/60 text-sm font-nums tracking-wide mt-1">Madhu Estate &middot; Mumbai</p>
         </div>
 
         <div className="bg-paper rounded-sm shadow-stamp px-8 pt-8 pb-7 border-t-4 border-jade-500 rise-in">
@@ -81,7 +81,7 @@ export default function Login() {
           </form>
         </div>
 
-        <p className="text-center text-xs text-manila/40 mt-6">
+        <p className="text-center text-xs text-manila/60 mt-6">
           First time setting up?{" "}
           <Link to="/setup" className="text-manila/70 hover:text-manila underline underline-offset-2">
             Create admin account

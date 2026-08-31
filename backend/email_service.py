@@ -149,8 +149,9 @@ def notify_late_digest(
         lines.append(f"  • {e.get('name', '')} ({e.get('employee_code', '')}){location}: in at {e.get('time', '—')}")
     lines += [
         "",
-        "Grace is 10:11 AM for the standard shift (later for a later time slot; extended further to 11 AM / "
-        "noon if they stayed back late the previous evening).",
+        "On-time cutoff is 10:00 AM for the standard shift (later for a later time slot), with the Daily "
+        "Tolerance/Extended Buffer bands through 10:20 AM carrying no deduction — extended further to 11 AM / "
+        "noon if they stayed back late the previous evening.",
         "Full attendance sheet: https://jade-hr.vercel.app/admin/reports/attendance",
     ]
     subject = f"Late arrivals — {date_iso} ({n})"
