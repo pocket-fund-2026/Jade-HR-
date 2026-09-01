@@ -65,8 +65,8 @@ export default function DisputeModal({ date, onClose, onSubmitted }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-ledger-900/60 flex items-center justify-center px-4 z-50">
-      <div className="bg-paper rounded-sm shadow-stamp w-full max-w-md p-6 border-t-4 border-ochre-500 relative">
+    <div className="fixed inset-0 bg-ledger-900/60 flex items-center justify-center px-4 z-50 overflow-y-auto py-8">
+      <div className="bg-paper rounded-sm shadow-stamp w-full max-w-md p-6 border-t-4 border-ochre-500 relative my-auto">
         <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-ink/70 hover:text-ink transition-colors">
           <X size={18} />
         </button>

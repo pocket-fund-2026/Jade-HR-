@@ -188,24 +188,24 @@ export default function Dashboard() {
           </div>
 
           <div className="bg-paper rounded-sm shadow-card p-5 mb-6">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <p className="text-xs font-semibold uppercase tracking-wider text-ink/70">Leave balance ({today.getFullYear()})</p>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => setShowLeaveModal(true)}
-                  className="flex items-center gap-1.5 bg-jade-600 text-white px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-jade-700 transition-colors"
+                  className="flex items-center gap-1.5 bg-jade-600 text-white px-3 py-2 rounded-sm text-xs font-semibold hover:bg-jade-700 transition-colors whitespace-nowrap"
                 >
                   <Plane size={13} /> Request Leave
                 </button>
                 <button
                   onClick={() => setShowAbsenceModal(true)}
-                  className="flex items-center gap-1.5 bg-paper border border-ink/15 text-ink px-3 py-1.5 rounded-sm text-xs font-semibold hover:border-jade-500 transition-colors"
+                  className="flex items-center gap-1.5 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-xs font-semibold hover:border-jade-500 transition-colors whitespace-nowrap"
                 >
                   <Briefcase size={13} /> Report Work Absence
                 </button>
                 <button
                   onClick={() => setShowWfhModal(true)}
-                  className="flex items-center gap-1.5 bg-paper border border-ink/15 text-ink px-3 py-1.5 rounded-sm text-xs font-semibold hover:border-jade-500 transition-colors"
+                  className="flex items-center gap-1.5 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-xs font-semibold hover:border-jade-500 transition-colors whitespace-nowrap"
                 >
                   <Home size={13} /> Request WFH
                 </button>
