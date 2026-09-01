@@ -5,6 +5,12 @@ import { Link } from "react-router-dom";
 import api from "../lib/api.js";
 import { useAuth } from "../lib/auth.jsx";
 
+// Both policy tabs' holiday sections read this instead of a hardcoded year,
+// so nobody has to remember to bump a literal here every January -- the
+// underlying hr_holidays data is what actually needs updating each year
+// (via the admin Holiday Calendar console), this just always points at it.
+const CURRENT_HOLIDAY_YEAR = new Date().getFullYear();
+
 const DAY_TYPE_LABELS = {
   closed: "Closed",
   day_off: "Day Off (paid, same as closed)",
@@ -418,8 +424,8 @@ function Policy2026({ showRetailSections = true, employeeLocation }) {
         />
       </Section>
 
-      <Section title="Public holidays — 2026">
-        <HolidayTable year={2026} />
+      <Section title={`Public holidays — ${CURRENT_HOLIDAY_YEAR}`}>
+        <HolidayTable year={CURRENT_HOLIDAY_YEAR} />
       </Section>
 
       <Section title="Policy interpretation">
@@ -598,8 +604,8 @@ function Policy2025({ showCorporateSections = true }) {
         />
       </Section>
 
-      <Section title="Public holidays — 2025">
-        <HolidayTable year={2025} />
+      <Section title={`Public holidays — ${CURRENT_HOLIDAY_YEAR}`}>
+        <HolidayTable year={CURRENT_HOLIDAY_YEAR} />
       </Section>
 
       <Section title="Policy interpretation">
