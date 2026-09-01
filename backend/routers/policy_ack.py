@@ -28,8 +28,11 @@ POLICY_VERSION = "2026-08-23"
 
 # The documents the console requires people to read, keyed to the tabs in
 # frontend/src/pages/PolicyDocument.jsx. Order is the order they're shown in.
+# The former standalone "Attendance & WFH Policy (from 23 Aug 2026)" entry
+# was merged into "2025 (Retail, Corporate & Factory)" — older acknowledgement
+# rows may still have "late-v3-2026-08" in their documents_read, which is
+# harmless (it's just historical data, no longer filtered against `known`).
 POLICY_DOCUMENTS = [
-    {"key": "late-v3-2026-08", "label": "Attendance & WFH Policy (from 23 Aug 2026)"},
     {"key": "2026", "label": "2026 Revision (Retail)"},
     {"key": "2025", "label": "2025 (Retail, Corporate & Factory)"},
 ]

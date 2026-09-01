@@ -655,7 +655,7 @@ function StoreTimings() {
         <div>
           <label htmlFor="store_name" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Store</label>
           <input id="store_name" type="text" required value={storeName} onChange={(e) => setStoreName(e.target.value)}
-            placeholder="e.g. Peddar Road"
+            placeholder="e.g. Pedder Road"
             className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
         </div>
         <div>

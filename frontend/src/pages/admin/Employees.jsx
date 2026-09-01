@@ -21,6 +21,7 @@ export default function Employees() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [location, setLocation] = useState("all");
+  const [category, setCategory] = useState("all");
   const [page, setPage] = useState(1);
   const [showImport, setShowImport] = useState(false);
 
@@ -36,7 +37,7 @@ export default function Employees() {
   };
 
   useEffect(load, [canViewSalary]);
-  useEffect(() => setPage(1), [query, location]);
+  useEffect(() => setPage(1), [query, location, category]);
 
   const locations = useMemo(
     () => [...new Set(employees.map((e) => e.location).filter(Boolean))].sort(),
@@ -47,13 +48,14 @@ export default function Employees() {
     const q = query.trim().toLowerCase();
     return employees.filter((e) => {
       if (location !== "all" && e.location !== location) return false;
+      if (category !== "all" && e.employee_category !== category) return false;
       if (!q) return true;
       return (
         `${e.first_name} ${e.last_name}`.toLowerCase().includes(q) ||
         e.employee_code.toLowerCase().includes(q)
       );
     });
-  }, [employees, query, location]);
+  }, [employees, query, location, category]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageSafe = Math.min(page, totalPages);
@@ -117,6 +119,16 @@ export default function Employees() {
           {locations.map((loc) => (
             <option key={loc} value={loc}>{loc}</option>
           ))}
+        </select>
+        <select
+          aria-label="Filter by category"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+        >
+          <option value="all">All categories</option>
+          <option value="corporate">Corporate</option>
+          <option value="factory_retail">Retail</option>
         </select>
       </div>
 

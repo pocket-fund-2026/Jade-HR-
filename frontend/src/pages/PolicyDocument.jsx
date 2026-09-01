@@ -68,14 +68,25 @@ function groupStoresByState(stores) {
   return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
 }
 
-function StoreTimingsTable() {
+// `employeeLocation` (an hr_employees.location string, e.g. "Pedder Road,
+// Mumbai") scopes the table to just that person's own store, matched by
+// substring the same way holidays are location-matched in payroll.py's
+// _holiday_applies. Omitted entirely (console/admin viewers with full
+// access) shows every store, same as before.
+function StoreTimingsTable({ employeeLocation }) {
   const stores = useStoreTimings();
   if (stores.length === 0) {
     return <p className="text-sm text-ink/70">No store timings on file yet — set them in the Leave Policy console.</p>;
   }
+  const scoped = employeeLocation
+    ? stores.filter((s) => employeeLocation.toLowerCase().includes(s.store.toLowerCase()))
+    : stores;
+  if (employeeLocation && scoped.length === 0) {
+    return <p className="text-sm text-ink/70">No store timing on file yet for your location — check with HR.</p>;
+  }
   return (
     <div className="overflow-x-auto -mx-1 space-y-4">
-      {groupStoresByState(stores).map(([state, rows]) => (
+      {groupStoresByState(scoped).map(([state, rows]) => (
         <div key={state}>
           <p className="text-xs font-semibold uppercase tracking-wider text-ink/60 mb-1">{state}</p>
           <table className="min-w-full text-sm border-collapse">
@@ -256,37 +267,7 @@ const LATE_COUNTING_ITEMS = [
   "Clock-in time comes from the biometric punch, verified against CCTV timestamps where a punch is missing. If a punch is wrong or missing, raise an attendance dispute in the console rather than letting it stand — corrected timings are graded exactly like a real punch, on the time actually recorded.",
   "Your current cycle's late markings and card status are on your dashboard, so nothing here should ever come as a surprise at payslip time.",
   "Working from home is not an entitlement — it requires Senior Management/HR Head approval in advance and your Reporting Manager confirming the assigned work was completed, and is paid at 50% of that day's salary.",
-  "If you (as a woman employee) leave the workplace after 10:00 pm, the Company will provide or reimburse approved safe transportation home.",
 ];
-
-function LateArrivalPolicyV3() {
-  return (
-    <div className="space-y-6">
-      <Section title="Attendance, Punctuality, Leave &amp; WFH Policy — v2.0">
-        <p className="bg-manila/60 border-l-2 border-jade-600 px-4 py-3">
-          This is the late-arrival, Yellow/Red Card, AIP and WFH policy currently in force, for the <strong>corporate
-          roster</strong> — it does not apply to retail or factory teams. It replaces every earlier late-coming/grace
-          rule in the 2026 and 2025 policies on the other tabs — where it also appears inline — and everything else
-          in those documents (leave, comp-off, holidays, notice period, and so on) still stands unchanged.
-        </p>
-        <LateArrivalRules />
-      </Section>
-
-      <Section title="How this is counted">
-        <Bullets
-          items={[
-            ...LATE_COUNTING_ITEMS,
-            "Stay-back grace still applies: if you finished past 8:30 pm the previous day you may report by 11:00 am, and if you worked past midnight, by 12:00 pm — with your HOD's approval on record. Separately, if you are required to keep working past 12:30 am, that earns an actual Compensatory Off (not just next-day grace).",
-          ]}
-        />
-        <p className="text-ink/70">
-          Effective from the pay cycle beginning 23 August 2026. Anything unclear should be taken to the HR
-          department — HR's interpretation is final, and policies are subject to change at management's discretion.
-        </p>
-      </Section>
-    </div>
-  );
-}
 
 // Policy2026's own two sections below are retail-operational specifics
 // (store timings, retail late-coming) inside an otherwise shared document
@@ -295,7 +276,7 @@ function LateArrivalPolicyV3() {
 // also take away their 2026 holiday calendar and the women's-safety
 // clause), only these two sections are gated by viewer category. Console
 // users (accounts/hr) always see both, same as every other section here.
-function Policy2026({ showRetailSections = true }) {
+function Policy2026({ showRetailSections = true, employeeLocation }) {
   return (
     <div className="space-y-6">
       {showRetailSections && (
@@ -306,7 +287,7 @@ function Policy2026({ showRetailSections = true }) {
             department HOD. One team member must be present at opening to ready the front store and stay responsible
             for it during that window.
           </p>
-          <StoreTimingsTable />
+          <StoreTimingsTable employeeLocation={employeeLocation} />
         </Section>
       )}
 
@@ -437,10 +418,6 @@ function Policy2026({ showRetailSections = true }) {
         <HolidayTable year={2026} />
       </Section>
 
-      <Section title="Women safety">
-        <p>Post 10pm, all female employees are eligible to travel by Cab/Ola/Uber, with bills attached and submitted on time.</p>
-      </Section>
-
       <Section title="Policy interpretation">
         <p>
           Explanation of any company policy should be sought from the HR department — HR's interpretation is final.
@@ -451,7 +428,19 @@ function Policy2026({ showRetailSections = true }) {
   );
 }
 
-function Policy2025() {
+// Renders once, unconditionally, at the page level (see PolicyDocument
+// below) rather than inside any one tab — applies to retail and corporate
+// alike, so it must never be something a viewer could miss by staying on
+// the "wrong" tab.
+function WomenSafetySection() {
+  return (
+    <Section title="Women safety">
+      <p>Post 10pm, all female employees are eligible to travel by Cab/Ola/Uber, with bills attached and submitted on time.</p>
+    </Section>
+  );
+}
+
+function Policy2025({ showCorporateSections = true }) {
   return (
     <div className="space-y-6">
       <Section title="Timings by department">
@@ -480,26 +469,36 @@ function Policy2025() {
         </p>
       </Section>
 
-      <Section title="Late-coming policy">
-        <LateArrivalInForceNote />
-        <LateArrivalRules />
-        <Bullets items={LATE_COUNTING_ITEMS} />
-        <p className="font-medium text-ink">Staying back late (not applicable to OT-eligible depts/designations)</p>
-        <Bullets
-          items={[
-            "Stayed back past 8:30pm (2+ hours extra): may come in late the next day, up to 11:00am.",
-            "Stayed back past 10:30pm (4+ hours extra): may come in late the next day, up to 12:00pm.",
-            "Stayed back past midnight (6+ hours extra): eligible for a comp-off within 90 days.",
-            "Needs HOD approval with the date and reason for staying back, to regularize the late-arrival grace.",
-            "No grace time beyond the tiers above.",
-          ]}
-        />
-        <p>
-          If called in on a holiday/Sunday for a work exigency (launches, events, trainings, shows, audits,
-          deadlines, or similar), you're entitled to a compensatory off within 90 days, or as otherwise accepted by
-          the HOD — approval must come via email from the HOD, with the date awaited/worked noted.
-        </p>
-      </Section>
+      {showCorporateSections ? (
+        <Section title="Late-coming policy">
+          <LateArrivalInForceNote />
+          <LateArrivalRules />
+          <Bullets items={LATE_COUNTING_ITEMS} />
+          <p className="font-medium text-ink">Staying back late (not applicable to OT-eligible depts/designations)</p>
+          <Bullets
+            items={[
+              "Stayed back past 8:30pm (2+ hours extra): may come in late the next day, up to 11:00am.",
+              "Stayed back past 10:30pm (4+ hours extra): may come in late the next day, up to 12:00pm.",
+              "Stayed back past midnight (6+ hours extra): eligible for a comp-off within 90 days.",
+              "Needs HOD approval with the date and reason for staying back, to regularize the late-arrival grace.",
+              "No grace time beyond the tiers above.",
+            ]}
+          />
+          <p>
+            If called in on a holiday/Sunday for a work exigency (launches, events, trainings, shows, audits,
+            deadlines, or similar), you're entitled to a compensatory off within 90 days, or as otherwise accepted by
+            the HOD — approval must come via email from the HOD, with the date awaited/worked noted.
+          </p>
+        </Section>
+      ) : (
+        <Section title="Late-coming policy">
+          <p>
+            The Yellow Card / Red Card / Attendance Improvement Plan system above applies to the corporate roster
+            only — it is not in force for retail. Your applicable late-coming rules are under the "Early going &amp;
+            late coming" section of the other tab.
+          </p>
+        </Section>
+      )}
 
       <Section title="Leave entitlement">
         <p>
@@ -613,51 +612,46 @@ function Policy2025() {
 // (pages/PolicyAcknowledgement.jsx) shows exactly the same documents people
 // are signing off on, and so the keys it records match the tabs one-for-one.
 // Keys must stay in step with POLICY_DOCUMENTS in backend/routers/policy_ack.py.
+// The former standalone "Attendance & WFH Policy (from 23 Aug 2026)" tab has
+// been merged into "2025 (Retail, Corporate & Factory)" (its "Late-coming
+// policy" section) per an explicit, repeated instruction — both remaining
+// tabs now contain properly category-gated content for both retail and
+// corporate, so neither tab needs hiding from either category any more.
 export const POLICY_TABS = [
-  { key: "late-v3-2026-08", label: "Attendance & WFH Policy (from 23 Aug 2026)", render: LateArrivalPolicyV3 },
   { key: "2026", label: "2026 Revision (Retail)", render: Policy2026 },
   { key: "2025", label: "2025 (Retail, Corporate & Factory)", render: Policy2025 },
 ];
 
-// The standalone "Attendance & WFH Policy" tab is a corporate-only
-// document (see LateArrivalPolicyV3 above) — hidden from retail/factory
-// employees browsing their own policy so they aren't shown a tab that
-// doesn't apply to them. Console users (accounts/hr, scope="console")
-// always see every tab regardless of their own employee_category.
-function visibleTabsFor(scope, employeeCategory) {
-  if (scope !== "employee" || employeeCategory === "corporate" || !employeeCategory) return POLICY_TABS;
-  return POLICY_TABS.filter((t) => t.key !== "late-v3-2026-08");
-}
-
 export default function PolicyDocument({ scope = "console" }) {
-  const { user } = useAuth() || {};
+  const { user, can } = useAuth() || {};
   const employeeCategory = user?.employee_category;
-  const TABS = visibleTabsFor(scope, employeeCategory);
-  const isRetail = TABS.length !== POLICY_TABS.length;
-  // Console/admin viewers and retail employees see the retail-operational
-  // sections inside the "2026" tab; a corporate employee viewing their own
-  // policy does not (see the comment on Policy2026 above).
-  const showRetailSections = !(scope === "employee" && employeeCategory === "corporate");
-  const [tab, setTab] = useState("late-v3-2026-08");
+  // Only Accounts, or an hr-role account Accounts has specifically granted
+  // employees.manage/policy.manage to, get the full cross-category view from
+  // the console (/policy-document) — everyone else, including a team lead
+  // who lacks that permission, sees exactly what an employee of their own
+  // employee_category would see. Employee scope (/employee/policy) is
+  // always category-filtered, full stop.
+  const seesEverything = scope !== "employee" && !!can?.("employees.manage", "policy.manage");
+  const showRetailSections = seesEverything || employeeCategory !== "corporate";
+  const showCorporateSections = seesEverything || employeeCategory === "corporate";
+  const [tab, setTab] = useState("2026");
 
-  useEffect(() => {
-    if (isRetail && tab === "late-v3-2026-08") setTab("2026");
-  }, [isRetail]);
-
-  const Active = TABS.find((t) => t.key === tab)?.render ?? TABS[0]?.render ?? LateArrivalPolicyV3;
+  const Active = POLICY_TABS.find((t) => t.key === tab)?.render ?? POLICY_TABS[0].render;
+  const description = seesEverything
+    ? "Full document, all categories — as an admin/HR view. Regular employees only see the sections that apply to their own role."
+    : showCorporateSections
+      ? "You're seeing the corporate view. Retail-specific sections (store timings, retail late-coming) aren't shown, and aren't part of your policy."
+      : "You're seeing the retail view. The Yellow/Red Card Attendance & WFH Policy is corporate-only and isn't shown, and isn't part of your policy.";
   return (
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-2xl text-ink">Working Hours, Attendance &amp; Leave Policy</h1>
         <p className="text-sm text-ink/70 mt-1">
-          {isRetail
-            ? "The Yellow/Red Card Attendance & WFH Policy applies to the corporate roster only and isn't shown here — your applicable document is below."
-            : "The Attendance, Punctuality, Leave & WFH Policy effective from the 23 Aug 2026 pay cycle applies to the corporate roster, and appears on the first tab as well as inline in the late-coming section of each document below."}{" "}
-          For everything else, pick the version that applies
-          to your department — where they disagree, HR's interpretation of which one governs is final.
+          {description} For everything else, where two documents disagree, HR's interpretation of which one governs
+          is final.
         </p>
         <div className="flex gap-2 mt-4">
-          {TABS.map((t) => (
+          {POLICY_TABS.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
@@ -672,7 +666,12 @@ export default function PolicyDocument({ scope = "console" }) {
           ))}
         </div>
       </div>
-      <Active showRetailSections={showRetailSections} />
+      <WomenSafetySection />
+      <Active
+        showRetailSections={showRetailSections}
+        showCorporateSections={showCorporateSections}
+        employeeLocation={seesEverything ? null : user?.location}
+      />
     </div>
   );
 }
