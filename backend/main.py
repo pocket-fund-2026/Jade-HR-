@@ -4,8 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import ALLOWED_ORIGINS
 from routers import (
     absence, auth, biometric, disputes, employee_profile, employees, holidays, late_policy, leave, leave_ledger,
-    letters, onboarding, payroll, payslip_approvals, permissions, policy_ack, reports, salary_structure, selfie,
-    store_timings, tax_declaration, wfh,
+    letters, market_visits, onboarding, payroll, payslip_approvals, permissions, policy_ack, reports,
+    salary_structure, selfie, store_timings, tax_declaration, wfh,
 )
 
 app = FastAPI(title="JADE HR")
@@ -41,6 +41,7 @@ app.include_router(late_policy.router)
 app.include_router(policy_ack.router)
 app.include_router(wfh.router)
 app.include_router(store_timings.router)
+app.include_router(market_visits.router)
 
 # Loads admin-defined shift time slots (hr_time_slots) into payroll.py's
 # in-memory SHIFT_START_BY_TIME_SLOT so lateness grading picks them up from

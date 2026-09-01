@@ -1,4 +1,4 @@
-import { Briefcase, BookOpen, CalendarDays, CalendarPlus, ClipboardList, FileBarChart, FileText, Flag, Home, KeyRound, LayoutDashboard, LogOut, Menu, Plane, Receipt, Shield, ShieldAlert, ShieldCheck, Stamp, UserPlus, Users, X } from "lucide-react";
+import { Briefcase, BookOpen, CalendarDays, CalendarPlus, ClipboardList, FileBarChart, FileText, Flag, Home, KeyRound, LayoutDashboard, LogOut, MapPin, Menu, Plane, Receipt, Shield, ShieldAlert, ShieldCheck, Stamp, UserPlus, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
@@ -17,6 +17,7 @@ const navItems = [
   { to: "/admin/disputes", label: "Disputes", icon: Flag, badgeKey: "disputes", permission: "disputes.manage" },
   { to: "/admin/leave", label: "Leave", icon: Plane, badgeKey: "leave", permission: "leave.manage" },
   { to: "/admin/wfh-requests", label: "WFH Requests", icon: Home, badgeKey: "wfh", permission: ["leave.manage", "wfh.approve"] },
+  { to: "/admin/market-visits", label: "Market Visits", icon: MapPin, badgeKey: "marketVisits", permission: "market_visits.review" },
   { to: "/admin/aip", label: "AIP", icon: ShieldAlert, permission: "leave.manage" },
   { to: "/admin/work-absence", label: "Work Absence", icon: Briefcase, badgeKey: "workAbsence", permission: "absence.manage" },
   { to: "/admin/leave-entry", label: "Leave Entry", icon: ClipboardList, permission: "leave.manage" },
@@ -105,6 +106,7 @@ export default function AdminLayout() {
   const [pendingOnboarding, setPendingOnboarding] = useState([]);
   const [pendingWorkAbsence, setPendingWorkAbsence] = useState([]);
   const [pendingWfh, setPendingWfh] = useState([]);
+  const [pendingMarketVisits, setPendingMarketVisits] = useState([]);
   // True once the first poll below has resolved — lets pages seed their own
   // "pending" tab from this data instead of re-fetching it themselves on
   // mount (an empty pending* array is ambiguous with "not fetched yet"
@@ -115,6 +117,7 @@ export default function AdminLayout() {
     disputes: pendingDisputes.length, leave: pendingLeave.length,
     payslipApprovals: pendingPayslipApprovals.length, onboarding: pendingOnboarding.length,
     workAbsence: pendingWorkAbsence.length, wfh: pendingWfh.length,
+    marketVisits: pendingMarketVisits.length,
   };
   const canDisputes = can("disputes.manage");
   const canLeave = can("leave.manage");
@@ -122,6 +125,7 @@ export default function AdminLayout() {
   const canOnboarding = can("onboarding.manage");
   const canWorkAbsence = can("absence.manage");
   const canWfh = can("leave.manage", "wfh.approve");
+  const canMarketVisits = can("market_visits.review");
 
   useEffect(() => {
     let cancelled = false;
@@ -133,8 +137,9 @@ export default function AdminLayout() {
         canOnboarding ? api.get("/api/onboarding/submissions", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
         canWorkAbsence ? api.get("/api/absence-requests", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
         canWfh ? api.get("/api/wfh-requests", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
+        canMarketVisits ? api.get("/api/market-visits", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
       ])
-        .then(([disputesRes, leaveRes, payslipApprovalsRes, onboardingRes, workAbsenceRes, wfhRes]) => {
+        .then(([disputesRes, leaveRes, payslipApprovalsRes, onboardingRes, workAbsenceRes, wfhRes, marketVisitsRes]) => {
           if (cancelled) return;
           setPendingDisputes(disputesRes.data);
           setPendingLeave(leaveRes.data);
@@ -142,6 +147,7 @@ export default function AdminLayout() {
           setPendingOnboarding(onboardingRes.data);
           setPendingWorkAbsence(workAbsenceRes.data);
           setPendingWfh(wfhRes.data);
+          setPendingMarketVisits(marketVisitsRes.data);
           setPendingLoaded(true);
         })
         .catch(() => {});
@@ -149,7 +155,7 @@ export default function AdminLayout() {
     poll();
     const interval = setInterval(poll, POLL_MS);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [canDisputes, canLeave, canPayslipApprovals, canOnboarding, canWorkAbsence, canWfh]);
+  }, [canDisputes, canLeave, canPayslipApprovals, canOnboarding, canWorkAbsence, canWfh, canMarketVisits]);
 
   return (
     <div className="h-screen flex bg-manila overflow-hidden">

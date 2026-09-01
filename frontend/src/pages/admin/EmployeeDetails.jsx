@@ -139,6 +139,7 @@ const SECTIONS = [
           { k: "mobile_punch_remarks", l: "Remarks", t: "text" },
           { k: "is_remarks_mandatory", l: "Is Remarks Mandatory", t: "boolean" },
           { k: "requires_selfie_checkin", l: "Selfie while Punch", t: "boolean", core: true },
+          { k: "market_visit_checkin_enabled", l: "Market Visit Check-in (geotagged)", t: "boolean", core: true },
           { k: "geo_location_selection", l: "GEO Location Selection", t: "boolean" },
           { k: "geo_fencing", l: "GEO fencing", t: "boolean" },
           { k: "system_punch", l: "System Punch", t: "boolean" },
@@ -252,7 +253,7 @@ const EMPTY_CORE = {
   location: "Madhu Estate, Mumbai", date_of_joining: "", basic: 0, hra: 0, conveyance: 0,
   other_allowance: 0, monthly_bonus: 0, retention: 0, incentive: 0, standing_loan_emi: 0,
   standard_hours_per_day: 8, weekly_off_day: 6, phone: "", email: "",
-  role: "employee", password: "", requires_selfie_checkin: false, is_active: true,
+  role: "employee", password: "", requires_selfie_checkin: false, market_visit_checkin_enabled: false, is_active: true,
   leave_approver_id: "", employee_category: "factory_retail", standard_working_days_per_month: "",
   is_intern: false, ot_applicable: true,
 };

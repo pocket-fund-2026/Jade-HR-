@@ -37,6 +37,7 @@ class EmployeeCreate(BaseModel):
     email: str = ""
     role: str = "employee"
     requires_selfie_checkin: bool = False
+    market_visit_checkin_enabled: bool = False
     leave_approver_id: Optional[str] = None
     employee_category: str = "factory_retail"
     standard_working_days_per_month: Optional[float] = None
@@ -67,6 +68,7 @@ class EmployeeUpdate(BaseModel):
     role: Optional[str] = None
     is_active: Optional[bool] = None
     requires_selfie_checkin: Optional[bool] = None
+    market_visit_checkin_enabled: Optional[bool] = None
     leave_approver_id: Optional[str] = None
     employee_category: Optional[str] = None
     standard_working_days_per_month: Optional[float] = None
@@ -185,6 +187,18 @@ class PayslipApprovalResolve(BaseModel):
 
 class SelfieCheckinRequest(BaseModel):
     photo_base64: str  # may be a data: URL or raw base64
+
+
+class MarketVisitCreate(BaseModel):
+    photo_base64: str  # may be a data: URL or raw base64
+    latitude: float
+    longitude: float
+    accuracy: float | None = None
+
+
+class MarketVisitResolve(BaseModel):
+    action: str  # "approve" | "reject"
+    note: str = ""
 
 
 class PermissionUpdate(BaseModel):

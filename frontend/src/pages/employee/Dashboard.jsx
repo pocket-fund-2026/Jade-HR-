@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import AbsenceRequestModal from "../../components/AbsenceRequestModal.jsx";
 import DisputeModal from "../../components/DisputeModal.jsx";
 import LeaveRequestModal from "../../components/LeaveRequestModal.jsx";
+import MarketVisitCheckinCard from "../../components/MarketVisitCheckinCard.jsx";
 import MonthPicker from "../../components/MonthPicker.jsx";
 import PayslipDetail from "../../components/PayslipDetail.jsx";
 import SelfieCheckinCard from "../../components/SelfieCheckinCard.jsx";
@@ -116,6 +117,7 @@ export default function Dashboard() {
 
       <div className="no-print">
         <SelfieCheckinCard />
+        <MarketVisitCheckinCard />
       </div>
 
       {loading || !summary ? (

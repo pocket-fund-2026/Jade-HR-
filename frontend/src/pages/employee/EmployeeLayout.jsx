@@ -1,4 +1,4 @@
-import { BookOpen, FileText, Home, KeyRound, LogOut, Receipt, Users } from "lucide-react";
+import { BookOpen, FileText, Home, KeyRound, LogOut, MapPin, Receipt, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
@@ -99,6 +99,19 @@ export default function EmployeeLayout() {
               >
                 <Home size={14} />
                 Team WFH
+              </NavLink>
+            )}
+            {user?.is_leave_approver && (
+              <NavLink
+                to="/employee/team-market-visits"
+                className={({ isActive }) =>
+                  `flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                    isActive ? "border-manila text-manila" : "border-transparent text-manila/60 hover:text-manila/80"
+                  }`
+                }
+              >
+                <MapPin size={14} />
+                Team Market Visits
               </NavLink>
             )}
             <NavLink
