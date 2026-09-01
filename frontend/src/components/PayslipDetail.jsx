@@ -123,8 +123,18 @@ function PayslipLedgerTable({ earningsRows, deductionsRows, pl, netSalary }) {
 // print media at the device's own width, not a fixed page size) wraps
 // short values like "Designation" or a PAN number mid-word instead of
 // just letting the column widen.
-const cellCls = "border border-ink/50 px-2.5 py-1.5 whitespace-nowrap";
-const labelCls = `${cellCls} font-semibold bg-manila/60`;
+//
+// Border/fill are solid colors, not Tailwind's opacity utilities
+// (border-ink/50, bg-manila/60) -- opacity means alpha-compositing per
+// pixel, and at a collapsed-table edge two adjacent cells' semi-transparent
+// borders overlap and get composited again, which some print/PDF
+// rasterizers (mobile Safari's "Save as PDF" in particular) render as a
+// fine moire/hatch pattern instead of one clean line. #8c8c89/#f5f2e9 are
+// just border-ink/50 and bg-manila/60 pre-flattened against a white page,
+// so this looks identical to before, just with nothing left for a
+// rasterizer to mis-composite.
+const cellCls = "border border-[#8c8c89] px-2.5 py-1.5 whitespace-nowrap";
+const labelCls = `${cellCls} font-semibold bg-[#f5f2e9]`;
 
 // The Earnings/Deductions/Description ledger table can run to 10 columns
 // (with a PL ledger) — at that width, cellCls's whitespace-nowrap on every
@@ -133,8 +143,8 @@ const labelCls = `${cellCls} font-semibold bg-manila/60`;
 // + explicit per-column widths keeps it within the page regardless of
 // content; dropping whitespace-nowrap here lets a cell wrap instead of
 // bleeding off the edge in the rare case content doesn't fit its column.
-const ledgerCellCls = "border border-ink/50 px-1.5 py-1.5 text-[11px] break-words";
-const ledgerLabelCls = `${ledgerCellCls} font-semibold bg-manila/60`;
+const ledgerCellCls = "border border-[#8c8c89] px-1.5 py-1.5 text-[11px] break-words";
+const ledgerLabelCls = `${ledgerCellCls} font-semibold bg-[#f5f2e9]`;
 
 // Exact replica of the company's official (pre-existing, Zoho-derived)
 // payslip form — the only thing that should render when a payslip is
@@ -174,7 +184,11 @@ function PayslipPrintFormat({ summary }) {
 
   return (
     <div className="payslip-print-page hidden print:block text-ink text-[12px] leading-normal font-sans">
-      <div className="text-center mb-5 pb-3 border-b-2 border-ink/70">
+      {/* Solid #5f5f5d, not border-ink/70 -- see cellCls above for why a
+          thick (2px) opacity-based rule is exactly the kind of border most
+          likely to show print-rasterizer hatching, and this one sits right
+          under the letterhead where it'd be the first thing anyone notices. */}
+      <div className="text-center mb-5 pb-3 border-b-2 border-[#5f5f5d]">
         <p className="font-display text-base tracking-wide">JADE by MK</p>
         <p className="text-ink/75 text-[11px] mt-1">{OFFICE_ADDRESS.replace(", India", ". India")}</p>
         <p className="font-semibold text-sm mt-3">Payslip for the Month {MONTH_NAMES[summary.month - 1]} {summary.year}</p>
@@ -308,7 +322,7 @@ function PayslipPrintFormat({ summary }) {
               </tr>
             );
           })}
-          <tr className="font-semibold bg-manila/60">
+          <tr className="font-semibold bg-[#f5f2e9]">
             <td className={ledgerCellCls}>Total :</td>
             <td className={`${ledgerCellCls} text-right font-nums`}>{formatPlainAmount(totalMonthly)}</td>
             <td className={`${ledgerCellCls} text-right font-nums`}>{formatPlainAmount(totalEarned)}</td>
