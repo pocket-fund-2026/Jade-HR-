@@ -613,13 +613,15 @@ function Policy2025({ showCorporateSections = true }) {
 // are signing off on, and so the keys it records match the tabs one-for-one.
 // Keys must stay in step with POLICY_DOCUMENTS in backend/routers/policy_ack.py.
 // The former standalone "Attendance & WFH Policy (from 23 Aug 2026)" tab has
-// been merged into "2025 (Retail, Corporate & Factory)" (its "Late-coming
-// policy" section) per an explicit, repeated instruction — both remaining
-// tabs now contain properly category-gated content for both retail and
-// corporate, so neither tab needs hiding from either category any more.
+// been merged into "Corporate Policy" (its "Late-coming policy" section) per
+// an explicit, repeated instruction — both remaining tabs now contain
+// properly category-gated content for both retail and corporate, so neither
+// tab needs hiding from either category any more. Labels dropped the year —
+// user wants "Corporate Policy", not "2025 (...)"; the sibling tab was
+// renamed to match rather than leave a stray "2026 Revision" label behind.
 export const POLICY_TABS = [
-  { key: "2026", label: "2026 Revision (Retail)", render: Policy2026 },
-  { key: "2025", label: "2025 (Retail, Corporate & Factory)", render: Policy2025 },
+  { key: "2026", label: "Retail Policy", render: Policy2026 },
+  { key: "2025", label: "Corporate Policy", render: Policy2025 },
 ];
 
 export default function PolicyDocument({ scope = "console" }) {
