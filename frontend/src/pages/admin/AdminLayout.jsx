@@ -165,15 +165,22 @@ export default function AdminLayout() {
         <SidebarContent user={user} can={can} logout={logout} pendingCounts={pendingCounts} />
       </aside>
 
-      {/* Mobile top bar */}
+      {/* Mobile top bar — Sign out sits here directly (not just inside the
+          drawer) to match the employee layout's header, where it's always
+          one tap away rather than requiring the menu to be opened first. */}
       <div className="md:hidden fixed top-0 inset-x-0 z-30 bg-ledger-800 flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2">
           <img src="/jade-logo.png" alt="" className="w-7 h-7" />
           <span className="font-display text-manila text-lg leading-none">JADE HR</span>
         </div>
-        <button onClick={() => setMobileOpen(true)} aria-label="Open menu" className="text-manila p-1">
-          <Menu size={22} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button onClick={logout} aria-label="Sign out" title="Sign out" className="text-manila/70 hover:text-manila p-2">
+            <LogOut size={20} />
+          </button>
+          <button onClick={() => setMobileOpen(true)} aria-label="Open menu" className="text-manila p-1">
+            <Menu size={22} />
+          </button>
+        </div>
       </div>
 
       {/* Mobile off-canvas drawer */}
