@@ -1,5 +1,6 @@
 import { Bell, Briefcase, Flag, Home, Paperclip, Plane, Printer, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import AbsenceRequestModal from "../../components/AbsenceRequestModal.jsx";
 import DisputeModal from "../../components/DisputeModal.jsx";
@@ -41,6 +42,19 @@ export default function Dashboard() {
   const [showAbsenceModal, setShowAbsenceModal] = useState(false);
   const [showWfhModal, setShowWfhModal] = useState(false);
   const [dismissedNotice, setDismissedNotice] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Deep-link target for the Policy page's "My Leave" link, which can't
+  // route straight to a leave page for employees -- there isn't one, leave
+  // is applied for via this dashboard's own modal, not a separate route.
+  useEffect(() => {
+    if (searchParams.get("apply-leave") === "1") {
+      setShowLeaveModal(true);
+      searchParams.delete("apply-leave");
+      setSearchParams(searchParams, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const load = () => {
     setLoading(true);

@@ -45,7 +45,11 @@ function useStoreTimings() {
 
 function LeaveLink() {
   const { user } = useAuth() || {};
-  const to = user?.role === "employee" ? "/employee/my-leave" : "/admin/my-leave";
+  // Employees have no standalone leave page -- leave is applied for via a
+  // modal on their dashboard, opened here through a deep-link query param
+  // (see employee/Dashboard.jsx). /employee/my-leave doesn't exist as a
+  // route and previously just silently bounced back to the dashboard.
+  const to = user?.role === "employee" ? "/employee?apply-leave=1" : "/admin/my-leave";
   return (
     <p>
       Apply for leave from this console's{" "}
