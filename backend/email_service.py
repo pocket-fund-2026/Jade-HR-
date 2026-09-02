@@ -123,17 +123,20 @@ def notify_leave_approved(employee_email: str, employee_name: str, leave_type: s
 
 def notify_late_digest(
     date_iso: str, late_employees: list[dict], hr_email: str, extra_recipients: list[str] | None = None,
+    include_report_link: bool = True,
 ) -> tuple[bool, str | None]:
     """One daily digest email listing everyone who clocked in late on
-    date_iso, sent to HR (`hr_email`) AND, in addition, the Head of
-    Department of each late employee's department (`extra_recipients` —
-    resolved by the caller via hr_employee_profile.head_of_department; see
-    routers/payroll.py's late_digest endpoint). `late_employees` is a list of
+    date_iso. Called once per recipient group by routers/payroll.py's
+    late_digest endpoint: once for HR with the full company-wide list
+    (`hr_email`), and once per reporting manager with only their own
+    reportees' entries (see _reporting_manager_emails) — managers get
+    include_report_link=False since the linked report is an HR-admin page
+    they may not have (or need) access to. `late_employees` is a list of
     {name, employee_code, location, time} dicts (time already IST-formatted
     by the caller). Sends nothing — and returns (False, "empty_list"/
     "no_recipient") — when the list is empty or there's no recipient at all,
     so nobody gets an empty "0 late today" email. Duplicate recipients (e.g.
-    a HOD who is also the HR contact) are only emailed once."""
+    a manager who is also the HR contact) are only emailed once."""
     recipients = list(dict.fromkeys(r for r in [hr_email, *(extra_recipients or [])] if r))
     if not recipients:
         return False, "no_recipient"
@@ -152,8 +155,9 @@ def notify_late_digest(
         "On-time cutoff is 10:00 AM for the standard shift (later for a later time slot), with the Daily "
         "Tolerance/Extended Buffer bands through 10:20 AM carrying no deduction — extended further to 11 AM / "
         "noon if they stayed back late the previous evening.",
-        "Full attendance sheet: https://jade-hr.vercel.app/admin/reports/attendance",
     ]
+    if include_report_link:
+        lines.append("Full attendance sheet: https://jade-hr.vercel.app/admin/reports/attendance")
     subject = f"Late arrivals — {date_iso} ({n})"
     body = "\n".join(lines)
     sent_ok = False

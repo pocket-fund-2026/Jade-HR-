@@ -561,7 +561,7 @@ def late_digest(
                     {k: v for k, v in e.items() if k != "employee_id"}
                 )
         for manager_email, mgr_late in late_by_manager_email.items():
-            ok, err = email_service.notify_late_digest(target_iso, mgr_late, manager_email)
+            ok, err = email_service.notify_late_digest(target_iso, mgr_late, manager_email, include_report_link=False)
             hod_digests.append({"recipient": manager_email, "count": len(mgr_late), "emailed": ok, "email_error": err})
     return {
         "date": target_iso, "count": len(late), "late": public_late,
