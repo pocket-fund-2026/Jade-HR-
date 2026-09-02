@@ -204,7 +204,14 @@ def reset_password(employee_id: str, body: PasswordReset, user: dict = Depends(r
         raise HTTPException(status_code=400, detail="Password must be at least 4 characters")
     resp = (
         supabase.table("hr_employees")
-        .update({"password_hash": hash_password(body.password), "failed_login_count": 0, "locked_until": None})
+        .update(
+            {
+                "password_hash": hash_password(body.password),
+                "failed_login_count": 0,
+                "locked_until": None,
+                "password_changed_by_employee": False,
+            }
+        )
         .eq("id", employee_id)
         .execute()
     )

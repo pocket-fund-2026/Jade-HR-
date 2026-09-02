@@ -91,7 +91,12 @@ def change_password(body: PasswordChange, response: Response, user: dict = Depen
         raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
     new_hash = hash_password(body.new_password)
     supabase.table("hr_employees").update(
-        {"password_hash": new_hash, "failed_login_count": 0, "locked_until": None}
+        {
+            "password_hash": new_hash,
+            "failed_login_count": 0,
+            "locked_until": None,
+            "password_changed_by_employee": True,
+        }
     ).eq("id", user["id"]).execute()
     # The old cookie's "pv" fingerprint no longer matches — issue a fresh one so
     # the user changing their own password isn't immediately logged out by it.
