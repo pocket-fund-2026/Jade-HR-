@@ -22,34 +22,43 @@ router = APIRouter(prefix="/api", tags=["payroll"])
 logger = logging.getLogger("jade_hr.payroll")
 
 
-def _hod_emails_by_department(departments: set[str]) -> dict[str, list[str]]:
-    """Resolves late_digest's late-employee departments to their Head of
-    Department's email(s), keyed by department — each HOD's digest must only
-    ever list THEIR OWN department's late employees, never every department's
-    (that would defeat the point of a per-HOD digest). HOD-ness is
-    per-employee (hr_employee_profile.head_of_department=true), matched
-    against hr_employees.department — there's no separate departments/HOD
-    table. A department with zero flagged HODs contributes no entry (logged,
-    not an error); one with 2+ HODs gets all of them."""
-    departments = {d for d in departments if d}
-    if not departments:
+def _reporting_manager_emails(employee_ids: set[str]) -> dict[str, list[str]]:
+    """Resolves late_digest's late employees to their actual reporting
+    manager's email(s), keyed by employee_id — the real per-employee
+    reporting line (hr_employee_profile.reporting_to_id / .reporting_to_email,
+    the same fields leave.py uses for approver notifications). Previously this
+    was keyed off hr_employee_profile.head_of_department, but in practice
+    nobody was ever flagged as a HOD so that path never sent a single email —
+    reporting_to_id is already populated (it's what drives leave-approval
+    routing) so it actually works."""
+    employee_ids = {e for e in employee_ids if e}
+    if not employee_ids:
         return {}
     profile_resp = (
-        supabase.table("hr_employee_profile").select("employee_id").eq("head_of_department", True).execute()
+        supabase.table("hr_employee_profile")
+        .select("employee_id,reporting_to_id,reporting_to_email")
+        .in_("employee_id", list(employee_ids))
+        .execute()
     )
-    hod_ids = [p["employee_id"] for p in (profile_resp.data or []) if p.get("employee_id")]
-    if not hod_ids:
-        logger.warning("late_digest: no employees flagged head_of_department at all")
-        return {}
-    emp_resp = supabase.table("hr_employees").select("email,department,is_active").in_("id", hod_ids).execute()
-    by_department: dict[str, list[str]] = {}
-    for e in emp_resp.data or []:
-        dept = e.get("department")
-        if dept in departments and e.get("email") and e.get("is_active", True):
-            by_department.setdefault(dept, []).append(e["email"])
-    for missing in departments - by_department.keys():
-        logger.warning("late_digest: no HOD email found for department %r", missing)
-    return by_department
+    profiles = profile_resp.data or []
+    manager_ids = {p["reporting_to_id"] for p in profiles if p.get("reporting_to_id")}
+    manager_email_by_id: dict[str, str] = {}
+    if manager_ids:
+        mgr_resp = supabase.table("hr_employees").select("id,email,is_active").in_("id", list(manager_ids)).execute()
+        manager_email_by_id = {
+            m["id"]: m["email"] for m in (mgr_resp.data or []) if m.get("email") and m.get("is_active", True)
+        }
+    result: dict[str, list[str]] = {}
+    for p in profiles:
+        emails = list(dict.fromkeys(e for e in [
+            manager_email_by_id.get(p.get("reporting_to_id")), p.get("reporting_to_email"),
+        ] if e))
+        if emails:
+            result[p["employee_id"]] = emails
+    missing = employee_ids - result.keys()
+    if missing:
+        logger.warning("late_digest: no reporting-manager email found for employee_ids %r", missing)
+    return result
 
 
 def _month_bounds(year: int, month: int, calendar_month: bool = False) -> tuple[str, str]:
@@ -477,9 +486,9 @@ def late_digest(
     their applicable on-time cutoff (10:00 AM under Policy v3, banded from
     there — or the pre-v3 10:11 AM grace for a date before v3 took effect;
     either way, extended by the stay-back grace to 11 AM / noon when it
-    applies). Separately, each department's Head of Department gets their OWN
-    email listing ONLY their department's late employees that day — never
-    the full company-wide list HR gets (see _hod_emails_by_department).
+    applies). Separately, each late employee's actual reporting manager gets
+    their OWN email listing ONLY their reportees' late entries that day —
+    never the full company-wide list HR gets (see _reporting_manager_emails).
 
     'Late' here is exactly the payslip's own late flag: it runs the same
     attendance engine (overrides, approved leave, holidays, weekly-off and
@@ -515,7 +524,6 @@ def late_digest(
     )
 
     late = []
-    late_departments: set[str] = set()
     for summary in summaries:
         row = next((r for r in summary["daily"] if r["date"] == target_iso), None)
         if row and row["status"] == "present" and row.get("late"):
@@ -525,6 +533,7 @@ def late_digest(
                 if first_in else "—"
             )
             late.append({
+                "employee_id": summary["employee_id"],
                 "employee_code": summary["employee_code"],
                 "name": summary["name"],
                 "location": summary["location"],
@@ -532,26 +541,30 @@ def late_digest(
                 "time": in_time,
                 "sort_key": first_in or "",
             })
-            late_departments.add(summary.get("department"))
     late.sort(key=lambda x: x["sort_key"])
     for e in late:
         e.pop("sort_key", None)
 
+    public_late = [{k: v for k, v in e.items() if k != "employee_id"} for e in late]
     emailed, email_error = False, None
     hod_digests: list[dict] = []
     if not dry_run:
-        emailed, email_error = email_service.notify_late_digest(target_iso, late, email_service.HR_NOTIFY_EMAIL)
-        # Each HOD gets their OWN department's late list only — never the
-        # full company-wide one HR gets above (see _hod_emails_by_department).
-        hod_emails_by_dept = _hod_emails_by_department(late_departments)
-        for dept, emails in hod_emails_by_dept.items():
-            dept_late = [e for e in late if e.get("department") == dept]
-            if not dept_late:
-                continue
-            ok, err = email_service.notify_late_digest(target_iso, dept_late, emails[0], extra_recipients=emails[1:])
-            hod_digests.append({"department": dept, "recipients": emails, "count": len(dept_late), "emailed": ok, "email_error": err})
+        emailed, email_error = email_service.notify_late_digest(target_iso, public_late, email_service.HR_NOTIFY_EMAIL)
+        # Each reporting manager gets their OWN reportees' late list only —
+        # never the full company-wide one HR gets above. Grouped by manager
+        # email (not department/HOD flag — see _reporting_manager_emails).
+        manager_emails_by_employee = _reporting_manager_emails({e["employee_id"] for e in late})
+        late_by_manager_email: dict[str, list[dict]] = {}
+        for e in late:
+            for manager_email in manager_emails_by_employee.get(e["employee_id"], []):
+                late_by_manager_email.setdefault(manager_email, []).append(
+                    {k: v for k, v in e.items() if k != "employee_id"}
+                )
+        for manager_email, mgr_late in late_by_manager_email.items():
+            ok, err = email_service.notify_late_digest(target_iso, mgr_late, manager_email)
+            hod_digests.append({"recipient": manager_email, "count": len(mgr_late), "emailed": ok, "email_error": err})
     return {
-        "date": target_iso, "count": len(late), "late": late,
+        "date": target_iso, "count": len(late), "late": public_late,
         "emailed": emailed, "email_error": email_error, "hod_digests": hod_digests,
     }
 
