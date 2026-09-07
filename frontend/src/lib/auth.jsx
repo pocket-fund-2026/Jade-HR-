@@ -19,6 +19,10 @@ export function AuthProvider({ children }) {
   // treated as "don't decide" — deciding early would either flash the console
   // to someone who hasn't signed off or bounce someone who has.
   const [policyAck, setPolicyAck] = useState(null);
+  // Mandatory personal-information gate (medical + emergency contacts),
+  // shown right after policy acknowledgement. Same null-means-"don't decide
+  // yet" contract as policyAck above.
+  const [personalInfo, setPersonalInfo] = useState(null);
 
   const loadPolicyAck = async () => {
     try {
@@ -29,6 +33,19 @@ export function AuthProvider({ children }) {
       // Never hard-block the console on a failed status read — an outage on
       // this one endpoint shouldn't lock the whole company out of payroll.
       setPolicyAck({ acknowledged: true, unavailable: true });
+      return null;
+    }
+  };
+
+  const loadPersonalInfo = async () => {
+    try {
+      const { data } = await api.get("/api/me/personal-info");
+      setPersonalInfo(data);
+      return data;
+    } catch {
+      // Same fail-open reasoning as policyAck — an outage here shouldn't
+      // lock the whole company out of the console.
+      setPersonalInfo({ complete: true, unavailable: true });
       return null;
     }
   };
@@ -58,6 +75,7 @@ export function AuthProvider({ children }) {
       if (CONSOLE_ROLES.includes(data.role)) loadPermissions();
       else setPermissionsLoading(false);
       loadPolicyAck();
+      loadPersonalInfo();
     } catch {
       setPermissionsLoading(false);
     } finally {
@@ -85,6 +103,7 @@ export function AuthProvider({ children }) {
     setPermissions({});
     setPermissionsLoading(true);
     setPolicyAck(null);
+    setPersonalInfo(null);
   };
 
   // accounts always has full access; hr is gated per-key by what accounts has granted.
@@ -99,6 +118,7 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{
       user, loading, permissionsLoading, login, logout, permissions, can,
       reloadPermissions: loadPermissions, policyAck, reloadPolicyAck: loadPolicyAck,
+      personalInfo, reloadPersonalInfo: loadPersonalInfo,
     }}>
       {children}
     </AuthContext.Provider>

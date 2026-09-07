@@ -287,6 +287,7 @@ class EmployeeProfileUpdate(BaseModel):
     mother_name: Optional[str] = None
     spouse_name: Optional[str] = None
     blood_group: Optional[str] = None
+    insurance: Optional[str] = None
     old_employee_code: Optional[str] = None
     highest_qualification: Optional[str] = None
     employee_type: Optional[str] = None
@@ -602,6 +603,20 @@ class AbsenceRequestCreate(BaseModel):
 class AbsenceResolve(BaseModel):
     action: str  # approve | reject
     admin_note: str = ""
+
+
+class PersonalInfoUpdate(BaseModel):
+    # The deliberately small, self-service-safe subset of EmployeeProfileUpdate
+    # required by the mandatory "Personal Information" login gate (see
+    # routers/personal_info.py) — medical + emergency-contact fields only, so
+    # an employee can never touch anything HR/Accounts-controlled (role,
+    # salary, bank, reporting line, etc.) through this endpoint.
+    blood_group: Optional[str] = None
+    insurance: Optional[str] = None
+    additional_contact_1_name: Optional[str] = None
+    additional_contact_1_phone: Optional[str] = None
+    additional_contact_2_name: Optional[str] = None
+    additional_contact_2_phone: Optional[str] = None
 
 
 class PolicyAcknowledgementCreate(BaseModel):

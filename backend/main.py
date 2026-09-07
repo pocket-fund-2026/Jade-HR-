@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import ALLOWED_ORIGINS
 from routers import (
     absence, auth, biometric, disputes, employee_profile, employees, holidays, late_policy, leave, leave_ledger,
-    letters, market_visits, onboarding, payroll, payslip_approvals, permissions, policy_ack, reports,
+    letters, market_visits, onboarding, payroll, payslip_approvals, permissions, personal_info, policy_ack, reports,
     salary_structure, selfie, store_timings, tax_declaration, wfh,
 )
 
@@ -39,6 +39,7 @@ app.include_router(onboarding.router)
 app.include_router(absence.router)
 app.include_router(late_policy.router)
 app.include_router(policy_ack.router)
+app.include_router(personal_info.router)
 app.include_router(wfh.router)
 app.include_router(store_timings.router)
 app.include_router(market_visits.router)

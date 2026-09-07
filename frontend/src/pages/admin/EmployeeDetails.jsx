@@ -26,6 +26,7 @@ const SECTIONS = [
           { k: "mother_name", l: "Mother Name", t: "text" },
           { k: "spouse_name", l: "Spouse Name", t: "text" },
           { k: "blood_group", l: "Blood Group", t: "select", options: ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"] },
+          { k: "insurance", l: "Insurance", t: "text" },
           { k: "old_employee_code", l: "OLD Employee Code", t: "text" },
           { k: "highest_qualification", l: "Highest Qualification", t: "text" },
           { k: "employee_type", l: "Employee Type", t: "select", options: ["Permanent", "Contract", "Probation", "Intern", "Consultant"] },

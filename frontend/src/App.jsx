@@ -47,6 +47,7 @@ const PayrollDetail = lazyWithReload(() => import("./pages/admin/PayrollDetail.j
 const Policy = lazyWithReload(() => import("./pages/admin/Policy.jsx"));
 const PolicyDocument = lazyWithReload(() => import("./pages/PolicyDocument.jsx"));
 const PolicyAcknowledgement = lazyWithReload(() => import("./pages/PolicyAcknowledgement.jsx"));
+const PersonalInfoGate = lazyWithReload(() => import("./pages/PersonalInfoGate.jsx"));
 const PolicyAcknowledgements = lazyWithReload(() => import("./pages/admin/PolicyAcknowledgements.jsx"));
 const Reports = lazyWithReload(() => import("./pages/admin/Reports.jsx"));
 const SalarySheetReport = lazyWithReload(() => import("./pages/admin/reports/SalarySheetReport.jsx"));
@@ -95,7 +96,7 @@ function PageFallback() {
 }
 
 function Protected({ roles, children }) {
-  const { user, loading, policyAck } = useAuth();
+  const { user, loading, policyAck, personalInfo } = useAuth();
   if (loading) return <PageFallback />;
   if (!user) return <Navigate to="/login" replace />;
   if (roles && !roles.includes(user.role)) {
@@ -109,6 +110,10 @@ function Protected({ roles, children }) {
   // yet — don't decide either way on it.
   if (policyAck && !policyAck.acknowledged) return <PolicyAcknowledgement />;
   if (!policyAck) return <PageFallback />;
+  // Mandatory personal-information gate, shown right after policy
+  // acknowledgement — same in-place-render / null-means-"don't decide" contract.
+  if (personalInfo && !personalInfo.complete) return <PersonalInfoGate />;
+  if (!personalInfo) return <PageFallback />;
   return children;
 }
 
