@@ -606,11 +606,25 @@ class AbsenceResolve(BaseModel):
 
 
 class PersonalInfoUpdate(BaseModel):
-    # The deliberately small, self-service-safe subset of EmployeeProfileUpdate
-    # required by the mandatory "Personal Information" login gate (see
-    # routers/personal_info.py) — medical + emergency-contact fields only, so
-    # an employee can never touch anything HR/Accounts-controlled (role,
-    # salary, bank, reporting line, etc.) through this endpoint.
+    # The self-service-safe subset of EmployeeProfileUpdate required by the
+    # mandatory "Personal Information" login gate (see
+    # routers/personal_info.py) — personal/ID/bank/medical/emergency-contact
+    # fields the employee themselves is the authority on, so an employee can
+    # never touch anything HR/Accounts-controlled (role, salary structure,
+    # reporting line, etc.) through this endpoint.
+    gender: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    marital_status: Optional[str] = None
+    father_name: Optional[str] = None
+    mother_name: Optional[str] = None
+    spouse_name: Optional[str] = None
+    personal_email_id: Optional[str] = None
+    current_address: Optional[str] = None
+    aadhar_no: Optional[str] = None
+    pan_no: Optional[str] = None
+    bank_name: Optional[str] = None
+    bank_account_no: Optional[str] = None
+    bank_ifsc: Optional[str] = None
     blood_group: Optional[str] = None
     insurance: Optional[str] = None
     additional_contact_1_name: Optional[str] = None
