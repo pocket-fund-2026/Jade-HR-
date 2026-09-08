@@ -55,7 +55,14 @@ export default function Dashboard() {
   const [attendanceRows, setAttendanceRows] = useState([]);
   const [attendanceLoading, setAttendanceLoading] = useState(canAttendance);
 
-  const { pendingDisputes = [], pendingLeave = [] } = useOutletContext() || {};
+  // AdminLayout only fetches each of these when the viewer holds the
+  // matching permission — an empty array here means either "none pending"
+  // or "not permitted to see this queue", so no extra gating is needed
+  // before rendering counts from them.
+  const {
+    pendingDisputes = [], pendingLeave = [], pendingPayslipApprovals = [], pendingOnboarding = [],
+    pendingWorkAbsence = [], pendingWfh = [], pendingMarketVisits = [],
+  } = useOutletContext() || {};
 
   useEffect(() => {
     if (!canPayroll) return;
@@ -131,7 +138,23 @@ export default function Dashboard() {
   const seenAt = localStorage.getItem(SEEN_KEY) || "1970-01-01";
   const newDisputes = pendingDisputes.filter((d) => d.created_at > seenAt);
   const newLeave = pendingLeave.filter((l) => l.created_at > seenAt);
-  const hasNew = !dismissed && (newDisputes.length > 0 || newLeave.length > 0);
+  // hr_payslip_approvals/hr_onboarding_submissions use submitted_at, not
+  // created_at, unlike every other queue here.
+  const newPayslipApprovals = pendingPayslipApprovals.filter((p) => p.submitted_at > seenAt);
+  const newOnboarding = pendingOnboarding.filter((o) => o.submitted_at > seenAt);
+  const newWorkAbsence = pendingWorkAbsence.filter((w) => w.created_at > seenAt);
+  const newWfh = pendingWfh.filter((w) => w.created_at > seenAt);
+  const newMarketVisits = pendingMarketVisits.filter((m) => m.created_at > seenAt);
+  const NOTIFICATION_GROUPS = [
+    { items: newLeave, label: "new leave request", to: "/admin/leave", cta: "Review leave" },
+    { items: newDisputes, label: "new attendance dispute", to: "/admin/disputes", cta: "Review disputes" },
+    { items: newPayslipApprovals, label: "payslip approval", to: "/admin/payslip-approvals", cta: "Review payslips" },
+    { items: newOnboarding, label: "onboarding submission", to: "/admin/onboarding", cta: "Review onboarding" },
+    { items: newWorkAbsence, label: "work absence report", to: "/admin/work-absence", cta: "Review work absence" },
+    { items: newWfh, label: "WFH request", to: "/admin/wfh-requests", cta: "Review WFH requests" },
+    { items: newMarketVisits, label: "market visit", to: "/admin/market-visits", cta: "Review market visits" },
+  ].filter((g) => g.items.length > 0);
+  const hasNew = !dismissed && NOTIFICATION_GROUPS.length > 0;
 
   const dismiss = () => {
     localStorage.setItem(SEEN_KEY, new Date().toISOString());
@@ -225,18 +248,12 @@ export default function Dashboard() {
         <div className="bg-ochre-50 border border-ochre-400/40 rounded-sm px-4 py-3 mb-6 flex items-start gap-3">
           <Bell size={16} className="text-ochre-700 flex-shrink-0 mt-0.5" />
           <div className="flex-1 space-y-1 text-sm text-ink/80">
-            {newLeave.length > 0 && (
-              <p>
-                {newLeave.length} new leave request{newLeave.length > 1 ? "s" : ""} awaiting review —{" "}
-                <Link to="/admin/leave" className="text-jade-700 hover:underline font-medium">Review leave</Link>
+            {NOTIFICATION_GROUPS.map((g) => (
+              <p key={g.to}>
+                {g.items.length} new {g.label}{g.items.length > 1 ? "s" : ""} awaiting review —{" "}
+                <Link to={g.to} className="text-jade-700 hover:underline font-medium">{g.cta}</Link>
               </p>
-            )}
-            {newDisputes.length > 0 && (
-              <p>
-                {newDisputes.length} new attendance dispute{newDisputes.length > 1 ? "s" : ""} awaiting review —{" "}
-                <Link to="/admin/disputes" className="text-jade-700 hover:underline font-medium">Review disputes</Link>
-              </p>
-            )}
+            ))}
           </div>
           <button onClick={dismiss} aria-label="Dismiss" className="text-ink/70 hover:text-ink">
             <X size={16} />

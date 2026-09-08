@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight, FileSpreadsheet, Plus, Search, Upload } from
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
+import ReportingManagerImportModal from "../../components/ReportingManagerImportModal.jsx";
 import SalaryImportModal from "../../components/SalaryImportModal.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
@@ -57,6 +58,8 @@ export default function Employees() {
   const [category, setCategory] = useState("all");
   const [page, setPage] = useState(1);
   const [showImport, setShowImport] = useState(false);
+  const canManage = can("employees.manage");
+  const [showManagerImport, setShowManagerImport] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -122,6 +125,15 @@ export default function Employees() {
               Import Salaries
             </button>
           )}
+          {canManage && (
+            <button
+              onClick={() => setShowManagerImport(true)}
+              className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-4 py-2.5 rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
+            >
+              <Upload size={16} />
+              Import Reporting Managers
+            </button>
+          )}
           <Link
             to="/admin/employees/new"
             className="flex items-center gap-2 bg-ledger-800 text-manila px-4 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
@@ -136,6 +148,13 @@ export default function Employees() {
         <SalaryImportModal
           onClose={() => setShowImport(false)}
           onImported={() => { setShowImport(false); load(); }}
+        />
+      )}
+
+      {showManagerImport && (
+        <ReportingManagerImportModal
+          onClose={() => setShowManagerImport(false)}
+          onImported={() => { setShowManagerImport(false); load(); }}
         />
       )}
 

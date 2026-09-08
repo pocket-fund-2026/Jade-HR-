@@ -158,6 +158,15 @@ class SalaryImportRequest(BaseModel):
     rows: list[SalaryImportRow]
 
 
+class ReportingManagerImportRow(BaseModel):
+    employee_code: str
+    manager_employee_code: str
+
+
+class ReportingManagerImportRequest(BaseModel):
+    rows: list[ReportingManagerImportRow]
+
+
 class LeaveRequestCreate(BaseModel):
     leave_type: str  # paid | unpaid | other | paternity | maternity | compassionate | comp_off
     start_date: date

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from auth import CONSOLE_ROLES, get_current_user, hash_password, require_accounts, require_permission, user_can
 from database import maybe_single_data, supabase
-from models import EmployeeCreate, EmployeeUpdate, PasswordReset, SalaryImportRequest
+from models import EmployeeCreate, EmployeeUpdate, PasswordReset, ReportingManagerImportRequest, SalaryImportRequest
 
 router = APIRouter(prefix="/api/employees", tags=["employees"])
 
@@ -124,6 +124,46 @@ def bulk_import_salary(body: SalaryImportRequest, user: dict = Depends(require_p
         supabase.table("hr_employees").upsert(rows_to_upsert).execute()
 
     return {"updated": len(updated), "not_found": not_found}
+
+
+@router.post("/bulk-reporting-manager")
+def bulk_import_reporting_manager(
+    body: ReportingManagerImportRequest, user: dict = Depends(require_permission("employees.manage")),
+):
+    """Set each employee's reporting manager (hr_employee_profile.reporting_to_id
+    + a cached reporting_to_email) at once, matched by employee_code on both
+    sides. This is the field routers/payroll.py's late-digest reads to email
+    each late employee's actual manager — until it's populated, that digest
+    only ever reaches HR (see _reporting_manager_emails), which is why a bulk
+    import exists here instead of requiring 223 one-by-one profile edits."""
+    existing = supabase.table("hr_employees").select("id,employee_code,first_name,last_name,email").execute().data
+    by_code = {e["employee_code"]: e for e in existing}
+
+    updated, not_found, no_manager_email, rows_to_upsert = [], [], [], []
+    for row in body.rows:
+        emp = by_code.get(row.employee_code)
+        mgr = by_code.get(row.manager_employee_code)
+        if not emp:
+            not_found.append(row.employee_code)
+            continue
+        if not mgr:
+            not_found.append(row.manager_employee_code)
+            continue
+        if not mgr.get("email"):
+            no_manager_email.append(row.manager_employee_code)
+            continue
+        rows_to_upsert.append({
+            "employee_id": emp["id"],
+            "reporting_to_id": mgr["id"],
+            "reporting_to_email": mgr["email"],
+            "reporting_to": f"{mgr['first_name']} {mgr.get('last_name', '')}".strip(),
+        })
+        updated.append(row.employee_code)
+
+    if rows_to_upsert:
+        supabase.table("hr_employee_profile").upsert(rows_to_upsert, on_conflict="employee_id").execute()
+
+    return {"updated": len(updated), "not_found": not_found, "no_manager_email": no_manager_email}
 
 
 def _require_role_grant_allowed(user: dict, role: str | None) -> None:

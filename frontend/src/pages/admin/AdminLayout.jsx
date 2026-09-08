@@ -321,7 +321,7 @@ export default function AdminLayout() {
         <Outlet
           context={{
             pendingDisputes, pendingLeave, pendingPayslipApprovals, pendingOnboarding, pendingWorkAbsence,
-            pendingLoaded,
+            pendingWfh, pendingMarketVisits, pendingLoaded,
           }}
         />
       </main>
