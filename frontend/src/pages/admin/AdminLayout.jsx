@@ -5,6 +5,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import ChangePasswordModal from "../../components/ChangePasswordModal.jsx";
 import api from "../../lib/api.js";
 import { useAuth } from "../../lib/auth.jsx";
+import { canSeeHrTasks } from "../../lib/hrTasksAccess.js";
 import { REPORT_CATEGORIES } from "../../lib/reportsCatalog.js";
 
 const POLL_MS = 25000;
@@ -72,7 +73,7 @@ function SidebarSearch({ user, can, onNavigate }) {
   const q = query.trim().toLowerCase();
   const sectionMatches = q
     ? SECTION_INDEX.filter(({ label, permission, hrOnly }) => {
-        if (hrOnly && user?.role !== "hr") return false;
+        if (hrOnly && !canSeeHrTasks(user)) return false;
         if (permission && !can(...[].concat(permission))) return false;
         return label.toLowerCase().includes(q);
       }).slice(0, 8)
@@ -149,7 +150,7 @@ function SidebarSearch({ user, can, onNavigate }) {
 
 function SidebarContent({ user, can, logout, pendingCounts, onNavigate }) {
   const visibleItems = navItems.filter(({ permission, hrOnly }) => {
-    if (hrOnly) return user?.role === "hr";
+    if (hrOnly) return canSeeHrTasks(user);
     return permission ? can(...[].concat(permission)) : true;
   });
   const [showPw, setShowPw] = useState(false);

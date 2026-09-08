@@ -175,11 +175,19 @@ def require_permissions_manage(user: dict = Depends(get_current_user)) -> dict:
     return user
 
 
+# The "jadehr" login is the shared HR-department account (role=accounts, so
+# it already has blanket access to every other admin-console feature) —
+# specifically asked to also see HR-team-only features like HR Tasks, unlike
+# every other accounts login (Kabir, Rushikesh), which stays excluded.
+HR_TASKS_EXTRA_CODES = {"jadehr"}
+
+
 def require_hr_role(user: dict = Depends(get_current_user)) -> dict:
-    """Strictly role == 'hr' — unlike every other gate in this file, Accounts
-    does NOT pass. For features meant to stay HR-team-internal (e.g. HR
-    Tasks) where Accounts having visibility isn't the point."""
-    if user["role"] != "hr":
+    """Strictly role == 'hr' (plus the jadehr exception above) — unlike every
+    other gate in this file, Accounts does NOT generally pass. For features
+    meant to stay HR-team-internal (e.g. HR Tasks) where Accounts having
+    visibility isn't the point."""
+    if user["role"] != "hr" and user.get("employee_code") not in HR_TASKS_EXTRA_CODES:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="HR team access required")
     return user
 

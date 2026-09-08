@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { AuthProvider, useAuth } from "./lib/auth.jsx";
+import { canSeeHrTasks } from "./lib/hrTasksAccess.js";
 import Login from "./pages/Login.jsx";
 import Onboarding from "./pages/Onboarding.jsx";
 import Setup from "./pages/Setup.jsx";
@@ -139,7 +140,7 @@ function RequirePermission({ anyOf, children }) {
 function RequireHrRole({ children }) {
   const { user } = useAuth();
   if (!user) return <PageFallback />;
-  if (user.role !== "hr") return <Navigate to="/admin" replace />;
+  if (!canSeeHrTasks(user)) return <Navigate to="/admin" replace />;
   return children;
 }
 
