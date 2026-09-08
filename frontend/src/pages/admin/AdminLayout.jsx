@@ -5,6 +5,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import ChangePasswordModal from "../../components/ChangePasswordModal.jsx";
 import api from "../../lib/api.js";
 import { useAuth } from "../../lib/auth.jsx";
+import { REPORT_CATEGORIES } from "../../lib/reportsCatalog.js";
 
 const POLL_MS = 25000;
 
@@ -32,15 +33,27 @@ const navItems = [
   { to: "/admin/team-access", label: "Team Access", icon: Shield, permission: "permissions.manage" },
 ];
 
-// Sidebar quick-search — jump straight to an employee by name or code
-// without going through the Employees page's own filters first.
-function SidebarSearch({ can, onNavigate }) {
+// Every navigable section — top-level nav items plus each Reports sub-page
+// (which otherwise has no entry in the left panel at all, just a card on
+// the Reports hub) — searched by the sidebar box below.
+const SECTION_INDEX = [
+  ...navItems.map((n) => ({ to: n.to, label: n.label, permission: n.permission, hrOnly: n.hrOnly })),
+  ...REPORT_CATEGORIES.flatMap((cat) =>
+    cat.items.map((item) => ({ to: item.to, label: item.label, permission: item.permission, group: cat.title })),
+  ),
+];
+
+// Sidebar search — finds a SECTION (any page in the left panel, including
+// Reports sub-pages that don't otherwise appear there) by name, and
+// secondarily an employee by name/code, so either "salary paid" or "Nimit"
+// typed here jumps straight to the right place.
+function SidebarSearch({ user, can, onNavigate }) {
   const [query, setQuery] = useState("");
   const [employees, setEmployees] = useState(null);
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const boxRef = useRef(null);
-  const canSearch = can("employees.view");
+  const canSearchEmployees = can("employees.view");
 
   useEffect(() => {
     const onClickOutside = (e) => {
@@ -50,23 +63,28 @@ function SidebarSearch({ can, onNavigate }) {
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
-  if (!canSearch) return null;
-
-  const loadIfNeeded = () => {
-    if (employees === null) {
+  const loadEmployeesIfNeeded = () => {
+    if (canSearchEmployees && employees === null) {
       api.get("/api/employees", { params: { lite: true } }).then(({ data }) => setEmployees(data)).catch(() => setEmployees([]));
     }
   };
 
   const q = query.trim().toLowerCase();
-  const matches = q && employees
-    ? employees.filter((e) => `${e.first_name} ${e.last_name}`.toLowerCase().includes(q) || e.employee_code.toLowerCase().includes(q)).slice(0, 8)
+  const sectionMatches = q
+    ? SECTION_INDEX.filter(({ label, permission, hrOnly }) => {
+        if (hrOnly && user?.role !== "hr") return false;
+        if (permission && !can(...[].concat(permission))) return false;
+        return label.toLowerCase().includes(q);
+      }).slice(0, 8)
+    : [];
+  const employeeMatches = q && employees
+    ? employees.filter((e) => `${e.first_name} ${e.last_name}`.toLowerCase().includes(q) || e.employee_code.toLowerCase().includes(q)).slice(0, 6)
     : [];
 
-  const go = (id) => {
+  const go = (to) => {
     setQuery("");
     setOpen(false);
-    navigate(`/admin/employees/${id}`);
+    navigate(to);
     onNavigate?.();
   };
 
@@ -76,29 +94,52 @@ function SidebarSearch({ can, onNavigate }) {
         <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-manila/50" />
         <input
           value={query}
-          onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
-          onFocus={() => { loadIfNeeded(); setOpen(true); }}
-          placeholder="Search employees…"
-          aria-label="Search employees"
+          onChange={(e) => { setQuery(e.target.value); setOpen(true); loadEmployeesIfNeeded(); }}
+          onFocus={() => { setOpen(true); loadEmployeesIfNeeded(); }}
+          placeholder="Search sections…"
+          aria-label="Search sections"
           className="w-full rounded-sm bg-manila/10 border border-manila/15 pl-8 pr-2 py-2 text-xs text-manila placeholder:text-manila/40 focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500"
         />
       </div>
       {open && q && (
-        <div className="absolute left-3 right-3 mt-1 bg-paper rounded-sm shadow-stamp overflow-hidden z-20 max-h-72 overflow-y-auto">
-          {matches.length === 0 ? (
-            <p className="px-3 py-2.5 text-xs text-ink/60">{employees === null ? "Loading…" : "No matches"}</p>
+        <div className="absolute left-3 right-3 mt-1 bg-paper rounded-sm shadow-stamp overflow-hidden z-20 max-h-80 overflow-y-auto">
+          {sectionMatches.length === 0 && employeeMatches.length === 0 ? (
+            <p className="px-3 py-2.5 text-xs text-ink/60">No matches</p>
           ) : (
-            matches.map((e) => (
-              <button
-                key={e.id}
-                type="button"
-                onClick={() => go(e.id)}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-manila/50 transition-colors border-b border-ink/[0.06] last:border-0"
-              >
-                <span className="text-ink font-medium">{e.first_name} {e.last_name}</span>
-                <span className="block text-[11px] text-ink/60 font-nums">{e.employee_code} · {e.location || "—"}</span>
-              </button>
-            ))
+            <>
+              {sectionMatches.length > 0 && (
+                <div>
+                  <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-ink/50">Sections</p>
+                  {sectionMatches.map((s) => (
+                    <button
+                      key={s.to}
+                      type="button"
+                      onClick={() => go(s.to)}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-manila/50 transition-colors border-b border-ink/[0.06] last:border-0"
+                    >
+                      <span className="text-ink font-medium">{s.label}</span>
+                      {s.group && <span className="ml-1.5 text-[11px] text-ink/50">— {s.group}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {employeeMatches.length > 0 && (
+                <div>
+                  <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-ink/50">Employees</p>
+                  {employeeMatches.map((e) => (
+                    <button
+                      key={e.id}
+                      type="button"
+                      onClick={() => go(`/admin/employees/${e.id}`)}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-manila/50 transition-colors border-b border-ink/[0.06] last:border-0"
+                    >
+                      <span className="text-ink font-medium">{e.first_name} {e.last_name}</span>
+                      <span className="block text-[11px] text-ink/60 font-nums">{e.employee_code} · {e.location || "—"}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -123,7 +164,7 @@ function SidebarContent({ user, can, logout, pendingCounts, onNavigate }) {
           </p>
         </div>
       </div>
-      <SidebarSearch can={can} onNavigate={onNavigate} />
+      <SidebarSearch user={user} can={can} onNavigate={onNavigate} />
       <nav className="flex-1 px-3 py-2 space-y-1 relative overflow-y-auto">
         {visibleItems.map(({ to, label, icon: Icon, end, badgeKey, sectionBreak }) => (
           <div key={to} className={sectionBreak ? "mt-3 pt-3 border-t border-manila/10" : ""}>

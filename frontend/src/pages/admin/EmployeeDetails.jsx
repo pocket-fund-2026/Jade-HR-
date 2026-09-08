@@ -2,6 +2,7 @@ import { ArrowLeft, KeyRound, Pencil, Plus, RotateCcw, Trash2, X } from "lucide-
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
+import AddArrearModal from "../../components/AddArrearModal.jsx";
 import PasswordResetModal from "../../components/PasswordResetModal.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
@@ -929,6 +930,7 @@ export default function EmployeeDetails() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [mode, setMode] = useState(isNew ? "edit" : "view");
   const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const [showAddArrear, setShowAddArrear] = useState(false);
   const [activeTab, setActiveTab] = useState("personal");
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
@@ -1160,14 +1162,25 @@ export default function EmployeeDetails() {
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="font-display text-2xl text-ink">{form.first_name} {form.last_name}</h2>
                 <p className="text-xs text-ink/70 font-nums mt-0.5">{form.employee_code}</p>
               </div>
-              <StampBadge status={form.is_active ? "active" : "inactive"}>
-                {form.is_active ? "Working" : "Inactive"}
-              </StampBadge>
+              <div className="flex items-center gap-3">
+                {canEditSalary && !isNew && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddArrear(true)}
+                    className="flex items-center gap-1.5 text-sm text-ochre-700 hover:text-ochre-800 hover:underline whitespace-nowrap"
+                  >
+                    <Plus size={14} /> Add Arrear
+                  </button>
+                )}
+                <StampBadge status={form.is_active ? "active" : "inactive"}>
+                  {form.is_active ? "Working" : "Inactive"}
+                </StampBadge>
+              </div>
             </div>
           )}
         </div>
@@ -1440,6 +1453,14 @@ export default function EmployeeDetails() {
           employeeName={`${form.first_name} ${form.last_name || ""}`.trim()}
           onClose={() => setShowPasswordReset(false)}
           onDone={() => setShowPasswordReset(false)}
+        />
+      )}
+
+      {showAddArrear && (
+        <AddArrearModal
+          employee={{ id, name: `${form.first_name} ${form.last_name || ""}`.trim() }}
+          onClose={() => setShowAddArrear(false)}
+          onSaved={() => setShowAddArrear(false)}
         />
       )}
     </div>
