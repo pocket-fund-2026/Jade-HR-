@@ -1,7 +1,8 @@
-import { ArrowLeft, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, FileSpreadsheet, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
+import AddArrearModal from "../../../components/AddArrearModal.jsx";
 import api from "../../../lib/api.js";
 import { formatFullDate, formatINR } from "../../../lib/format.js";
 
@@ -27,13 +28,20 @@ export default function ArrearDetailsReport() {
   const [toDate, setToDate] = useState("");
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [employees, setEmployees] = useState([]);
+  const [showAdd, setShowAdd] = useState(false);
 
-  useEffect(() => {
+  const load = () => {
     setLoading(true);
     api.get("/api/reports/arrears", { params: { from_date: fromDate || undefined, to_date: toDate || undefined } })
       .then(({ data }) => setRows(data))
       .finally(() => setLoading(false));
-  }, [fromDate, toDate]);
+  };
+
+  useEffect(load, [fromDate, toDate]);
+  useEffect(() => {
+    api.get("/api/employees", { params: { lite: true } }).then(({ data }) => setEmployees(data)).catch(() => {});
+  }, []);
 
   const total = rows.reduce((s, r) => s + r.arrear_amount, 0);
 
@@ -45,6 +53,12 @@ export default function ArrearDetailsReport() {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mt-2 mb-6">
         <h2 className="font-display text-2xl text-ink">Arrear Details</h2>
         <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => setShowAdd(true)}
+            className="flex items-center gap-2 bg-ledger-800 text-manila px-3 py-2 rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+          >
+            <Plus size={15} /> Add Arrear
+          </button>
           <button
             onClick={() => exportExcel(rows)}
             disabled={!rows.length}
@@ -102,6 +116,14 @@ export default function ArrearDetailsReport() {
           </tbody>
         </table>
       </div>
+
+      {showAdd && (
+        <AddArrearModal
+          employees={employees}
+          onClose={() => setShowAdd(false)}
+          onSaved={() => { setShowAdd(false); load(); }}
+        />
+      )}
     </div>
   );
 }

@@ -175,6 +175,15 @@ def require_permissions_manage(user: dict = Depends(get_current_user)) -> dict:
     return user
 
 
+def require_hr_role(user: dict = Depends(get_current_user)) -> dict:
+    """Strictly role == 'hr' — unlike every other gate in this file, Accounts
+    does NOT pass. For features meant to stay HR-team-internal (e.g. HR
+    Tasks) where Accounts having visibility isn't the point."""
+    if user["role"] != "hr":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="HR team access required")
+    return user
+
+
 def require_permission(*permission_keys: str):
     """Dependency factory: accounts always pass; hr must have at least one of the given keys."""
 

@@ -76,38 +76,50 @@ def arrear_details(
     to_date: date | None = Query(default=None),
     user: dict = Depends(require_permission("payroll.view")),
 ):
-    """Every Salary Structure revision that carries a non-zero arrear —
-    arrears in this system are a one-off manual line item on a specific
-    versioned structure (earn_arrear), not a recurring monthly figure."""
-    query = (
+    """Every arrear on file, from two sources:
+    - hr_salary_structure revisions that carry a non-zero earn_arrear (a
+      one-off line item on a specific versioned CTC structure), and
+    - hr_arrears (see sql/051) — standalone quick-entry arrears that don't
+      require a full salary structure to exist first, added from this
+      report's "Add Arrear" button or the Salary Paid Report."""
+    structure_query = (
         supabase.table("hr_salary_structure")
         .select("id,employee_id,effective_date,earn_arrear,earn_total_arr,salary_remarks")
         .neq("earn_arrear", 0)
     )
+    standalone_query = (
+        supabase.table("hr_arrears")
+        .select("id,employee_id,effective_date,arrear_amount,remarks")
+    )
     if from_date:
-        query = query.gte("effective_date", from_date.isoformat())
+        structure_query = structure_query.gte("effective_date", from_date.isoformat())
+        standalone_query = standalone_query.gte("effective_date", from_date.isoformat())
     if to_date:
-        query = query.lte("effective_date", to_date.isoformat())
-    rows = query.order("effective_date", desc=True).execute().data
-    if not rows:
+        structure_query = structure_query.lte("effective_date", to_date.isoformat())
+        standalone_query = standalone_query.lte("effective_date", to_date.isoformat())
+    structure_rows = structure_query.execute().data
+    standalone_rows = standalone_query.execute().data
+    if not structure_rows and not standalone_rows:
         return []
 
-    employee_ids = list({r["employee_id"] for r in rows})
+    employee_ids = {r["employee_id"] for r in structure_rows} | {r["employee_id"] for r in standalone_rows}
     employees = (
         supabase.table("hr_employees")
         .select("id,employee_code,first_name,last_name,location")
-        .in_("id", employee_ids)
+        .in_("id", list(employee_ids))
         .execute()
         .data
     )
     employee_by_id = {e["id"]: e for e in employees}
 
     result = []
-    for r in rows:
+    for r in structure_rows:
         e = employee_by_id.get(r["employee_id"])
         if not e:
             continue
         result.append({
+            "id": r["id"],
+            "source": "salary_structure",
             "employee_id": r["employee_id"],
             "employee_code": e["employee_code"],
             "name": f"{e['first_name']} {e.get('last_name', '')}".strip(),
@@ -117,6 +129,23 @@ def arrear_details(
             "total_arrear": r["earn_total_arr"],
             "remarks": r.get("salary_remarks", ""),
         })
+    for r in standalone_rows:
+        e = employee_by_id.get(r["employee_id"])
+        if not e:
+            continue
+        result.append({
+            "id": r["id"],
+            "source": "arrear_entry",
+            "employee_id": r["employee_id"],
+            "employee_code": e["employee_code"],
+            "name": f"{e['first_name']} {e.get('last_name', '')}".strip(),
+            "location": e.get("location", ""),
+            "effective_date": r["effective_date"],
+            "arrear_amount": r["arrear_amount"],
+            "total_arrear": r["arrear_amount"],
+            "remarks": r.get("remarks", ""),
+        })
+    result.sort(key=lambda r: r["effective_date"], reverse=True)
     return result
 
 

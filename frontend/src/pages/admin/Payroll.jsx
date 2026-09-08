@@ -1,4 +1,4 @@
-import { FileSpreadsheet } from "lucide-react";
+import { FileSpreadsheet, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -46,6 +46,7 @@ export default function Payroll() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [location, setLocation] = useState("all");
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     setLoading(true);
@@ -59,10 +60,14 @@ export default function Payroll() {
     () => [...new Set(rows.map((r) => r.location).filter(Boolean))].sort(),
     [rows],
   );
-  const filtered = useMemo(
-    () => (location === "all" ? rows : rows.filter((r) => r.location === location)),
-    [rows, location],
-  );
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (location !== "all" && r.location !== location) return false;
+      if (!q) return true;
+      return r.name.toLowerCase().includes(q) || r.employee_code.toLowerCase().includes(q);
+    });
+  }, [rows, location, query]);
 
   return (
     <div>
@@ -74,6 +79,16 @@ export default function Payroll() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <div className="relative">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/65" />
+            <input
+              aria-label="Search employees by name or code"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search name or code"
+              className="rounded-sm border border-ink/15 bg-paper pl-9 pr-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500"
+            />
+          </div>
           <select
             aria-label="Filter by location"
             value={location}

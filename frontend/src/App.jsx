@@ -55,6 +55,8 @@ const YearlySalaryReport = lazyWithReload(() => import("./pages/admin/reports/Ye
 const CtcAsPerSalaryReport = lazyWithReload(() => import("./pages/admin/reports/CtcAsPerSalaryReport.jsx"));
 const CtcAsPerPayslipReport = lazyWithReload(() => import("./pages/admin/reports/CtcAsPerPayslipReport.jsx"));
 const ArrearDetailsReport = lazyWithReload(() => import("./pages/admin/reports/ArrearDetailsReport.jsx"));
+const SalaryPaidReport = lazyWithReload(() => import("./pages/admin/reports/SalaryPaidReport.jsx"));
+const HrTasks = lazyWithReload(() => import("./pages/admin/HrTasks.jsx"));
 const FullAndFinalReport = lazyWithReload(() => import("./pages/admin/reports/FullAndFinalReport.jsx"));
 const AccountsJvReport = lazyWithReload(() => import("./pages/admin/reports/AccountsJvReport.jsx"));
 const BankTransferReport = lazyWithReload(() => import("./pages/admin/reports/BankTransferReport.jsx"));
@@ -132,6 +134,15 @@ function RequirePermission({ anyOf, children }) {
   return children;
 }
 
+// HR Tasks is deliberately HR-team-internal — unlike RequirePermission,
+// Accounts does NOT get a pass here (mirrors backend/auth.py's require_hr_role).
+function RequireHrRole({ children }) {
+  const { user } = useAuth();
+  if (!user) return <PageFallback />;
+  if (user.role !== "hr") return <Navigate to="/admin" replace />;
+  return children;
+}
+
 export default function App() {
   return (
     <AuthProvider>
@@ -161,6 +172,7 @@ export default function App() {
             <Route path="reports/ctc-as-per-salary" element={<RequirePermission anyOf={["payroll.view"]}><CtcAsPerSalaryReport /></RequirePermission>} />
             <Route path="reports/ctc-as-per-payslip" element={<RequirePermission anyOf={["payroll.view"]}><CtcAsPerPayslipReport /></RequirePermission>} />
             <Route path="reports/arrears" element={<RequirePermission anyOf={["payroll.view"]}><ArrearDetailsReport /></RequirePermission>} />
+            <Route path="reports/salary-paid" element={<RequirePermission anyOf={["payroll.view"]}><SalaryPaidReport /></RequirePermission>} />
             <Route path="reports/full-and-final" element={<RequirePermission anyOf={["payroll.view"]}><FullAndFinalReport /></RequirePermission>} />
             <Route path="reports/accounts-jv" element={<RequirePermission anyOf={["payroll.view"]}><AccountsJvReport /></RequirePermission>} />
             <Route path="reports/bank-transfer" element={<RequirePermission anyOf={["payroll.view"]}><BankTransferReport /></RequirePermission>} />
@@ -193,6 +205,7 @@ export default function App() {
             <Route path="policy-acknowledgements" element={<RequirePermission anyOf={["policy.acknowledgements.view"]}><PolicyAcknowledgements /></RequirePermission>} />
             <Route path="team-access" element={<RequirePermission anyOf={["permissions.manage"]}><TeamAccess /></RequirePermission>} />
             <Route path="onboarding" element={<RequirePermission anyOf={["onboarding.manage"]}><OnboardingReview /></RequirePermission>} />
+            <Route path="hr-tasks" element={<RequireHrRole><HrTasks /></RequireHrRole>} />
           </Route>
 
           <Route

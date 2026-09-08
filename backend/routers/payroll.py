@@ -323,6 +323,20 @@ def _fetch_all_arrears_by_employee(year: int, month: int) -> dict[str, dict]:
         agg = by_employee.setdefault(r["employee_id"], {f: 0.0 for f in SALARY_STRUCTURE_PERIOD_FIELDS})
         for f in SALARY_STRUCTURE_PERIOD_FIELDS:
             agg[f] += float(r[f] or 0)
+
+    # Standalone quick-entry arrears (hr_arrears — see sql/051) fold into the
+    # same "earn_arrear" figure additively, since they're the same kind of
+    # one-off line item, just entered without a full CTC revision.
+    standalone = (
+        supabase.table("hr_arrears")
+        .select("employee_id,arrear_amount")
+        .gte("effective_date", start.isoformat())
+        .lte("effective_date", end.isoformat())
+        .execute()
+    )
+    for r in standalone.data:
+        agg = by_employee.setdefault(r["employee_id"], {f: 0.0 for f in SALARY_STRUCTURE_PERIOD_FIELDS})
+        agg["earn_arrear"] += float(r["arrear_amount"] or 0)
     return by_employee
 
 

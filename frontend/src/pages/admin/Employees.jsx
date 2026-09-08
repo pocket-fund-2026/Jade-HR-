@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Plus, Search, Upload } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileSpreadsheet, Plus, Search, Upload } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -9,6 +9,39 @@ import { useAuth } from "../../lib/auth.jsx";
 import { formatINR } from "../../lib/format.js";
 
 const PAGE_SIZE = 20;
+
+// Full employee master — every field available at the caller's permission
+// level (the API already strips salary columns server-side when the caller
+// lacks salary.view, so there's nothing extra to gate here).
+async function exportMasterExcel(rows, canViewSalary) {
+  const XLSX = await import("xlsx");
+  const data = rows.map((e) => {
+    const base = {
+      "Employee Code": e.employee_code,
+      "First Name": e.first_name,
+      "Last Name": e.last_name,
+      "Location": e.location,
+      "Department": e.department,
+      "Designation": e.designation,
+      "Category": e.employee_category,
+      "Status": e.is_active ? "Working" : "Inactive",
+      "Intern": e.is_intern ? "Yes" : "No",
+      "Role": e.role,
+    };
+    if (canViewSalary) {
+      base["Basic"] = e.basic;
+      base["HRA"] = e.hra;
+      base["Conveyance"] = e.conveyance;
+      base["Other Allowance"] = e.other_allowance;
+      base["Gross (B+H+C)"] = Number(e.basic || 0) + Number(e.hra || 0) + Number(e.conveyance || 0);
+    }
+    return base;
+  });
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Employee Master");
+  XLSX.writeFile(wb, `jade-hr-employee-master-${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
 
 export default function Employees() {
   const { can } = useAuth();
@@ -72,6 +105,14 @@ export default function Employees() {
           <p className="text-xs text-ink/70 font-nums mt-0.5">{employees.length} on the ledger</p>
         </div>
         <div className="flex flex-wrap gap-3">
+          <button
+            onClick={() => exportMasterExcel(filtered, canViewSalary)}
+            disabled={!filtered.length}
+            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-4 py-2.5 rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
+          >
+            <FileSpreadsheet size={16} />
+            Export Master
+          </button>
           {canEditSalary && (
             <button
               onClick={() => setShowImport(true)}

@@ -1,6 +1,6 @@
-import { Briefcase, BookOpen, CalendarDays, CalendarPlus, ClipboardList, FileBarChart, FileText, Flag, Home, KeyRound, LayoutDashboard, LogOut, MapPin, Menu, Plane, Receipt, Shield, ShieldAlert, ShieldCheck, Stamp, UserPlus, Users, X } from "lucide-react";
-import { useEffect, useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { Briefcase, BookOpen, CalendarDays, CalendarPlus, CheckSquare, ClipboardList, FileBarChart, FileText, Flag, Home, KeyRound, LayoutDashboard, LogOut, MapPin, Menu, Plane, Receipt, Search, Shield, ShieldAlert, ShieldCheck, Stamp, UserPlus, Users, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 import ChangePasswordModal from "../../components/ChangePasswordModal.jsx";
 import api from "../../lib/api.js";
@@ -26,13 +26,91 @@ const navItems = [
   { to: "/admin/policy", label: "Leave Policy", icon: CalendarDays, permission: ["employees.manage", "policy.manage"] },
   { to: "/admin/policy-document", label: "Company Policy", icon: BookOpen },
   { to: "/admin/policy-acknowledgements", label: "Policy Sign-off", icon: ShieldCheck, permission: "policy.acknowledgements.view" },
+  { to: "/admin/hr-tasks", label: "HR Tasks", icon: CheckSquare, hrOnly: true },
   { to: "/admin/my-leave", label: "My Leave", icon: CalendarPlus, sectionBreak: true },
   { to: "/admin/my-payslip", label: "My Payslip", icon: Receipt },
   { to: "/admin/team-access", label: "Team Access", icon: Shield, permission: "permissions.manage" },
 ];
 
+// Sidebar quick-search — jump straight to an employee by name or code
+// without going through the Employees page's own filters first.
+function SidebarSearch({ can, onNavigate }) {
+  const [query, setQuery] = useState("");
+  const [employees, setEmployees] = useState(null);
+  const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+  const boxRef = useRef(null);
+  const canSearch = can("employees.view");
+
+  useEffect(() => {
+    const onClickOutside = (e) => {
+      if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  if (!canSearch) return null;
+
+  const loadIfNeeded = () => {
+    if (employees === null) {
+      api.get("/api/employees", { params: { lite: true } }).then(({ data }) => setEmployees(data)).catch(() => setEmployees([]));
+    }
+  };
+
+  const q = query.trim().toLowerCase();
+  const matches = q && employees
+    ? employees.filter((e) => `${e.first_name} ${e.last_name}`.toLowerCase().includes(q) || e.employee_code.toLowerCase().includes(q)).slice(0, 8)
+    : [];
+
+  const go = (id) => {
+    setQuery("");
+    setOpen(false);
+    navigate(`/admin/employees/${id}`);
+    onNavigate?.();
+  };
+
+  return (
+    <div ref={boxRef} className="relative px-3 pb-3">
+      <div className="relative">
+        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-manila/50" />
+        <input
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+          onFocus={() => { loadIfNeeded(); setOpen(true); }}
+          placeholder="Search employees…"
+          aria-label="Search employees"
+          className="w-full rounded-sm bg-manila/10 border border-manila/15 pl-8 pr-2 py-2 text-xs text-manila placeholder:text-manila/40 focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500"
+        />
+      </div>
+      {open && q && (
+        <div className="absolute left-3 right-3 mt-1 bg-paper rounded-sm shadow-stamp overflow-hidden z-20 max-h-72 overflow-y-auto">
+          {matches.length === 0 ? (
+            <p className="px-3 py-2.5 text-xs text-ink/60">{employees === null ? "Loading…" : "No matches"}</p>
+          ) : (
+            matches.map((e) => (
+              <button
+                key={e.id}
+                type="button"
+                onClick={() => go(e.id)}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-manila/50 transition-colors border-b border-ink/[0.06] last:border-0"
+              >
+                <span className="text-ink font-medium">{e.first_name} {e.last_name}</span>
+                <span className="block text-[11px] text-ink/60 font-nums">{e.employee_code} · {e.location || "—"}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SidebarContent({ user, can, logout, pendingCounts, onNavigate }) {
-  const visibleItems = navItems.filter(({ permission }) => (permission ? can(...[].concat(permission)) : true));
+  const visibleItems = navItems.filter(({ permission, hrOnly }) => {
+    if (hrOnly) return user?.role === "hr";
+    return permission ? can(...[].concat(permission)) : true;
+  });
   const [showPw, setShowPw] = useState(false);
   return (
     <>
@@ -45,6 +123,7 @@ function SidebarContent({ user, can, logout, pendingCounts, onNavigate }) {
           </p>
         </div>
       </div>
+      <SidebarSearch can={can} onNavigate={onNavigate} />
       <nav className="flex-1 px-3 py-2 space-y-1 relative overflow-y-auto">
         {visibleItems.map(({ to, label, icon: Icon, end, badgeKey, sectionBreak }) => (
           <div key={to} className={sectionBreak ? "mt-3 pt-3 border-t border-manila/10" : ""}>

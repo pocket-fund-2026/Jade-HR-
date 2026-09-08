@@ -1,5 +1,5 @@
 import {
-  Award, Banknote, BookOpen, CalendarClock, Clock, Coins, FileSpreadsheet, Gift, Landmark, Receipt, ScrollText, ShieldAlert, ShieldCheck,
+  Award, Banknote, BookOpen, CalendarClock, CheckSquare, Clock, Coins, FileSpreadsheet, Gift, Landmark, Receipt, ScrollText, ShieldAlert, ShieldCheck,
   TrendingUp, Users, Wallet,
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -12,7 +12,8 @@ const CATEGORIES = [
     items: [
       { to: "/admin/reports/salary-sheet", label: "Salary Sheet", desc: "Full monthly earnings/deductions breakdown, all employees", icon: FileSpreadsheet, permission: "payroll.view" },
       { to: "/admin/reports/yearly-salary", label: "Yearly / Cumulative Salary Details", desc: "Salary Sheet summed across a From–To range of pay periods", icon: TrendingUp, permission: "payroll.view" },
-      { to: "/admin/reports/arrears", label: "Arrear Details", desc: "Every Salary Structure revision carrying a one-off arrear payment", icon: ScrollText, permission: "payroll.view" },
+      { to: "/admin/reports/arrears", label: "Arrear Details", desc: "Every one-off arrear payment on file, quick-entry or via Salary Structure", icon: ScrollText, permission: "payroll.view" },
+      { to: "/admin/reports/salary-paid", label: "Salary Paid Report", desc: "Monthly checklist — mark each employee paid, add an arrear if a past month was missed", icon: CheckSquare, permission: "payroll.view" },
       { to: "/admin/reports/lumpsum", label: "Lumpsum Report", desc: "Arrear/Bonus/Leave Encash/PLP/Loan Interest/OtherDed/Advance/PF Arrear, editable per pay period", icon: Coins, permission: "payroll.view" },
       { to: "/admin/reports/full-and-final", label: "Payslip Full & Final", desc: "Exit settlement: last payslip + leave encashment + gratuity", icon: BookOpen, permission: "payroll.view" },
     ],

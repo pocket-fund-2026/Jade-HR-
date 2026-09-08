@@ -638,3 +638,36 @@ class PolicyAcknowledgementCreate(BaseModel):
     # console requires all of them before it lets the acknowledgement through
     # (see routers/policy_ack.py POLICY_DOCUMENTS).
     documents_read: list[str] = []
+
+
+class ArrearCreate(BaseModel):
+    # Standalone one-off arrear line item (hr_arrears) — deliberately NOT the
+    # same table as hr_salary_structure's earn_arrear, which only exists on a
+    # full versioned CTC revision. Most employees have no salary structure
+    # revision on file at all, so requiring one just to log "pay them ₹X for
+    # a month we missed" was blocking arrears from ever being usable.
+    employee_id: str
+    effective_date: date
+    arrear_amount: float
+    remarks: str = ""
+
+
+class SalaryPaidUpdate(BaseModel):
+    year: int
+    month: int
+    paid: bool
+
+
+class HrTaskCreate(BaseModel):
+    title: str
+    description: str = ""
+    assigned_to: Optional[str] = None
+    due_date: Optional[date] = None
+
+
+class HrTaskUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    assigned_to: Optional[str] = None
+    due_date: Optional[date] = None
+    status: Optional[str] = None  # open | done
