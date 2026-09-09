@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
@@ -8,6 +8,7 @@ import { formatFullDate } from "../../lib/format.js";
 const STATUS_OPTIONS = ["", "New", "Assignment Submitted", "Shortlisted", "Interviewing", "Offered", "Hired", "Rejected"];
 
 export default function CareersApplicants() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const jobId = searchParams.get("job_id") || "";
   const status = searchParams.get("status") || "";
@@ -78,9 +79,17 @@ export default function CareersApplicants() {
               <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={5}>No applicants match these filters.</td></tr>
             ) : (
               applications.map((a) => (
-                <tr key={a.id} className="border-b border-ink/[0.06] last:border-0">
+                <tr
+                  key={a.id}
+                  onClick={() => navigate(`/admin/careers/applicants/${a.id}`)}
+                  className="border-b border-ink/[0.06] last:border-0 cursor-pointer hover:bg-manila/30 transition-colors"
+                >
                   <td className="px-5 py-3.5">
-                    <Link to={`/admin/careers/applicants/${a.id}`} className="text-ink font-medium underline decoration-ink/20 hover:decoration-ink">
+                    <Link
+                      to={`/admin/careers/applicants/${a.id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-ink font-medium underline decoration-ink/20 hover:decoration-ink"
+                    >
                       {a.full_name}
                     </Link>
                   </td>
