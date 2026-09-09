@@ -1,9 +1,31 @@
 import { X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import api from "../lib/api.js";
 import { useAuth } from "../lib/auth.jsx";
 import { LEAVE_LABELS, selectableLeaveTypes } from "../lib/leaveTypes.js";
+
+function daysBetween(start, end) {
+  if (!start || !end) return 0;
+  const days = Math.round((new Date(end) - new Date(start)) / 86400000) + 1;
+  return days > 0 ? days : 0;
+}
+
+function Field({ label, required, children }) {
+  return (
+    <div>
+      <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">
+        {label} {required && <span className="text-rust-500 normal-case font-normal">*Required</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+const inputCls =
+  "w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
+const readOnlyCls =
+  "w-full rounded-sm border border-ink/10 bg-ink/[0.04] px-3 py-2.5 text-sm text-ink/70";
 
 // `onBehalfOf` (an employee row: {id, first_name, last_name, employee_code,
 // employee_category}) switches this from the normal employee self-service
@@ -12,7 +34,8 @@ import { LEAVE_LABELS, selectableLeaveTypes } from "../lib/leaveTypes.js";
 // IS the documented management exception).
 export default function LeaveRequestModal({ onClose, onSubmitted, onBehalfOf }) {
   const { user } = useAuth();
-  const isCorporate = (onBehalfOf ?? user)?.employee_category === "corporate";
+  const subject = onBehalfOf ?? user;
+  const isCorporate = subject?.employee_category === "corporate";
   const availableTypes = selectableLeaveTypes(isCorporate);
   const [leaveType, setLeaveType] = useState("paid");
   const [startDate, setStartDate] = useState("");
@@ -20,6 +43,19 @@ export default function LeaveRequestModal({ onClose, onSubmitted, onBehalfOf }) 
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Approver is resolved server-side from the employee's reporting manager
+  // (hr_employees.leave_approver_id / hr_employee_profile.reporting_to_id) —
+  // shown here read-only for confirmation, never submitted, unlike Work
+  // Absence's approver fields which the employee fills in by hand because
+  // hr_absence_requests has no equivalent auto-resolution.
+  const [approverName, setApproverName] = useState("");
+  useEffect(() => {
+    if (onBehalfOf || !user?.id) return;
+    api.get(`/api/employees/${user.id}/profile`).then(({ data }) => {
+      if (data.reporting_to) setApproverName(data.reporting_to);
+    }).catch(() => {});
+  }, [user?.id, onBehalfOf]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -47,12 +83,12 @@ export default function LeaveRequestModal({ onClose, onSubmitted, onBehalfOf }) 
 
   return (
     <div className="fixed inset-0 bg-ledger-900/60 flex items-center justify-center px-4 z-50 overflow-y-auto py-8">
-      <div className="bg-paper rounded-sm shadow-stamp w-full max-w-md p-6 border-t-4 border-jade-500 relative my-auto">
+      <div className="bg-paper rounded-sm shadow-stamp w-full max-w-lg p-6 border-t-4 border-jade-500 relative my-auto">
         <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-ink/70 hover:text-ink transition-colors">
           <X size={18} />
         </button>
         <p className="text-xs font-semibold uppercase tracking-wider text-jade-600 mb-1">
-          {onBehalfOf ? "Red Card exception" : "Request leave"}
+          {onBehalfOf ? "Red Card exception" : "Leave Application"}
         </p>
         <p className="font-display text-lg text-ink mb-5">
           {onBehalfOf
@@ -60,55 +96,69 @@ export default function LeaveRequestModal({ onClose, onSubmitted, onBehalfOf }) 
             : "New leave request"}
         </p>
 
-        <form onSubmit={submit} className="space-y-4">
-          <div>
-            <label htmlFor="leave_type" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Leave type</label>
-            <select
-              id="leave_type"
-              className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
-              value={leaveType}
-              onChange={(e) => setLeaveType(e.target.value)}
-            >
-              {availableTypes.map((value) => (
-                <option key={value} value={value}>{LEAVE_LABELS[value]}</option>
-              ))}
-            </select>
+        <form onSubmit={submit} className="space-y-6">
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-ink/70">Employee Details</p>
+            <Field label="Dept." required>
+              <input className={readOnlyCls} value={subject?.department || ""} disabled />
+            </Field>
+            <Field label="Employee Code">
+              <input className={readOnlyCls} value={subject?.employee_code || ""} disabled />
+            </Field>
+            <Field label="Name" required>
+              <input className={readOnlyCls} value={`${subject?.first_name || ""} ${subject?.last_name || ""}`.trim()} disabled />
+            </Field>
+            <Field label="Email" required>
+              <input className={readOnlyCls} value={subject?.email || ""} disabled />
+            </Field>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="leave_start" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">From</label>
-              <input
-                id="leave_start"
-                type="date"
-                required
-                className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-ink/70">Details</p>
+            <Field label="Type of leave" required>
+              <select
+                className={inputCls}
+                value={leaveType}
+                onChange={(e) => setLeaveType(e.target.value)}
+              >
+                {availableTypes.map((value) => (
+                  <option key={value} value={value}>{LEAVE_LABELS[value]}</option>
+                ))}
+              </select>
+            </Field>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="From" required>
+                <input
+                  type="date" required className={`${inputCls} font-nums`}
+                  value={startDate} onChange={(e) => setStartDate(e.target.value)}
+                />
+              </Field>
+              <Field label="To" required>
+                <input
+                  type="date" required className={`${inputCls} font-nums`}
+                  value={endDate} onChange={(e) => setEndDate(e.target.value)}
+                />
+              </Field>
             </div>
-            <div>
-              <label htmlFor="leave_end" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">To</label>
-              <input
-                id="leave_end"
-                type="date"
-                required
-                className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+            <Field label="Number of days">
+              <input type="number" className={`${readOnlyCls} font-nums`} value={daysBetween(startDate, endDate)} disabled />
+            </Field>
+            <Field label="Details" required>
+              <textarea
+                required className={`${inputCls} min-h-[70px]`}
+                value={reason} onChange={(e) => setReason(e.target.value)}
               />
-            </div>
+            </Field>
           </div>
 
-          <div>
-            <label htmlFor="leave_reason" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Reason</label>
-            <textarea
-              id="leave_reason"
-              className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 min-h-[70px]"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              required
-            />
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-ink/70">Approver Details</p>
+            <p className="text-xs text-ink/70 -mt-1">
+              Routed automatically to your reporting manager on file — contact HR if this looks wrong.
+            </p>
+            <Field label="Name">
+              <input className={readOnlyCls} value={approverName || "Not set — contact HR"} disabled />
+            </Field>
           </div>
 
           {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
