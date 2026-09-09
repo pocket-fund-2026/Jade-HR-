@@ -1,4 +1,4 @@
-import { Award, Bell, Cake, FileSpreadsheet, X } from "lucide-react";
+import { Award, Bell, Cake, Clock, FileSpreadsheet, LogOut, ShieldAlert, UserCheck, X } from "lucide-react";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 
@@ -23,6 +23,84 @@ const SEEN_KEY = "jade_hr_admin_notif_seen_at";
 const BIRTHDAY_DISMISS_KEY = "jade_hr_birthday_dismissed_date";
 const ANNIVERSARY_DISMISS_KEY = "jade_hr_anniversary_dismissed_date";
 const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function urgencyClass(days) {
+  if (days < 0) return "text-rust-500";
+  if (days <= 3) return "text-rust-500";
+  if (days <= 10) return "text-ochre-700";
+  return "text-ink/60";
+}
+
+function daysLabel(days) {
+  if (days < 0) return `${Math.abs(days)}d overdue`;
+  if (days === 0) return "today";
+  if (days === 1) return "tomorrow";
+  return `in ${days}d`;
+}
+
+function ClockColumn({ icon: Icon, title, rows, empty, renderMeta, linkTo }) {
+  return (
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70 mb-3 flex items-center gap-1.5">
+        <Icon size={13} /> {title} {rows.length > 0 && <span className="text-ink/40 normal-case font-normal">({rows.length})</span>}
+      </p>
+      {rows.length === 0 ? (
+        <p className="text-xs text-ink/50">{empty}</p>
+      ) : (
+        <div className="space-y-2.5">
+          {rows.slice(0, 5).map((r) => (
+            <Link
+              key={r.employee_id}
+              to={linkTo ? linkTo(r) : `/admin/employees/${r.employee_id}`}
+              className="flex items-center justify-between gap-2 group"
+            >
+              <div className="min-w-0">
+                <p className="text-sm text-ink font-medium truncate group-hover:text-jade-600 transition-colors">{r.name}</p>
+                <p className="text-xs text-ink/50 font-nums truncate">{r.employee_code} · {r.location || "—"}</p>
+              </div>
+              <span className={`text-xs font-semibold font-nums whitespace-nowrap ${urgencyClass(r.days_remaining)}`}>
+                {daysLabel(r.days_remaining)}
+              </span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ClocksPanel({ clocks }) {
+  const { aip, probation, notice } = clocks;
+  if (aip.length === 0 && probation.length === 0 && notice.length === 0) return null;
+  return (
+    <div className="bg-paper rounded-sm shadow-card px-5 py-4 mb-6">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70 mb-4 flex items-center gap-1.5">
+        <Clock size={13} /> Upcoming Clocks
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <ClockColumn
+          icon={ShieldAlert}
+          title="Active AIPs"
+          rows={aip}
+          empty="No active Attendance Improvement Plans."
+          linkTo={() => "/admin/aip"}
+        />
+        <ClockColumn
+          icon={UserCheck}
+          title="Probation Ending"
+          rows={probation}
+          empty="No probation completions due soon."
+        />
+        <ClockColumn
+          icon={LogOut}
+          title="On Notice"
+          rows={notice}
+          empty="No one currently serving notice."
+        />
+      </div>
+    </div>
+  );
+}
 
 function shiftPeriod(year, month, delta) {
   let m = month + delta;
@@ -51,6 +129,7 @@ export default function Dashboard() {
   const [birthdays, setBirthdays] = useState([]);
   const [birthdayDismissed, setBirthdayDismissed] = useState(localStorage.getItem(BIRTHDAY_DISMISS_KEY) === todayIso);
   const [anniversaries, setAnniversaries] = useState([]);
+  const [clocks, setClocks] = useState({ aip: [], probation: [], notice: [] });
   const [anniversaryDismissed, setAnniversaryDismissed] = useState(localStorage.getItem(ANNIVERSARY_DISMISS_KEY) === todayIso);
   const [attendanceRows, setAttendanceRows] = useState([]);
   const [attendanceLoading, setAttendanceLoading] = useState(canAttendance);
@@ -108,6 +187,11 @@ export default function Dashboard() {
   useEffect(() => {
     if (!canEmployees) return;
     api.get("/api/employees/anniversaries").then(({ data }) => setAnniversaries(data)).catch(() => {});
+  }, [canEmployees]);
+
+  useEffect(() => {
+    if (!canEmployees) return;
+    api.get("/api/clocks").then(({ data }) => setClocks(data)).catch(() => {});
   }, [canEmployees]);
 
   // Current month is already fetched by the payroll effect above (`rows`) —
@@ -357,6 +441,8 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {canEmployees && <ClocksPanel clocks={clocks} />}
 
       {error && <p className="text-sm text-rust-500 mb-4 border-l-2 border-rust-500 pl-2.5">{error}</p>}
 
