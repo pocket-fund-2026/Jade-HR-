@@ -11,28 +11,43 @@ import { REPORT_CATEGORIES } from "../../lib/reportsCatalog.js";
 const POLL_MS = 25000;
 
 const navItems = [
+  // Overview
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
+
+  // People — headcount, hiring, absence
   { to: "/admin/employees", label: "Employees", icon: Users, permission: "employees.view" },
   { to: "/admin/onboarding", label: "Onboarding", icon: UserPlus, badgeKey: "onboarding", permission: "onboarding.manage" },
-  { to: "/admin/payroll", label: "Payroll & OT", icon: Receipt, permission: "payroll.view" },
-  { to: "/admin/reports", label: "Reports", icon: FileBarChart, permission: ["payroll.view", "attendance.restricted_reports"] },
-  { to: "/admin/disputes", label: "Disputes", icon: Flag, badgeKey: "disputes", permission: "disputes.manage" },
-  { to: "/admin/leave", label: "Leave", icon: Plane, badgeKey: "leave", permission: "leave.manage" },
+  { to: "/admin/careers", label: "Careers", icon: Users2, permission: "careers.manage" },
+  { to: "/admin/work-absence", label: "Work Absence", icon: Briefcase, badgeKey: "workAbsence", permission: "absence.manage" },
+
+  // Time & Leave — requests, tracking, policy
+  { to: "/admin/leave", label: "Leave", icon: Plane, badgeKey: "leave", permission: "leave.manage", sectionBreak: true },
+  { to: "/admin/leave-entry", label: "Leave Entry", icon: ClipboardList, permission: "leave.manage" },
   { to: "/admin/wfh-requests", label: "WFH Requests", icon: Home, badgeKey: "wfh", permission: ["leave.manage", "wfh.approve"] },
   { to: "/admin/market-visits", label: "Market Visits", icon: MapPin, badgeKey: "marketVisits", permission: "market_visits.review" },
   { to: "/admin/aip", label: "AIP", icon: ShieldAlert, permission: "leave.manage" },
-  { to: "/admin/work-absence", label: "Work Absence", icon: Briefcase, badgeKey: "workAbsence", permission: "absence.manage" },
-  { to: "/admin/leave-entry", label: "Leave Entry", icon: ClipboardList, permission: "leave.manage" },
-  { to: "/admin/payslip-approvals", label: "Payslip Approvals", icon: Stamp, badgeKey: "payslipApprovals", permission: "payslip_approvals.manage" },
-  { to: "/admin/letters", label: "Letters", icon: FileText, permission: ["letters.generate", "letters.manage"] },
   { to: "/admin/policy", label: "Leave Policy", icon: CalendarDays, permission: ["employees.manage", "policy.manage"] },
+
+  // Payroll & Finance
+  { to: "/admin/payroll", label: "Payroll & OT", icon: Receipt, permission: "payroll.view", sectionBreak: true },
+  { to: "/admin/payslip-approvals", label: "Payslip Approvals", icon: Stamp, badgeKey: "payslipApprovals", permission: "payslip_approvals.manage" },
+  { to: "/admin/reports", label: "Reports", icon: FileBarChart, permission: ["payroll.view", "attendance.restricted_reports"] },
+
+  // Documents & Compliance
+  { to: "/admin/letters", label: "Letters", icon: FileText, permission: ["letters.generate", "letters.manage"], sectionBreak: true },
+  { to: "/admin/disputes", label: "Disputes", icon: Flag, badgeKey: "disputes", permission: "disputes.manage" },
   { to: "/admin/policy-document", label: "Company Policy", icon: BookOpen },
   { to: "/admin/policy-acknowledgements", label: "Policy Sign-off", icon: ShieldCheck, permission: "policy.acknowledgements.view" },
-  { to: "/admin/hr-tasks", label: "HR Tasks", icon: CheckSquare, hrOnly: true },
-  { to: "/admin/careers", label: "Careers", icon: Users2, permission: "careers.manage" },
+
+  // HR-team-internal
+  { to: "/admin/hr-tasks", label: "HR Tasks", icon: CheckSquare, hrOnly: true, sectionBreak: true },
+
+  // Personal / self-service
   { to: "/admin/my-leave", label: "My Leave", icon: CalendarPlus, sectionBreak: true },
   { to: "/admin/my-payslip", label: "My Payslip", icon: Receipt },
-  { to: "/admin/team-access", label: "Team Access", icon: Shield, permission: "permissions.manage" },
+
+  // Console administration
+  { to: "/admin/team-access", label: "Team Access", icon: Shield, permission: "permissions.manage", sectionBreak: true },
 ];
 
 // Every navigable section — top-level nav items plus each Reports sub-page
