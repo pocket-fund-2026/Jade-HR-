@@ -2,7 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from auth import CONSOLE_ROLES, get_current_user, hash_password, require_accounts, require_permission, user_can
 from database import maybe_single_data, supabase
-from models import EmployeeCreate, EmployeeUpdate, PasswordReset, ReportingManagerImportRequest, SalaryImportRequest
+from models import (
+    EmployeeCreate, EmployeeUpdate, PasswordReset, ReportingManagerImportRequest, SalaryImportRequest,
+    StatutoryFlagsImportRequest,
+)
 
 router = APIRouter(prefix="/api/employees", tags=["employees"])
 
@@ -164,6 +167,73 @@ def bulk_import_reporting_manager(
         supabase.table("hr_employee_profile").upsert(rows_to_upsert, on_conflict="employee_id").execute()
 
     return {"updated": len(updated), "not_found": not_found, "no_manager_email": no_manager_email}
+
+
+@router.get("/statutory-flags")
+def list_statutory_flags(user: dict = Depends(require_permission("salary.edit"))):
+    """PF/EPS/ESIC/PT/LWF applicability per active employee — these live on
+    hr_employee_profile and, unlike every other compliance field, were never
+    populated at scale (only ever set one employee at a time via the profile
+    edit screen), which leaves the PF/ESIC/LWF reports in routers/payroll.py
+    reading `false` for almost the entire roster. Powers the bulk-edit
+    template the same way bulk-reporting-manager's CSV does."""
+    employees = (
+        supabase.table("hr_employees")
+        .select("id,employee_code,first_name,last_name,is_active")
+        .eq("is_active", True)
+        .order("first_name")
+        .execute()
+        .data
+    )
+    profiles = (
+        supabase.table("hr_employee_profile")
+        .select("employee_id,pf_applicable,eps_applicable,esic_applicable,pt_applicable,lwf_applicable")
+        .execute()
+        .data
+    )
+    flags_by_id = {p["employee_id"]: p for p in profiles}
+    return [
+        {
+            "employee_code": e["employee_code"],
+            "name": f"{e['first_name']} {e.get('last_name', '')}".strip(),
+            "pf_applicable": bool(flags_by_id.get(e["id"], {}).get("pf_applicable")),
+            "eps_applicable": bool(flags_by_id.get(e["id"], {}).get("eps_applicable")),
+            "esic_applicable": bool(flags_by_id.get(e["id"], {}).get("esic_applicable")),
+            "pt_applicable": bool(flags_by_id.get(e["id"], {}).get("pt_applicable")),
+            "lwf_applicable": bool(flags_by_id.get(e["id"], {}).get("lwf_applicable")),
+        }
+        for e in employees
+    ]
+
+
+@router.post("/bulk-statutory-flags")
+def bulk_import_statutory_flags(body: StatutoryFlagsImportRequest, user: dict = Depends(require_permission("salary.edit"))):
+    """Set PF/EPS/ESIC/PT/LWF applicability for many employees at once,
+    matched by employee_code — see list_statutory_flags above for why this
+    exists (the PF/ESIC/LWF reports are near-empty without it)."""
+    existing = supabase.table("hr_employees").select("id,employee_code").execute().data
+    id_by_code = {e["employee_code"]: e["id"] for e in existing}
+
+    updated, not_found, rows_to_upsert = [], [], []
+    for row in body.rows:
+        emp_id = id_by_code.get(row.employee_code)
+        if not emp_id:
+            not_found.append(row.employee_code)
+            continue
+        rows_to_upsert.append({
+            "employee_id": emp_id,
+            "pf_applicable": row.pf_applicable,
+            "eps_applicable": row.eps_applicable,
+            "esic_applicable": row.esic_applicable,
+            "pt_applicable": row.pt_applicable,
+            "lwf_applicable": row.lwf_applicable,
+        })
+        updated.append(row.employee_code)
+
+    if rows_to_upsert:
+        supabase.table("hr_employee_profile").upsert(rows_to_upsert, on_conflict="employee_id").execute()
+
+    return {"updated": len(updated), "not_found": not_found}
 
 
 def _require_role_grant_allowed(user: dict, role: str | None) -> None:

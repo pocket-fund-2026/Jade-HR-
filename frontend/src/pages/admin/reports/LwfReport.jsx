@@ -1,10 +1,12 @@
-import { ArrowLeft, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, FileSpreadsheet, Settings2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import MonthPicker from "../../../components/MonthPicker.jsx";
+import StatutoryFlagsImportModal from "../../../components/StatutoryFlagsImportModal.jsx";
 import api from "../../../lib/api.js";
 import { formatINR } from "../../../lib/format.js";
+import { useAuth } from "../../../lib/auth.jsx";
 
 const today = new Date();
 const MONTH_NAMES = [
@@ -32,13 +34,16 @@ export default function LwfReport() {
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { can } = useAuth();
+  const [showFlagsImport, setShowFlagsImport] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     setLoading(true);
     api.get("/api/payroll", { params: { year, month } })
       .then(({ data }) => setRows(data.filter((r) => r.ded_lwf > 0)))
       .finally(() => setLoading(false));
-  }, [year, month]);
+  }, [year, month, refreshKey]);
 
   const totals = rows.reduce((acc, r) => ({
     employee: acc.employee + r.ded_lwf,
@@ -61,6 +66,14 @@ export default function LwfReport() {
           >
             <FileSpreadsheet size={15} /> Export Excel
           </button>
+          {can("salary.edit") && (
+            <button
+              onClick={() => setShowFlagsImport(true)}
+              className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
+            >
+              <Settings2 size={15} /> Set Applicability
+            </button>
+          )}
           <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
         </div>
       </div>
@@ -115,6 +128,10 @@ export default function LwfReport() {
           </tbody>
         </table>
       </div>
+
+      {showFlagsImport && (
+        <StatutoryFlagsImportModal onClose={() => setShowFlagsImport(false)} onImported={() => { setShowFlagsImport(false); setRefreshKey((k) => k + 1); }} />
+      )}
     </div>
   );
 }

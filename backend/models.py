@@ -167,6 +167,19 @@ class ReportingManagerImportRequest(BaseModel):
     rows: list[ReportingManagerImportRow]
 
 
+class StatutoryFlagsImportRow(BaseModel):
+    employee_code: str
+    pf_applicable: bool = False
+    eps_applicable: bool = False
+    esic_applicable: bool = False
+    pt_applicable: bool = False
+    lwf_applicable: bool = False
+
+
+class StatutoryFlagsImportRequest(BaseModel):
+    rows: list[StatutoryFlagsImportRow]
+
+
 class LeaveRequestCreate(BaseModel):
     leave_type: str  # paid | unpaid | other | paternity | maternity | compassionate | comp_off
     start_date: date
