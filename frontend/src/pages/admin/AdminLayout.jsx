@@ -1,4 +1,4 @@
-import { Briefcase, BookOpen, CalendarDays, CalendarPlus, CheckSquare, ClipboardList, FileBarChart, FileText, Flag, Home, KeyRound, LayoutDashboard, LogOut, MapPin, Menu, Plane, Receipt, Search, Shield, ShieldAlert, ShieldCheck, Stamp, UserPlus, Users, X } from "lucide-react";
+import { Briefcase, BookOpen, CalendarDays, CalendarPlus, CheckSquare, ClipboardList, FileBarChart, FileText, Flag, Home, KeyRound, LayoutDashboard, LogOut, MapPin, Menu, Plane, Receipt, Search, Shield, ShieldAlert, ShieldCheck, Stamp, UserPlus, Users, Users2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
@@ -29,6 +29,7 @@ const navItems = [
   { to: "/admin/policy-document", label: "Company Policy", icon: BookOpen },
   { to: "/admin/policy-acknowledgements", label: "Policy Sign-off", icon: ShieldCheck, permission: "policy.acknowledgements.view" },
   { to: "/admin/hr-tasks", label: "HR Tasks", icon: CheckSquare, hrOnly: true },
+  { to: "/admin/careers", label: "Careers", icon: Users2, permission: "careers.manage" },
   { to: "/admin/my-leave", label: "My Leave", icon: CalendarPlus, sectionBreak: true },
   { to: "/admin/my-payslip", label: "My Payslip", icon: Receipt },
   { to: "/admin/team-access", label: "Team Access", icon: Shield, permission: "permissions.manage" },

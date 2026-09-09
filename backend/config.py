@@ -27,6 +27,16 @@ COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "true").lower() != "false"
 # Used by biometric_sync.py to authenticate against /api/biometric/ingest
 BIOMETRIC_SYNC_SECRET = os.environ.get("BIOMETRIC_SYNC_SECRET", "")
 
+# jade-careers' own admin API (separate Express+SQLite app, /root/jade-careers)
+# — routers/careers.py proxies to it so the Careers admin console lives inside
+# JADE HR instead of behind its own separate login. Reachable at this VPS's
+# public IP:port (the same address jade-careers' own Vercel frontend proxies
+# to, per its build.sh) since this backend also runs as Vercel serverless and
+# can't reach the VPS's localhost. CAREERS_JWT_SECRET must match
+# /etc/jade-careers.env's JWT_SECRET so tokens minted here verify there.
+CAREERS_API_BASE = os.environ.get("CAREERS_API_BASE", "http://167.233.42.43:8893")
+CAREERS_JWT_SECRET = os.environ.get("CAREERS_JWT_SECRET", "")
+
 # SmartOffice device serial -> Jade location. Identified by cross-referencing
 # employee codes per department (from the SmartOffice employee-master export)
 # against which serial their punches actually land on.
