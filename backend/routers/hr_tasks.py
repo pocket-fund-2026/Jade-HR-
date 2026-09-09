@@ -8,25 +8,35 @@ from models import HrTaskCreate, HrTaskUpdate
 
 router = APIRouter(prefix="/api/hr-tasks", tags=["hr-tasks"])
 
-SELECT = "*, assignee:hr_employees!hr_tasks_assigned_to_fkey(first_name,last_name,employee_code)"
+PRIORITIES = ("low", "normal", "high", "urgent")
+
+SELECT = (
+    "*, assignee:hr_employees!hr_tasks_assigned_to_fkey(first_name,last_name,employee_code),"
+    "assigner:hr_employees!hr_tasks_created_by_fkey(first_name,last_name,employee_code)"
+)
 
 
 @router.get("")
-def list_tasks(status: str | None = None, user: dict = Depends(require_hr_role)):
+def list_tasks(status: str | None = None, priority: str | None = None, user: dict = Depends(require_hr_role)):
     query = supabase.table("hr_tasks").select(SELECT)
     if status:
         query = query.eq("status", status)
+    if priority:
+        query = query.eq("priority", priority)
     resp = query.order("created_at", desc=True).execute()
     return resp.data
 
 
 @router.post("")
 def create_task(body: HrTaskCreate, user: dict = Depends(require_hr_role)):
+    if body.priority not in PRIORITIES:
+        raise HTTPException(status_code=400, detail=f"priority must be one of {PRIORITIES}")
     row = {
         "title": body.title,
         "description": body.description,
         "assigned_to": body.assigned_to,
         "due_date": body.due_date.isoformat() if body.due_date else None,
+        "priority": body.priority,
         "created_by": user["id"],
     }
     inserted = supabase.table("hr_tasks").insert(row).execute()
@@ -50,6 +60,10 @@ def update_task(task_id: str, body: HrTaskUpdate, user: dict = Depends(require_h
         row["assigned_to"] = body.assigned_to
     if body.due_date is not None:
         row["due_date"] = body.due_date.isoformat()
+    if body.priority is not None:
+        if body.priority not in PRIORITIES:
+            raise HTTPException(status_code=400, detail=f"priority must be one of {PRIORITIES}")
+        row["priority"] = body.priority
     if body.status is not None:
         if body.status not in ("open", "done"):
             raise HTTPException(status_code=400, detail="status must be 'open' or 'done'")

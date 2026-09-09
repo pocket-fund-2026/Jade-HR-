@@ -672,6 +672,7 @@ class HrTaskCreate(BaseModel):
     description: str = ""
     assigned_to: Optional[str] = None
     due_date: Optional[date] = None
+    priority: str = "normal"  # low | normal | high | urgent
 
 
 class HrTaskUpdate(BaseModel):
@@ -680,3 +681,4 @@ class HrTaskUpdate(BaseModel):
     assigned_to: Optional[str] = None
     due_date: Optional[date] = None
     status: Optional[str] = None  # open | done
+    priority: Optional[str] = None  # low | normal | high | urgent
