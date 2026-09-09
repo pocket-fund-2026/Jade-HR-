@@ -1,7 +1,8 @@
-import { FileText } from "lucide-react";
+import { Check, FileText, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
+import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
 import { CAREERS_SITE_URL } from "../../lib/careers.js";
 import { formatFullDate } from "../../lib/format.js";
@@ -41,12 +42,18 @@ export default function CareersApplicantDetail() {
   if (!data) return <p className="text-ink/70 text-sm">Loading…</p>;
   const { application: a, job, submission } = data;
 
+  const isAccepted = a.status === "Offered" || a.status === "Hired";
+  const isRejected = a.status === "Rejected";
+
   return (
     <div className="max-w-3xl">
       <button onClick={() => navigate(-1)} className="text-xs text-ink/60 hover:text-ink mb-4">&larr; Back</button>
       <div className="mb-6 flex items-start justify-between">
         <div>
-          <h2 className="font-display text-2xl text-ink">{a.full_name}</h2>
+          <div className="flex items-center gap-2.5">
+            <h2 className="font-display text-2xl text-ink">{a.full_name}</h2>
+            <StampBadge status={a.status?.toLowerCase()}>{a.status}</StampBadge>
+          </div>
           <p className="text-sm text-ink/70 mt-0.5">Applied for {job?.title}</p>
         </div>
         <select
@@ -57,6 +64,37 @@ export default function CareersApplicantDetail() {
         >
           {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
+      </div>
+
+      <div className="bg-paper rounded-sm shadow-card p-6 mb-5">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/50 mb-1">Interview Decision</p>
+        <p className="text-xs text-ink/55 mb-4">Accept to move the candidate to Offered, or reject to close out the application.</p>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => setStatus("Offered")}
+            className={`flex items-center gap-1.5 px-4 py-2.5 rounded-sm text-sm font-semibold border transition-colors disabled:opacity-50 ${
+              isAccepted
+                ? "bg-jade-600 border-jade-600 text-white"
+                : "bg-paper border-jade-500/40 text-jade-700 hover:bg-jade-500/10"
+            }`}
+          >
+            <Check size={15} /> {isAccepted ? "Accepted" : "Accept"}
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => setStatus("Rejected")}
+            className={`flex items-center gap-1.5 px-4 py-2.5 rounded-sm text-sm font-semibold border transition-colors disabled:opacity-50 ${
+              isRejected
+                ? "bg-rust-500 border-rust-500 text-white"
+                : "bg-paper border-rust-500/40 text-rust-500 hover:bg-rust-50"
+            }`}
+          >
+            <X size={15} /> {isRejected ? "Rejected" : "Reject"}
+          </button>
+        </div>
       </div>
 
       <div className="bg-paper rounded-sm shadow-card p-6 grid grid-cols-2 gap-5 mb-5">

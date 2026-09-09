@@ -308,7 +308,12 @@ export default function AdminLayout() {
       <div className="md:hidden fixed top-0 inset-x-0 z-30 bg-ledger-800 flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2">
           <img src="/jade-logo.png" alt="" className="w-7 h-7" />
-          <span className="font-display text-manila text-lg leading-none">JADE HR</span>
+          <div>
+            <span className="font-display text-manila text-lg leading-none block">JADE HR</span>
+            <span className="text-manila/60 text-[9px] uppercase tracking-[0.15em] leading-none">
+              {user?.role === "accounts" ? "Accounts Ledger" : "HR Ledger"}
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-1">
           <button onClick={logout} aria-label="Sign out" title="Sign out" className="text-manila/70 hover:text-manila p-2">
