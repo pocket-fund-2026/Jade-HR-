@@ -1,4 +1,4 @@
-import { Award, Bell, Cake, Clock, FileSpreadsheet, LogOut, ShieldAlert, UserCheck, X } from "lucide-react";
+import { Award, Bell, Cake, CalendarPlus, Clock, FileSpreadsheet, LogOut, ShieldAlert, UserCheck, X } from "lucide-react";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 
@@ -303,22 +303,30 @@ export default function Dashboard() {
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-1">
         <h2 className="font-display text-2xl text-ink">Dashboard</h2>
-        {canPayroll && (
-          <div className="flex flex-wrap items-center gap-3">
-            <select
-              aria-label="Filter by location"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
-            >
-              <option value="all">All locations</option>
-              {locations.map((loc) => (
-                <option key={loc} value={loc}>{loc}</option>
-              ))}
-            </select>
-            <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            to="/admin/my-leave"
+            className="flex items-center gap-1.5 bg-jade-600 text-white px-3 py-2 rounded-sm text-xs font-semibold hover:bg-jade-700 transition-colors whitespace-nowrap"
+          >
+            <CalendarPlus size={13} /> Apply Leave
+          </Link>
+          {canPayroll && (
+            <>
+              <select
+                aria-label="Filter by location"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+              >
+                <option value="all">All locations</option>
+                {locations.map((loc) => (
+                  <option key={loc} value={loc}>{loc}</option>
+                ))}
+              </select>
+              <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
+            </>
+          )}
+        </div>
       </div>
       {canBiometric && (
         <p className="text-xs text-ink/70 font-nums mb-6">
