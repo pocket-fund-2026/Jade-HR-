@@ -317,6 +317,8 @@ class EmployeeProfileUpdate(BaseModel):
     nationality: Optional[str] = None
     pan_no: Optional[str] = None
     marital_status: Optional[str] = None
+    aadhar_card_path: Optional[str] = None
+    pan_card_path: Optional[str] = None
 
     # Official
     company: Optional[str] = None
@@ -515,6 +517,13 @@ class OnboardingUpload(BaseModel):
     filename: str
     content_base64: str  # may be a data: URL or raw base64
     content_type: str = "application/octet-stream"
+
+
+class EmployeeDocumentUpload(BaseModel):
+    filename: str
+    content_base64: str  # may be a data: URL or raw base64
+    content_type: str = "application/octet-stream"
+    doc_type: str  # aadhar | pan
 
 
 class OnboardingSubmissionCreate(BaseModel):

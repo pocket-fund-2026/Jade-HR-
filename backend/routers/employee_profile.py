@@ -1,3 +1,4 @@
+import base64
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
@@ -5,14 +6,20 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from auth import CONSOLE_ROLES, get_current_user, require_permission, user_can
 from database import maybe_single_data, supabase
-from models import EmployeeProfileUpdate
+from models import EmployeeDocumentUpload, EmployeeProfileUpdate
 
 router = APIRouter(prefix="/api/employees", tags=["employee-profile"])
 
+DOCS_BUCKET = "employee-documents"
+MAX_UPLOAD_BYTES = 4 * 1024 * 1024
+DOC_TYPE_PATH_FIELD = {"aadhar": "aadhar_card_path", "pan": "pan_card_path"}
+
 # Bank/compliance-ID fields — gated by salary.view the same way employees.py's
-# SALARY_FIELDS are, since they're just as sensitive as pay figures.
+# SALARY_FIELDS are, since they're just as sensitive as pay figures. The
+# scanned Aadhaar/PAN images are just as sensitive as the numbers themselves.
 SENSITIVE_PROFILE_FIELDS = (
     "bank_name", "bank_account_no", "bank_ifsc", "pan_no", "uan_no", "aadhar_no", "pf_no", "esic_no",
+    "aadhar_card_path", "pan_card_path",
 )
 
 
@@ -29,7 +36,19 @@ def _sanitize_profile(profile: dict, employee_id: str, user: dict) -> dict:
     if user["id"] != employee_id and not user_can(user, "salary.view"):
         for field in SENSITIVE_PROFILE_FIELDS:
             profile.pop(field, None)
+        profile.pop("aadhar_card_url", None)
+        profile.pop("pan_card_url", None)
     return profile
+
+
+def _signed_url(path: str | None) -> str | None:
+    if not path:
+        return None
+    try:
+        resp = supabase.storage.from_(DOCS_BUCKET).create_signed_url(path, 3600)
+        return resp.get("signedURL") or resp.get("signed_url")
+    except Exception:
+        return None
 
 
 def _employee_exists(employee_id: str) -> bool:
@@ -61,7 +80,48 @@ def get_employee_profile(employee_id: str, user: dict = Depends(get_current_user
 
     profile = maybe_single_data(profile_resp) or {"employee_id": employee_id}
     profile["udfs"] = [{"udf_name": r["udf_name"], "udf_value": r["udf_value"]} for r in udf_resp.data]
+    profile["aadhar_card_url"] = _signed_url(profile.get("aadhar_card_path"))
+    profile["pan_card_url"] = _signed_url(profile.get("pan_card_path"))
     return _sanitize_profile(profile, employee_id, user)
+
+
+@router.post("/{employee_id}/documents/upload")
+def upload_employee_document(
+    employee_id: str, body: EmployeeDocumentUpload, user: dict = Depends(require_permission("employees.manage"))
+):
+    """Central storage for an existing employee's Aadhaar/PAN scan — replaces
+    keeping these on HR's local PC. Same private-bucket-with-signed-URL
+    pattern as onboarding-documents; access to the resulting URL is gated
+    exactly like the aadhar_no/pan_no text fields (see SENSITIVE_PROFILE_FIELDS
+    above)."""
+    if body.doc_type not in DOC_TYPE_PATH_FIELD:
+        raise HTTPException(status_code=400, detail="doc_type must be 'aadhar' or 'pan'")
+    if not _employee_exists(employee_id):
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    try:
+        raw = body.content_base64.split(",", 1)[-1]
+        file_bytes = base64.b64decode(raw)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid file data")
+    if len(file_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=400, detail="File too large — please use a file under 4MB")
+
+    now = datetime.now(timezone.utc)
+    safe_name = body.filename.replace("/", "_").replace("\\", "_") or "file"
+    path = f"{employee_id}/{body.doc_type}_{now.strftime('%Y%m%d_%H%M%S')}_{safe_name}"
+    try:
+        supabase.storage.from_(DOCS_BUCKET).upload(path, file_bytes, {"content-type": body.content_type})
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Upload failed: {e}")
+
+    path_field = DOC_TYPE_PATH_FIELD[body.doc_type]
+    supabase.table("hr_employee_profile").upsert(
+        {"employee_id": employee_id, path_field: path, "updated_at": now.isoformat()},
+        on_conflict="employee_id",
+    ).execute()
+
+    return {"path": path, "url": _signed_url(path)}
 
 
 @router.put("/{employee_id}/profile")

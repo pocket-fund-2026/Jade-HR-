@@ -963,6 +963,71 @@ function InitiateExitModal({ employeeId, onClose, onCreated }) {
   );
 }
 
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function KycDocumentRow({ employeeId, label, docType, url, canManage, onUploaded }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const upload = async (file) => {
+    if (!file) return;
+    setBusy(true);
+    setError("");
+    try {
+      const content_base64 = await fileToBase64(file);
+      const { data } = await api.post(`/api/employees/${employeeId}/documents/upload`, {
+        filename: file.name, content_base64, content_type: file.type || "application/octet-stream", doc_type: docType,
+      });
+      onUploaded(data);
+    } catch (err) {
+      setError(err.response?.data?.detail || "Upload failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-3 py-2 border-b border-ink/[0.06] last:border-0">
+      <div>
+        <p className="text-sm text-ink font-medium">{label}</p>
+        {url ? (
+          <a href={url} target="_blank" rel="noreferrer" className="text-xs text-jade-600 hover:underline">View uploaded document</a>
+        ) : (
+          <p className="text-xs text-ink/50">Not uploaded yet</p>
+        )}
+        {error && <p className="text-xs text-rust-500 mt-0.5">{error}</p>}
+      </div>
+      {canManage && (
+        <label className="flex items-center gap-1.5 bg-paper border border-ink/15 text-ink px-3 py-1.5 rounded-sm text-xs font-semibold hover:border-jade-500 cursor-pointer transition-colors whitespace-nowrap">
+          {busy ? "Uploading…" : url ? "Replace" : "Upload"}
+          <input type="file" accept="image/*,.pdf" className="hidden" disabled={busy} onChange={(e) => upload(e.target.files?.[0])} />
+        </label>
+      )}
+    </div>
+  );
+}
+
+function KycDocumentsSection({ employeeId, aadharUrl, panUrl, canManage, canViewSalary, onUploaded }) {
+  if (!canViewSalary) return null; // same gate as the aadhar_no/pan_no numbers themselves
+  return (
+    <div className="mt-6">
+      <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-2">KYC Documents</p>
+      <p className="text-xs text-ink/70 mb-3">Stored centrally, not on a local computer — visible only to Accounts/HR with salary access, or the employee themselves.</p>
+      <div className="bg-manila/30 rounded-sm px-4">
+        <KycDocumentRow employeeId={employeeId} label="Aadhaar Card" docType="aadhar" url={aadharUrl} canManage={canManage} onUploaded={onUploaded} />
+        <KycDocumentRow employeeId={employeeId} label="PAN Card" docType="pan" url={panUrl} canManage={canManage} onUploaded={onUploaded} />
+      </div>
+    </div>
+  );
+}
+
 export default function EmployeeDetails() {
   const { id } = useParams();
   const isNew = !id;
@@ -1351,6 +1416,20 @@ export default function EmployeeDetails() {
               })}
             </div>
           ))}
+
+          {activeTab === "personal" && !isNew && (
+            <KycDocumentsSection
+              employeeId={id}
+              aadharUrl={form.aadhar_card_url}
+              panUrl={form.pan_card_url}
+              canManage={canManage}
+              canViewSalary={canViewSalary}
+              onUploaded={(data) => {
+                const field = data.path.includes("/aadhar_") ? "aadhar_card_url" : "pan_card_url";
+                setField(field, data.url);
+              }}
+            />
+          )}
 
           {activeTab === "udf" && (
             <UDFSection udfs={form.udfs} editing={editing} onChange={(udfs) => setField("udfs", udfs)} />
