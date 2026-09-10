@@ -29,8 +29,10 @@ function PolicyQuiz({ onPassed }) {
       const { data } = await api.post("/api/policy/quiz/submit", {
         policy_version: QUIZ_POLICY_VERSION, score, total, answers,
       });
+      // Grading (result set below) is shown on the questions themselves —
+      // onPassed() only fires once the user clicks Continue, so a passing
+      // score is never skipped past unseen.
       setResult({ score, total, passed: data.passed });
-      if (data.passed) onPassed();
     } catch (err) {
       setError(err.response?.data?.detail || "Could not submit the quiz — please try again.");
     } finally {
@@ -57,35 +59,61 @@ function PolicyQuiz({ onPassed }) {
         </p>
       </div>
 
-      {result && !result.passed && (
-        <div className="bg-manila border-l-2 border-rust-500 rounded-sm px-4 py-3 mb-5 text-sm text-ink">
-          You scored {result.score} of {result.total} — not quite enough this time. Have another look at the policy
-          above, then try again with a new set of questions.
+      {result && (
+        <div
+          className={`rounded-sm px-4 py-3 mb-5 text-sm text-ink border-l-2 ${
+            result.passed ? "bg-jade-500/10 border-jade-600" : "bg-manila border-l-2 border-rust-500"
+          }`}
+        >
+          {result.passed
+            ? `You scored ${result.score} of ${result.total} — that's a pass. Correct/incorrect answers are marked below; click Continue when you're ready.`
+            : `You scored ${result.score} of ${result.total} — not quite enough this time. Correct answers are marked below. Have another look at the policy above, then try again with a new set of questions.`}
         </div>
       )}
 
       <div className="space-y-4">
         {questions.map((q, i) => (
           <div key={q.id} className="bg-paper rounded-sm shadow-card p-5">
-            <p className="text-sm font-medium text-ink mb-3">{i + 1}. {q.question}</p>
+            <p className="text-sm font-medium text-ink mb-3">
+              {i + 1}. {q.question}
+              {result && (
+                <span className={`ml-2 text-xs font-semibold uppercase tracking-wide ${selected[q.id] === q.correctIndex ? "text-jade-600" : "text-rust-500"}`}>
+                  {selected[q.id] === q.correctIndex ? "Correct" : "Incorrect"}
+                </span>
+              )}
+            </p>
             <div className="space-y-2">
-              {q.options.map((opt, idx) => (
-                <label
-                  key={idx}
-                  className={`flex items-center gap-2.5 text-sm rounded-sm border px-3 py-2 cursor-pointer transition-colors ${
-                    selected[q.id] === idx ? "border-jade-500 bg-jade-500/5 text-ink" : "border-ink/15 text-ink/80 hover:border-ink/30"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name={q.id}
-                    checked={selected[q.id] === idx}
-                    onChange={() => setSelected((s) => ({ ...s, [q.id]: idx }))}
-                    className="h-4 w-4 text-jade-600 focus:ring-jade-500"
-                  />
-                  {opt}
-                </label>
-              ))}
+              {q.options.map((opt, idx) => {
+                const isSelected = selected[q.id] === idx;
+                const isCorrectOption = idx === q.correctIndex;
+                let cls = "border-ink/15 text-ink/80 hover:border-ink/30";
+                if (result) {
+                  if (isCorrectOption) cls = "border-jade-500 bg-jade-500/10 text-ink";
+                  else if (isSelected) cls = "border-rust-500 bg-rust-500/10 text-ink";
+                  else cls = "border-ink/10 text-ink/50";
+                } else if (isSelected) {
+                  cls = "border-jade-500 bg-jade-500/5 text-ink";
+                }
+                return (
+                  <label
+                    key={idx}
+                    className={`flex items-center gap-2.5 text-sm rounded-sm border px-3 py-2 transition-colors ${result ? "cursor-default" : "cursor-pointer"} ${cls}`}
+                  >
+                    <input
+                      type="radio"
+                      name={q.id}
+                      checked={isSelected}
+                      disabled={!!result}
+                      onChange={() => setSelected((s) => ({ ...s, [q.id]: idx }))}
+                      className="h-4 w-4 text-jade-600 focus:ring-jade-500"
+                    />
+                    {opt}
+                    {result && isCorrectOption && (
+                      <CheckCircle2 size={14} className="text-jade-600 ml-auto" />
+                    )}
+                  </label>
+                );
+              })}
             </div>
           </div>
         ))}
@@ -94,14 +122,24 @@ function PolicyQuiz({ onPassed }) {
       {error && <p className="text-sm text-rust-500 mt-4">{error}</p>}
 
       <div className="mt-5">
-        {result && !result.passed ? (
-          <button
-            type="button"
-            onClick={retry}
-            className="flex items-center justify-center gap-1.5 bg-jade-600 text-white px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors"
-          >
-            Try again
-          </button>
+        {result ? (
+          result.passed ? (
+            <button
+              type="button"
+              onClick={onPassed}
+              className="flex items-center justify-center gap-1.5 bg-jade-600 text-white px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors"
+            >
+              <ShieldCheck size={15} /> Continue to the console
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={retry}
+              className="flex items-center justify-center gap-1.5 bg-jade-600 text-white px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors"
+            >
+              Try again
+            </button>
+          )
         ) : (
           <button
             type="button"
