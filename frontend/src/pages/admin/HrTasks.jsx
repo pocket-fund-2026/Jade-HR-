@@ -31,6 +31,7 @@ export default function HrTasks() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("open");
   const [priorityFilter, setPriorityFilter] = useState("all");
+  const [assignmentFilter, setAssignmentFilter] = useState("all"); // all | assigned | unassigned
   const [form, setForm] = useState(EMPTY);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -51,7 +52,9 @@ export default function HrTasks() {
   }, []);
 
   const visibleTasks = useMemo(() => {
-    const rows = priorityFilter === "all" ? tasks : tasks.filter((t) => t.priority === priorityFilter);
+    let rows = priorityFilter === "all" ? tasks : tasks.filter((t) => t.priority === priorityFilter);
+    if (assignmentFilter === "assigned") rows = rows.filter((t) => t.assigned_to);
+    if (assignmentFilter === "unassigned") rows = rows.filter((t) => !t.assigned_to);
     return [...rows].sort((a, b) => {
       if (a.status !== b.status) return a.status === "done" ? 1 : -1;
       const pr = PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
@@ -61,7 +64,7 @@ export default function HrTasks() {
       if (b.due_date) return 1;
       return a.created_at < b.created_at ? 1 : -1;
     });
-  }, [tasks, priorityFilter]);
+  }, [tasks, priorityFilter, assignmentFilter]);
 
   const startCreate = () => {
     setForm(EMPTY);
@@ -127,12 +130,21 @@ export default function HrTasks() {
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <div>
           <h2 className="font-display text-2xl text-ink">HR Tasks</h2>
           <p className="text-xs text-ink/70 font-nums mt-0.5">Shared to-do list for the HR team — anyone can assign, reassign, or close a task. Not visible to Accounts.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <select
+            value={assignmentFilter}
+            onChange={(e) => setAssignmentFilter(e.target.value)}
+            className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+          >
+            <option value="all">Assigned + Unassigned</option>
+            <option value="assigned">Assigned only</option>
+            <option value="unassigned">Unassigned only</option>
+          </select>
           <select
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
@@ -141,15 +153,6 @@ export default function HrTasks() {
             <option value="all">All priorities</option>
             {PRIORITIES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
-          >
-            <option value="open">Open</option>
-            <option value="done">Done</option>
-            <option value="all">All</option>
-          </select>
           <button
             onClick={startCreate}
             className="flex items-center gap-2 bg-ledger-800 text-manila px-4 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
@@ -157,6 +160,20 @@ export default function HrTasks() {
             <Plus size={16} /> New Task
           </button>
         </div>
+      </div>
+
+      <div className="flex gap-1 mb-4">
+        {[["open", "Open"], ["done", "Done"], ["all", "All Tasks"]].map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setFilter(key)}
+            className={`px-4 py-2 rounded-sm text-sm font-medium transition-colors ${
+              filter === key ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {showForm && (
