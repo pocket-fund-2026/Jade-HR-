@@ -3,7 +3,120 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAuth } from "../lib/auth.jsx";
 import api from "../lib/api.js";
+import { drawQuizQuestions, QUIZ_POLICY_VERSION } from "../lib/policyQuiz.js";
 import { POLICY_TABS } from "./PolicyDocument.jsx";
+
+function PolicyQuiz({ onPassed }) {
+  const [questions, setQuestions] = useState(() => drawQuizQuestions());
+  const [selected, setSelected] = useState({}); // question id -> option index
+  const [result, setResult] = useState(null); // { score, total, passed }
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const allAnswered = questions.every((q) => selected[q.id] !== undefined);
+
+  const submit = async () => {
+    setSubmitting(true);
+    setError("");
+    const answers = questions.map((q) => ({
+      question_id: q.id,
+      selected_index: selected[q.id],
+      correct: selected[q.id] === q.correctIndex,
+    }));
+    const score = answers.filter((a) => a.correct).length;
+    const total = questions.length;
+    try {
+      const { data } = await api.post("/api/policy/quiz/submit", {
+        policy_version: QUIZ_POLICY_VERSION, score, total, answers,
+      });
+      setResult({ score, total, passed: data.passed });
+      if (data.passed) onPassed();
+    } catch (err) {
+      setError(err.response?.data?.detail || "Could not submit the quiz — please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const retry = () => {
+    setQuestions(drawQuizQuestions());
+    setSelected({});
+    setResult(null);
+    setError("");
+  };
+
+  return (
+    <div className="flex-1 max-w-4xl w-full mx-auto px-5 sm:px-8 py-6">
+      <div className="bg-paper rounded-sm shadow-card p-5 sm:p-6 mb-5">
+        <p className="text-xs font-semibold uppercase tracking-wider text-jade-600 mb-1">Quick check</p>
+        <h2 className="font-display text-xl text-ink mb-1">Policy comprehension quiz</h2>
+        <p className="text-sm text-ink/70">
+          A few questions from what you just read, to confirm it landed — not a trick quiz, just the actual numbers
+          from the document above. You need {Math.ceil(questions.length * 0.8)} of {questions.length} correct to
+          continue; you can retry with a fresh set of questions if you don't pass.
+        </p>
+      </div>
+
+      {result && !result.passed && (
+        <div className="bg-manila border-l-2 border-rust-500 rounded-sm px-4 py-3 mb-5 text-sm text-ink">
+          You scored {result.score} of {result.total} — not quite enough this time. Have another look at the policy
+          above, then try again with a new set of questions.
+        </div>
+      )}
+
+      <div className="space-y-4">
+        {questions.map((q, i) => (
+          <div key={q.id} className="bg-paper rounded-sm shadow-card p-5">
+            <p className="text-sm font-medium text-ink mb-3">{i + 1}. {q.question}</p>
+            <div className="space-y-2">
+              {q.options.map((opt, idx) => (
+                <label
+                  key={idx}
+                  className={`flex items-center gap-2.5 text-sm rounded-sm border px-3 py-2 cursor-pointer transition-colors ${
+                    selected[q.id] === idx ? "border-jade-500 bg-jade-500/5 text-ink" : "border-ink/15 text-ink/80 hover:border-ink/30"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name={q.id}
+                    checked={selected[q.id] === idx}
+                    onChange={() => setSelected((s) => ({ ...s, [q.id]: idx }))}
+                    className="h-4 w-4 text-jade-600 focus:ring-jade-500"
+                  />
+                  {opt}
+                </label>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {error && <p className="text-sm text-rust-500 mt-4">{error}</p>}
+
+      <div className="mt-5">
+        {result && !result.passed ? (
+          <button
+            type="button"
+            onClick={retry}
+            className="flex items-center justify-center gap-1.5 bg-jade-600 text-white px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors"
+          >
+            Try again
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!allAnswered || submitting}
+            className="flex items-center justify-center gap-1.5 bg-jade-600 text-white px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-40 transition-colors"
+          >
+            <ShieldCheck size={15} />
+            {submitting ? "Checking…" : "Submit answers"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // A document counts as read once its own scroll container has been scrolled to
 // the bottom. Tolerance covers sub-pixel/zoom rounding, and a document shorter
@@ -12,7 +125,11 @@ import { POLICY_TABS } from "./PolicyDocument.jsx";
 const SCROLL_TOLERANCE_PX = 24;
 
 export default function PolicyAcknowledgement() {
-  const { user, reloadPolicyAck } = useAuth();
+  const { user, policyAck, reloadPolicyAck } = useAuth();
+  // If the read-and-acknowledge row is already on file but the quiz hasn't
+  // been passed yet (e.g. they closed the tab mid-quiz), skip straight back
+  // to the quiz on return instead of making them re-read and re-confirm.
+  const [stage, setStage] = useState(policyAck?.documents_read_recorded ? "quiz" : "read");
   const [activeKey, setActiveKey] = useState(POLICY_TABS[0].key);
   const [readKeys, setReadKeys] = useState([]);
   const [confirmed, setConfirmed] = useState(false);
@@ -51,11 +168,13 @@ export default function PolicyAcknowledgement() {
     setError("");
     try {
       await api.post("/api/policy/acknowledgement", { documents_read: readKeys });
-      // Flips the gate in AuthProvider, which lets the router through to the
-      // console the user was originally headed for.
-      await reloadPolicyAck();
+      // Not done yet — the comprehension quiz still has to be passed before
+      // AuthProvider's gate actually opens (see routers/policy_ack.py's
+      // my_acknowledgement, which now requires both).
+      setStage("quiz");
     } catch (err) {
       setError(err.response?.data?.detail || "Could not record your acknowledgement — please try again.");
+    } finally {
       setSubmitting(false);
     }
   };
@@ -66,15 +185,21 @@ export default function PolicyAcknowledgement() {
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center gap-2">
             <ShieldCheck size={20} className="text-manila/80" />
-            <h1 className="font-display text-xl sm:text-2xl">Company policy acknowledgement</h1>
+            <h1 className="font-display text-xl sm:text-2xl">
+              {stage === "quiz" ? "Policy comprehension quiz" : "Company policy acknowledgement"}
+            </h1>
           </div>
           <p className="text-sm text-manila/70 mt-1.5">
-            {user?.name ? `${user.name}, before` : "Before"} you use the HR Console, please read each policy document
-            below and confirm that you've read and understood it. This is recorded against your employee record.
+            {stage === "quiz"
+              ? "One last step before the console unlocks."
+              : `${user?.name ? `${user.name}, before` : "Before"} you use the HR Console, please read each policy document below and confirm that you've read and understood it. This is recorded against your employee record.`}
           </p>
         </div>
       </header>
 
+      {stage === "quiz" ? (
+        <PolicyQuiz onPassed={reloadPolicyAck} />
+      ) : (
       <div className="flex-1 max-w-4xl w-full mx-auto px-5 sm:px-8 py-6 flex flex-col min-h-0">
         <div className="flex flex-wrap gap-2 mb-4">
           {POLICY_TABS.map((t) => {
@@ -143,6 +268,7 @@ export default function PolicyAcknowledgement() {
           </button>
         </div>
       </div>
+      )}
     </div>
   );
 }

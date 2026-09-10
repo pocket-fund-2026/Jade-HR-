@@ -484,6 +484,8 @@ function Policy2025({ showCorporateSections = true }) {
           <LateArrivalInForceNote />
           <LateArrivalRules />
           <Bullets items={LATE_COUNTING_ITEMS} />
+          <p className="font-medium text-ink">Early leaving</p>
+          <p>All early leaving and personal exigencies must be pre-approved by the reporting manager / department head.</p>
           <p className="font-medium text-ink">Staying back late (not applicable to OT-eligible depts/designations)</p>
           <Bullets
             items={[

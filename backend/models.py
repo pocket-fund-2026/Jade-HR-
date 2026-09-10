@@ -723,6 +723,19 @@ class PolicyAcknowledgementCreate(BaseModel):
     documents_read: list[str] = []
 
 
+class PolicyQuizAnswer(BaseModel):
+    question_id: str
+    selected_index: int
+    correct: bool
+
+
+class PolicyQuizSubmit(BaseModel):
+    policy_version: str
+    score: int
+    total: int
+    answers: list[PolicyQuizAnswer] = []
+
+
 class ArrearCreate(BaseModel):
     # Standalone one-off arrear line item (hr_arrears) — deliberately NOT the
     # same table as hr_salary_structure's earn_arrear, which only exists on a

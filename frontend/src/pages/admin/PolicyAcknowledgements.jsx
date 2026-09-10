@@ -46,10 +46,13 @@ export default function PolicyAcknowledgements() {
   }, [data, search]);
 
   const exportCsv = () => {
-    const header = ["Employee Code", "Name", "Department", "Designation", "Location", "Status", "Acknowledged At (IST)"];
+    const header = ["Employee Code", "Name", "Department", "Designation", "Location", "Status", "Quiz Score", "Quiz Attempts", "Acknowledged At (IST)"];
     const lines = rows.map((r) => [
       r.employee_code, r.name, r.department || "", r.designation || "", r.location || "",
-      r.acknowledged ? "Acknowledged" : "Pending", r.acknowledged ? formatWhen(r.acknowledged_at) : "",
+      r.acknowledged ? "Acknowledged" : "Pending",
+      r.quiz_score != null ? `${r.quiz_score}/${r.quiz_total}` : "",
+      r.quiz_attempts || 0,
+      r.acknowledged ? formatWhen(r.acknowledged_at) : "",
     ]);
     const csv = [header, ...lines]
       .map((cells) => cells.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
@@ -132,12 +135,13 @@ export default function PolicyAcknowledgements() {
                   <th className="px-5 py-3">Department</th>
                   <th className="px-5 py-3">Location</th>
                   <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3">Quiz</th>
                   <th className="px-5 py-3">Acknowledged (IST)</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.length === 0 ? (
-                  <tr><td className="px-5 py-8 text-center text-ink/70" colSpan={5}>No employees match.</td></tr>
+                  <tr><td className="px-5 py-8 text-center text-ink/70" colSpan={6}>No employees match.</td></tr>
                 ) : (
                   rows.map((r) => (
                     <tr key={r.employee_id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
@@ -159,6 +163,16 @@ export default function PolicyAcknowledgements() {
                           <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-rust-500">
                             <Clock size={12} /> Pending
                           </span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3 font-nums text-ink/70">
+                        {r.quiz_score != null ? (
+                          <span className={r.quiz_passed ? "text-jade-700" : "text-rust-500"}>
+                            {r.quiz_score}/{r.quiz_total}
+                          </span>
+                        ) : "—"}
+                        {r.quiz_attempts > 1 && (
+                          <span className="text-[10px] text-ink/50 ml-1">({r.quiz_attempts} attempts)</span>
                         )}
                       </td>
                       <td className="px-5 py-3 font-nums text-ink/70">{formatWhen(r.acknowledged_at)}</td>
