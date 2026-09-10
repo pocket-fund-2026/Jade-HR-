@@ -11,6 +11,10 @@
 // policy.
 
 export const QUIZ_POLICY_VERSION = "2026-08-23";
+// Must match backend/routers/policy_ack.py's QUIZ_PASS_RATIO — kept in sync
+// manually since the frontend uses it only for the "you need N of M"
+// display text, not for deciding pass/fail (the backend always does that).
+export const QUIZ_PASS_RATIO = 0.5;
 
 const QUESTION_BANK = [
   {
@@ -136,4 +140,13 @@ function shuffled(array) {
 
 export function drawQuizQuestions() {
   return shuffled(QUESTION_BANK).slice(0, QUESTIONS_PER_ATTEMPT);
+}
+
+// Shared between PolicyAcknowledgement.jsx (marks it seen the moment
+// someone finishes the quiz in this browser session) and App.jsx's
+// post-login QuizScorePopup (shows it once per session otherwise) — keeps
+// the popup from immediately re-appearing right after someone just saw
+// their score at the end of the quiz itself.
+export function quizPopupSessionKey(policyVersion) {
+  return `jade_hr_quiz_popup_${policyVersion}`;
 }

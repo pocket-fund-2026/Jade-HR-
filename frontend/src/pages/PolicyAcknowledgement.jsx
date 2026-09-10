@@ -3,10 +3,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAuth } from "../lib/auth.jsx";
 import api from "../lib/api.js";
-import { drawQuizQuestions, QUIZ_POLICY_VERSION } from "../lib/policyQuiz.js";
+import { drawQuizQuestions, quizPopupSessionKey, QUIZ_PASS_RATIO, QUIZ_POLICY_VERSION } from "../lib/policyQuiz.js";
 import { POLICY_TABS } from "./PolicyDocument.jsx";
 
-function PolicyQuiz({ onPassed }) {
+function PolicyQuiz({ onPassed, onFailed }) {
   const [questions, setQuestions] = useState(() => drawQuizQuestions());
   const [selected, setSelected] = useState({}); // question id -> option index
   const [result, setResult] = useState(null); // { score, total, passed }
@@ -30,7 +30,7 @@ function PolicyQuiz({ onPassed }) {
         policy_version: QUIZ_POLICY_VERSION, score, total, answers,
       });
       // Grading (result set below) is shown on the questions themselves —
-      // onPassed() only fires once the user clicks Continue, so a passing
+      // onPassed()/onFailed() only fire once the user clicks through, so a
       // score is never skipped past unseen.
       setResult({ score, total, passed: data.passed });
     } catch (err) {
@@ -40,13 +40,6 @@ function PolicyQuiz({ onPassed }) {
     }
   };
 
-  const retry = () => {
-    setQuestions(drawQuizQuestions());
-    setSelected({});
-    setResult(null);
-    setError("");
-  };
-
   return (
     <div className="flex-1 max-w-4xl w-full mx-auto px-5 sm:px-8 py-6">
       <div className="bg-paper rounded-sm shadow-card p-5 sm:p-6 mb-5">
@@ -54,8 +47,8 @@ function PolicyQuiz({ onPassed }) {
         <h2 className="font-display text-xl text-ink mb-1">Policy comprehension quiz</h2>
         <p className="text-sm text-ink/70">
           A few questions from what you just read, to confirm it landed — not a trick quiz, just the actual numbers
-          from the document above. You need {Math.ceil(questions.length * 0.8)} of {questions.length} correct to
-          continue; you can retry with a fresh set of questions if you don't pass.
+          from the document above. You need {Math.ceil(questions.length * QUIZ_PASS_RATIO)} of {questions.length}{" "}
+          correct to continue; failing sends you back to re-read the policy before trying again.
         </p>
       </div>
 
@@ -67,7 +60,7 @@ function PolicyQuiz({ onPassed }) {
         >
           {result.passed
             ? `You scored ${result.score} of ${result.total} — that's a pass. Correct/incorrect answers are marked below; click Continue when you're ready.`
-            : `You scored ${result.score} of ${result.total} — not quite enough this time. Correct answers are marked below. Have another look at the policy above, then try again with a new set of questions.`}
+            : `You scored ${result.score} of ${result.total} — not quite enough this time. Correct answers are marked below. You'll need to re-read the policy before trying the quiz again.`}
         </div>
       )}
 
@@ -126,7 +119,12 @@ function PolicyQuiz({ onPassed }) {
           result.passed ? (
             <button
               type="button"
-              onClick={onPassed}
+              onClick={() => {
+                // Already just saw the score on this screen — don't
+                // immediately show it again via the post-login popup too.
+                try { sessionStorage.setItem(quizPopupSessionKey(QUIZ_POLICY_VERSION), "1"); } catch { /* ignore */ }
+                onPassed();
+              }}
               className="flex items-center justify-center gap-1.5 bg-jade-600 text-white px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors"
             >
               <ShieldCheck size={15} /> Continue to the console
@@ -134,10 +132,10 @@ function PolicyQuiz({ onPassed }) {
           ) : (
             <button
               type="button"
-              onClick={retry}
+              onClick={onFailed}
               className="flex items-center justify-center gap-1.5 bg-jade-600 text-white px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors"
             >
-              Try again
+              Re-read the policy
             </button>
           )
         ) : (
@@ -195,6 +193,16 @@ export default function PolicyAcknowledgement() {
     return () => cancelAnimationFrame(id);
   }, [activeKey]);
 
+  // Failing the quiz sends them back to re-read the documents from scratch
+  // (scroll + checkbox reset) rather than straight back to another quiz
+  // attempt — a wrong answer means it didn't land the first time.
+  const restartFromReading = () => {
+    setReadKeys([]);
+    setConfirmed(false);
+    setActiveKey(POLICY_TABS[0].key);
+    setStage("read");
+  };
+
   const allRead = POLICY_TABS.every((t) => readKeys.includes(t.key));
   const Active = useMemo(
     () => POLICY_TABS.find((t) => t.key === activeKey)?.render ?? POLICY_TABS[0].render,
@@ -236,7 +244,7 @@ export default function PolicyAcknowledgement() {
       </header>
 
       {stage === "quiz" ? (
-        <PolicyQuiz onPassed={reloadPolicyAck} />
+        <PolicyQuiz onPassed={reloadPolicyAck} onFailed={restartFromReading} />
       ) : (
       <div className="flex-1 max-w-4xl w-full mx-auto px-5 sm:px-8 py-6 flex flex-col min-h-0">
         <div className="flex flex-wrap gap-2 mb-4">

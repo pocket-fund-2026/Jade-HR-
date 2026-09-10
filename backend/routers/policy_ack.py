@@ -23,7 +23,7 @@ router = APIRouter(prefix="/api/policy", tags=["policy-acknowledgement"])
 # bundle, so there's no real answer key to protect server-side), but
 # pass/fail is still decided here rather than trusted from the client, so a
 # stale or tampered "passed" flag can never slip through.
-QUIZ_PASS_RATIO = 0.8
+QUIZ_PASS_RATIO = 0.5
 
 # Bump this whenever the policy text changes materially. Every acknowledgement
 # is stored against the version it was given for, so raising it re-prompts the

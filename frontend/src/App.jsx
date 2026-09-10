@@ -1,11 +1,53 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { AuthProvider, useAuth } from "./lib/auth.jsx";
 import { canSeeHrTasks } from "./lib/hrTasksAccess.js";
+import { quizPopupSessionKey } from "./lib/policyQuiz.js";
 import Login from "./pages/Login.jsx";
 import Onboarding from "./pages/Onboarding.jsx";
 import Setup from "./pages/Setup.jsx";
+
+// Shown once per browser session (per policy version) after a successful
+// login, surfacing the score from their last policy-quiz attempt — separate
+// from the score shown at the end of the quiz itself (PolicyAcknowledgement.jsx
+// marks the same session key there, so this doesn't double up right after).
+function QuizScorePopup({ policyAck }) {
+  const version = policyAck?.policy_version;
+  const key = version ? quizPopupSessionKey(version) : null;
+  const alreadyShown = (() => {
+    try { return key ? sessionStorage.getItem(key) === "1" : true; } catch { return true; }
+  })();
+  const [dismissed, setDismissed] = useState(false);
+
+  if (dismissed || alreadyShown || !policyAck?.acknowledged || policyAck.quiz_last_score == null) return null;
+
+  const dismiss = () => {
+    try { if (key) sessionStorage.setItem(key, "1"); } catch { /* ignore */ }
+    setDismissed(true);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-ledger-900/60 flex items-center justify-center px-4 z-[100]">
+      <div className="bg-paper rounded-sm shadow-stamp w-full max-w-sm p-6 border-t-4 border-jade-500 text-center">
+        <p className="text-xs font-semibold uppercase tracking-wider text-jade-600 mb-1">Policy quiz</p>
+        <p className="font-display text-3xl text-ink mb-2 font-nums">
+          {policyAck.quiz_last_score} / {policyAck.quiz_last_total}
+        </p>
+        <p className="text-sm text-ink/70 mb-5">
+          Your last recorded score on the company policy comprehension quiz.
+        </p>
+        <button
+          type="button"
+          onClick={dismiss}
+          className="bg-ledger-800 text-manila px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+        >
+          Got it
+        </button>
+      </div>
+    </div>
+  );
+}
 
 // Vite fingerprints each lazy chunk's filename per build. A tab left open
 // across a deploy holds stale filenames — the dynamic import() 404s and
@@ -123,7 +165,12 @@ function Protected({ roles, children }) {
   // acknowledgement — same in-place-render / null-means-"don't decide" contract.
   if (personalInfo && !personalInfo.complete) return <PersonalInfoGate />;
   if (!personalInfo) return <PageFallback />;
-  return children;
+  return (
+    <>
+      {children}
+      <QuizScorePopup policyAck={policyAck} />
+    </>
+  );
 }
 
 // Gates a section behind an hr_permissions key — accounts always passes.
