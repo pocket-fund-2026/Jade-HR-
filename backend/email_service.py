@@ -170,6 +170,57 @@ def notify_late_digest(
     return sent_ok, (None if sent_ok else last_error)
 
 
+_CLOCK_SECTION_LABELS = {
+    "aip": ("Active AIPs", lambda r: f"AIP ends {r['end_date']}"),
+    "probation": ("Probation Ending", lambda r: f"probation completes {r['probation_completion_date']}"),
+    "notice": ("On Notice", lambda r: f"exits {r['scheduled_exit_date']}"),
+}
+
+
+def _days_label(days: int) -> str:
+    if days < 0:
+        return f"{abs(days)}d overdue"
+    if days == 0:
+        return "today"
+    if days == 1:
+        return "tomorrow"
+    return f"in {days}d"
+
+
+def notify_clocks_digest(
+    date_iso: str, sections: dict[str, list[dict]], recipient: str, include_report_link: bool = True,
+) -> tuple[bool, str | None]:
+    """Digest email for AIP/Probation/Notice clocks that have entered the
+    red/amber urgency zone (see routers.clocks.clocks_digest) — the same
+    HR-plus-per-manager split as notify_late_digest above. `sections` is
+    {"aip": [...], "probation": [...], "notice": [...]}, each row carrying
+    name/employee_code/location/days_remaining plus its own date field.
+    Sends nothing — (False, "empty_list"/"no_recipient") — when every section
+    is empty or there's no recipient, so nobody gets a "nothing due" email."""
+    if not recipient:
+        return False, "no_recipient"
+    total = sum(len(rows) for rows in sections.values())
+    if total == 0:
+        return False, "empty_list"
+    lines = [f"{total} HR clock{'s' if total != 1 else ''} due soon or overdue as of {date_iso}:", ""]
+    for key, (title, detail) in _CLOCK_SECTION_LABELS.items():
+        rows = sections.get(key) or []
+        if not rows:
+            continue
+        lines.append(f"{title} ({len(rows)}):")
+        for r in rows:
+            location = f" — {r['location']}" if r.get("location") else ""
+            lines.append(
+                f"  • {r.get('name', '')} ({r.get('employee_code', '')}){location}: "
+                f"{detail(r)} ({_days_label(r['days_remaining'])})"
+            )
+        lines.append("")
+    if include_report_link:
+        lines.append("Full view: https://jade-hr.vercel.app/admin/dashboard")
+    subject = f"HR clocks due — {date_iso} ({total})"
+    return send_email_detailed(recipient, subject, "\n".join(lines).rstrip())
+
+
 def notify_absence_submitted(
     employee_name: str, department: str, start_date: str, end_date: str,
     number_of_days: float, details: str, approver_email: str, hr_email: str,

@@ -9,12 +9,19 @@ buried inside the AIP page, and probation/notice had no countdown anywhere.
 
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
-from auth import require_permission
+import email_service
+from auth import require_console, require_permission
 from database import supabase
+from routers.payroll import _reporting_manager_emails
 
 router = APIRouter(prefix="/api/clocks", tags=["clocks"])
+
+# Same red/amber cutoff the Dashboard's ClocksPanel uses (urgencyClass in
+# Dashboard.jsx) — the digest only escalates what would already show up
+# color-coded there, not the full neutral-zone list.
+DIGEST_URGENCY_DAYS = 10
 
 # How far ahead a probation completion has to be to show up at all — without
 # this every employee ever on probation with no confirmation_date set would
@@ -48,8 +55,7 @@ def _person(emp: dict) -> dict:
     }
 
 
-@router.get("")
-def get_clocks(user: dict = Depends(require_permission("employees.view"))):
+def _compute_clocks() -> dict:
     today = date.today()
 
     # ---- AIP: active records, days remaining off end_date (can go negative
@@ -120,3 +126,52 @@ def get_clocks(user: dict = Depends(require_permission("employees.view"))):
     notice.sort(key=lambda r: r["days_remaining"])
 
     return {"aip": aip, "probation": probation, "notice": notice}
+
+
+@router.get("")
+def get_clocks(user: dict = Depends(require_permission("employees.view"))):
+    return _compute_clocks()
+
+
+@router.post("/digest")
+def clocks_digest(dry_run: bool = Query(default=False), user: dict = Depends(require_console)):
+    """Daily clocks digest — the AIP/Probation/Notice equivalent of
+    payroll.py's late_digest. HR gets one email with every clock currently in
+    the red/amber urgency zone (days_remaining <= DIGEST_URGENCY_DAYS, same
+    cutoff the Dashboard panel color-codes on); each affected employee's own
+    reporting manager separately gets only their reportees' entries, resolved
+    exactly like late_digest (see routers.payroll._reporting_manager_emails).
+    Sends nothing when nobody is in the urgency zone. Gated on require_console
+    so the existing sync account can call it — no new credential needed."""
+    clocks = _compute_clocks()
+    urgent = {
+        section: [r for r in rows if r["days_remaining"] <= DIGEST_URGENCY_DAYS]
+        for section, rows in clocks.items()
+    }
+    today_iso = date.today().isoformat()
+
+    emailed, email_error = False, None
+    manager_digests: list[dict] = []
+    if not dry_run:
+        emailed, email_error = email_service.notify_clocks_digest(
+            today_iso, urgent, email_service.HR_NOTIFY_EMAIL,
+        )
+        all_employee_ids = {r["employee_id"] for rows in urgent.values() for r in rows}
+        manager_emails_by_employee = _reporting_manager_emails(all_employee_ids)
+        urgent_by_manager_email: dict[str, dict[str, list[dict]]] = {}
+        for section, rows in urgent.items():
+            for r in rows:
+                for manager_email in manager_emails_by_employee.get(r["employee_id"], []):
+                    urgent_by_manager_email.setdefault(manager_email, {"aip": [], "probation": [], "notice": []})
+                    urgent_by_manager_email[manager_email][section].append(r)
+        for manager_email, mgr_sections in urgent_by_manager_email.items():
+            ok, err = email_service.notify_clocks_digest(
+                today_iso, mgr_sections, manager_email, include_report_link=False,
+            )
+            manager_digests.append({"recipient": manager_email, "emailed": ok, "email_error": err})
+
+    counts = {section: len(rows) for section, rows in urgent.items()}
+    return {
+        "date": today_iso, "counts": counts, "urgent": urgent,
+        "emailed": emailed, "email_error": email_error, "manager_digests": manager_digests,
+    }
