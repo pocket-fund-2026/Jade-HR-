@@ -15,7 +15,10 @@ The 9 departments named on the paper form (Finished Goods, Raw Material,
 Costing/Purchase, Operations, Admin, Audit, plus Department Head/Accounts/HR)
 have no logins of their own in jade-hr (CONSOLE_ROLES is just accounts/hr),
 so their sign-off is tracked by HR/Accounts typing in who signed and when —
-same as the paper form being walked around physically today.
+same as the paper form being walked around physically today. 3 IT/security
+rows (ID Card Return, Email/OMS/TDS Deactivation, IT Sign-off) were added on
+top of the paper form's original 9 — Rajendra Power (outsourced IT) has no
+jade-hr login either, so their sign-off is tracked the same way.
 """
 
 from datetime import datetime, timezone
@@ -29,7 +32,9 @@ from models import ExitAssetUpdate, ExitChecklistItemUpdate, ExitInitiate, ExitI
 
 router = APIRouter(prefix="/api/exit-records", tags=["exit-procedure"])
 
-# (department, item label) — verbatim order/wording from the Final Settlement Form.
+# (department, item label) — the Final Settlement Form's original 9 rows,
+# plus 3 IT/security rows (identity card return, system account
+# deactivation, and outsourced-IT sign-off) that weren't on the paper form.
 CHECKLIST_TEMPLATE = [
     ("Finished Goods", "Material"),
     ("Raw Material", "Material(s)"),
@@ -40,6 +45,9 @@ CHECKLIST_TEMPLATE = [
     ("Admin", "Equipment"),
     ("Audit", "Status"),
     ("HR", "Status"),
+    ("Admin", "Identity Card Return"),
+    ("IT", "Email / OMS / TDS Login Deactivation"),
+    ("IT (Rajendra Power)", "Deactivation Sign-off"),
 ]
 
 

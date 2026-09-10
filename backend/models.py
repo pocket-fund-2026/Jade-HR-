@@ -565,6 +565,8 @@ class OnboardingSubmissionCreate(BaseModel):
     pan_no: str = ""
     pan_card_path: str = ""
     salary_slip_paths: list[str] = []
+    photo_path: str = ""
+    resume_path: str = ""
     date_of_offer_letter: Optional[date] = None
 
     # Compensation

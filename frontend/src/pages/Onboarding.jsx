@@ -17,6 +17,7 @@ const EMPTY_FORM = {
   bank_name: "", bank_account_no: "", bank_ifsc: "",
   aadhar_no: "", aadhar_front_path: "", aadhar_back_path: "",
   pan_no: "", pan_card_path: "", salary_slip_paths: [],
+  photo_path: "", resume_path: "",
   date_of_offer_letter: "",
   designation: "", department: "", kra: "",
   requires_personal_email: false, requires_oms_login: false,
@@ -171,6 +172,11 @@ export default function Onboarding() {
   const submit = async (e) => {
     e.preventDefault();
     setError("");
+    if (!form.photo_path) {
+      setError("Please upload a photo before submitting");
+      window.scrollTo(0, 0);
+      return;
+    }
     setBusy(true);
     try {
       const payload = {
@@ -221,6 +227,7 @@ export default function Onboarding() {
             <TextField label="Mobile" value={form.mobile} onChange={set("mobile")} required />
             <TextField label="Emergency Contact No." value={form.emergency_contact_no} onChange={set("emergency_contact_no")} required />
             <TextField label="Email" type="email" value={form.email} onChange={set("email")} required />
+            <FileField label="Upload Photo" hint="A clear passport-style photo" count={form.photo_path ? 1 : 0} onUploaded={setFile("photo_path")} />
           </Section>
 
           <Section title="Permanent Address">
@@ -255,6 +262,12 @@ export default function Onboarding() {
               onUploaded={(paths) => setForm((f) => ({ ...f, salary_slip_paths: [...f.salary_slip_paths, ...paths] }))}
             />
             <TextField label="Date of Offer Letter" type="date" value={form.date_of_offer_letter} onChange={set("date_of_offer_letter")} />
+            <FileField
+              label="Upload Resume"
+              hint="For offline/consultant hires without one already on file — optional otherwise"
+              count={form.resume_path ? 1 : 0}
+              onUploaded={setFile("resume_path")}
+            />
           </Section>
 
           <Section title="Job Designation">

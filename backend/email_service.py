@@ -250,6 +250,10 @@ def notify_onboarding_submitted(submission: dict, hr_email: str) -> None:
         docs.append("Aadhar (back)")
     if submission.get("pan_card_path"):
         docs.append("PAN card")
+    if submission.get("photo_path"):
+        docs.append("Photo")
+    if submission.get("resume_path"):
+        docs.append("Resume")
     slip_count = len(submission.get("salary_slip_paths") or [])
     if slip_count:
         docs.append(f"{slip_count} salary slip{'s' if slip_count != 1 else ''}")

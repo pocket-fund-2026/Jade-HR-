@@ -145,6 +145,8 @@ function SubmissionDetail({ id, onBack, onResolved, canViewSalary }) {
             <DocLink label="Aadhar Card — Front" url={submission.aadhar_front_url} />
             <DocLink label="Aadhar Card — Back" url={submission.aadhar_back_url} />
             <DocLink label="PAN Card" url={submission.pan_card_url} />
+            <DocLink label="Photo" url={submission.photo_url} />
+            <DocLink label="Resume" url={submission.resume_url} />
             {canViewSalary && (submission.salary_slip_urls || []).map((u, i) => (
               <DocLink key={i} label={`Salary Slip ${i + 1}`} url={u} />
             ))}

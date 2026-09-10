@@ -80,6 +80,8 @@ def _with_signed_urls(submission: dict, include_salary_slips: bool = True) -> di
     submission["aadhar_front_url"] = _signed_url(submission.get("aadhar_front_path"))
     submission["aadhar_back_url"] = _signed_url(submission.get("aadhar_back_path"))
     submission["pan_card_url"] = _signed_url(submission.get("pan_card_path"))
+    submission["photo_url"] = _signed_url(submission.get("photo_path"))
+    submission["resume_url"] = _signed_url(submission.get("resume_path"))
     submission["salary_slip_urls"] = [
         u for u in (_signed_url(p) for p in submission.get("salary_slip_paths") or []) if u
     ] if include_salary_slips else []
