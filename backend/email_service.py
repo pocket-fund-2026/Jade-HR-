@@ -313,3 +313,45 @@ def notify_absence_resolved(
         + (f"\nNote: {admin_note}\n" if admin_note else "")
     )
     send_email(employee_email, subject, body)
+
+
+def notify_loan_submitted(employee_name: str, department: str, amount: float, reason: str, hr_email: str) -> None:
+    if not hr_email:
+        return
+    subject = f"Loan request from {employee_name} (₹{amount:,.0f})"
+    body = (
+        f"{employee_name} ({department}) has requested a loan/salary advance of ₹{amount:,.0f}.\n\n"
+        f"Reason: {reason}\n\n"
+        f"Review it in the JADE HR console: https://jade-hr.vercel.app/admin/loans\n"
+    )
+    send_email(hr_email, subject, body)
+
+
+def notify_loan_resolved(
+    employee_email: str, employee_name: str, status: str, amount: float, admin_note: str,
+) -> None:
+    if not employee_email:
+        return
+    subject = f"Your loan request has been {status}"
+    body = (
+        f"Hi {employee_name},\n\n"
+        f"Your loan/salary advance request for ₹{amount:,.0f} has been {status}.\n"
+        + (f"\nNote: {admin_note}\n" if admin_note else "")
+    )
+    send_email(employee_email, subject, body)
+
+
+def notify_exit_initiated(
+    employee_name: str, employee_code: str, resignation_date: str, last_working_day: str, hr_email: str,
+) -> None:
+    if not hr_email:
+        return
+    subject = f"Exit process started — {employee_name} ({employee_code})"
+    body = (
+        f"An exit has been initiated for {employee_name} ({employee_code}).\n\n"
+        f"Resignation date: {resignation_date}\n"
+        f"Last working day: {last_working_day}\n\n"
+        f"Track departmental clearance and the exit interview in the JADE HR console: "
+        f"https://jade-hr.vercel.app/admin/exit\n"
+    )
+    send_email(hr_email, subject, body)

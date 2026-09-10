@@ -627,6 +627,56 @@ class AbsenceResolve(BaseModel):
     admin_note: str = ""
 
 
+class ExitInitiate(BaseModel):
+    employee_id: str
+    resignation_date: date
+    last_working_day: date
+
+
+class ExitAssetUpdate(BaseModel):
+    system_no: Optional[str] = None
+    monitor_returned: Optional[bool] = None
+    keyboard_returned: Optional[bool] = None
+    mouse_returned: Optional[bool] = None
+    system_password_reset: Optional[bool] = None
+    email_password_reset: Optional[bool] = None
+
+
+class ExitChecklistItemUpdate(BaseModel):
+    status: str  # pending | completed
+    signed_by: str = ""
+    notes: str = ""
+
+
+class ExitInterviewSubmit(BaseModel):
+    reasons_for_leaving: list[str] = []
+    reason_other: str = ""
+    role_feedback: str = ""
+    management_feedback: str = ""
+    work_environment_feedback: str = ""
+    retention_insight: str = ""
+    would_rejoin: str = ""
+    would_recommend: str = ""
+    interviewee_signature: str = ""
+    interviewer_signature: str = ""
+
+
+class LoanRequestCreate(BaseModel):
+    department: str = ""
+    amount: float
+    reason: str
+    repayment_months: int = 1
+    guarantor_name: str = ""
+    guarantor_employee_code: str = ""
+    guarantor_details: str = ""
+    pdc_details: str = ""
+
+
+class LoanResolve(BaseModel):
+    action: str  # approve | reject
+    admin_note: str = ""
+
+
 class PersonalInfoUpdate(BaseModel):
     # The self-service-safe subset of EmployeeProfileUpdate required by the
     # mandatory "Personal Information" login gate (see

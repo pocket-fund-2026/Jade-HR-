@@ -1,4 +1,4 @@
-import { Briefcase, BookOpen, CalendarDays, CalendarPlus, CheckSquare, ClipboardList, FileBarChart, FileText, Flag, Home, KeyRound, LayoutDashboard, LogOut, MapPin, Menu, Plane, Receipt, Search, Shield, ShieldAlert, ShieldCheck, Stamp, UserPlus, Users, Users2, X } from "lucide-react";
+import { Briefcase, BookOpen, CalendarDays, CalendarPlus, CheckSquare, ClipboardList, DoorOpen, FileBarChart, FileText, Flag, Home, KeyRound, LayoutDashboard, LogOut, MapPin, Menu, Plane, Receipt, Search, Shield, ShieldAlert, ShieldCheck, Stamp, UserPlus, Users, Users2, Wallet, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
@@ -19,6 +19,7 @@ const navItems = [
   { to: "/admin/onboarding", label: "Onboarding", icon: UserPlus, badgeKey: "onboarding", permission: "onboarding.manage" },
   { to: "/admin/careers", label: "Careers", icon: Users2, permission: "careers.manage" },
   { to: "/admin/work-absence", label: "Work Absence", icon: Briefcase, badgeKey: "workAbsence", permission: "absence.manage" },
+  { to: "/admin/exit", label: "Exit Procedure", icon: DoorOpen, permission: "exit.manage" },
 
   // Time & Leave — requests, tracking, policy
   { to: "/admin/leave", label: "Leave", icon: Plane, badgeKey: "leave", permission: "leave.manage", sectionBreak: true },
@@ -32,6 +33,7 @@ const navItems = [
   { to: "/admin/payroll", label: "Payroll & OT", icon: Receipt, permission: "payroll.view", sectionBreak: true },
   { to: "/admin/payslip-approvals", label: "Payslip Approvals", icon: Stamp, badgeKey: "payslipApprovals", permission: "payslip_approvals.manage" },
   { to: "/admin/reports", label: "Reports", icon: FileBarChart, permission: ["payroll.view", "attendance.restricted_reports"] },
+  { to: "/admin/loans", label: "Loan Requests", icon: Wallet, badgeKey: "loans", permission: "loans.manage" },
 
   // Documents & Compliance
   { to: "/admin/letters", label: "Letters", icon: FileText, permission: ["letters.generate", "letters.manage"], sectionBreak: true },
@@ -244,6 +246,7 @@ export default function AdminLayout() {
   const [pendingWorkAbsence, setPendingWorkAbsence] = useState([]);
   const [pendingWfh, setPendingWfh] = useState([]);
   const [pendingMarketVisits, setPendingMarketVisits] = useState([]);
+  const [pendingLoans, setPendingLoans] = useState([]);
   // True once the first poll below has resolved — lets pages seed their own
   // "pending" tab from this data instead of re-fetching it themselves on
   // mount (an empty pending* array is ambiguous with "not fetched yet"
@@ -254,7 +257,7 @@ export default function AdminLayout() {
     disputes: pendingDisputes.length, leave: pendingLeave.length,
     payslipApprovals: pendingPayslipApprovals.length, onboarding: pendingOnboarding.length,
     workAbsence: pendingWorkAbsence.length, wfh: pendingWfh.length,
-    marketVisits: pendingMarketVisits.length,
+    marketVisits: pendingMarketVisits.length, loans: pendingLoans.length,
   };
   const canDisputes = can("disputes.manage");
   const canLeave = can("leave.manage");
@@ -263,6 +266,7 @@ export default function AdminLayout() {
   const canWorkAbsence = can("absence.manage");
   const canWfh = can("leave.manage", "wfh.approve");
   const canMarketVisits = can("market_visits.review");
+  const canLoans = can("loans.manage");
 
   useEffect(() => {
     let cancelled = false;
@@ -275,8 +279,9 @@ export default function AdminLayout() {
         canWorkAbsence ? api.get("/api/absence-requests", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
         canWfh ? api.get("/api/wfh-requests", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
         canMarketVisits ? api.get("/api/market-visits", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
+        canLoans ? api.get("/api/loan-requests", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
       ])
-        .then(([disputesRes, leaveRes, payslipApprovalsRes, onboardingRes, workAbsenceRes, wfhRes, marketVisitsRes]) => {
+        .then(([disputesRes, leaveRes, payslipApprovalsRes, onboardingRes, workAbsenceRes, wfhRes, marketVisitsRes, loansRes]) => {
           if (cancelled) return;
           setPendingDisputes(disputesRes.data);
           setPendingLeave(leaveRes.data);
@@ -285,6 +290,7 @@ export default function AdminLayout() {
           setPendingWorkAbsence(workAbsenceRes.data);
           setPendingWfh(wfhRes.data);
           setPendingMarketVisits(marketVisitsRes.data);
+          setPendingLoans(loansRes.data);
           setPendingLoaded(true);
         })
         .catch(() => {});
@@ -292,7 +298,7 @@ export default function AdminLayout() {
     poll();
     const interval = setInterval(poll, POLL_MS);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [canDisputes, canLeave, canPayslipApprovals, canOnboarding, canWorkAbsence, canWfh, canMarketVisits]);
+  }, [canDisputes, canLeave, canPayslipApprovals, canOnboarding, canWorkAbsence, canWfh, canMarketVisits, canLoans]);
 
   return (
     <div className="h-screen flex bg-manila overflow-hidden">

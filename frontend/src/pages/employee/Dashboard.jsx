@@ -1,10 +1,11 @@
-import { Bell, Briefcase, Flag, Home, Paperclip, Plane, Printer, X } from "lucide-react";
+import { Bell, Briefcase, Flag, Home, Paperclip, Plane, Printer, Wallet, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import AbsenceRequestModal from "../../components/AbsenceRequestModal.jsx";
 import DisputeModal from "../../components/DisputeModal.jsx";
 import LeaveRequestModal from "../../components/LeaveRequestModal.jsx";
+import LoanRequestModal from "../../components/LoanRequestModal.jsx";
 import MarketVisitCheckinCard from "../../components/MarketVisitCheckinCard.jsx";
 import MonthPicker from "../../components/MonthPicker.jsx";
 import PayslipDetail from "../../components/PayslipDetail.jsx";
@@ -33,6 +34,7 @@ export default function Dashboard() {
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [leaveBalance, setLeaveBalance] = useState([]);
   const [absenceRequests, setAbsenceRequests] = useState([]);
+  const [loanRequests, setLoanRequests] = useState([]);
   const [wfhRequests, setWfhRequests] = useState([]);
   const [aip, setAip] = useState(null);
   const [holidays, setHolidays] = useState([]);
@@ -41,6 +43,7 @@ export default function Dashboard() {
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showAbsenceModal, setShowAbsenceModal] = useState(false);
   const [showWfhModal, setShowWfhModal] = useState(false);
+  const [showLoanModal, setShowLoanModal] = useState(false);
   const [dismissedNotice, setDismissedNotice] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -64,16 +67,18 @@ export default function Dashboard() {
       api.get("/api/me/leave-requests"),
       api.get("/api/me/leave-balance"),
       api.get("/api/me/absence-requests"),
+      api.get("/api/me/loan-requests"),
       api.get("/api/me/holidays", { params: { year: today.getFullYear() } }),
       api.get("/api/wfh-requests/mine"),
       api.get("/api/late-policy/v3/aip/mine"),
     ])
-      .then(([payroll, disputesRes, leaveRes, balanceRes, absenceRes, holidaysRes, wfhRes, aipRes]) => {
+      .then(([payroll, disputesRes, leaveRes, balanceRes, absenceRes, loanRes, holidaysRes, wfhRes, aipRes]) => {
         setSummary(payroll.data);
         setDisputes(disputesRes.data);
         setLeaveRequests(leaveRes.data);
         setLeaveBalance(balanceRes.data);
         setAbsenceRequests(absenceRes.data);
+        setLoanRequests(loanRes.data);
         setHolidays(holidaysRes.data);
         setWfhRequests(wfhRes.data);
         setAip(aipRes.data);
@@ -208,6 +213,12 @@ export default function Dashboard() {
                   className="flex items-center gap-1.5 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-xs font-semibold hover:border-jade-500 transition-colors whitespace-nowrap"
                 >
                   <Home size={13} /> Request WFH
+                </button>
+                <button
+                  onClick={() => setShowLoanModal(true)}
+                  className="flex items-center gap-1.5 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-xs font-semibold hover:border-jade-500 transition-colors whitespace-nowrap"
+                >
+                  <Wallet size={13} /> Request Loan
                 </button>
               </div>
             </div>
@@ -373,6 +384,26 @@ export default function Dashboard() {
               </table>
             </div>
           )}
+          {loanRequests.length > 0 && (
+            <div className="bg-paper rounded-sm shadow-card overflow-hidden mt-6">
+              <p className="px-5 pt-4 pb-3 text-xs font-semibold uppercase tracking-wider text-ink/70">My loan requests</p>
+              <table className="w-full text-sm">
+                <tbody>
+                  {loanRequests.map((l) => (
+                    <tr key={l.id} className="border-t border-ink/[0.06]">
+                      <td className="px-5 py-3 font-nums text-ink/70 w-28">₹{Number(l.amount).toLocaleString("en-IN")}</td>
+                      <td className="px-5 py-3 text-ink/70 w-28 font-nums">{l.repayment_months} mo</td>
+                      <td className="px-5 py-3 text-ink/70">{l.reason}</td>
+                      <td className="px-5 py-3">
+                        <StampBadge status={l.status}>{l.status}</StampBadge>
+                        {l.admin_note && <div className="text-xs text-ink/70 mt-1">{l.admin_note}</div>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
           {wfhRequests.length > 0 && (
             <div className="bg-paper rounded-sm shadow-card overflow-hidden mt-6">
               <p className="px-5 pt-4 pb-3 text-xs font-semibold uppercase tracking-wider text-ink/70">My WFH requests</p>
@@ -427,6 +458,12 @@ export default function Dashboard() {
         <WFHRequestModal
           onClose={() => setShowWfhModal(false)}
           onSubmitted={() => { setShowWfhModal(false); load(); }}
+        />
+      )}
+      {showLoanModal && (
+        <LoanRequestModal
+          onClose={() => setShowLoanModal(false)}
+          onSubmitted={() => { setShowLoanModal(false); load(); }}
         />
       )}
     </div>

@@ -1,4 +1,4 @@
-import { ArrowLeft, KeyRound, Pencil, Plus, RotateCcw, Trash2, X } from "lucide-react";
+import { ArrowLeft, KeyRound, LogOut, Pencil, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
@@ -910,6 +910,59 @@ function SalaryStructureSection({ employeeId, dateOfJoining, canView, canEdit, p
   );
 }
 
+function InitiateExitModal({ employeeId, onClose, onCreated }) {
+  const [resignationDate, setResignationDate] = useState("");
+  const [lastWorkingDay, setLastWorkingDay] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      const { data } = await api.post("/api/exit-records", {
+        employee_id: employeeId, resignation_date: resignationDate, last_working_day: lastWorkingDay,
+      });
+      onCreated(data.id);
+    } catch (err) {
+      setError(err.response?.data?.detail || "Could not initiate exit");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const inputCls = "w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
+
+  return (
+    <div className="fixed inset-0 bg-ledger-900/60 flex items-center justify-center px-4 z-50">
+      <div className="bg-paper rounded-sm shadow-stamp w-full max-w-md p-6 border-t-4 border-jade-500">
+        <p className="font-display text-lg text-ink mb-1.5">Initiate Exit</p>
+        <p className="text-xs text-ink/70 mb-5">Starts the departmental clearance checklist and exit interview, and sets this employee to "On Notice".</p>
+        <form onSubmit={submit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Resignation Date</label>
+              <input type="date" required className={`${inputCls} font-nums`} value={resignationDate} onChange={(e) => setResignationDate(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Last Working Day</label>
+              <input type="date" required className={`${inputCls} font-nums`} value={lastWorkingDay} onChange={(e) => setLastWorkingDay(e.target.value)} />
+            </div>
+          </div>
+          {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
+          <div className="flex justify-end gap-3 pt-1">
+            <button type="button" onClick={onClose} className="text-sm text-ink/70 hover:text-ink px-2">Cancel</button>
+            <button type="submit" disabled={busy} className="bg-ledger-800 text-manila px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors">
+              {busy ? "Starting…" : "Start Exit Process"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function EmployeeDetails() {
   const { id } = useParams();
   const isNew = !id;
@@ -931,6 +984,7 @@ export default function EmployeeDetails() {
   const [mode, setMode] = useState(isNew ? "edit" : "view");
   const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [showAddArrear, setShowAddArrear] = useState(false);
+  const [showInitiateExit, setShowInitiateExit] = useState(false);
   const [activeTab, setActiveTab] = useState("personal");
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
@@ -1363,6 +1417,15 @@ export default function EmployeeDetails() {
                 </button>
               )
             )}
+            {!isNew && !editing && can("exit.manage") && form.employee_status !== "Exited" && (
+              <button
+                type="button"
+                onClick={() => setShowInitiateExit(true)}
+                className="flex items-center gap-1.5 text-sm text-ochre-700 hover:text-ochre-800 hover:underline"
+              >
+                <LogOut size={14} /> Initiate Exit
+              </button>
+            )}
             {!isNew && (
               <>
                 <label className={`flex items-center gap-2 text-sm text-ink ${editing ? "cursor-pointer" : "opacity-70"}`}>
@@ -1461,6 +1524,14 @@ export default function EmployeeDetails() {
           employee={{ id, name: `${form.first_name} ${form.last_name || ""}`.trim() }}
           onClose={() => setShowAddArrear(false)}
           onSaved={() => setShowAddArrear(false)}
+        />
+      )}
+
+      {showInitiateExit && (
+        <InitiateExitModal
+          employeeId={id}
+          onClose={() => setShowInitiateExit(false)}
+          onCreated={(exitId) => navigate(`/admin/exit/${exitId}`)}
         />
       )}
     </div>
