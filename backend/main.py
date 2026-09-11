@@ -3,7 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import ALLOWED_ORIGINS
 from routers import (
-    absence, arrears, auth, biometric, careers, clocks, confirmations, disputes, employee_profile, employees,
+    absence, arrears, auth, biometric, careers, clocks, comp_off, confirmations, disputes, employee_profile,
+    employees,
     exit_procedure,
     holidays, hr_tasks, late_policy, leave, leave_ledger, letters, loans, market_visits, onboarding, payroll,
     payslip_approvals, permissions, personal_info, policy_ack, reports, salary_paid, salary_structure, selfie,
@@ -50,6 +51,8 @@ app.include_router(salary_paid.router)
 app.include_router(hr_tasks.router)
 app.include_router(careers.router)
 app.include_router(clocks.router)
+app.include_router(comp_off.router)
+app.include_router(comp_off.me_router)
 app.include_router(confirmations.router)
 app.include_router(exit_procedure.router)
 app.include_router(exit_procedure.me_router)
