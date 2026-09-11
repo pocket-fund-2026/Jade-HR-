@@ -90,6 +90,7 @@ function ClocksPanel({ clocks }) {
           title="Probation Ending"
           rows={probation}
           empty="No probation completions due soon."
+          linkTo={() => "/admin/confirmations"}
         />
         <ClockColumn
           icon={LogOut}

@@ -1,4 +1,4 @@
-import { Briefcase, BookOpen, CalendarDays, CalendarPlus, CheckSquare, ClipboardList, DoorOpen, FileBarChart, FileText, Flag, Home, KeyRound, LayoutDashboard, LogOut, MapPin, Menu, Plane, Receipt, Search, Shield, ShieldAlert, ShieldCheck, Stamp, UserPlus, Users, Users2, Wallet, X } from "lucide-react";
+import { Briefcase, BookOpen, CalendarCheck, CalendarDays, CalendarPlus, CheckSquare, ClipboardList, DoorOpen, FileBarChart, FileText, Flag, Home, KeyRound, LayoutDashboard, LogOut, MapPin, Menu, Plane, Receipt, Search, Shield, ShieldAlert, ShieldCheck, Stamp, UserPlus, Users, Users2, Wallet, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
@@ -19,6 +19,7 @@ const navItems = [
   { to: "/admin/onboarding", label: "Onboarding", icon: UserPlus, badgeKey: "onboarding", permission: "onboarding.manage" },
   { to: "/admin/careers", label: "Careers", icon: Users2, permission: "careers.manage" },
   { to: "/admin/work-absence", label: "Work Absence", icon: Briefcase, badgeKey: "workAbsence", permission: "absence.manage" },
+  { to: "/admin/confirmations", label: "Confirmations", icon: CalendarCheck, permission: "employees.manage" },
   { to: "/admin/exit", label: "Exit Procedure", icon: DoorOpen, permission: "exit.manage" },
 
   // Time & Leave — requests, tracking, policy
