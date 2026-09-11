@@ -119,6 +119,7 @@ const OnboardingReview = lazyWithReload(() => import("./pages/admin/Onboarding.j
 const WorkAbsence = lazyWithReload(() => import("./pages/admin/WorkAbsence.jsx"));
 const Exit = lazyWithReload(() => import("./pages/admin/Exit.jsx"));
 const Confirmations = lazyWithReload(() => import("./pages/admin/Confirmations.jsx"));
+const CompOff = lazyWithReload(() => import("./pages/admin/CompOff.jsx"));
 const Loans = lazyWithReload(() => import("./pages/admin/Loans.jsx"));
 const WFHRequests = lazyWithReload(() => import("./pages/admin/WFHRequests.jsx"));
 const MarketVisits = lazyWithReload(() => import("./pages/admin/MarketVisits.jsx"));
@@ -250,6 +251,7 @@ export default function App() {
             <Route path="market-visits" element={<RequirePermission anyOf={["market_visits.review"]}><MarketVisits /></RequirePermission>} />
             <Route path="aip" element={<RequirePermission anyOf={["leave.manage"]}><AIP /></RequirePermission>} />
             <Route path="work-absence" element={<RequirePermission anyOf={["absence.manage"]}><WorkAbsence /></RequirePermission>} />
+            <Route path="comp-off" element={<RequirePermission anyOf={["employees.manage", "policy.manage"]}><CompOff /></RequirePermission>} />
             <Route path="confirmations" element={<RequirePermission anyOf={["employees.manage"]}><Confirmations /></RequirePermission>} />
             <Route path="exit" element={<RequirePermission anyOf={["exit.manage"]}><Exit /></RequirePermission>} />
             <Route path="exit/:id" element={<RequirePermission anyOf={["exit.manage"]}><Exit /></RequirePermission>} />

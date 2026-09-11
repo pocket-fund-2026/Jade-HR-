@@ -167,3 +167,40 @@ def my_comp_off(user: dict = Depends(get_current_user)):
         "validity_days": COMP_OFF_VALIDITY_DAYS,
         "entries": entries,
     }
+
+
+@router.get("/ledger/all")
+def list_all_comp_off(
+    status: str | None = Query(default=None, description="available | used | expired"),
+    user: dict = Depends(require_console),
+):
+    """Roster-wide ledger for the HR Comp-Off screen — who has what, where it
+    came from, and when it lapses. Per-employee detail stays on the existing
+    GET /api/comp-off/{employee_id}."""
+    query = supabase.table("hr_comp_off_ledger").select("*").order("earned_date", desc=True)
+    if status:
+        query = query.eq("status", status)
+    rows = query.execute().data or []
+    employees = {
+        e["id"]: e for e in (
+            supabase.table("hr_employees")
+            .select("id,employee_code,first_name,last_name,department,location")
+            .in_("id", list({r["employee_id"] for r in rows}))
+            .execute()
+            .data
+        ) or []
+    } if rows else {}
+    today = datetime.now(IST).date()
+    out = []
+    for r in rows:
+        e = employees.get(r["employee_id"], {})
+        expiry = date.fromisoformat(r["expiry_date"])
+        out.append({
+            **r,
+            "employee_code": e.get("employee_code"),
+            "name": f"{e.get('first_name', '')} {e.get('last_name') or ''}".strip(),
+            "department": e.get("department"),
+            "effective_status": "expired" if r["status"] == "available" and expiry < today else r["status"],
+            "days_to_expiry": (expiry - today).days,
+        })
+    return out

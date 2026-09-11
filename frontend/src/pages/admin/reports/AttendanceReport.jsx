@@ -7,7 +7,8 @@ import DateRangePicker from "../../../components/DateRangePicker.jsx";
 import MonthPicker from "../../../components/MonthPicker.jsx";
 import api from "../../../lib/api.js";
 import { useAuth } from "../../../lib/auth.jsx";
-import { dayNumber, exportAttendanceExcel, exportAttendanceTimingsExcel, STATUS_CODE, summarize } from "../../../lib/attendanceExport.js";
+import { LEAVE_LABELS } from "../../../lib/leaveTypes.js";
+import { dayCode, dayNumber, exportAttendanceExcel, exportAttendanceTimingsExcel, summarize } from "../../../lib/attendanceExport.js";
 import { formatHoursMins, formatTime } from "../../../lib/format.js";
 
 const today = new Date();
@@ -26,7 +27,7 @@ function cellTitle(d) {
     return `${formatTime(d.first_in)} – ${formatTime(d.last_out)}${late}, ${formatHoursMins(d.hours_worked)} worked, ${formatHoursMins(d.ot_hours)} OT${compOff}`;
   }
   if (d.status === "holiday") return d.holiday_description || "Holiday";
-  if (d.status === "leave") return `Leave (${d.leave_type})`;
+  if (d.status === "leave") return `${LEAVE_LABELS[d.leave_type] || "Leave"}${d.leave_type === "comp_off" ? " (from a day already worked)" : ""}`;
   return d.status;
 }
 
@@ -181,7 +182,7 @@ export default function AttendanceReport() {
         <div>
           <h2 className="font-display text-2xl text-ink">Attendance Sheet</h2>
           <p className="text-xs text-ink/70 font-nums mt-0.5 flex items-center gap-1.5 flex-wrap">
-            <span>P = Present · A = Absent · WO = Weekoff · H = Holiday · L = Leave · HD = Half Day — hover a cell for hours &amp; OT. Green dot = Comp-Off eligible.</span>
+            <span>P = Present · A = Absent · WO = Weekoff · H = Holiday · HD = Half Day · PL = Paid Leave · CO = Comp-Off · LWP = Leave Without Pay · ML/PTL/CL = Maternity/Paternity/Compassionate — hover a cell for hours &amp; OT. Green dot = Comp-Off eligible.</span>
             {canEdit && (
               <span className="inline-flex items-center gap-1 text-jade-700">
                 <Pencil size={11} /> Click any cell to correct it.
@@ -288,7 +289,7 @@ export default function AttendanceReport() {
                             <span
                               className={`relative inline-flex items-center justify-center w-7 h-5 rounded-sm font-semibold ${STATUS_CLASS[d.status] || ""}`}
                             >
-                              {STATUS_CODE[d.status] ?? d.status}
+                              {dayCode(d)}
                               {d.comp_off_eligible && (
                                 <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-jade-500 ring-1 ring-paper" />
                               )}

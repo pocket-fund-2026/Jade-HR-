@@ -750,9 +750,12 @@ def list_comp_off_ledger(employee_id: str, user: dict = Depends(require_permissi
 
 @router.post("/comp-off/grant")
 def grant_comp_off(body: CompOffGrant, user: dict = Depends(require_permission("employees.manage", "policy.manage"))):
-    """Manual grant only — the Comp-Off SOP requires HR to validate eligibility
-    (biometric/manual log/Zoho/HOD confirmation) before issuing one, not an
-    automatic issuance off the punch data."""
+    """HR granting a Comp-Off by hand — for the cases the punch data can't
+    see on its own (a holiday worked from home, an HOD-confirmed day, a
+    correction). Automatic issuance off the punch data now also exists
+    alongside this, in routers/comp_off.py's accrual scan; both write the
+    same ledger and the UNIQUE (employee_id, earned_date) keeps them from
+    ever double-crediting the same day."""
     if body.units not in (0.5, 1.0):
         raise HTTPException(status_code=400, detail="units must be 0.5 or 1.0")
     row = {

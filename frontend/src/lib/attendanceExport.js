@@ -9,6 +9,23 @@ export const STATUS_CODE = {
   present: "P", absent: "A", weekoff: "WO", holiday: "H", leave: "L", half_day: "HD", wfh: "WFH", future: "",
 };
 
+// A leave day's own type, so the sheet distinguishes Paid Leave from a
+// Comp-Off rather than showing a flat "L" for both (HR, 10 Sept 2026 —
+// "current system lacks differentiation between leave types (PL vs
+// comp-off) in the attendance sheet"). Anything not listed falls back to
+// the generic "L".
+export const LEAVE_TYPE_CODE = {
+  paid: "PL", comp_off: "CO", unpaid: "LWP", maternity: "ML", paternity: "PTL",
+  compassionate: "CL", casual: "CL", sick: "SL", earned: "EL",
+};
+
+// The code that actually goes in a day's cell: leave days carry their own
+// type code, everything else uses the status code.
+export function dayCode(d) {
+  if (d.status === "leave") return LEAVE_TYPE_CODE[d.leave_type] || STATUS_CODE.leave;
+  return STATUS_CODE[d.status] ?? d.status;
+}
+
 // Mirrors AttendanceReport.jsx's STATUS_CLASS (tailwind.config.js jade/rust/
 // ochre/manila/ink) — Excel cell colors can't reference Tailwind classes
 // directly, so these are hand-converted to ARGB and have to be kept in sync
@@ -197,7 +214,7 @@ export async function exportAttendanceExcel(rows, year, month, rangeLabel) {
       values.push(
         d.first_in ? formatTime(d.first_in) : "",
         d.last_out ? formatTime(d.last_out) : "",
-        STATUS_CODE[d.status] ?? d.status,
+        dayCode(d),
       );
     }
     const s = summarize(r.daily);
@@ -286,7 +303,7 @@ export async function exportAttendanceTimingsExcel(rows, year, month, rangeLabel
       // jade-hr has no separate per-day "shift code" concept (the source
       // system's "GS"/etc) — Shift mirrors Status (WO shows in both, same
       // as the reference) rather than inventing a code jade-hr can't back.
-      const status = STATUS_CODE[d.status] ?? d.status;
+      const status = dayCode(d);
       // `hours_worked` is the RAW in-to-out span and already contains
       // whatever portion of it counts as OT (e.g. a Saturday shift worked
       // 10:08-18:33 has hours_worked=8:25, of which 3:34 past the 3pm
@@ -358,7 +375,7 @@ export async function exportDailyAttendanceExcel(daily, { employeeCode, name, ra
       formatClockHHMM(d.last_out),
       formatDurationHHMM(d.hours_worked),
       formatDurationHHMM(d.ot_hours),
-      STATUS_CODE[d.status] ?? d.status,
+      dayCode(d),
     ]);
     colorRowByStatus(row, d.status, 1, 6);
     const tier = lateTier(d);
