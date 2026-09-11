@@ -39,6 +39,7 @@ export default function Dashboard() {
   const [wfhRequests, setWfhRequests] = useState([]);
   const [aip, setAip] = useState(null);
   const [myExit, setMyExit] = useState(null);
+  const [compOff, setCompOff] = useState(null);
   const [showExitInterview, setShowExitInterview] = useState(false);
   const [holidays, setHolidays] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -75,8 +76,9 @@ export default function Dashboard() {
       api.get("/api/wfh-requests/mine"),
       api.get("/api/late-policy/v3/aip/mine"),
       api.get("/api/me/exit-interview"),
+      api.get("/api/me/comp-off"),
     ])
-      .then(([payroll, disputesRes, leaveRes, balanceRes, absenceRes, loanRes, holidaysRes, wfhRes, aipRes, exitRes]) => {
+      .then(([payroll, disputesRes, leaveRes, balanceRes, absenceRes, loanRes, holidaysRes, wfhRes, aipRes, exitRes, compOffRes]) => {
         setSummary(payroll.data);
         setDisputes(disputesRes.data);
         setLeaveRequests(leaveRes.data);
@@ -87,6 +89,7 @@ export default function Dashboard() {
         setWfhRequests(wfhRes.data);
         setAip(aipRes.data);
         setMyExit(exitRes.data);
+        setCompOff(compOffRes.data);
         setDismissedNotice(false);
       })
       .finally(() => setLoading(false));
@@ -260,6 +263,44 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
+
+          {compOff?.entries?.length > 0 && (
+            <div className="bg-paper rounded-sm shadow-card p-5 mb-6 no-print">
+              <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-ink/70">Comp-Off earned</p>
+                <p className="text-xs text-ink/70">
+                  Balance <span className="font-nums text-ink font-semibold">{compOff.balance}</span> day(s) ·
+                  valid {compOff.validity_days} days from the day worked
+                </p>
+              </div>
+              <table className="w-full text-sm">
+                <tbody>
+                  {compOff.entries.map((c) => (
+                    <tr key={c.id} className="border-t border-ink/[0.06]">
+                      <td className="py-2 font-nums text-ink/70 w-32">{formatDate(c.earned_date)}</td>
+                      <td className="py-2 font-nums text-ink w-16">{c.units}d</td>
+                      <td className="py-2 text-ink/70">
+                        {c.effective_status === "available"
+                          ? `Expires ${formatDate(c.expiry_date)}${c.days_to_expiry <= 30 ? ` — ${c.days_to_expiry}d left` : ""}`
+                          : c.effective_status === "used"
+                            ? "Used against a leave"
+                            : "Expired"}
+                      </td>
+                      <td className="py-2 text-right">
+                        <StampBadge status={c.effective_status === "available" ? "approved" : c.effective_status === "used" ? "leave" : "inactive"}>
+                          {c.effective_status}
+                        </StampBadge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="text-[11px] text-ink/60 mt-3">
+                Earned by working a weekly off or declared holiday, or by working past 12:30 AM. Apply it by
+                requesting leave with type "Comp-Off" — your reporting manager and HR are notified for approval.
+              </p>
+            </div>
+          )}
 
           <div className="bg-paper rounded-sm shadow-card p-5 mb-6">
             <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-4">Holidays ({today.getFullYear()})</p>
