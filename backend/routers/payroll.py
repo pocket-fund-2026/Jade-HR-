@@ -590,6 +590,16 @@ def late_digest(
 # off through the month never trip it.
 SALARY_HOLD_ABSENCE_DAYS = 5
 
+# A genuine absence has punches running right up to the day it starts. A
+# never-enrolled account, a non-punching staff member, or a long-dormant
+# record has none — and since the scan can only see the current pay period,
+# those all look like a full-period absence starting on day one of it.
+# Requiring a punch within this many days BEFORE the run starts is what
+# separates "was coming in, then stopped" from "has no biometric data".
+# Without it the very first dry run flagged 78 of ~223 active employees;
+# with it, only the ~16 who actually stopped showing up.
+SALARY_HOLD_EVIDENCE_DAYS = 14
+
 
 # Non-working days don't count AS absence, but they don't interrupt it
 # either — someone absent Mon-Fri, off Saturday, then absent again Sun-Mon
@@ -661,6 +671,19 @@ def absence_hold_scan(
         employees, profiles_by_employee, holidays, year, month, keep_daily=True,
     )
 
+    # Last punch per employee, looking back far enough to tell a real
+    # stopped-coming-in absence from someone who simply has no biometric
+    # data at all (see SALARY_HOLD_EVIDENCE_DAYS).
+    period_start, _ = pay_period_bounds(year, month)
+    lookback_start = period_start.date() if hasattr(period_start, "date") else period_start
+    punches_by_code = _fetch_all_punches_by_employee_range(
+        lookback_start - timedelta(days=SALARY_HOLD_EVIDENCE_DAYS + 7), today,
+    )
+    last_punch_date = {
+        code: max(p.astimezone(IST).date() for p in punches)
+        for code, punches in punches_by_code.items() if punches
+    }
+
     already_held = {
         p["employee_id"] for p in (
             supabase.table("hr_employee_profile").select("employee_id,salary_hold").execute().data or []
@@ -674,6 +697,12 @@ def absence_hold_scan(
             continue
         days, start_iso, end_iso = run
         if days <= SALARY_HOLD_ABSENCE_DAYS:
+            continue
+        # Were they actually coming in before this run started? No recent
+        # punch means no biometric trail to be absent FROM — that's a data/
+        # enrolment gap for HR to chase, not grounds to hold a salary.
+        last_seen = last_punch_date.get(summary["employee_code"])
+        if not last_seen or (date.fromisoformat(start_iso) - last_seen).days > SALARY_HOLD_EVIDENCE_DAYS:
             continue
         entry = {
             "employee_id": summary["employee_id"],
