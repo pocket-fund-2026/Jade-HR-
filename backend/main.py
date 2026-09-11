@@ -50,6 +50,7 @@ app.include_router(hr_tasks.router)
 app.include_router(careers.router)
 app.include_router(clocks.router)
 app.include_router(exit_procedure.router)
+app.include_router(exit_procedure.me_router)
 app.include_router(loans.router)
 
 # Loads admin-defined shift time slots (hr_time_slots) into payroll.py's

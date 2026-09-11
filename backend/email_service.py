@@ -35,6 +35,10 @@ EMAIL_FROM = os.environ.get("EMAIL_FROM", "tina@jadecouture.com")
 # no one currently holds the hr console role in production; override via env
 # once/if that changes.
 HR_NOTIFY_EMAIL = os.environ.get("HR_NOTIFY_EMAIL", "nimit.b@jadecouture.com")
+# Accounts-side recipient for salary-hold alerts — Rushikesh Chande
+# (rushikesh@jadecouture.com, Accounts Executive), named directly by HR as
+# the person who acts on a hold alongside the HR team.
+SALARY_HOLD_NOTIFY_EMAIL = os.environ.get("SALARY_HOLD_NOTIFY_EMAIL", "rushikesh@jadecouture.com")
 
 
 def is_configured() -> bool:
@@ -343,6 +347,46 @@ def notify_loan_resolved(
         + (f"\nNote: {admin_note}\n" if admin_note else "")
     )
     send_email(employee_email, subject, body)
+
+
+def notify_salary_hold(holds: list[dict], recipients: list[str]) -> tuple[bool, str | None]:
+    """One alert listing everyone newly put on salary hold for a run of more
+    than 5 consecutive unapproved absent days (see routers/payroll.py's
+    absence_hold_scan). Goes to Accounts (Rushikesh) and the HR team
+    together, since both act on it. Sends nothing when nobody is newly held,
+    so there's no daily "0 today" noise."""
+    recipients = list(dict.fromkeys(r for r in recipients if r))
+    if not recipients:
+        return False, "no_recipient"
+    if not holds:
+        return False, "empty_list"
+    n = len(holds)
+    lines = [
+        f"{n} employee{'s' if n != 1 else ''} placed on SALARY HOLD for unapproved absence:",
+        "",
+    ]
+    for h in holds:
+        lines.append(
+            f"  • {h['name']} ({h['employee_code']}) — {h['days']} consecutive unapproved days, "
+            f"{h['start']} to {h['end']}"
+        )
+    lines += [
+        "",
+        "Company policy: more than 5 continuous days of absence without approved leave puts salary on hold.",
+        "The hold stays until HR/Accounts clears it on the employee's record — it does not lift automatically "
+        "when they return to work.",
+        "",
+        "Employee records: https://jade-hr.vercel.app/admin/employees",
+    ]
+    subject = f"Salary hold — unapproved absence ({n})"
+    body = "\n".join(lines)
+    sent_ok, last_error = False, None
+    for recipient in recipients:
+        ok, err = send_email_detailed(recipient, subject, body)
+        sent_ok = sent_ok or ok
+        if err:
+            last_error = err
+    return sent_ok, (None if sent_ok else last_error)
 
 
 def notify_exit_initiated(

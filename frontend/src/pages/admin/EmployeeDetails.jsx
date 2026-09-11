@@ -910,6 +910,48 @@ function SalaryStructureSection({ employeeId, dateOfJoining, canView, canEdit, p
   );
 }
 
+// Salary hold is set automatically by the unapproved-absence scan (see
+// routers/payroll.py's absence_hold_scan) and only ever cleared by hand —
+// returning to work never lifts it on its own. Gated on salary.edit rather
+// than employees.manage: it's a pay decision.
+function SalaryHoldBanner({ employeeId, form, canEditSalary, onChanged }) {
+  const [busy, setBusy] = useState(false);
+  if (!form.salary_hold) return null;
+
+  const release = async () => {
+    if (!window.confirm("Release this salary hold? Payroll will treat this employee normally again.")) return;
+    setBusy(true);
+    try {
+      await api.put(`/api/employees/${employeeId}/salary-hold`, { salary_hold: false, reason: "" });
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="bg-rust-50 border-l-4 border-rust-500 px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div>
+        <p className="text-sm font-semibold text-rust-500">Salary on hold</p>
+        <p className="text-xs text-ink/70 mt-0.5">
+          {form.salary_hold_reason || "No reason recorded."}
+          {form.salary_hold_since && ` — since ${form.salary_hold_since}`}
+        </p>
+      </div>
+      {canEditSalary && (
+        <button
+          type="button"
+          onClick={release}
+          disabled={busy}
+          className="bg-paper border border-ink/15 text-ink px-4 py-2 rounded-sm text-xs font-semibold hover:border-jade-500 disabled:opacity-50 transition-colors whitespace-nowrap self-start sm:self-auto"
+        >
+          {busy ? "Releasing…" : "Release hold"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function InitiateExitModal({ employeeId, onClose, onCreated }) {
   const [resignationDate, setResignationDate] = useState("");
   const [lastWorkingDay, setLastWorkingDay] = useState("");
@@ -1303,6 +1345,15 @@ export default function EmployeeDetails() {
             </div>
           )}
         </div>
+
+        {!isNew && (
+          <SalaryHoldBanner
+            employeeId={id}
+            form={form}
+            canEditSalary={canEditSalary}
+            onChanged={load}
+          />
+        )}
 
         {/* Tabs */}
         <div className="flex overflow-x-auto border-b border-ink/10 bg-manila/20">

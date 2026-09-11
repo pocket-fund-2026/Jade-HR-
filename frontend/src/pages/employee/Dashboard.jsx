@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 
 import AbsenceRequestModal from "../../components/AbsenceRequestModal.jsx";
 import DisputeModal from "../../components/DisputeModal.jsx";
+import ExitInterviewModal from "../../components/ExitInterviewModal.jsx";
 import LeaveRequestModal from "../../components/LeaveRequestModal.jsx";
 import LoanRequestModal from "../../components/LoanRequestModal.jsx";
 import MarketVisitCheckinCard from "../../components/MarketVisitCheckinCard.jsx";
@@ -37,6 +38,8 @@ export default function Dashboard() {
   const [loanRequests, setLoanRequests] = useState([]);
   const [wfhRequests, setWfhRequests] = useState([]);
   const [aip, setAip] = useState(null);
+  const [myExit, setMyExit] = useState(null);
+  const [showExitInterview, setShowExitInterview] = useState(false);
   const [holidays, setHolidays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [disputeDate, setDisputeDate] = useState(null);
@@ -71,8 +74,9 @@ export default function Dashboard() {
       api.get("/api/me/holidays", { params: { year: today.getFullYear() } }),
       api.get("/api/wfh-requests/mine"),
       api.get("/api/late-policy/v3/aip/mine"),
+      api.get("/api/me/exit-interview"),
     ])
-      .then(([payroll, disputesRes, leaveRes, balanceRes, absenceRes, loanRes, holidaysRes, wfhRes, aipRes]) => {
+      .then(([payroll, disputesRes, leaveRes, balanceRes, absenceRes, loanRes, holidaysRes, wfhRes, aipRes, exitRes]) => {
         setSummary(payroll.data);
         setDisputes(disputesRes.data);
         setLeaveRequests(leaveRes.data);
@@ -82,6 +86,7 @@ export default function Dashboard() {
         setHolidays(holidaysRes.data);
         setWfhRequests(wfhRes.data);
         setAip(aipRes.data);
+        setMyExit(exitRes.data);
         setDismissedNotice(false);
       })
       .finally(() => setLoading(false));
@@ -143,6 +148,23 @@ export default function Dashboard() {
         <p className="text-ink/70">Loading ledger…</p>
       ) : (
         <div className="print-area">
+          {myExit?.has_exit && (
+            <div className="bg-manila border border-ink/20 rounded-sm px-4 py-3 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
+              <div className="text-sm text-ink/80">
+                <strong className="text-ink">Exit interview</strong> — your last working day is{" "}
+                {formatDate(myExit.last_working_day)}.{" "}
+                {myExit.submitted
+                  ? "Thanks, your answers are with HR. You can still update them until your last day."
+                  : "Please fill this in before you leave — it goes straight to HR."}
+              </div>
+              <button
+                onClick={() => setShowExitInterview(true)}
+                className="flex items-center gap-1.5 bg-ledger-800 text-manila px-3 py-2 rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors whitespace-nowrap self-start sm:self-auto"
+              >
+                {myExit.submitted ? "Review answers" : "Fill exit interview"}
+              </button>
+            </div>
+          )}
           {aip && aip.status === "active" && (
             <div className="bg-rust-50 border border-rust-500/40 rounded-sm px-4 py-3 mb-6 text-sm text-rust-500 no-print">
               <strong>You are on an Attendance Improvement Plan</strong> — {formatDate(aip.start_date)} to{" "}
@@ -458,6 +480,13 @@ export default function Dashboard() {
         <WFHRequestModal
           onClose={() => setShowWfhModal(false)}
           onSubmitted={() => { setShowWfhModal(false); load(); }}
+        />
+      )}
+      {showExitInterview && (
+        <ExitInterviewModal
+          existing={myExit?.interview}
+          onClose={() => setShowExitInterview(false)}
+          onSubmitted={() => { setShowExitInterview(false); load(); }}
         />
       )}
       {showLoanModal && (

@@ -1,6 +1,6 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -8,6 +8,7 @@ import email_service
 from auth import CONSOLE_ROLES, get_current_user, require_console, require_permission, user_can
 from config import IST
 from database import maybe_single_data, supabase
+from models import SalaryHoldUpdate
 from payroll import (
     WEEKOFF_LOOKBACK_DAYS, compute_attendance_for_range, compute_monthly_summary, fy_label_for_month,
     pay_period_bounds,
@@ -581,6 +582,162 @@ def late_digest(
         "date": target_iso, "count": len(late), "late": public_late,
         "emailed": emailed, "email_error": email_error, "hod_digests": hod_digests,
     }
+
+
+# More than this many CONSECUTIVE unapproved absent days puts salary on hold
+# (HR instruction, 10 Sept 2026). Consecutive, not cumulative — it mirrors
+# the offer letter's own continuous-absence clause, so scattered odd days
+# off through the month never trip it.
+SALARY_HOLD_ABSENCE_DAYS = 5
+
+
+# Non-working days don't count AS absence, but they don't interrupt it
+# either — someone absent Mon-Fri, off Saturday, then absent again Sun-Mon
+# has been gone 8 days, and letting the weekly-off reset the counter would
+# hide exactly the long absences this scan exists to catch.
+_ABSENCE_RUN_PASSTHROUGH = ("weekoff", "holiday")
+
+
+def _longest_trailing_absence_run(daily: list[dict], today_iso: str) -> tuple[int, str, str] | None:
+    """The run of unapproved absent days still in progress as of today —
+    counting only 'absent' days, but reading THROUGH weekly-offs and closed
+    holidays (see above). Returns (absent_days, start_iso, end_iso), or None
+    if the most recent working day wasn't an absence.
+
+    payroll.py resolves approved leave to 'leave' and WFH to 'wfh', so an
+    'absent' row is by construction an UNAPPROVED absence. Because the walk
+    starts at the most recent day and stops dead on the first present/leave/
+    wfh day, anything it returns is necessarily still ongoing — a run they
+    already came back from can never reach the end of the list."""
+    past = [r for r in daily if r["date"] <= today_iso and r["status"] != "future"]
+    absent_dates: list[str] = []
+    for row in reversed(past):
+        if row["status"] in _ABSENCE_RUN_PASSTHROUGH:
+            continue
+        if row["status"] != "absent":
+            break
+        absent_dates.append(row["date"])
+    if not absent_dates:
+        return None
+    absent_dates.reverse()
+    return len(absent_dates), absent_dates[0], absent_dates[-1]
+
+
+@router.post("/attendance/absence-hold-scan")
+def absence_hold_scan(
+    dry_run: bool = Query(default=False),
+    user: dict = Depends(require_console),
+):
+    """Flags anyone currently on a run of MORE than SALARY_HOLD_ABSENCE_DAYS
+    consecutive unapproved absent days, sets salary_hold on their profile,
+    and alerts Rushikesh (Accounts) + HR in one email.
+
+    Only counts a run that is still ongoing (ends today or yesterday) — an
+    absence someone has already returned from is water under the bridge as
+    far as holding the current salary goes. Idempotent: an employee already
+    on hold is skipped, so re-running (or a cron retry) never re-alerts or
+    overwrites the original hold reason. The hold is never lifted here —
+    only HR/Accounts clears it (see set_salary_hold), so returning to work
+    doesn't silently release it.
+
+    Gated on require_console so the existing sync account can drive it from
+    cron, same as the late digest above.
+    """
+    today = datetime.now(IST).date()
+    today_iso = today.isoformat()
+    year, month = _pay_period_label_for(today)
+
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        employees_future = pool.submit(
+            lambda: supabase.table("hr_employees").select("*").eq("is_active", True).execute().data
+        )
+        profiles_future = pool.submit(_fetch_all_compliance_profiles)
+        holidays_future = pool.submit(_fetch_holidays)
+        employees = employees_future.result()
+        profiles_by_employee = profiles_future.result()
+        holidays = holidays_future.result()
+
+    summaries = _all_summaries_for_month(
+        employees, profiles_by_employee, holidays, year, month, keep_daily=True,
+    )
+
+    already_held = {
+        p["employee_id"] for p in (
+            supabase.table("hr_employee_profile").select("employee_id,salary_hold").execute().data or []
+        ) if p.get("salary_hold")
+    }
+
+    flagged, skipped_already_held = [], []
+    for summary in summaries:
+        run = _longest_trailing_absence_run(summary.get("daily") or [], today_iso)
+        if not run:
+            continue
+        days, start_iso, end_iso = run
+        if days <= SALARY_HOLD_ABSENCE_DAYS:
+            continue
+        entry = {
+            "employee_id": summary["employee_id"],
+            "employee_code": summary["employee_code"],
+            "name": summary["name"],
+            "days": days,
+            "start": start_iso,
+            "end": end_iso,
+        }
+        if summary["employee_id"] in already_held:
+            skipped_already_held.append(entry)
+            continue
+        flagged.append(entry)
+
+    emailed, email_error = False, None
+    if flagged and not dry_run:
+        now_iso = datetime.now(timezone.utc).isoformat()
+        for f in flagged:
+            supabase.table("hr_employee_profile").upsert(
+                {
+                    "employee_id": f["employee_id"],
+                    "salary_hold": True,
+                    "salary_hold_reason": (
+                        f"{f['days']} consecutive unapproved absent days ({f['start']} to {f['end']}) — "
+                        f"auto-flagged by the absence scan"
+                    ),
+                    "salary_hold_since": today_iso,
+                    "updated_at": now_iso,
+                },
+                on_conflict="employee_id",
+            ).execute()
+        emailed, email_error = email_service.notify_salary_hold(
+            [{k: v for k, v in f.items() if k != "employee_id"} for f in flagged],
+            [email_service.SALARY_HOLD_NOTIFY_EMAIL, email_service.HR_NOTIFY_EMAIL],
+        )
+
+    return {
+        "date": today_iso,
+        "threshold_days": SALARY_HOLD_ABSENCE_DAYS,
+        "newly_held": [{k: v for k, v in f.items() if k != "employee_id"} for f in flagged],
+        "already_on_hold": [{k: v for k, v in f.items() if k != "employee_id"} for f in skipped_already_held],
+        "emailed": emailed,
+        "email_error": email_error,
+    }
+
+
+@router.put("/employees/{employee_id}/salary-hold")
+def set_salary_hold(
+    employee_id: str,
+    body: SalaryHoldUpdate,
+    user: dict = Depends(require_permission("salary.edit")),
+):
+    """HR/Accounts setting or (more usually) clearing a salary hold. Kept on
+    salary.edit rather than employees.manage — it's a pay decision, so it
+    belongs with whoever can already change pay."""
+    updates = {
+        "employee_id": employee_id,
+        "salary_hold": body.salary_hold,
+        "salary_hold_reason": body.reason,
+        "salary_hold_since": datetime.now(IST).date().isoformat() if body.salary_hold else None,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    supabase.table("hr_employee_profile").upsert(updates, on_conflict="employee_id").execute()
+    return {"ok": True, "salary_hold": body.salary_hold}
 
 
 MAX_RANGE_MONTHS = 12  # each month re-fetches punches/overrides/leaves/declarations

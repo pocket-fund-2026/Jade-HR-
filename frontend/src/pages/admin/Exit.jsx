@@ -6,12 +6,6 @@ import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
 import { formatDate } from "../../lib/format.js";
 
-const REASON_OPTIONS = [
-  "Better opportunity", "Compensation", "Career growth", "Relocation", "Work environment",
-  "Management/team issues", "Health/personal reasons", "Family reasons", "Retirement", "Other",
-];
-const YES_NO_MAYBE = ["Yes", "No", "Maybe"];
-
 const inputCls =
   "w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
 
@@ -122,124 +116,31 @@ function AssetSection({ record, onUpdated }) {
   );
 }
 
-function InterviewSection({ record, onUpdated }) {
+// Read-only: the exit interview is filled in by the RESIGNING EMPLOYEE from
+// their own dashboard (HR instruction, 10 Sept 2026 — "should be only filled
+// by the employees who has resigned"), so HR sees the answers here but never
+// types them. The only write path is POST /api/me/exit-interview.
+function InterviewSection({ record }) {
   const existing = record.interview;
-  const [editing, setEditing] = useState(!existing);
-  const [form, setForm] = useState(() => ({
-    reasons_for_leaving: existing?.reasons_for_leaving || [],
-    reason_other: existing?.reason_other || "",
-    role_feedback: existing?.role_feedback || "",
-    management_feedback: existing?.management_feedback || "",
-    work_environment_feedback: existing?.work_environment_feedback || "",
-    retention_insight: existing?.retention_insight || "",
-    would_rejoin: existing?.would_rejoin || "",
-    would_recommend: existing?.would_recommend || "",
-    interviewee_signature: existing?.interviewee_signature || "",
-    interviewer_signature: existing?.interviewer_signature || "",
-  }));
-  const [saving, setSaving] = useState(false);
-
-  const setField = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-  const toggleReason = (r) =>
-    setField("reasons_for_leaving", form.reasons_for_leaving.includes(r)
-      ? form.reasons_for_leaving.filter((x) => x !== r)
-      : [...form.reasons_for_leaving, r]);
-
-  const save = async () => {
-    setSaving(true);
-    try {
-      const { data } = await api.post(`/api/exit-records/${record.id}/interview`, form);
-      onUpdated({ ...record, interview: data });
-      setEditing(false);
-    } finally {
-      setSaving(false);
-    }
-  };
-
   return (
     <div className="bg-paper rounded-sm shadow-card p-5 mb-6">
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-xs font-semibold uppercase tracking-wider text-ink/70">Employee Exit Interview</p>
-        {!editing && <button onClick={() => setEditing(true)} className="text-xs text-jade-600 hover:underline">Edit</button>}
-      </div>
-
-      {!editing ? (
-        existing ? (
-          <div className="space-y-3 text-sm text-ink/80">
-            <p><strong>Reasons for leaving:</strong> {existing.reasons_for_leaving.join(", ") || "—"}{existing.reason_other ? ` (${existing.reason_other})` : ""}</p>
-            <p><strong>Role/performance feedback:</strong> {existing.role_feedback || "—"}</p>
-            <p><strong>Management/team feedback:</strong> {existing.management_feedback || "—"}</p>
-            <p><strong>Work environment feedback:</strong> {existing.work_environment_feedback || "—"}</p>
-            <p><strong>Retention insight:</strong> {existing.retention_insight || "—"}</p>
-            <p><strong>Would rejoin:</strong> {existing.would_rejoin || "—"} &nbsp; <strong>Would recommend:</strong> {existing.would_recommend || "—"}</p>
-            <p className="text-xs text-ink/50">Submitted {formatDate(existing.submitted_at)}</p>
-          </div>
-        ) : (
-          <p className="text-sm text-ink/70">Not yet conducted.</p>
-        )
-      ) : (
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Reason(s) for leaving</label>
-            <div className="flex flex-wrap gap-x-4 gap-y-2">
-              {REASON_OPTIONS.map((r) => (
-                <label key={r} className="flex items-center gap-1.5 text-sm text-ink cursor-pointer">
-                  <input type="checkbox" checked={form.reasons_for_leaving.includes(r)} onChange={() => toggleReason(r)} className="rounded border-ink/30 text-jade-600 focus:ring-jade-500" />
-                  {r}
-                </label>
-              ))}
-            </div>
-            {form.reasons_for_leaving.includes("Other") && (
-              <input className={`${inputCls} mt-2`} placeholder="Please specify" value={form.reason_other} onChange={(e) => setField("reason_other", e.target.value)} />
-            )}
-          </div>
-          {[
-            ["role_feedback", "Role & Performance Experience"],
-            ["management_feedback", "Management & Team Feedback"],
-            ["work_environment_feedback", "Work Environment & Organization"],
-            ["retention_insight", "Retention Insight (what could have kept you?)"],
-          ].map(([key, label]) => (
-            <div key={key}>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">{label}</label>
-              <textarea className={`${inputCls} min-h-[60px]`} value={form[key]} onChange={(e) => setField(key, e.target.value)} />
-            </div>
-          ))}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Would rejoin JADE?</label>
-              <select className={inputCls} value={form.would_rejoin} onChange={(e) => setField("would_rejoin", e.target.value)}>
-                <option value="">—</option>
-                {YES_NO_MAYBE.map((v) => <option key={v} value={v}>{v}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Would recommend JADE?</label>
-              <select className={inputCls} value={form.would_recommend} onChange={(e) => setField("would_recommend", e.target.value)}>
-                <option value="">—</option>
-                {YES_NO_MAYBE.map((v) => <option key={v} value={v}>{v}</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Interviewee signature (typed name)</label>
-              <input className={inputCls} value={form.interviewee_signature} onChange={(e) => setField("interviewee_signature", e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Interviewer signature (typed name)</label>
-              <input className={inputCls} value={form.interviewer_signature} onChange={(e) => setField("interviewer_signature", e.target.value)} />
-            </div>
-          </div>
-          <div className="flex justify-end gap-3">
-            {existing && <button onClick={() => setEditing(false)} className="text-sm text-ink/70 hover:text-ink px-2">Cancel</button>}
-            <button
-              onClick={save} disabled={saving}
-              className="bg-ledger-800 text-manila px-4 py-2 rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
-            >
-              {saving ? "Saving…" : "Save Interview"}
-            </button>
-          </div>
+      <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-3">Employee Exit Interview</p>
+      {existing ? (
+        <div className="space-y-3 text-sm text-ink/80">
+          <p><strong>Reasons for leaving:</strong> {(existing.reasons_for_leaving || []).join(", ") || "—"}{existing.reason_other ? ` (${existing.reason_other})` : ""}</p>
+          <p><strong>Role/performance feedback:</strong> {existing.role_feedback || "—"}</p>
+          <p><strong>Management/team feedback:</strong> {existing.management_feedback || "—"}</p>
+          <p><strong>Work environment feedback:</strong> {existing.work_environment_feedback || "—"}</p>
+          <p><strong>Retention insight:</strong> {existing.retention_insight || "—"}</p>
+          <p><strong>Would rejoin:</strong> {existing.would_rejoin || "—"} &nbsp; <strong>Would recommend:</strong> {existing.would_recommend || "—"}</p>
+          <p><strong>Signed:</strong> {existing.interviewee_signature || "—"}</p>
+          <p className="text-xs text-ink/50">Submitted by the employee on {formatDate(existing.submitted_at)}</p>
         </div>
+      ) : (
+        <p className="text-sm text-ink/70">
+          Not yet submitted. The employee fills this in from their own dashboard — an "Exit interview" prompt
+          appears there for as long as this exit is in progress.
+        </p>
       )}
     </div>
   );
@@ -322,7 +223,7 @@ function ExitDetail({ id }) {
       </div>
 
       <AssetSection record={record} onUpdated={(updated) => setRecord(updated)} />
-      <InterviewSection record={record} onUpdated={(updated) => setRecord(updated)} />
+      <InterviewSection record={record} />
 
       {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5 mb-4">{error}</p>}
 

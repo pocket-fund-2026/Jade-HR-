@@ -26,7 +26,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 import email_service
-from auth import require_permission
+from auth import get_current_user, require_permission
 from database import maybe_single_data, supabase
 from models import ExitAssetUpdate, ExitChecklistItemUpdate, ExitInitiate, ExitInterviewSubmit
 
@@ -232,14 +232,13 @@ def finalize_exit(exit_id: str, user: dict = Depends(require_permission("exit.ma
     return _hydrate(updated)
 
 
-@router.post("/{exit_id}/interview")
-def submit_interview(exit_id: str, body: ExitInterviewSubmit, user: dict = Depends(require_permission("exit.manage"))):
+def _upsert_interview(exit_id: str, body: ExitInterviewSubmit, submitted_by: str) -> dict:
     exists = supabase.table("hr_exit_interviews").select("id").eq("exit_id", exit_id).maybe_single().execute()
     now = datetime.now(timezone.utc).isoformat()
     row = {
         "exit_id": exit_id,
         **body.model_dump(),
-        "submitted_by": user["id"],
+        "submitted_by": submitted_by,
         "submitted_at": now,
         "updated_at": now,
     }
@@ -248,3 +247,55 @@ def submit_interview(exit_id: str, body: ExitInterviewSubmit, user: dict = Depen
     else:
         resp = supabase.table("hr_exit_interviews").insert(row).execute()
     return resp.data[0]
+
+
+def _open_exit_for(employee_id: str) -> dict | None:
+    resp = (
+        supabase.table("hr_exit_records")
+        .select("*")
+        .eq("employee_id", employee_id)
+        .eq("status", "in_progress")
+        .execute()
+    )
+    return resp.data[0] if resp.data else None
+
+
+# --- Employee self-service -------------------------------------------------
+# The exit interview is filled in by the RESIGNING EMPLOYEE, not by HR (HR
+# instruction, 10 Sept 2026) — these two endpoints are the only way it gets
+# written, and they're gated on the caller having an exit of their own
+# in progress. HR's own view of it (via GET /{exit_id} above) is read-only.
+
+me_router = APIRouter(prefix="/api/me/exit-interview", tags=["exit-procedure"])
+
+
+@me_router.get("")
+def my_exit_interview(user: dict = Depends(get_current_user)):
+    """Whether the signed-in employee has an exit in progress and, if so,
+    their own interview answers so far. Returns has_exit=False for everyone
+    who hasn't resigned — the form never appears for them."""
+    record = _open_exit_for(user["id"])
+    if not record:
+        return {"has_exit": False}
+    interview = maybe_single_data(
+        supabase.table("hr_exit_interviews").select("*").eq("exit_id", record["id"]).maybe_single().execute()
+    )
+    return {
+        "has_exit": True,
+        "exit_id": record["id"],
+        "resignation_date": record["resignation_date"],
+        "last_working_day": record["last_working_day"],
+        "submitted": interview is not None,
+        "interview": interview,
+    }
+
+
+@me_router.post("")
+def submit_my_exit_interview(body: ExitInterviewSubmit, user: dict = Depends(get_current_user)):
+    record = _open_exit_for(user["id"])
+    if not record:
+        raise HTTPException(
+            status_code=403,
+            detail="The exit interview is only available once HR has started your exit process.",
+        )
+    return _upsert_interview(record["id"], body, user["id"])

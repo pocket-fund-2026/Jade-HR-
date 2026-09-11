@@ -638,6 +638,11 @@ class AbsenceResolve(BaseModel):
     admin_note: str = ""
 
 
+class SalaryHoldUpdate(BaseModel):
+    salary_hold: bool
+    reason: str = ""
+
+
 class ExitInitiate(BaseModel):
     employee_id: str
     resignation_date: date
