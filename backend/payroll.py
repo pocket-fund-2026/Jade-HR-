@@ -97,16 +97,19 @@ def _late_grace_for(time_slot: str | None, day: date) -> time:
     return (datetime.combine(date(2000, 1, 1), start) + timedelta(minutes=minutes)).time()
 
 # Stay-back policy (Leave & Attendance Policy v1.1, section 4): a late FINISH
-# the prior day earns a later grace THE FOLLOWING day. Two tiers by how late
-# the prior shift ran: finished past 8:30 PM -> report by 11:00 AM next day;
-# a shift that runs past MIDNIGHT -> report by 12:00 PM next day (detected via
-# MIDNIGHT_TAIL_CUTOFF / _midnight_crossing_dates, since a past-midnight
-# clock-out buckets into the next calendar day). A past-midnight finish is a
-# grace extension, NOT a comp-off — comp-off is earned only by weekly-off /
-# declared-holiday work (v1.1 section 5).
-STAY_BACK_CUTOFF = time(20, 30)  # finished past 8:30 PM -> next day 11:00 AM
+# the prior day earns a later grace THE FOLLOWING day. Three tiers by how late
+# the prior shift ran, matching the policy document's own wording (see the
+# "Staying back late" list in frontend/src/pages/PolicyDocument.jsx):
+# finished past 8:30 PM -> report by 11:00 AM next day; past 10:30 PM ->
+# report by 12:00 PM; a shift that runs past MIDNIGHT -> also 12:00 PM
+# (detected via MIDNIGHT_TAIL_CUTOFF / _midnight_crossing_dates, since a
+# past-midnight clock-out buckets into the next calendar day). A past-midnight
+# finish is a grace extension, NOT a comp-off — comp-off is earned only by
+# weekly-off / declared-holiday work (v1.1 section 5).
+STAY_BACK_CUTOFF = time(20, 30)       # finished past 8:30 PM -> next day 11:00 AM
 STAY_BACK_GRACE = time(11, 0)
-MIDNIGHT_GRACE = time(12, 0)      # ran past midnight -> next day 12:00 PM
+STAY_BACK_LATE_CUTOFF = time(22, 30)  # finished past 10:30 PM -> next day 12:00 PM
+MIDNIGHT_GRACE = time(12, 0)          # ran past midnight -> next day 12:00 PM
 # Punches are bucketed by IST calendar date (group_punches_by_day), not by
 # shift — a clock-out after midnight lands in the NEXT day's bucket instead
 # of staying attached to the shift that earned it. A first punch before this
@@ -315,7 +318,12 @@ def _stay_back_extension_for(
     if prior in midnight_tail_dates:
         return MIDNIGHT_GRACE
     prior_punches = by_day.get(prior, [])
-    if prior_punches and prior_punches[-1].astimezone(IST).time() > STAY_BACK_CUTOFF:
+    if not prior_punches:
+        return None
+    finished = prior_punches[-1].astimezone(IST).time()
+    if finished > STAY_BACK_LATE_CUTOFF:
+        return MIDNIGHT_GRACE
+    if finished > STAY_BACK_CUTOFF:
         return STAY_BACK_GRACE
     return None
 
