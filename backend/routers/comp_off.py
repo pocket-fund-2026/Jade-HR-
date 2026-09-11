@@ -7,7 +7,7 @@ signals per day:
 
   comp_off_eligible     — worked a weekly off or a declared holiday
                           (v1.1 section 5), 0.5 units under 4h else 1.0
-  comp_off_eligible_v3  — work continuing past 12:30 AM (v3 doc section 21)
+  comp_off_eligible_v3  — work continuing past midnight, non-OT staff only
 
 ...but nothing ever wrote them to the ledger, so every balance was zero and
 the feature was effectively dead. This scan closes that loop.
@@ -35,8 +35,8 @@ from routers.payroll import (
 router = APIRouter(prefix="/api/comp-off", tags=["comp-off"])
 me_router = APIRouter(prefix="/api/me/comp-off", tags=["comp-off"])
 
-# Work past 12:30 AM earns a full day (v3 section 21) — unlike weekly-off /
-# holiday work, which is half a day under 4 hours (payroll.comp_off_units).
+# Work past midnight earns a full day — unlike weekly-off / holiday work,
+# which is half a day under 4 hours (payroll.comp_off_units).
 MIDNIGHT_COMP_OFF_UNITS = 1.0
 
 
@@ -56,7 +56,7 @@ def _accrual_rows_for(summary: dict) -> list[dict]:
             earned.append({
                 "earned_date": row["date"],
                 "units": MIDNIGHT_COMP_OFF_UNITS,
-                "reason": "Work continued past 12:30 AM",
+                "reason": "Work continued past midnight",
             })
     return earned
 
