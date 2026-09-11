@@ -6,8 +6,8 @@ import api from "../lib/api.js";
 import { drawQuizQuestions, quizPopupSessionKey, QUIZ_PASS_RATIO, QUIZ_POLICY_VERSION } from "../lib/policyQuiz.js";
 import { POLICY_TABS } from "./PolicyDocument.jsx";
 
-function PolicyQuiz({ onPassed, onFailed }) {
-  const [questions, setQuestions] = useState(() => drawQuizQuestions());
+function PolicyQuiz({ employeeCategory, onPassed, onFailed }) {
+  const [questions, setQuestions] = useState(() => drawQuizQuestions(employeeCategory));
   const [selected, setSelected] = useState({}); // question id -> option index
   const [result, setResult] = useState(null); // { score, total, passed }
   const [submitting, setSubmitting] = useState(false);
@@ -160,13 +160,27 @@ function PolicyQuiz({ onPassed, onFailed }) {
 // opened — otherwise the button could never unlock on a large screen.
 const SCROLL_TOLERANCE_PX = 24;
 
+// Only the document that actually governs this person: corporate staff read
+// the Corporate Policy, everyone else (employee_category 'factory_retail')
+// reads the Retail Policy — the same 2-value split PolicyDocument.jsx uses
+// for its own section gating. An unrecognised/missing category falls back to
+// every tab rather than guessing, so nobody can end up with nothing to read.
+function tabsForCategory(employeeCategory) {
+  if (!employeeCategory) return POLICY_TABS;
+  const ownKey = employeeCategory === "corporate" ? "2025" : "2026";
+  const own = POLICY_TABS.filter((t) => t.key === ownKey);
+  return own.length ? own : POLICY_TABS;
+}
+
 export default function PolicyAcknowledgement() {
   const { user, policyAck, reloadPolicyAck } = useAuth();
+  const employeeCategory = user?.employee_category;
+  const tabs = useMemo(() => tabsForCategory(employeeCategory), [employeeCategory]);
   // If the read-and-acknowledge row is already on file but the quiz hasn't
   // been passed yet (e.g. they closed the tab mid-quiz), skip straight back
   // to the quiz on return instead of making them re-read and re-confirm.
   const [stage, setStage] = useState(policyAck?.documents_read_recorded ? "quiz" : "read");
-  const [activeKey, setActiveKey] = useState(POLICY_TABS[0].key);
+  const [activeKey, setActiveKey] = useState(tabs[0].key);
   const [readKeys, setReadKeys] = useState([]);
   const [confirmed, setConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -199,14 +213,14 @@ export default function PolicyAcknowledgement() {
   const restartFromReading = () => {
     setReadKeys([]);
     setConfirmed(false);
-    setActiveKey(POLICY_TABS[0].key);
+    setActiveKey(tabs[0].key);
     setStage("read");
   };
 
-  const allRead = POLICY_TABS.every((t) => readKeys.includes(t.key));
+  const allRead = tabs.every((t) => readKeys.includes(t.key));
   const Active = useMemo(
-    () => POLICY_TABS.find((t) => t.key === activeKey)?.render ?? POLICY_TABS[0].render,
-    [activeKey],
+    () => tabs.find((t) => t.key === activeKey)?.render ?? tabs[0].render,
+    [tabs, activeKey],
   );
 
   const submit = async () => {
@@ -238,17 +252,17 @@ export default function PolicyAcknowledgement() {
           <p className="text-sm text-manila/70 mt-1.5">
             {stage === "quiz"
               ? "One last step before the console unlocks."
-              : `${user?.name ? `${user.name}, before` : "Before"} you use the HR Console, please read each policy document below and confirm that you've read and understood it. This is recorded against your employee record.`}
+              : `${user?.name ? `${user.name}, before` : "Before"} you use the HR Console, please read the policy document below and confirm that you've read and understood it. This is recorded against your employee record.`}
           </p>
         </div>
       </header>
 
       {stage === "quiz" ? (
-        <PolicyQuiz onPassed={reloadPolicyAck} onFailed={restartFromReading} />
+        <PolicyQuiz employeeCategory={employeeCategory} onPassed={reloadPolicyAck} onFailed={restartFromReading} />
       ) : (
       <div className="flex-1 max-w-4xl w-full mx-auto px-5 sm:px-8 py-6 flex flex-col min-h-0">
         <div className="flex flex-wrap gap-2 mb-4">
-          {POLICY_TABS.map((t) => {
+          {tabs.map((t) => {
             const isRead = readKeys.includes(t.key);
             return (
               <button
@@ -272,8 +286,10 @@ export default function PolicyAcknowledgement() {
         <p className="text-xs text-ink/70 mb-3 flex items-center gap-1.5">
           <FileText size={13} />
           {allRead
-            ? "All documents read. Confirm below to continue."
-            : `Scroll to the end of each document to mark it read — ${readKeys.length} of ${POLICY_TABS.length} done.`}
+            ? `${tabs.length === 1 ? "Document" : "All documents"} read. Confirm below to continue.`
+            : tabs.length === 1
+              ? "Scroll to the end of the document to mark it read."
+              : `Scroll to the end of each document to mark it read — ${readKeys.length} of ${tabs.length} done.`}
         </p>
 
         <div
@@ -298,8 +314,9 @@ export default function PolicyAcknowledgement() {
               className="mt-0.5 h-4 w-4 rounded-sm border-ink/30 text-jade-600 focus:ring-jade-500 disabled:opacity-40"
             />
             <span className={allRead ? "" : "text-ink/70"}>
-              I confirm that I have read and understood all {POLICY_TABS.length} policy documents above, including the
-              Attendance, Punctuality, Leave &amp; WFH Policy effective from the 23 Aug 2026 pay cycle, and I accept them.
+              {tabs.length === 1
+                ? `I confirm that I have read and understood the ${tabs[0].label} above, including the Attendance, Punctuality, Leave & WFH Policy effective from the 23 Aug 2026 pay cycle, and I accept it.`
+                : `I confirm that I have read and understood all ${tabs.length} policy documents above, including the Attendance, Punctuality, Leave & WFH Policy effective from the 23 Aug 2026 pay cycle, and I accept them.`}
             </span>
           </label>
           {error && <p className="text-sm text-rust-500 mt-3">{error}</p>}
