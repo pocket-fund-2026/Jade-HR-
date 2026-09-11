@@ -100,6 +100,7 @@ const CtcAsPerPayslipReport = lazyWithReload(() => import("./pages/admin/reports
 const ArrearDetailsReport = lazyWithReload(() => import("./pages/admin/reports/ArrearDetailsReport.jsx"));
 const SalaryPaidReport = lazyWithReload(() => import("./pages/admin/reports/SalaryPaidReport.jsx"));
 const HrTasks = lazyWithReload(() => import("./pages/admin/HrTasks.jsx"));
+const HrTasksReport = lazyWithReload(() => import("./pages/admin/HrTasksReport.jsx"));
 const FullAndFinalReport = lazyWithReload(() => import("./pages/admin/reports/FullAndFinalReport.jsx"));
 const AccountsJvReport = lazyWithReload(() => import("./pages/admin/reports/AccountsJvReport.jsx"));
 const BankTransferReport = lazyWithReload(() => import("./pages/admin/reports/BankTransferReport.jsx"));
@@ -267,6 +268,7 @@ export default function App() {
             <Route path="team-access" element={<RequirePermission anyOf={["permissions.manage"]}><TeamAccess /></RequirePermission>} />
             <Route path="onboarding" element={<RequirePermission anyOf={["onboarding.manage"]}><OnboardingReview /></RequirePermission>} />
             <Route path="hr-tasks" element={<RequireHrRole><HrTasks /></RequireHrRole>} />
+            <Route path="hr-tasks/report" element={<RequireHrRole><HrTasksReport /></RequireHrRole>} />
             <Route path="careers" element={<RequirePermission anyOf={["careers.manage"]}><Careers /></RequirePermission>} />
             <Route path="careers/new" element={<RequirePermission anyOf={["careers.manage"]}><CareersJobForm /></RequirePermission>} />
             <Route path="careers/:id/edit" element={<RequirePermission anyOf={["careers.manage"]}><CareersJobForm /></RequirePermission>} />

@@ -5,7 +5,7 @@ from config import ALLOWED_ORIGINS
 from routers import (
     absence, arrears, auth, biometric, careers, clocks, comp_off, confirmations, disputes, employee_profile,
     employees,
-    exit_procedure,
+    exit_procedure, hr_tasks_report,
     holidays, hr_tasks, late_policy, leave, leave_ledger, letters, loans, market_visits, onboarding, payroll,
     payslip_approvals, permissions, personal_info, policy_ack, reports, salary_paid, salary_structure, selfie,
     store_timings, tax_declaration, wfh,
@@ -49,6 +49,7 @@ app.include_router(market_visits.router)
 app.include_router(arrears.router)
 app.include_router(salary_paid.router)
 app.include_router(hr_tasks.router)
+app.include_router(hr_tasks_report.router)
 app.include_router(careers.router)
 app.include_router(clocks.router)
 app.include_router(comp_off.router)

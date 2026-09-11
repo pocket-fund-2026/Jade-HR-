@@ -1,5 +1,6 @@
-import { Check, Pencil, Plus, Trash2 } from "lucide-react";
+import { BarChart3, Check, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 
 import api from "../../lib/api.js";
 import { formatFullDate } from "../../lib/format.js";
@@ -153,6 +154,12 @@ export default function HrTasks() {
             <option value="all">All priorities</option>
             {PRIORITIES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
+          <Link
+            to="/admin/hr-tasks/report"
+            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-4 py-2.5 rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
+          >
+            <BarChart3 size={16} /> Report
+          </Link>
           <button
             onClick={startCreate}
             className="flex items-center gap-2 bg-ledger-800 text-manila px-4 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
