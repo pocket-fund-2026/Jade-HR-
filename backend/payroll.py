@@ -117,11 +117,13 @@ MIDNIGHT_GRACE = time(12, 0)          # ran past midnight -> next day 12:00 PM
 # is 10 AM) — it's the tail of the PRIOR day's overnight finish.
 MIDNIGHT_TAIL_CUTOFF = time(6, 0)
 
-# v3 doc §21: work continuing past 12:30 AM earns an actual Comp-Off credit
-# (distinct from the §20/v1.1 grace-only extension above, which fires at a
-# looser "past 8:30 PM" / "past midnight" threshold). Dormant with the rest
-# of Policy v3 — see LATE_POLICY_V3_EFFECTIVE.
-MIDNIGHT_COMP_OFF_CUTOFF_V3 = time(0, 30)
+# Work continuing past MIDNIGHT earns an actual Comp-Off credit (distinct
+# from the §20/v1.1 grace-only extension above). The v3 source doc put this
+# at 12:30 AM, but the policy document employees actually read and
+# acknowledge says plainly "Stayed back past midnight (6+ hours extra):
+# eligible for a comp-off", and HR restated it as midnight on 11 Sept 2026 —
+# so the acknowledged policy wins over the stricter drafting note.
+MIDNIGHT_COMP_OFF_CUTOFF_V3 = time(0, 0)
 
 # Employees on this time_slot (hr_employee_profile.time_slot) get a shortened
 # Saturday — 10:00 AM - 3:00 PM (5h) — instead of their usual weekday
@@ -600,7 +602,14 @@ def compute_daily_attendance(
                 tail_punches = by_day.get(d + timedelta(days=1), [])
                 tail_time = tail_punches[0].astimezone(IST).time() if tail_punches else None
                 row["midnight_tail_punch_time"] = tail_time.isoformat() if tail_time else None
-                row["comp_off_eligible_v3"] = bool(tail_time and tail_time > MIDNIGHT_COMP_OFF_CUTOFF_V3)
+                # OT-eligible staff are already PAID for that late night, so
+                # a comp-off on top would be double compensation — the policy's
+                # stay-back section is explicitly headed "not applicable to
+                # OT-eligible depts/designations", and HR restated it as a
+                # non-OT entitlement on 11 Sept 2026.
+                row["comp_off_eligible_v3"] = bool(
+                    tail_time and tail_time > MIDNIGHT_COMP_OFF_CUTOFF_V3 and not ot_eligible
+                )
         rows.append(row)
         d += timedelta(days=1)
 
