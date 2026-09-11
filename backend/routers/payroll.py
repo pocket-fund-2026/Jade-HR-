@@ -684,14 +684,26 @@ def absence_hold_scan(
         for code, punches in punches_by_code.items() if punches
     }
 
-    already_held = {
-        p["employee_id"] for p in (
-            supabase.table("hr_employee_profile").select("employee_id,salary_hold").execute().data or []
-        ) if p.get("salary_hold")
+    hold_state = (
+        supabase.table("hr_employee_profile")
+        .select("employee_id,salary_hold,employee_status,exit_date")
+        .execute()
+        .data
+    ) or []
+    already_held = {p["employee_id"] for p in hold_state if p.get("salary_hold")}
+    # Someone who has already left can't be "absent" — holding their salary
+    # is noise, and the F&F is its own process. hr_employees.is_active often
+    # still reads true for a recent leaver, so the profile is the authority.
+    departed = {
+        p["employee_id"] for p in hold_state
+        if p.get("employee_status") == "Exited"
+        or (p.get("exit_date") and p["exit_date"] <= today_iso)
     }
 
     flagged, skipped_already_held = [], []
     for summary in summaries:
+        if summary["employee_id"] in departed:
+            continue
         run = _longest_trailing_absence_run(summary.get("daily") or [], today_iso)
         if not run:
             continue
