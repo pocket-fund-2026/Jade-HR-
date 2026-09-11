@@ -31,7 +31,12 @@ HQ_LOCATION = "Madhu Estate, Mumbai"  # exact-match convention already used for 
 PATERNITY_ALLOCATION = 3
 DEPRECATED_LEAVE_TYPES = ("casual", "sick", "earned")
 MERGED_PAID_LEAVE_TYPES = ("paid",) + DEPRECATED_LEAVE_TYPES
-CORPORATE_ONLY_TYPES = {"paternity", "maternity", "compassionate", "comp_off"}
+# comp_off deliberately NOT in here: both policy documents grant comp-off —
+# the Retail tab ("1 day comp-off for working a Saturday/Sunday/public
+# holiday") as well as the Corporate one — and the accrual scan credits the
+# whole roster, so restricting it to corporate left factory_retail staff
+# earning days they were then refused when they tried to spend them.
+CORPORATE_ONLY_TYPES = {"paternity", "maternity", "compassionate"}
 PL_PROBATION_DAYS = 91  # ~3 months
 # Late-coming policy (revised Jul 2026): a Red Card month (5+ late marks)
 # blocks new PL/Comp-Off requests entirely, not just the leave-day-becomes-
@@ -632,14 +637,17 @@ def my_leave_balance(user: dict = Depends(get_current_user)):
     uncapped = ["unpaid", "other"] + (["maternity", "compassionate"] if is_corporate else [])
     balances += [{"leave_type": t, "allocated": None, "used": used.get(t, 0), "remaining": None} for t in uncapped]
 
-    if is_corporate:
-        available = _comp_off_available(user["id"])
-        balances.append({
-            "leave_type": "comp_off",
-            "allocated": round(available + used.get("comp_off", 0), 1),
-            "used": used.get("comp_off", 0),
-            "remaining": round(available, 1),
-        })
+    # Everyone, not just corporate — both policy documents grant comp-off and
+    # the accrual credits the whole roster, so hiding the balance from
+    # factory_retail staff meant days they had genuinely earned were invisible
+    # to them (see CORPORATE_ONLY_TYPES above).
+    available = _comp_off_available(user["id"])
+    balances.append({
+        "leave_type": "comp_off",
+        "allocated": round(available + used.get("comp_off", 0), 1),
+        "used": used.get("comp_off", 0),
+        "remaining": round(available, 1),
+    })
 
     return balances
 

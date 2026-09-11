@@ -23,7 +23,10 @@ export const LEAVE_LABELS = {
 // catch-all HR wanted removed. Both stay in LEAVE_LABELS so old requests render.
 export const SELECTABLE_LEAVE_TYPES = ["paid", "paternity", "maternity", "compassionate", "comp_off"];
 
-export const CORPORATE_ONLY_TYPES = new Set(["paternity", "maternity", "compassionate", "comp_off"]);
+// comp_off is available to everyone — both the Retail and Corporate policy
+// documents grant it, and the nightly accrual credits the whole roster.
+// Keep in step with routers/leave.py's CORPORATE_ONLY_TYPES.
+export const CORPORATE_ONLY_TYPES = new Set(["paternity", "maternity", "compassionate"]);
 
 export function selectableLeaveTypes(isCorporate) {
   return SELECTABLE_LEAVE_TYPES.filter((t) => isCorporate || !CORPORATE_ONLY_TYPES.has(t));
