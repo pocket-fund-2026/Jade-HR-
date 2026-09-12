@@ -1,5 +1,5 @@
 import { Download, Upload, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import api from "../lib/api.js";
 import { parseCsv } from "../lib/csv.js";
@@ -11,6 +11,24 @@ export default function ReportingManagerImportModal({ onClose, onImported }) {
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [suggestions, setSuggestions] = useState(null);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(true);
+
+  // Best-guess resolution of the existing free-text reporting_to field (e.g.
+  // "Sagar", "Dharmesh/Akshay", "Ma'am/ Sir") to an actual employee_code —
+  // loaded once up front so the template below can come prefilled with
+  // matched rows instead of every row starting blank. Never writes anything
+  // itself (see reporting_manager_suggestions' own docstring).
+  useEffect(() => {
+    api.get("/api/employees/reporting-manager-suggestions")
+      .then(({ data }) => setSuggestions(data))
+      .catch(() => setSuggestions([]))
+      .finally(() => setSuggestionsLoading(false));
+  }, []);
+
+  const matchedCount = suggestions?.filter((s) => s.status === "matched").length ?? 0;
+  const ambiguousCount = suggestions?.filter((s) => s.status === "ambiguous").length ?? 0;
+  const unresolvedCount = suggestions?.filter((s) => s.status === "unresolved").length ?? 0;
 
   const handleFile = async (e) => {
     const file = e.target.files[0];
@@ -50,20 +68,35 @@ export default function ReportingManagerImportModal({ onClose, onImported }) {
     }
   };
 
-  // Prefilled with every active employee's own code/name and a blank
-  // manager_employee_code column — filling in a code they know per row
-  // beats requiring HR to build the roster from scratch.
+  // Prefilled with every active employee's own code/name, plus (where the
+  // existing free-text reporting_to field resolved unambiguously) a guessed
+  // manager_employee_code — see reporting_manager_suggestions. Ambiguous/
+  // unresolved rows come with their candidates or the original free text in
+  // a Notes column instead of a guess, so HR reviews those specifically
+  // rather than re-typing all ~150 rows from a blank sheet.
   const downloadTemplate = async () => {
     setDownloading(true);
     try {
       const { data } = await api.get("/api/employees", { params: { lite: true } });
-      const lines = ["employee_code,name,manager_employee_code"];
+      const suggestionByCode = new Map((suggestions || []).map((s) => [s.employee_code, s]));
+      const lines = ["employee_code,name,manager_employee_code,notes"];
       data
         .filter((e) => e.is_active)
         .sort((a, b) => `${a.first_name}`.localeCompare(b.first_name))
         .forEach((e) => {
           const name = `${e.first_name} ${e.last_name || ""}`.trim().replace(/,/g, " ");
-          lines.push(`${e.employee_code},${name},`);
+          const s = suggestionByCode.get(e.employee_code);
+          let guess = "";
+          let note = "";
+          if (s?.status === "matched") {
+            guess = s.suggested_manager_code;
+            note = `auto-matched: "${s.reporting_to}" -> ${s.suggested_manager_name}. Confirm or correct.`;
+          } else if (s?.status === "ambiguous") {
+            note = `"${s.reporting_to}" is ambiguous — candidates: ${s.candidates.join(" | ")}`;
+          } else if (s?.status === "unresolved") {
+            note = `"${s.reporting_to}" didn't match any active employee`;
+          }
+          lines.push(`${e.employee_code},${name},${guess},"${note.replace(/"/g, "'")}"`);
         });
       const blob = new Blob([lines.join("\n")], { type: "text/csv" });
       const url = URL.createObjectURL(blob);
@@ -85,14 +118,27 @@ export default function ReportingManagerImportModal({ onClose, onImported }) {
         </button>
         <p className="text-xs font-semibold uppercase tracking-wider text-jade-600 mb-1">Bulk import</p>
         <p className="font-display text-lg text-ink mb-1">Reporting Managers</p>
-        <p className="text-xs text-ink/70 mb-5">
+        <p className="text-xs text-ink/70 mb-3">
           Sets who each employee's late-coming digest email goes to (in addition to HR). Download the template — it's
-          prefilled with every active employee's code/name, one row each — fill in <code>manager_employee_code</code> per
-          row and re-upload.{" "}
-          <button onClick={downloadTemplate} disabled={downloading} className="text-jade-600 hover:underline inline-flex items-center gap-1 disabled:opacity-50">
+          prefilled with every active employee's code/name and, where the existing "reporting to" note on file resolved
+          to exactly one person, a guessed <code>manager_employee_code</code>. Review the guesses and the flagged rows
+          in the Notes column, correct anything wrong, then re-upload.{" "}
+          <button onClick={downloadTemplate} disabled={downloading || suggestionsLoading} className="text-jade-600 hover:underline inline-flex items-center gap-1 disabled:opacity-50">
             <Download size={11} /> {downloading ? "Preparing…" : "Download template"}
           </button>
         </p>
+
+        {suggestionsLoading ? (
+          <p className="text-xs text-ink/50 mb-5">Checking existing "reporting to" notes for matches…</p>
+        ) : (
+          <p className="text-xs text-ink/70 bg-manila/40 border-l-2 border-jade-500 px-3 py-2 mb-5">
+            <strong className="text-jade-700">{matchedCount} auto-matched</strong> from the existing free-text
+            field alone — still worth a glance since names can collide.{" "}
+            {ambiguousCount > 0 && <>{ambiguousCount} ambiguous (multiple people share the name, or more than one name was
+            written down) — candidates are listed per row. </>}
+            {unresolvedCount > 0 && <>{unresolvedCount} need a fresh look (no name on file, or it matched nobody active).</>}
+          </p>
+        )}
 
         <label className="flex items-center gap-3 border border-dashed border-ink/25 rounded-sm px-4 py-4 cursor-pointer hover:border-jade-500 transition-colors">
           <Upload size={18} className="text-ink/70" />

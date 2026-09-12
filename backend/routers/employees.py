@@ -1,3 +1,5 @@
+import re
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from auth import CONSOLE_ROLES, get_current_user, hash_password, require_accounts, require_permission, user_can
@@ -127,6 +129,122 @@ def bulk_import_salary(body: SalaryImportRequest, user: dict = Depends(require_p
         supabase.table("hr_employees").upsert(rows_to_upsert).execute()
 
     return {"updated": len(updated), "not_found": not_found}
+
+
+_HONORIFIC_TOKENS = {"maam", "ma'am", "madam", "mam", "sir", "ma'amsir"}
+_NAME_SPLIT_RE = re.compile(r"[/,&]|\band\b", re.IGNORECASE)
+
+
+def _clean_name_token(token: str) -> str:
+    return re.sub(r"[^a-z' ]", "", token.strip().lower()).strip()
+
+
+def _split_reporting_to(text: str) -> list[str]:
+    """Splits a free-text reporting_to entry into individual name references
+    — HR often wrote "Dharmesh/Akshay" or "Unnati/ Dharmesh" meaning EITHER
+    could be the real manager, not a typo needing normalizing. Each part is
+    resolved separately; an honorific-only part ("Ma'am", "Sir") contributes
+    no candidate at all, matching how it carries no actual name."""
+    parts = [p.strip() for p in _NAME_SPLIT_RE.split(text) if p.strip()]
+    return [p for p in parts if _clean_name_token(p) not in _HONORIFIC_TOKENS]
+
+
+def _strip_honorific_words(part: str) -> str:
+    """A name and an honorific are often written as one token — "Monica
+    Ma'am", "Nehal sir" — rather than split by a separator _split_reporting_to
+    would catch. Drops just the honorific word(s), leaving the actual name to
+    match against, without changing how many parts the entry counted as."""
+    words = [w for w in re.split(r"\s+", part.strip()) if w]
+    kept = [w for w in words if _clean_name_token(w) not in _HONORIFIC_TOKENS]
+    return " ".join(kept) if kept else part
+
+
+@router.get("/reporting-manager-suggestions")
+def reporting_manager_suggestions(user: dict = Depends(require_permission("employees.manage"))):
+    """Best-guess resolution of hr_employee_profile.reporting_to (a free-text
+    name HR typed by hand, e.g. "Sagar", "Dharmesh/Akshay", "Ma'am/ Sir") to
+    an actual employee_code — feeds the reporting-manager import template's
+    prefill so HR reviews/corrects ~150 rows instead of typing every one from
+    scratch. Never writes anything; bulk_import_reporting_manager below is
+    still the one place reporting_to_id actually gets set, so a wrong guess
+    here can only produce a wrong prefill HR can edit before importing, never
+    a silent wrong write.
+
+    A name is only "matched" when it splits to exactly one name reference AND
+    that reference matches exactly one active employee — several first names
+    are shared by 2+ people company-wide (checked directly against
+    hr_employees), so a same-first-name match is reported as "ambiguous" with
+    every candidate listed rather than guessed at. A multi-person entry like
+    "Dharmesh/Akshay" is always "ambiguous" even if both halves individually
+    resolve cleanly — picking either one over the other isn't this
+    endpoint's call to make."""
+    employees = (
+        supabase.table("hr_employees")
+        .select("id,employee_code,first_name,last_name,department,is_active")
+        .execute()
+        .data
+    ) or []
+    by_id = {e["id"]: e for e in employees}
+    active = [e for e in employees if e.get("is_active")]
+
+    name_index: dict[str, list[dict]] = {}
+    for e in active:
+        full = f"{e['first_name']} {e.get('last_name') or ''}".strip()
+        for key in {_clean_name_token(e["first_name"]), _clean_name_token(full)}:
+            if key:
+                name_index.setdefault(key, []).append(e)
+
+    def _candidates_for(part: str) -> list[dict]:
+        return name_index.get(_clean_name_token(part), [])
+
+    profiles = (
+        supabase.table("hr_employee_profile")
+        .select("employee_id,reporting_to,reporting_to_id")
+        .execute()
+        .data
+    ) or []
+
+    rows = []
+    for p in profiles:
+        emp = by_id.get(p["employee_id"])
+        if not emp or not emp.get("is_active"):
+            continue
+        reporting_to = (p.get("reporting_to") or "").strip()
+        if p.get("reporting_to_id") or not reporting_to:
+            continue  # already resolved, or genuinely nothing on file
+
+        parts = _split_reporting_to(reporting_to)
+        candidates_by_code: dict[str, dict] = {}
+        for part in parts:
+            for c in _candidates_for(_strip_honorific_words(part)):
+                candidates_by_code[c["employee_code"]] = c
+        candidates = list(candidates_by_code.values())
+
+        if not parts:
+            status, suggested = "unresolved", None
+        elif len(parts) == 1 and len(candidates) == 1:
+            status, suggested = "matched", candidates[0]
+        elif not candidates:
+            status, suggested = "unresolved", None
+        else:
+            status, suggested = "ambiguous", None
+
+        rows.append({
+            "employee_code": emp["employee_code"],
+            "name": f"{emp['first_name']} {emp.get('last_name') or ''}".strip(),
+            "department": emp.get("department"),
+            "reporting_to": reporting_to,
+            "status": status,
+            "suggested_manager_code": suggested["employee_code"] if suggested else None,
+            "suggested_manager_name": (
+                f"{suggested['first_name']} {suggested.get('last_name') or ''}".strip() if suggested else None
+            ),
+            "candidates": [
+                f"{c['employee_code']} — {c['first_name']} {c.get('last_name') or ''} ({c.get('department') or '—'})".strip()
+                for c in candidates
+            ],
+        })
+    return rows
 
 
 @router.post("/bulk-reporting-manager")

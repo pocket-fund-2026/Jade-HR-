@@ -18,6 +18,7 @@ import json
 import os
 import sys
 import urllib.request
+from datetime import datetime, timezone
 
 JADE_HR_URL = os.environ.get("JADE_HR_URL", "https://jade-hr.vercel.app")
 JADE_HR_USER = os.environ.get("JADE_HR_USER", "")  # set via /etc/jade-hr-sync.env, not hardcoded
@@ -38,6 +39,12 @@ def _get_token() -> str:
 
 def main() -> None:
     dry = "--dry-run" in sys.argv
+    # Explicit start/end markers (mirrors biometric_sync.py's "starting"/
+    # "Sync complete" convention) so watchdog.sh can tell, from the log alone,
+    # whether the LAST invocation actually finished — this file has no per-run
+    # timestamps otherwise, which made a 2026-09-12 500 failure hard to place
+    # in the log after the fact.
+    print(f"late-digest run starting at {datetime.now(timezone.utc).isoformat()}", file=sys.stderr, flush=True)
     if not JADE_HR_USER or not JADE_HR_PASS:
         print("ERROR: JADE_HR_USER / JADE_HR_PASS not set (see /etc/jade-hr-sync.env)", file=sys.stderr)
         sys.exit(1)
@@ -50,13 +57,18 @@ def main() -> None:
     with urllib.request.urlopen(req, timeout=90) as resp:
         result = json.loads(resp.read())
 
-    print(json.dumps(result, indent=2))
-    if not dry:
-        print(
-            f"late-digest: {result['count']} late on {result['date']}, "
-            f"emailed={result['emailed']}",
-            file=sys.stderr,
-        )
+    # flush=True on both: stdout is block-buffered when redirected to a file
+    # while stderr is not, so without this the "finished" marker below (a
+    # stderr print) lands in the log BEFORE this JSON dump despite running
+    # after it in code — the watchdog's own "did the last attempt finish"
+    # check reads the log's line order, so this isn't just cosmetic.
+    print(json.dumps(result, indent=2), flush=True)
+    print(
+        f"late-digest run finished: {result['count']} late on {result['date']}, "
+        f"emailed={result['emailed']}",
+        file=sys.stderr,
+        flush=True,
+    )
 
 
 if __name__ == "__main__":
