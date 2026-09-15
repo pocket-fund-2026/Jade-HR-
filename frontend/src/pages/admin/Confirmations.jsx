@@ -2,6 +2,7 @@ import { CalendarCheck, Check, FileText } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { useConfirm } from "../../components/ConfirmDialog.jsx";
 import api from "../../lib/api.js";
 import { formatDate } from "../../lib/format.js";
 
@@ -37,11 +38,12 @@ function saveProfile(employeeId, patch) {
 }
 
 function DueRow({ row, onChanged }) {
+  const askConfirm = useConfirm();
   const [busy, setBusy] = useState(false);
   const [extendTo, setExtendTo] = useState("");
 
   const confirm = async () => {
-    if (!window.confirm(`Confirm ${row.name}'s employment? This records today as their confirmation date.`)) return;
+    if (!(await askConfirm(`Confirm ${row.name}'s employment? This records today as their confirmation date.`))) return;
     setBusy(true);
     try {
       await saveProfile(row.employee_id, { confirmation_date: new Date().toISOString().slice(0, 10) });

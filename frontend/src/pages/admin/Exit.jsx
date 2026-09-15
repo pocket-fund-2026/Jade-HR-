@@ -2,6 +2,7 @@ import { ArrowLeft, Check, CheckCircle2, Circle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
+import { useConfirm } from "../../components/ConfirmDialog.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
 import { formatDate } from "../../lib/format.js";
@@ -147,6 +148,7 @@ function InterviewSection({ record }) {
 }
 
 function ExitDetail({ id }) {
+  const confirm = useConfirm();
   const [record, setRecord] = useState(null);
   const [loading, setLoading] = useState(true);
   const [finalizing, setFinalizing] = useState(false);
@@ -158,7 +160,7 @@ function ExitDetail({ id }) {
   useEffect(load, [id]);
 
   const finalize = async () => {
-    if (!window.confirm("Finalize this exit? This marks the employee as Exited and locks the checklist.")) return;
+    if (!(await confirm("Finalize this exit? This marks the employee as Exited and locks the checklist."))) return;
     setFinalizing(true);
     setError("");
     try {

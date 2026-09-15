@@ -1,6 +1,7 @@
 import { ArrowLeft, Bold, FileText, List, ListOrdered, Pencil, Plus, Printer, Save } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { useConfirm } from "../../components/ConfirmDialog.jsx";
 import api from "../../lib/api.js";
 import { useAuth } from "../../lib/auth.jsx";
 import { formatOrdinalDate } from "../../lib/format.js";
@@ -198,6 +199,7 @@ function RichTextEditor({ value, onChange }) {
 }
 
 function TemplateEditor({ template, onClose, onSaved, onDeleted }) {
+  const confirm = useConfirm();
   const isNew = !template;
   const [letterType, setLetterType] = useState(template?.letter_type || "");
   const [typeEdited, setTypeEdited] = useState(false);
@@ -232,7 +234,7 @@ function TemplateEditor({ template, onClose, onSaved, onDeleted }) {
   };
 
   const remove = async () => {
-    if (!window.confirm(`Delete the "${template.title}" template? This can't be undone.`)) return;
+    if (!(await confirm(`Delete the "${template.title}" template? This can't be undone.`, { danger: true, confirmLabel: "Delete" }))) return;
     setDeleting(true);
     setError("");
     try {

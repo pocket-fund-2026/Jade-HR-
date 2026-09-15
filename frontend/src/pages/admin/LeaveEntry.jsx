@@ -1,6 +1,7 @@
 import { Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { useConfirm } from "../../components/ConfirmDialog.jsx";
 import api from "../../lib/api.js";
 import { formatDate } from "../../lib/format.js";
 import { LEAVE_LABELS, selectableLeaveTypes } from "../../lib/leaveTypes.js";
@@ -142,6 +143,7 @@ function EntryForm({ employees, onAdded }) {
 const PAGE_SIZES = [20, 50, 100];
 
 export default function LeaveEntry() {
+  const confirm = useConfirm();
   const [employees, setEmployees] = useState([]);
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
@@ -170,7 +172,7 @@ export default function LeaveEntry() {
   useEffect(load, [status, employeeFilter, page, pageSize]);
 
   const remove = async (id) => {
-    if (!window.confirm("Delete this leave transaction entry?")) return;
+    if (!(await confirm("Delete this leave transaction entry?", { danger: true, confirmLabel: "Delete" }))) return;
     await api.delete(`/api/leave-ledger/${id}`);
     load();
   };

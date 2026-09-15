@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 import ChangePasswordModal from "../../components/ChangePasswordModal.jsx";
+import { ConfirmProvider } from "../../components/ConfirmDialog.jsx";
 import api from "../../lib/api.js";
 import { useAuth } from "../../lib/auth.jsx";
 import { canSeeHrTasks } from "../../lib/hrTasksAccess.js";
@@ -347,12 +348,14 @@ export default function AdminLayout() {
       )}
 
       <main className="flex-1 p-4 pt-20 md:p-8 md:pt-8 overflow-y-auto overflow-x-hidden max-w-[1400px]">
-        <Outlet
-          context={{
-            pendingDisputes, pendingLeave, pendingPayslipApprovals, pendingOnboarding, pendingWorkAbsence,
-            pendingWfh, pendingMarketVisits, pendingLoaded,
-          }}
-        />
+        <ConfirmProvider>
+          <Outlet
+            context={{
+              pendingDisputes, pendingLeave, pendingPayslipApprovals, pendingOnboarding, pendingWorkAbsence,
+              pendingWfh, pendingMarketVisits, pendingLoaded,
+            }}
+          />
+        </ConfirmProvider>
       </main>
     </div>
   );

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import AddArrearModal from "../../components/AddArrearModal.jsx";
+import { useConfirm } from "../../components/ConfirmDialog.jsx";
 import PasswordResetModal from "../../components/PasswordResetModal.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
@@ -915,11 +916,12 @@ function SalaryStructureSection({ employeeId, dateOfJoining, canView, canEdit, p
 // returning to work never lifts it on its own. Gated on salary.edit rather
 // than employees.manage: it's a pay decision.
 function SalaryHoldBanner({ employeeId, form, canEditSalary, onChanged }) {
+  const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
   if (!form.salary_hold) return null;
 
   const release = async () => {
-    if (!window.confirm("Release this salary hold? Payroll will treat this employee normally again.")) return;
+    if (!(await confirm("Release this salary hold? Payroll will treat this employee normally again."))) return;
     setBusy(true);
     try {
       await api.put(`/api/employees/${employeeId}/salary-hold`, { salary_hold: false, reason: "" });
