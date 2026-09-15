@@ -317,7 +317,7 @@ function Policy2026({ showRetailSections = true, employeeLocation }) {
           />
           <p>
             If called in on a holiday/Sunday for a work exigency (launches, events, trainings, shows, audits, deadlines,
-            or similar), you're entitled to a compensatory off within the next 120 days, or as otherwise accepted by the
+            or similar), you're entitled to a compensatory off within the next 90 days, or as otherwise accepted by the
             HOD — approval must come via email from the HOD.
           </p>
         </Section>

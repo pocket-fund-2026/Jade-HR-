@@ -44,7 +44,11 @@ PL_PROBATION_DAYS = 91  # ~3 months
 # documented-exception override is the employee_id-on-behalf-of path below.
 RED_CARD_BLOCKED_TYPES = {"paid", "comp_off"}
 COMP_OFF_MAX_DAYS_PER_REQUEST = 2
-COMP_OFF_VALIDITY_DAYS = 120  # v1.1 §5: a comp-off is valid 120 days from the date earned
+COMP_OFF_VALIDITY_DAYS = 90  # per policy document (PolicyDocument.jsx) — 90 days from the date earned.
+# Was 120 (v1.1 §5) until 2026-09-15: the policy document employees actually
+# read and acknowledge said 90 days in three places, so that's what wins.
+# Only affects grants made from here forward — comp-offs already granted
+# keep the expiry_date already stored on them, not retroactively shortened.
 
 
 def _carry_forward_cap(location: str | None) -> float:
