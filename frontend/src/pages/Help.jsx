@@ -218,7 +218,7 @@ OT Amount       = Per Hour Salary × Total OT Hours worked that period`}</pre>
             ["TDS", "Projected annual income tax, divided across the financial year's remaining months"],
           ]}
         />
-        <p><strong>Late-coming & Red Card</strong> (corporate roster): arriving after <strong>10:10 AM</strong> counts as late. First 2 late arrivals per cycle are free; the 3rd onward — or any arrival after <strong>12:00 noon</strong> regardless of count — costs a ½-day Loss of Pay. <strong>5 or more</strong> late marks in one cycle triggers a Red Card: any leave day that cycle (not already unpaid or corrected) also becomes Loss of Pay.</p>
+        <p><strong>Late-coming, Yellow Card &amp; Red Card:</strong> the exact grace time, free-mark count, and LOP tiers have changed versions over time (there have been three revisions), so the specific numbers depend on which policy version currently applies to you. Whenever a late mark counts against you, your own Dashboard shows a live banner explaining exactly where you stand for the current cycle (e.g. "Yellow Card — 2 of 3 free late marks used") — that banner is always accurate for you; treat any older printed numbers as historical. A Red Card can also result in an <strong>Attendance Improvement Plan (AIP)</strong> — a stricter monitoring window shown as its own banner on your Dashboard.</p>
         <p>Print / Save as PDF is available at the top of the payslip.</p>
       </>
     ),
@@ -228,6 +228,61 @@ OT Amount       = Per Hour Salary × Total OT Hours worked that period`}</pre>
     title: "Tax Declaration",
     keywords: "tax declaration 80c HRA exemption investment",
     body: <p>Declare your planned tax-saving investments and exemptions for the financial year, so your TDS projection (see My Payslip) reflects them instead of assuming zero deductions.</p>,
+  },
+  {
+    id: "dashboard-requests",
+    title: "How do I request Leave, Work Absence, WFH, or a Loan?",
+    keywords: "how do i apply request leave absence wfh work from home loan advance dashboard button",
+    body: (
+      <>
+        <p>All four live as buttons right on your <strong>Dashboard</strong> (the "My Dashboard" tab), next to your leave balance:</p>
+        <ul className="list-disc pl-5 space-y-1">
+          <li><strong>Request Leave</strong> — pick a type, start/end date, optional reason. See "My Leave" above for balances and rules.</li>
+          <li><strong>Report Work Absence</strong> — for reporting an absence separately from a formal leave request; can only be backdated within the <em>current</em> pay cycle (23rd–22nd), never into an already-closed cycle or a future date.</li>
+          <li><strong>Request WFH</strong> — start date, end date, reason.</li>
+          <li><strong>Request Loan</strong> — request an advance/loan; once approved it becomes a standing EMI that's deducted from your payslip automatically each period.</li>
+        </ul>
+        <p>Each shows up as its own list further down your Dashboard (e.g. "My work absence requests") with a Pending/Approved/Rejected status — see "Status colors, everywhere" above.</p>
+      </>
+    ),
+  },
+  {
+    id: "dispute-missed-punch",
+    title: "How do I fix a missed clock-in/clock-out?",
+    keywords: "dispute missed punch clock in out forgot attendance correction",
+    body: (
+      <p>
+        On your Dashboard's attendance calendar, a day with a missed punch is marked so you can click it and open a
+        dispute — choose whether you forgot to clock in, clock out, or both, enter what the actual time should have
+        been, an explanation, and optionally attach a photo/note. It goes to whoever handles Disputes for your
+        location; once resolved you'll see it reflected on that day's attendance and (if approved) it stops counting
+        against you.
+      </p>
+    ),
+  },
+  {
+    id: "selfie-checkin",
+    title: "Daily selfie check-in",
+    keywords: "selfie photo clock in out camera checkin",
+    body: (
+      <p>
+        Only shown if your profile has this turned on (for people who don't clock in on a biometric device). A card
+        at the top of your Dashboard lets you take a photo right in the browser to clock in/out — it records the
+        time of the photo as your punch. Ask HR if you think this should (or shouldn't) apply to you.
+      </p>
+    ),
+  },
+  {
+    id: "market-visit-checkin",
+    title: "Market visit check-in",
+    keywords: "market visit field checkin location geolocation photo",
+    body: (
+      <p>
+        Only shown if your role does field/market visits. A card on your Dashboard lets you check in with a photo
+        plus your device's location — it goes to whoever reviews Market Visits for approval. If you approve other
+        people's market visits, you'll also see a <strong>Team Market Visits</strong> tab.
+      </p>
+    ),
   },
   {
     id: "team-leave-wfh-market",
@@ -268,6 +323,7 @@ const ADMIN_SECTIONS = [
           <li>Open a record to see/edit basic info, designation, department, location, salary components, compliance details (PF/ESIC/PT/LWF applicability, PAN/UAN/Aadhar/bank details), personal info, and key dates (Date of Joining, Exit Date, Scheduled Exit Date, gratuity service-start date).</li>
           <li>Add a new employee directly (separate from the onboarding-form flow below), reset a password, or unlock a login.</li>
           <li>View Salary Structure history (versioned CTC snapshots over time).</li>
+          <li>Turn on <strong>selfie check-in</strong> for someone without biometric device access, or <strong>market-visit check-in</strong> for field/retail-visit roles — both then show up as cards on that employee's own Dashboard.</li>
         </ul>
         <p>Exit Date / Scheduled Exit Date set here is what makes exit-related figures (final settlement, gratuity) calculate correctly for that person.</p>
       </>
@@ -358,7 +414,7 @@ const ADMIN_SECTIONS = [
     title: "AIP (Attendance Improvement Plan)",
     tag: "leave.manage",
     keywords: "attendance monitoring plan warning",
-    body: <p>Tracks employees placed on an attendance monitoring period — Active, Passed, or Failed — with the plan's end date and outcome.</p>,
+    body: <p>Tracks employees placed on an attendance monitoring period — Active, Passed, or Failed — with the plan's end date and outcome. Under the newest late-mark policy, a Red Card (7 Yellow Cards in a cycle) places someone on an AIP automatically; while it's active, only one late arrival is tolerated for its entire length before it's marked Failed. The employee sees their own AIP status as a banner on their Dashboard.</p>,
   },
   {
     id: "leave-policy",
