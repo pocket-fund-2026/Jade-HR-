@@ -137,28 +137,46 @@ def _normalize_name(name: str) -> str:
     return " ".join((name or "").strip().lower().split())
 
 
+def _name_tokens(name: str) -> frozenset:
+    return frozenset(_normalize_name(name).split(" "))
+
+
 def _match_onboarding_submission(pending_subs: list, matched_ids: set, full_name: str, location: str) -> str | None:
     """Finds the one pending onboarding submission (the new-joinee form,
     filled in before any employee_code exists) that describes this
-    SmartOffice master row — matched by exact normalized name plus work
-    location, so a name collision across locations can't cross-wire two
-    people's KYC/bank details onto the wrong hr_employees row. Ambiguous
-    (0 or 2+) matches are left for HR to resolve manually in
-    /admin/onboarding rather than guessing."""
+    SmartOffice master row. Tries progressively looser tiers — exact
+    name+location, then exact name regardless of location (the onboarding
+    form's location dropdown and SmartOffice's department mapping don't
+    always agree), then same name *tokens* regardless of order (covers
+    "Last First" vs "First Last" and a dropped middle name) — but at every
+    tier, a name that isn't uniquely identifying (0 or 2+ candidates) is
+    left for HR to resolve manually in /admin/onboarding rather than
+    guessing and cross-wiring one person's bank/Aadhaar details onto
+    someone else's employee record."""
+    unclaimed = [s for s in pending_subs if s["id"] not in matched_ids]
     norm_name = _normalize_name(full_name)
-    candidates = [
-        s for s in pending_subs
-        if s["id"] not in matched_ids and _normalize_name(s.get("full_name")) == norm_name
-        and s.get("place_of_work") == location
-    ]
-    return candidates[0]["id"] if len(candidates) == 1 else None
+
+    tier1 = [s for s in unclaimed if _normalize_name(s.get("full_name")) == norm_name and s.get("place_of_work") == location]
+    if len(tier1) == 1:
+        return tier1[0]["id"]
+
+    tier2 = [s for s in unclaimed if _normalize_name(s.get("full_name")) == norm_name]
+    if len(tier2) == 1:
+        return tier2[0]["id"]
+
+    tokens = _name_tokens(full_name)
+    tier3 = [s for s in unclaimed if _name_tokens(s.get("full_name")) == tokens]
+    if len(tier3) == 1:
+        return tier3[0]["id"]
+
+    return None
 
 
 def _auto_resolve_onboarding(token: str, submission_id: str, employee_code: str) -> bool:
     status, _ = _api(token, "PUT", f"/api/onboarding/submissions/{submission_id}", {
         "action": "approve",
         "employee_code": employee_code,
-        "admin_note": "Auto-resolved by nightly roster sync — matched by name + work location",
+        "admin_note": "Auto-resolved by nightly roster sync — matched by name",
     })
     return status == 200
 
