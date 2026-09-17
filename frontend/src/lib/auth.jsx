@@ -67,7 +67,9 @@ export function AuthProvider({ children }) {
   // backend "who am I" and treat a 401 as "not logged in".
   const loadMe = async () => {
     try {
-      const { data } = await api.get("/api/auth/me");
+      // A 401 here just means "not logged in", which is the normal state on
+      // a public page (e.g. /onboarding/new) — must not force-navigate away.
+      const { data } = await api.get("/api/auth/me", { skipAuthRedirect: true });
       setUser(data);
       // Don't block first render on this — nav items gated by a permission
       // just default to hidden for the instant it takes to arrive, then
