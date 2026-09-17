@@ -127,6 +127,41 @@ def _api(token: str, method: str, path: str, body=None):
 # bad/truncated export can't wipe out real active employees.
 REMOVED_FROM_BIOMETRICS_THRESHOLD = 2
 
+# Placeholder name biometric.py:_auto_provision_employees stamps on a bare
+# record created from an employee's very first punch, before this script
+# has ever seen their real name in the SmartOffice export.
+AUTO_PROVISIONED_LAST_NAME = "(auto-added from biometric)"
+
+
+def _normalize_name(name: str) -> str:
+    return " ".join((name or "").strip().lower().split())
+
+
+def _match_onboarding_submission(pending_subs: list, matched_ids: set, full_name: str, location: str) -> str | None:
+    """Finds the one pending onboarding submission (the new-joinee form,
+    filled in before any employee_code exists) that describes this
+    SmartOffice master row — matched by exact normalized name plus work
+    location, so a name collision across locations can't cross-wire two
+    people's KYC/bank details onto the wrong hr_employees row. Ambiguous
+    (0 or 2+) matches are left for HR to resolve manually in
+    /admin/onboarding rather than guessing."""
+    norm_name = _normalize_name(full_name)
+    candidates = [
+        s for s in pending_subs
+        if s["id"] not in matched_ids and _normalize_name(s.get("full_name")) == norm_name
+        and s.get("place_of_work") == location
+    ]
+    return candidates[0]["id"] if len(candidates) == 1 else None
+
+
+def _auto_resolve_onboarding(token: str, submission_id: str, employee_code: str) -> bool:
+    status, _ = _api(token, "PUT", f"/api/onboarding/submissions/{submission_id}", {
+        "action": "approve",
+        "employee_code": employee_code,
+        "admin_note": "Auto-resolved by nightly roster sync — matched by name + work location",
+    })
+    return status == 200
+
 
 def reconcile(csv_text: str, token: str):
     rows = list(csv.DictReader(io.StringIO(csv_text)))
@@ -140,7 +175,13 @@ def reconcile(csv_text: str, token: str):
     _, existing = _api(token, "GET", "/api/employees")
     existing_by_code = {e["employee_code"]: e for e in existing}
 
-    updated = deactivated = created = unmatched = permanently_deleted = 0
+    try:
+        _, pending_subs = _api(token, "GET", "/api/onboarding/submissions?status=pending")
+    except Exception:
+        pending_subs = []  # onboarding matching is best-effort — never block the roster sync on it
+    matched_submission_ids = set()
+
+    updated = deactivated = created = unmatched = permanently_deleted = onboarding_linked = 0
     now_iso = datetime.now(timezone.utc).isoformat()
 
     for code, emp in existing_by_code.items():
@@ -163,6 +204,7 @@ def reconcile(csv_text: str, token: str):
                     _api(token, "PUT", f"/api/employees/{emp['id']}", {"roster_unmatched_streak": streak})
             continue
         master, location, _ = entry
+        was_auto_provisioned = emp.get("last_name") == AUTO_PROVISIONED_LAST_NAME
         parts = master["EmployeeName"].strip().split(" ", 1)
         first, last = parts[0], (parts[1] if len(parts) > 1 else "")
         is_working = master["Status"] == "Working"
@@ -178,6 +220,16 @@ def reconcile(csv_text: str, token: str):
             updated += 1
             if not is_working:
                 deactivated += 1
+            # This is the first time a real name has landed on this row — the
+            # moment a biometric first-punch stub becomes matchable to a
+            # pending onboarding submission.
+            if was_auto_provisioned and is_working:
+                sub_id = _match_onboarding_submission(
+                    pending_subs, matched_submission_ids, master["EmployeeName"], location
+                )
+                if sub_id and _auto_resolve_onboarding(token, sub_id, code):
+                    matched_submission_ids.add(sub_id)
+                    onboarding_linked += 1
 
     existing_codes = set(existing_by_code.keys())
     for code, (master, location, pw_prefix) in tracked.items():
@@ -196,10 +248,17 @@ def reconcile(csv_text: str, token: str):
         status, _ = _api(token, "POST", "/api/employees", body)
         if status == 200:
             created += 1
+            sub_id = _match_onboarding_submission(
+                pending_subs, matched_submission_ids, master["EmployeeName"], location
+            )
+            if sub_id and _auto_resolve_onboarding(token, sub_id, code):
+                matched_submission_ids.add(sub_id)
+                onboarding_linked += 1
 
     return {
         "updated": updated, "deactivated": deactivated, "created": created,
         "unmatched": unmatched, "permanently_deleted": permanently_deleted,
+        "onboarding_linked": onboarding_linked,
     }
 
 
@@ -236,6 +295,7 @@ def main():
     print(f"  Created: {result['created']}")
     print(f"  Unmatched (not found in any tracked department's master): {result['unmatched']}")
     print(f"  Permanently deleted (missing {REMOVED_FROM_BIOMETRICS_THRESHOLD}+ consecutive runs): {result['permanently_deleted']}")
+    print(f"  Onboarding submissions auto-resolved (matched by name + location): {result['onboarding_linked']}")
     print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] Roster sync complete")
 
 

@@ -122,11 +122,59 @@ def get_submission(submission_id: str, user: dict = Depends(require_permission("
     return _sanitize_submission(submission, user)
 
 
-def _create_employee_from_submission(submission: dict, body: OnboardingResolve) -> str:
-    existing = supabase.table("hr_employees").select("id").eq("employee_code", body.employee_code).execute()
-    if existing.data:
-        raise HTTPException(status_code=409, detail="Employee code already exists")
+def _profile_row_from_submission(submission: dict, employee_id: str) -> dict:
+    address = "\n".join(
+        line for line in (
+            submission.get("address_line1", ""), submission.get("address_line2", ""),
+            submission.get("address_line3", ""), submission.get("address_line4", ""),
+        ) if line
+    )
+    return {
+        "employee_id": employee_id,
+        "date_of_birth": submission.get("date_of_birth"),
+        "aadhar_no": submission.get("aadhar_no", ""),
+        "pan_no": submission.get("pan_no", ""),
+        "bank_name": submission.get("bank_name", ""),
+        "bank_account_no": submission.get("bank_account_no", ""),
+        "bank_ifsc": submission.get("bank_ifsc", ""),
+        "emergency_contact_no": submission.get("emergency_contact_no", ""),
+        "permanent_address": address,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
 
+
+def _attach_submission_to_employee(submission: dict, employee_id: str) -> None:
+    """Fills in the KYC/personal detail the onboarding form collected (DOB,
+    bank, address, ...) onto an hr_employees row that already exists —
+    either a bare biometric.py:_auto_provision_employees stub, or a normal
+    record employee_roster_sync.py created from the SmartOffice master.
+    Never touches employee_code/role/password/is_active: those belong to
+    whichever process (biometric first-punch or roster sync) actually
+    created this row, not to the onboarding form."""
+    employee = maybe_single_data(
+        supabase.table("hr_employees").select("email,phone,designation,department,location,date_of_joining")
+        .eq("id", employee_id).maybe_single().execute()
+    ) or {}
+    fill = {
+        "email": submission.get("email", ""),
+        "phone": submission.get("mobile", ""),
+        "designation": submission.get("designation", ""),
+        "department": submission.get("department", ""),
+        "location": submission.get("place_of_work", ""),
+        "date_of_joining": submission.get("date_of_joining"),
+    }
+    # Only back-fill fields the biometric/roster-sync record left blank —
+    # never overwrite real data those processes already set.
+    update_body = {k: v for k, v in fill.items() if v and not employee.get(k)}
+    if update_body:
+        supabase.table("hr_employees").update(update_body).eq("id", employee_id).execute()
+
+    supabase.table("hr_employee_profile").upsert(
+        _profile_row_from_submission(submission, employee_id), on_conflict="employee_id"
+    ).execute()
+
+
+def _create_employee_from_submission(submission: dict, body: OnboardingResolve) -> str:
     first_name, _, last_name = submission.get("full_name", "").strip().partition(" ")
     employee_row = {
         "employee_code": body.employee_code,
@@ -148,26 +196,9 @@ def _create_employee_from_submission(submission: dict, body: OnboardingResolve) 
     }
     inserted = supabase.table("hr_employees").insert(employee_row).execute()
     employee_id = inserted.data[0]["id"]
-
-    address = "\n".join(
-        line for line in (
-            submission.get("address_line1", ""), submission.get("address_line2", ""),
-            submission.get("address_line3", ""), submission.get("address_line4", ""),
-        ) if line
-    )
-    profile_row = {
-        "employee_id": employee_id,
-        "date_of_birth": submission.get("date_of_birth"),
-        "aadhar_no": submission.get("aadhar_no", ""),
-        "pan_no": submission.get("pan_no", ""),
-        "bank_name": submission.get("bank_name", ""),
-        "bank_account_no": submission.get("bank_account_no", ""),
-        "bank_ifsc": submission.get("bank_ifsc", ""),
-        "emergency_contact_no": submission.get("emergency_contact_no", ""),
-        "permanent_address": address,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-    }
-    supabase.table("hr_employee_profile").upsert(profile_row, on_conflict="employee_id").execute()
+    supabase.table("hr_employee_profile").upsert(
+        _profile_row_from_submission(submission, employee_id), on_conflict="employee_id"
+    ).execute()
     return employee_id
 
 
@@ -186,9 +217,24 @@ def resolve_submission(
 
     created_employee_id = None
     if body.action == "approve":
-        if not body.employee_code or not body.password:
-            raise HTTPException(status_code=400, detail="employee_code and password are required to approve")
-        created_employee_id = _create_employee_from_submission(submission, body)
+        if not body.employee_code:
+            raise HTTPException(status_code=400, detail="employee_code is required to approve")
+        existing = (
+            supabase.table("hr_employees").select("id").eq("employee_code", body.employee_code).execute()
+        )
+        if existing.data:
+            # Code already exists — the biometric device (first-punch
+            # auto-provision) or the nightly roster sync assigned it before
+            # this submission got resolved. Attach the onboarding details
+            # to that row rather than trying to create a duplicate.
+            created_employee_id = existing.data[0]["id"]
+            _attach_submission_to_employee(submission, created_employee_id)
+        else:
+            if not body.password:
+                raise HTTPException(
+                    status_code=400, detail="password is required to create a new employee_code"
+                )
+            created_employee_id = _create_employee_from_submission(submission, body)
 
     supabase.table("hr_onboarding_submissions").update({
         "status": "approved" if body.action == "approve" else "rejected",
