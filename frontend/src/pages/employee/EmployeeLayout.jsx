@@ -1,4 +1,4 @@
-import { BookOpen, FileText, Home, KeyRound, LogOut, MapPin, Receipt, Users } from "lucide-react";
+import { BookOpen, FileText, HelpCircle, Home, KeyRound, LogOut, MapPin, Receipt, UserPlus, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
@@ -139,6 +139,17 @@ export default function EmployeeLayout() {
               My Payslip
             </NavLink>
             <NavLink
+              to="/employee/my-onboarding"
+              className={({ isActive }) =>
+                `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                  isActive ? "border-manila text-manila" : "border-transparent text-manila/60 hover:text-manila/80"
+                }`
+              }
+            >
+              <UserPlus size={14} />
+              My Onboarding
+            </NavLink>
+            <NavLink
               to="/employee/policy"
               className={({ isActive }) =>
                 `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
@@ -148,6 +159,17 @@ export default function EmployeeLayout() {
             >
               <BookOpen size={14} />
               Company Policy
+            </NavLink>
+            <NavLink
+              to="/employee/help"
+              className={({ isActive }) =>
+                `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                  isActive ? "border-manila text-manila" : "border-transparent text-manila/60 hover:text-manila/80"
+                }`
+              }
+            >
+              <HelpCircle size={14} />
+              Help
             </NavLink>
           </nav>
         </div>

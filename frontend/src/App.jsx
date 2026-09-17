@@ -138,6 +138,8 @@ const TeamWFH = lazyWithReload(() => import("./pages/employee/TeamWFH.jsx"));
 const TeamMarketVisits = lazyWithReload(() => import("./pages/employee/TeamMarketVisits.jsx"));
 const TaxDeclaration = lazyWithReload(() => import("./pages/employee/TaxDeclaration.jsx"));
 const EmployeeMyPayslip = lazyWithReload(() => import("./pages/employee/MyPayslip.jsx"));
+const EmployeeMyOnboarding = lazyWithReload(() => import("./pages/employee/MyOnboarding.jsx"));
+const Help = lazyWithReload(() => import("./pages/Help.jsx"));
 
 const CONSOLE_ROLES = ["accounts", "hr"];
 
@@ -274,6 +276,7 @@ export default function App() {
             <Route path="careers/:id/edit" element={<RequirePermission anyOf={["careers.manage"]}><CareersJobForm /></RequirePermission>} />
             <Route path="careers/applicants" element={<RequirePermission anyOf={["careers.manage"]}><CareersApplicants /></RequirePermission>} />
             <Route path="careers/applicants/:id" element={<RequirePermission anyOf={["careers.manage"]}><CareersApplicantDetail /></RequirePermission>} />
+            <Route path="help" element={<Help scope="admin" />} />
           </Route>
 
           <Route
@@ -290,7 +293,9 @@ export default function App() {
             <Route path="team-market-visits" element={<TeamMarketVisits />} />
             <Route path="tax-declaration" element={<TaxDeclaration />} />
             <Route path="my-payslip" element={<EmployeeMyPayslip />} />
+            <Route path="my-onboarding" element={<EmployeeMyOnboarding />} />
             <Route path="policy" element={<PolicyDocument scope="employee" />} />
+            <Route path="help" element={<Help scope="employee" />} />
             <Route path="*" element={<Navigate to="/employee" replace />} />
           </Route>
 

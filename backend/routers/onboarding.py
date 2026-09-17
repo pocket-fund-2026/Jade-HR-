@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
 import email_service
-from auth import hash_password, require_permission, user_can
+from auth import get_current_user, hash_password, require_permission, user_can
 from database import maybe_single_data, supabase
 from models import OnboardingResolve, OnboardingSubmissionCreate, OnboardingUpload
 
@@ -97,6 +97,25 @@ def _sanitize_submission(submission: dict, user: dict) -> dict:
             submission.pop(field, None)
         submission.pop("salary_slip_paths", None)
     return submission
+
+
+@router.get("/my-submission")
+def my_submission(user: dict = Depends(get_current_user)):
+    """Self-view for an employee whose onboarding form got auto-resolved (or
+    manually resolved by HR) onto their own employee_id — lets them see what
+    they originally submitted (personal/bank/document details) from their
+    own dashboard. Unlike get_submission below, this is scoped to exactly
+    the caller's own record, so it's never gated by onboarding.manage —
+    same self-view reasoning as /api/me/my-payslip."""
+    resp = (
+        supabase.table("hr_onboarding_submissions").select("*")
+        .eq("created_employee_id", user["id"]).eq("status", "approved")
+        .order("resolved_at", desc=True).limit(1).maybe_single().execute()
+    )
+    submission = maybe_single_data(resp)
+    if not submission:
+        raise HTTPException(status_code=404, detail="No onboarding submission on file")
+    return _with_signed_urls(submission, include_salary_slips=True)
 
 
 @router.get("/submissions")

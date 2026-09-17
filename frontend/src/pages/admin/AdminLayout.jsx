@@ -1,4 +1,4 @@
-import { Briefcase, BookOpen, CalendarCheck, CalendarClock, CalendarDays, CalendarPlus, CheckSquare, ClipboardList, DoorOpen, FileBarChart, FileText, Flag, Home, KeyRound, LayoutDashboard, LogOut, MapPin, Menu, Plane, Receipt, Search, Shield, ShieldAlert, ShieldCheck, Stamp, UserPlus, Users, Users2, Wallet, X } from "lucide-react";
+import { Briefcase, BookOpen, CalendarCheck, CalendarClock, CalendarDays, CalendarPlus, CheckSquare, ClipboardList, DoorOpen, FileBarChart, FileText, Flag, HelpCircle, Home, KeyRound, LayoutDashboard, LogOut, MapPin, Menu, Plane, Receipt, Search, Shield, ShieldAlert, ShieldCheck, Stamp, UserPlus, Users, Users2, Wallet, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
@@ -50,6 +50,7 @@ const navItems = [
   // Personal / self-service
   { to: "/admin/my-leave", label: "My Leave", icon: CalendarPlus, sectionBreak: true },
   { to: "/admin/my-payslip", label: "My Payslip", icon: Receipt },
+  { to: "/admin/help", label: "Help", icon: HelpCircle },
 
   // Console administration
   { to: "/admin/team-access", label: "Team Access", icon: Shield, permission: "permissions.manage", sectionBreak: true },
