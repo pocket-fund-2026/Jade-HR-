@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { Link } from "react-router-dom";
 
+import RichTextEditor from "../components/RichTextEditor.jsx";
 import api from "../lib/api.js";
 import { useAuth } from "../lib/auth.jsx";
 
@@ -620,6 +621,120 @@ function Policy2025({ showCorporateSections = true }) {
   );
 }
 
+// A short rich-text amendment/clarification per tab, editable in-console by
+// anyone with employees.manage or policy.manage (Accounts always; HR only if
+// granted) — the base document below stays hardcoded JSX (it's tightly woven
+// with live holiday/store-timings data and per-category section gating), but
+// HR/Accounts need a way to publish a wording change or effective-date notice
+// without waiting on an engineer. Shown to everyone viewing the tab,
+// including on the login-time acknowledgement screen, so it's genuinely part
+// of what people read and sign off on — only the Edit control is gated.
+function PolicyNotice({ tabKey }) {
+  const { can } = useAuth() || {};
+  const canEdit = !!can?.("employees.manage", "policy.manage");
+  const [notices, setNotices] = useState(null);
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = () => {
+    api.get("/api/policy/notices").then(({ data }) => setNotices(data)).catch(() => setNotices([]));
+  };
+  useEffect(load, []);
+
+  const notice = notices?.find((n) => n.key === tabKey);
+
+  const startEdit = () => {
+    setTitle(notice?.title || "");
+    setBody(notice?.body_html || "");
+    setError("");
+    setEditing(true);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      await api.put(`/api/policy/notices/${tabKey}`, { title, body_html: body });
+      setEditing(false);
+      load();
+    } catch (err) {
+      setError(err.response?.data?.detail || "Could not save — try again");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (notices === null) return null;
+
+  if (editing) {
+    return (
+      <div className="bg-paper rounded-sm shadow-card p-5 border-l-2 border-jade-600">
+        <p className="text-xs font-semibold uppercase tracking-wider text-jade-600 mb-2">Editing notice</p>
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Notice title (optional)"
+          className="w-full mb-3 rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+        />
+        <RichTextEditor value={body} onChange={setBody} placeholder="Amendment or clarification text…" />
+        {error && <p className="text-sm text-rust-500 mt-2">{error}</p>}
+        <div className="flex gap-2 mt-3">
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving}
+            className="bg-jade-600 text-white px-4 py-2 rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
+          >
+            {saving ? "Saving…" : "Save notice"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            disabled={saving}
+            className="px-4 py-2 rounded-sm text-sm font-medium text-ink/70 hover:text-ink"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!notice?.body_html) {
+    return canEdit ? (
+      <div className="text-right">
+        <button type="button" onClick={startEdit} className="text-xs font-semibold text-jade-600 hover:underline">
+          + Add a policy notice for this tab
+        </button>
+      </div>
+    ) : null;
+  }
+
+  return (
+    <div className="bg-jade-500/5 border-l-2 border-jade-600 rounded-sm p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          {notice.title && (
+            <p className="text-xs font-semibold uppercase tracking-wider text-jade-700 mb-1">{notice.title}</p>
+          )}
+          <div
+            className="text-sm text-ink [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_h4]:font-display [&_h4]:text-base"
+            dangerouslySetInnerHTML={{ __html: notice.body_html }}
+          />
+        </div>
+        {canEdit && (
+          <button type="button" onClick={startEdit} className="text-xs font-semibold text-jade-600 hover:underline shrink-0">
+            Edit
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Exported so the login-time acknowledgement gate
 // (pages/PolicyAcknowledgement.jsx) shows exactly the same documents people
 // are signing off on, and so the keys it records match the tabs one-for-one.
@@ -635,6 +750,10 @@ export const POLICY_TABS = [
   { key: "2026", label: "Retail Policy", render: Policy2026 },
   { key: "2025", label: "Corporate Policy", render: Policy2025 },
 ];
+
+// Exported so PolicyAcknowledgement.jsx can show the same notice on the
+// login-time read-and-accept screen.
+export { PolicyNotice };
 
 export default function PolicyDocument({ scope = "console" }) {
   const { user, can } = useAuth() || {};
@@ -680,6 +799,7 @@ export default function PolicyDocument({ scope = "console" }) {
           ))}
         </div>
       </div>
+      <PolicyNotice tabKey={tab} />
       <WomenSafetySection />
       <Active
         showRetailSections={showRetailSections}

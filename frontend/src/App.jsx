@@ -3,28 +3,26 @@ import { Navigate, Route, Routes } from "react-router-dom";
 
 import { AuthProvider, useAuth } from "./lib/auth.jsx";
 import { canSeeHrTasks } from "./lib/hrTasksAccess.js";
-import { quizPopupSessionKey } from "./lib/policyQuiz.js";
+import api from "./lib/api.js";
 import Login from "./pages/Login.jsx";
 import Onboarding from "./pages/Onboarding.jsx";
 import Setup from "./pages/Setup.jsx";
 
-// Shown once per browser session (per policy version) after a successful
-// login, surfacing the score from their last policy-quiz attempt — separate
-// from the score shown at the end of the quiz itself (PolicyAcknowledgement.jsx
-// marks the same session key there, so this doesn't double up right after).
-function QuizScorePopup({ policyAck }) {
-  const version = policyAck?.policy_version;
-  const key = version ? quizPopupSessionKey(version) : null;
-  const alreadyShown = (() => {
-    try { return key ? sessionStorage.getItem(key) === "1" : true; } catch { return true; }
-  })();
+// Shown exactly once, ever, per policy version, after a successful login,
+// surfacing the score from their last policy-quiz attempt — separate from
+// the score shown at the end of the quiz itself (PolicyAcknowledgement.jsx
+// marks the same server-side flag there, so this doesn't double up right
+// after). "Seen" is tracked server-side (popup_seen on the acknowledgement
+// row) rather than in sessionStorage, which used to reset — and re-show the
+// popup — on every new tab or browser session.
+function QuizScorePopup({ policyAck, reloadPolicyAck }) {
   const [dismissed, setDismissed] = useState(false);
 
-  if (dismissed || alreadyShown || !policyAck?.acknowledged || policyAck.quiz_last_score == null) return null;
+  if (dismissed || policyAck?.popup_seen || !policyAck?.acknowledged || policyAck.quiz_last_score == null) return null;
 
   const dismiss = () => {
-    try { if (key) sessionStorage.setItem(key, "1"); } catch { /* ignore */ }
     setDismissed(true);
+    api.post("/api/policy/acknowledgement/popup-seen").then(reloadPolicyAck).catch(() => {});
   };
 
   return (
@@ -152,7 +150,7 @@ function PageFallback() {
 }
 
 function Protected({ roles, children }) {
-  const { user, loading, policyAck, personalInfo } = useAuth();
+  const { user, loading, policyAck, personalInfo, reloadPolicyAck } = useAuth();
   if (loading) return <PageFallback />;
   if (!user) return <Navigate to="/login" replace />;
   if (roles && !roles.includes(user.role)) {
@@ -173,7 +171,7 @@ function Protected({ roles, children }) {
   return (
     <>
       {children}
-      <QuizScorePopup policyAck={policyAck} />
+      <QuizScorePopup policyAck={policyAck} reloadPolicyAck={reloadPolicyAck} />
     </>
   );
 }

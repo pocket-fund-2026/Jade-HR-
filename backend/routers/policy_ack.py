@@ -90,7 +90,21 @@ def my_acknowledgement(user: dict = Depends(get_current_user)):
         "quiz_passed": quiz_passed,
         "quiz_last_score": quiz["score"] if quiz else None,
         "quiz_last_total": quiz["total"] if quiz else None,
+        "popup_seen": bool(row and row.get("popup_seen_at")),
     }
+
+
+@router.post("/acknowledgement/popup-seen")
+def mark_popup_seen(user: dict = Depends(get_current_user)):
+    """Marks the post-login quiz-score popup as shown, once, for good — a
+    persisted flag instead of the old sessionStorage one, which reset (and
+    re-showed the popup) on every new tab/browser session."""
+    row = _ack_row(user["id"])
+    if row and not row.get("popup_seen_at"):
+        supabase.table("hr_policy_acknowledgements").update(
+            {"popup_seen_at": datetime.now(timezone.utc).isoformat()}
+        ).eq("id", row["id"]).execute()
+    return {"ok": True}
 
 
 @router.post("/acknowledgement")

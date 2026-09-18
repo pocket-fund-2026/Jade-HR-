@@ -3,8 +3,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAuth } from "../lib/auth.jsx";
 import api from "../lib/api.js";
-import { drawQuizQuestions, quizPopupSessionKey, QUIZ_PASS_RATIO, QUIZ_POLICY_VERSION } from "../lib/policyQuiz.js";
-import { POLICY_TABS } from "./PolicyDocument.jsx";
+import { drawQuizQuestions, QUIZ_PASS_RATIO, QUIZ_POLICY_VERSION } from "../lib/policyQuiz.js";
+import { POLICY_TABS, PolicyNotice } from "./PolicyDocument.jsx";
 
 function PolicyQuiz({ employeeCategory, onPassed, onFailed }) {
   const [questions, setQuestions] = useState(() => drawQuizQuestions(employeeCategory));
@@ -120,10 +120,10 @@ function PolicyQuiz({ employeeCategory, onPassed, onFailed }) {
             <button
               type="button"
               onClick={() => {
-                // Already just saw the score on this screen — don't
-                // immediately show it again via the post-login popup too.
-                try { sessionStorage.setItem(quizPopupSessionKey(QUIZ_POLICY_VERSION), "1"); } catch { /* ignore */ }
-                onPassed();
+                // Already just saw the score on this screen — mark the
+                // popup seen server-side so it doesn't immediately show
+                // again via the post-login popup too.
+                api.post("/api/policy/acknowledgement/popup-seen").catch(() => {}).then(onPassed);
               }}
               className="flex items-center justify-center gap-1.5 bg-jade-600 text-white px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors"
             >
@@ -291,6 +291,10 @@ export default function PolicyAcknowledgement() {
               ? "Scroll to the end of the document to mark it read."
               : `Scroll to the end of each document to mark it read — ${readKeys.length} of ${tabs.length} done.`}
         </p>
+
+        <div className="mb-3">
+          <PolicyNotice tabKey={activeKey} />
+        </div>
 
         <div
           ref={scrollRef}

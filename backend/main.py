@@ -7,8 +7,8 @@ from routers import (
     employees,
     exit_procedure, hr_tasks_report,
     holidays, hr_tasks, late_policy, leave, leave_ledger, letters, loans, market_visits, onboarding, payroll,
-    payslip_approvals, permissions, personal_info, policy_ack, reports, salary_paid, salary_structure, selfie,
-    store_timings, tax_declaration, wfh,
+    payslip_approvals, permissions, personal_info, policy_ack, policy_notices, reports, salary_paid, salary_structure,
+    selfie, store_timings, tax_declaration, wfh,
 )
 
 app = FastAPI(title="JADE HR")
@@ -42,6 +42,7 @@ app.include_router(onboarding.router)
 app.include_router(absence.router)
 app.include_router(late_policy.router)
 app.include_router(policy_ack.router)
+app.include_router(policy_notices.router)
 app.include_router(personal_info.router)
 app.include_router(wfh.router)
 app.include_router(store_timings.router)
