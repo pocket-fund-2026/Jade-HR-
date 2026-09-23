@@ -355,11 +355,12 @@ def bulk_import_statutory_flags(body: StatutoryFlagsImportRequest, user: dict = 
 
 
 def _require_role_grant_allowed(user: dict, role: str | None) -> None:
-    """Only Accounts can hand out admin-console access (hr/accounts roles) —
-    otherwise HR (with employees.manage) could self-escalate or mint new
-    Accounts/HR logins."""
-    if role and role != "employee" and user["role"] != "accounts":
-        raise HTTPException(status_code=403, detail="Only Accounts can assign HR/Accounts console roles")
+    """Handing out admin-console access (hr/accounts roles) requires the
+    dedicated 'roles.manage' permission — accounts always has it; hr only if
+    granted (role-wide default or per-person override), so employees.manage
+    alone can't be used to self-escalate or mint new Accounts/HR logins."""
+    if role and role != "employee" and not user_can(user, "roles.manage"):
+        raise HTTPException(status_code=403, detail="Not permitted to assign HR/Accounts console roles — ask Accounts for access")
 
 
 @router.get("/{employee_id}")

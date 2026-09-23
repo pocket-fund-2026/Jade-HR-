@@ -1087,7 +1087,7 @@ export default function EmployeeDetails() {
   // existing pay (see backend/routers/employees.py's _sanitize).
   const canViewSalary = can("salary.view");
   const canEditSalary = can("salary.edit");
-  const canAssignRole = user?.role === "accounts";
+  const canAssignRole = can("roles.manage");
 
   const [form, setForm] = useState(EMPTY_FORM);
   const [mode, setMode] = useState(isNew ? "edit" : "view");
@@ -1404,7 +1404,7 @@ export default function EmployeeDetails() {
                                   <p className="text-sm text-ink font-medium">{ROLE_LABELS[form.role] || form.role}</p>
                                 )}
                                 {editing && !canAssignRole && (
-                                  <p className="text-[11px] text-ink/65 mt-1">Only Accounts can change this.</p>
+                                  <p className="text-[11px] text-ink/65 mt-1">You don't have permission to change this — ask Accounts for access.</p>
                                 )}
                               </div>
                             );
