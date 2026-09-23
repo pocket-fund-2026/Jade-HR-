@@ -561,6 +561,21 @@ const ADMIN_SECTIONS = [
     body: <p>Same as the employee-facing My Leave / My Payslip pages — your own leave balance and requests, and your own payslip (which also needs its own sign-off before it's final).</p>,
   },
   {
+    id: "my-team-admin",
+    title: "My Team / Team Leave / Team WFH / Team Market Visits (if you're someone's approver)",
+    keywords: "reporting manager team members roster direct reports approver hr accounts",
+    body: (
+      <p>
+        Only shown if you're set as someone's Leave Approver or Reporting To on their Employees record — the
+        picker there doesn't restrict by role, so an HR or Accounts login can be assigned this the same as any
+        employee. These are the exact same pages described under "For Reporting Managers" — your own team's
+        roster, and their leave/WFH/market-visit requests awaiting your decision — just reachable here in the
+        admin console instead of the employee console, since an HR/Accounts login doesn't have access to
+        <code className="bg-manila/50 px-1 rounded-sm">/employee/*</code>.
+      </p>
+    ),
+  },
+  {
     id: "team-access",
     title: "Team Access",
     tag: "permissions.manage or roles.manage",

@@ -48,7 +48,18 @@ const navItems = [
   { to: "/admin/hr-tasks", label: "HR Tasks", icon: CheckSquare, hrOnly: true, sectionBreak: true },
 
   // Personal / self-service
-  { to: "/admin/my-leave", label: "My Leave", icon: CalendarPlus, sectionBreak: true },
+  // requiresApprover items only show for a login who is actually someone's
+  // leave approver / reporting manager (is_leave_approver from /api/auth/me)
+  // — an HR/Accounts login CAN be set as an employee's approver (the picker
+  // on Employees doesn't restrict by role) but, unlike a role:"employee"
+  // login, has no /employee/* console to see that team in — these reuse the
+  // exact same pages (My Team / Team Leave / Team WFH / Team Market Visits)
+  // under /admin/* instead, so that assignment actually works.
+  { to: "/admin/my-team", label: "My Team", icon: Users2, requiresApprover: true, sectionBreak: true },
+  { to: "/admin/team-leave", label: "Team Leave", icon: Plane, requiresApprover: true },
+  { to: "/admin/team-wfh", label: "Team WFH", icon: Home, requiresApprover: true },
+  { to: "/admin/team-market-visits", label: "Team Market Visits", icon: MapPin, requiresApprover: true },
+  { to: "/admin/my-leave", label: "My Leave", icon: CalendarPlus },
   { to: "/admin/my-payslip", label: "My Payslip", icon: Receipt },
   { to: "/admin/help", label: "Help", icon: HelpCircle },
 
@@ -60,7 +71,7 @@ const navItems = [
 // (which otherwise has no entry in the left panel at all, just a card on
 // the Reports hub) — searched by the sidebar box below.
 const SECTION_INDEX = [
-  ...navItems.map((n) => ({ to: n.to, label: n.label, permission: n.permission, hrOnly: n.hrOnly })),
+  ...navItems.map((n) => ({ to: n.to, label: n.label, permission: n.permission, hrOnly: n.hrOnly, requiresApprover: n.requiresApprover })),
   ...REPORT_CATEGORIES.flatMap((cat) =>
     cat.items.map((item) => ({ to: item.to, label: item.label, permission: item.permission, group: cat.title })),
   ),
@@ -94,8 +105,9 @@ function SidebarSearch({ user, can, onNavigate }) {
 
   const q = query.trim().toLowerCase();
   const sectionMatches = q
-    ? SECTION_INDEX.filter(({ label, permission, hrOnly }) => {
+    ? SECTION_INDEX.filter(({ label, permission, hrOnly, requiresApprover }) => {
         if (hrOnly && !canSeeHrTasks(user)) return false;
+        if (requiresApprover && !user?.is_leave_approver) return false;
         if (permission && !can(...[].concat(permission))) return false;
         return label.toLowerCase().includes(q);
       }).slice(0, 8)
@@ -171,8 +183,9 @@ function SidebarSearch({ user, can, onNavigate }) {
 }
 
 function SidebarContent({ user, can, logout, pendingCounts, onNavigate }) {
-  const visibleItems = navItems.filter(({ permission, hrOnly }) => {
+  const visibleItems = navItems.filter(({ permission, hrOnly, requiresApprover }) => {
     if (hrOnly) return canSeeHrTasks(user);
+    if (requiresApprover && !user?.is_leave_approver) return false;
     return permission ? can(...[].concat(permission)) : true;
   });
   const [showPw, setShowPw] = useState(false);

@@ -259,6 +259,10 @@ export default function App() {
             <Route path="exit/:id" element={<RequirePermission anyOf={["exit.manage"]}><Exit /></RequirePermission>} />
             <Route path="loans" element={<RequirePermission anyOf={["loans.manage"]}><Loans /></RequirePermission>} />
             <Route path="leave-entry" element={<RequirePermission anyOf={["leave.manage"]}><LeaveEntry /></RequirePermission>} />
+            <Route path="my-team" element={<MyTeam />} />
+            <Route path="team-leave" element={<TeamLeave />} />
+            <Route path="team-wfh" element={<TeamWFH />} />
+            <Route path="team-market-visits" element={<TeamMarketVisits />} />
             <Route path="my-leave" element={<MyLeave />} />
             <Route path="my-payslip" element={<MyPayslip />} />
             <Route path="payslip-approvals" element={<RequirePermission anyOf={["payslip_approvals.manage"]}><PayslipApprovals /></RequirePermission>} />
