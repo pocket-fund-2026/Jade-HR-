@@ -128,7 +128,7 @@ const GETTING_STARTED = [
           ["LWF", "Labour Welfare Fund — small half-yearly (June/Dec) contribution"],
           ["TDS", "Tax Deducted at Source"],
           ["OT", "Overtime"],
-          ["PL", "Privilege Leave (a.k.a. Earned Leave)"],
+          ["PL", "Paid Leave — the unified leave pool that replaced Casual/Sick/Earned (Privilege) Leave, Jul 2026"],
           ["Comp-Off", "Compensatory day off earned for working a weekly-off/holiday"],
           ["LOP", "Loss of Pay"],
           ["WFH", "Work From Home"],
@@ -146,7 +146,7 @@ const GETTING_STARTED = [
       <ul className="list-disc pl-5 space-y-1">
         <li><strong>Can't see a section this guide describes</strong> — it's permission-gated; ask Accounts to switch it on for you (HR logins only — Accounts logins already see everything).</li>
         <li><strong>Forgot your password</strong> — ask HR/Accounts to reset it from your Employees profile.</li>
-        <li><strong>A leave balance looks off</strong> — remember Privilege Leave accrues monthly for the corporate roster (not a Jan 1 lump sum) and resets each calendar year; the first pay period of a new year can look slightly off for a day or two around the boundary.</li>
+        <li><strong>A leave balance looks off</strong> — remember Paid Leave accrues monthly (2 days/completed month, not a Jan 1 lump sum) and carries forward into the next year up to a location cap, rather than resetting to zero; the first pay period of a new year can look slightly off for a day or two around the boundary.</li>
         <li><strong>Just submitted the onboarding form and nothing shows up yet</strong> — that's expected. It only becomes a real employee record once a biometric employee code is assigned and matched (see "New joinee onboarding" above); this can take up to a day (the roster sync runs nightly).</li>
         <li><strong>Redirected to the login page when visiting a public link</strong> — clear your browser cache/cookies for jade-hr.vercel.app and try again; if it persists, tell HR/Accounts which link you used.</li>
       </ul>
@@ -172,25 +172,23 @@ const EMPLOYEE_SECTIONS = [
   {
     id: "my-leave",
     title: "My Leave",
-    keywords: "leave casual sick privilege PL earned comp off maternity paternity",
+    keywords: "leave paid casual sick privilege PL earned comp off maternity paternity unified merged",
     body: (
       <>
+        <p>Since the <strong>Jul 2026 policy change</strong>, Casual/Sick/Earned (Privilege) Leave no longer exist as separate types — they're merged company-wide (every roster) into one unified pool:</p>
         <Table
-          head={["Type", "Standard roster", "Corporate roster"]}
+          head={["Type", "Allocation", "Notes"]}
           rows={[
-            ["Casual", "12/year", "12/year"],
-            ["Sick", "12/year", "12/year"],
-            ["Earned / Privilege (PL)", "15/year, available in full from Jan 1 (or your Date of Joining if later)", "24/year, accrued 2 days per completed month, capped at 24"],
-            ["Paternity", "—", "3/year"],
-            ["Maternity, Compassionate", "—", "uncapped, case-by-case"],
-            ["Unpaid, Other", "uncapped", "uncapped"],
-            ["Comp-Off", "—", "earned, not allocated — see below"],
+            ["Paid Leave", "24/year, accrued 2 days per completed month, carries forward into the next year (capped: 15 for HQ, 7 for other locations)", "Not usable until 3 months after your Date of Joining"],
+            ["Paternity", "3/year", "Corporate roster only"],
+            ["Maternity, Compassionate", "uncapped, case-by-case", "Corporate roster only"],
+            ["Comp-Off", "earned, not allocated — see below", "Everyone (corporate and retail/factory alike)"],
           ]}
         />
-        <p>Corporate roster: Privilege Leave isn't usable until <strong>3 months after your Date of Joining</strong>, and it accrues monthly rather than landing as a lump sum.</p>
-        <p><strong>Comp-Off</strong> (corporate roster only): earned by working a declared weekly-off or a "Store closed"/"Day Off" holiday — but it's not automatic; HR has to confirm it happened before it lands in your balance. It expires <strong>120 days</strong> after being earned, and a single leave request can use at most <strong>2 Comp-Off days</strong>.</p>
-        <p><strong>Submitting a request:</strong> pick a type, start date, end date, an optional reason, Submit Request. It goes to your leave approver/manager. No self-service cancel/edit once submitted — ask your approver if you need to withdraw one.</p>
-        <p>If you approve other people's leave (you're set as someone's leave approver), you'll also see a <strong>Team Leave</strong> view scoped to just your reports.</p>
+        <p>Old Casual/Sick/Earned/Unpaid/Other requests from before the change still display correctly with their original labels — they simply aren't offered for new requests anymore (Unpaid and Other were retired too: unpaid days are now derived automatically from attendance/LOP instead of being requested).</p>
+        <p><strong>Comp-Off:</strong> earned by working a declared weekly-off or a "Store closed"/"Day Off" holiday — but it's not automatic; HR has to confirm it happened before it lands in your balance. It expires <strong>90 days</strong> after being earned, and a single leave request can use at most <strong>2 Comp-Off days</strong>.</p>
+        <p><strong>Submitting a request:</strong> pick a type, start date, end date, an optional reason, Submit Request. It goes to your leave approver/manager. No self-service cancel/edit once submitted — ask your approver if you need to withdraw one. A Red Card month (see My Payslip below) blocks new Paid Leave and Comp-Off requests until it clears.</p>
+        <p>If you approve other people's leave (you're set as someone's leave approver or reporting manager), you'll also see <strong>My Team</strong> and a <strong>Team Leave</strong> view — both scoped to just your reports. See "For Reporting Managers" below.</p>
       </>
     ),
   },
@@ -285,17 +283,6 @@ OT Amount       = Per Hour Salary × Total OT Hours worked that period`}</pre>
     ),
   },
   {
-    id: "team-leave-wfh-market",
-    title: "Team Leave / Team WFH / Team Market Visits (approvers only)",
-    keywords: "approver manager team requests approve reject",
-    body: (
-      <p>
-        Only visible if you're set as someone's approver. Shows the leave, work-from-home, or market-visit requests
-        from your direct reports, awaiting your decision — approve or reject with an optional note.
-      </p>
-    ),
-  },
-  {
     id: "company-policy-employee",
     title: "Company Policy",
     keywords: "policy acknowledge quiz read",
@@ -306,6 +293,54 @@ OT Amount       = Per Hour Salary × Total OT Hours worked that period`}</pre>
         joining.
       </p>
     ),
+  },
+];
+
+// ── FOR REPORTING MANAGERS ───────────────────────────────────────────────
+// "Reporting manager" isn't a role here — anyone can end up with reports,
+// either as their leave_approver_id or as their reporting_to_id on the
+// employee profile (the two are usually the same person but don't have to
+// be). These sections and nav links only appear once you actually have at
+// least one report — see is_leave_approver in EmployeeLayout.jsx.
+const MANAGER_SECTIONS = [
+  {
+    id: "my-team",
+    title: "My Team",
+    keywords: "reporting manager team members roster direct reports who reports to me",
+    body: (
+      <p>
+        A simple roster of exactly the people who report to you — name, designation, department, location, and
+        active/inactive status. Nothing else: no salary, no attendance, no documents. It's scoped strictly to your
+        own direct reports (whether that's via being set as their leave approver or their reporting manager) —
+        never the wider company directory, even if you also happen to have an HR/Accounts login elsewhere. If this
+        looks empty, nobody currently lists you as their approver or reporting manager; ask HR to set that on their
+        Employees record.
+      </p>
+    ),
+  },
+  {
+    id: "team-leave-manager",
+    title: "Team Leave",
+    keywords: "approver manager team leave requests approve reject",
+    body: (
+      <p>
+        The leave requests from your direct reports specifically, tabbed Pending / Approved / Rejected — approve or
+        reject with an optional note. This is different from the admin console's "Leave" page (if you also have
+        that), which shows every leave request company-wide, not just your team's.
+      </p>
+    ),
+  },
+  {
+    id: "team-wfh-manager",
+    title: "Team WFH",
+    keywords: "approver manager team work from home requests approve reject",
+    body: <p>Work-from-home requests from your direct reports, awaiting your decision.</p>,
+  },
+  {
+    id: "team-market-visits-manager",
+    title: "Team Market Visits",
+    keywords: "approver manager team market visit field checkin",
+    body: <p>Field/market-visit check-ins from your direct reports, awaiting review — location, time, and notes for each visit.</p>,
   },
 ];
 
@@ -324,6 +359,7 @@ const ADMIN_SECTIONS = [
           <li>Add a new employee directly (separate from the onboarding-form flow below), reset a password, or unlock a login.</li>
           <li>View Salary Structure history (versioned CTC snapshots over time).</li>
           <li>Turn on <strong>selfie check-in</strong> for someone without biometric device access, or <strong>market-visit check-in</strong> for field/retail-visit roles — both then show up as cards on that employee's own Dashboard.</li>
+          <li>Change someone's <strong>Console Role</strong> (Employee / HR / Accounts) — gated separately by <code className="bg-manila/50 px-1 rounded-sm">roles.manage</code>, not <code className="bg-manila/50 px-1 rounded-sm">employees.manage</code>, so an HR login that can edit employee records doesn't automatically get to mint new HR/Accounts logins. Accounts always has this; see Team Access below for granting/revoking it.</li>
         </ul>
         <p>Exit Date / Scheduled Exit Date set here is what makes exit-related figures (final settlement, gratuity) calculate correctly for that person.</p>
       </>
@@ -420,10 +456,10 @@ const ADMIN_SECTIONS = [
     id: "leave-policy",
     title: "Leave Policy",
     tag: "employees.manage or policy.manage",
-    keywords: "holiday calendar comp off birthdays store closed",
+    keywords: "holiday calendar comp off birthdays store closed late marks quarter red card store timings time slots",
     body: (
       <>
-        <p>Three tabs:</p>
+        <p>Five tabs:</p>
         <p><strong>Holiday Calendar</strong> — company holidays, which can vary per store. Each entry has a Type:</p>
         <Table
           head={["Type", "Effect"]}
@@ -438,6 +474,8 @@ const ADMIN_SECTIONS = [
         />
         <p>Only Store closed and Day Off count toward Comp-Off if worked (corporate roster only).</p>
         <p><strong>Comp-Off</strong> — same as the standalone Comp-Off page above.</p>
+        <p><strong>Late Marks</strong> — the Quarter Red Card mechanism (a Red Card in every month of a financial-year quarter ⇒ a Final Warning letter plus automatic forfeiture of 2 Paid Leave days). This was superseded from the pay cycle beginning 23 Aug 2026 by the newer Yellow/Red Card ⇒ AIP system (see the AIP section below) — this tab now mainly shows historical quarters that finished under the older mechanism, plus any quarter still straddling the change-over date. The banner at the top of this tab always states which policy is currently in force.</p>
+        <p><strong>Store Timings</strong> — two related lists: <strong>Time slots</strong> (the shift-start options selectable on an employee's Details page, and what payroll grades lateness against — adding one here takes effect immediately, no deploy needed) and <strong>Store timings</strong> (per-store opening/trading/closing hours and a default time slot for new starters at that store, which also feeds the "Retail store timings" shown on the employee-facing policy page).</p>
         <p><strong>Birthdays</strong> — upcoming birthdays for the HQ team, soonest first, with a quick way to add/correct a date of birth.</p>
       </>
     ),
@@ -525,15 +563,24 @@ const ADMIN_SECTIONS = [
   {
     id: "team-access",
     title: "Team Access",
-    tag: "permissions.manage",
-    keywords: "permissions grant hr role console access",
-    body: <p>Controls which permissions each HR-role login has (Accounts logins always have full access and aren't configured here). Toggle a permission on/off per person, or set the HR-role-wide default that applies to anyone without an individual override.</p>,
+    tag: "permissions.manage or roles.manage",
+    keywords: "permissions grant hr role console access roles manage assign",
+    body: (
+      <>
+        <p>Controls which permissions each HR-role login has (Accounts logins always have full access and aren't configured here). Reachable two ways:</p>
+        <ul className="list-disc pl-5 space-y-1">
+          <li><code className="bg-manila/50 px-1 rounded-sm">permissions.manage</code> — full access. Set the HR-role-wide default for any permission (applies to anyone without an individual override), and grant/deny any specific permission for any specific person.</li>
+          <li><code className="bg-manila/50 px-1 rounded-sm">roles.manage</code> only (no <code className="bg-manila/50 px-1 rounded-sm">permissions.manage</code>) — a narrower version of this same page: you can only grant/revoke the <code className="bg-manila/50 px-1 rounded-sm">roles.manage</code> override itself, for other HR logins. Lets HR manage who else on the team can assign console roles, without opening up every other permission (salary visibility, payroll, etc).</li>
+        </ul>
+      </>
+    ),
   },
 ];
 
 const SECTIONS = [
   { group: "Getting Started", items: GETTING_STARTED, roles: "all" },
   { group: "Employee Self-Service", items: EMPLOYEE_SECTIONS, roles: "all" },
+  { group: "For Reporting Managers", items: MANAGER_SECTIONS, roles: "all" },
   { group: "Admin Console (HR / Accounts)", items: ADMIN_SECTIONS, roles: "console" },
 ];
 

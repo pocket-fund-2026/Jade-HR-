@@ -74,6 +74,19 @@ export default function EmployeeLayout() {
             </NavLink>
             {user?.is_leave_approver && (
               <NavLink
+                to="/employee/my-team"
+                className={({ isActive }) =>
+                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                    isActive ? "border-manila text-manila" : "border-transparent text-manila/60 hover:text-manila/80"
+                  }`
+                }
+              >
+                <Users size={14} />
+                My Team
+              </NavLink>
+            )}
+            {user?.is_leave_approver && (
+              <NavLink
                 to="/employee/team-leave"
                 className={({ isActive }) =>
                   `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${

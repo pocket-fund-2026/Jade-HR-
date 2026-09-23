@@ -134,6 +134,7 @@ const EmployeeDashboard = lazyWithReload(() => import("./pages/employee/Dashboar
 const TeamLeave = lazyWithReload(() => import("./pages/employee/TeamLeave.jsx"));
 const TeamWFH = lazyWithReload(() => import("./pages/employee/TeamWFH.jsx"));
 const TeamMarketVisits = lazyWithReload(() => import("./pages/employee/TeamMarketVisits.jsx"));
+const MyTeam = lazyWithReload(() => import("./pages/employee/MyTeam.jsx"));
 const TaxDeclaration = lazyWithReload(() => import("./pages/employee/TaxDeclaration.jsx"));
 const EmployeeMyPayslip = lazyWithReload(() => import("./pages/employee/MyPayslip.jsx"));
 const EmployeeMyOnboarding = lazyWithReload(() => import("./pages/employee/MyOnboarding.jsx"));
@@ -286,6 +287,7 @@ export default function App() {
             }
           >
             <Route index element={<EmployeeDashboard />} />
+            <Route path="my-team" element={<MyTeam />} />
             <Route path="team-leave" element={<TeamLeave />} />
             <Route path="team-wfh" element={<TeamWFH />} />
             <Route path="team-market-visits" element={<TeamMarketVisits />} />
