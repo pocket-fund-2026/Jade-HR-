@@ -175,6 +175,35 @@ def require_permissions_manage(user: dict = Depends(get_current_user)) -> dict:
     return user
 
 
+# Keys an hr login can manage per-person overrides for *without* full
+# 'permissions.manage' — granting the full capability would let them
+# grant/revoke every other permission (salary.view, etc) for anyone, which
+# is a much bigger blast radius than what was actually asked for: letting hr
+# revoke/re-grant who else on the HR team can assign console roles.
+SELF_SERVICE_OVERRIDE_KEYS = {"roles.manage"}
+
+
+def get_overrides_scope(user: dict) -> set[str] | None:
+    """Permission keys this user may manage per-person overrides for.
+    None = unrestricted (accounts, or hr granted full permissions.manage). A
+    (possibly empty) set = restricted to just those keys."""
+    if user["role"] == "accounts" or user_can(user, "permissions.manage"):
+        return None
+    return {k for k in SELF_SERVICE_OVERRIDE_KEYS if user_can(user, k)}
+
+
+def require_overrides_access(user: dict = Depends(get_current_user)) -> dict:
+    """Looser than require_permissions_manage — also lets in an hr login
+    whose only relevant grant is one of SELF_SERVICE_OVERRIDE_KEYS. Endpoints
+    using this must still check get_overrides_scope() against the specific
+    permission_key(s) being touched."""
+    if user["role"] not in CONSOLE_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin console access required")
+    if get_overrides_scope(user) == set():
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not permitted — ask Accounts for access")
+    return user
+
+
 # The "jadehr" login is the shared HR-department account (role=accounts, so
 # it already has blanket access to every other admin-console feature) —
 # specifically asked to also see HR-team-only features like HR Tasks, unlike

@@ -165,8 +165,15 @@ function PersonOverrides({ permissionKeys, hrEmployees, overrides, onApplyBulk, 
 }
 
 export default function TeamAccess() {
-  const { user } = useAuth();
+  const { user, can } = useAuth();
   const isAccounts = user?.role === "accounts";
+  // Full manage (accounts, or hr granted permissions.manage) sees/edits every
+  // permission's overrides. An hr login granted only roles.manage — who gets
+  // to assign HR/Accounts console roles — is scoped to managing just that one
+  // key; the backend enforces this too, this just keeps the UI from offering
+  // options that would 403.
+  const hasFullManage = isAccounts || can("permissions.manage");
+  const scopedKeys = hasFullManage ? null : (can("roles.manage") ? ["roles.manage"] : []);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState(null);
@@ -240,7 +247,10 @@ export default function TeamAccess() {
     }
   };
 
-  const permissionKeys = useMemo(() => rows.map((r) => ({ permission_key: r.permission_key, label: r.label })), [rows]);
+  const permissionKeys = useMemo(() => {
+    const all = rows.map((r) => ({ permission_key: r.permission_key, label: r.label }));
+    return scopedKeys ? all.filter((p) => scopedKeys.includes(p.permission_key)) : all;
+  }, [rows, scopedKeys]);
 
   return (
     <div className="max-w-2xl">
@@ -273,8 +283,8 @@ export default function TeamAccess() {
       <div className="flex items-start gap-2 mt-5 text-xs text-ink/70">
         <Lock size={13} className="mt-0.5 flex-shrink-0" />
         <p>
-          Only Accounts can change the role-wide defaults above, and only Accounts can promote someone into the
-          HR or Accounts role.
+          Only Accounts can change the role-wide defaults above. Per-person overrides below are limited to
+          {hasFullManage ? " whatever this login is granted access to manage." : " the roles.manage override — who else can assign HR/Accounts console roles."}
         </p>
       </div>
     </div>

@@ -4,11 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from auth import (
     get_hr_permissions,
+    get_overrides_scope,
     get_permission_overrides,
     invalidate_permission_cache,
     require_accounts,
     require_console,
-    require_permissions_manage,
+    require_overrides_access,
 )
 from database import supabase
 from models import BulkOverrideRequest, PermissionUpdate
@@ -55,20 +56,33 @@ def update_permission(permission_key: str, body: PermissionUpdate, user: dict = 
     return resp.data[0]
 
 
+def _check_scope(user: dict, permission_key: str) -> None:
+    """Raises unless this user's override-management scope covers permission_key
+    — accounts and full-permissions.manage hr pass everything; an hr login
+    scoped to e.g. just roles.manage gets 403 trying to touch any other key."""
+    scope = get_overrides_scope(user)
+    if scope is not None and permission_key not in scope:
+        raise HTTPException(status_code=403, detail="Not permitted — ask Accounts for access")
+
+
 @router.get("/overrides")
-def list_all_overrides(user: dict = Depends(require_permissions_manage)):
-    """Every per-person override currently set, for the management UI."""
-    resp = (
-        supabase.table("hr_permission_overrides")
-        .select("*, hr_employees!hr_permission_overrides_employee_id_fkey(first_name,last_name,employee_code)")
-        .order("updated_at", desc=True)
-        .execute()
+def list_all_overrides(user: dict = Depends(require_overrides_access)):
+    """Every per-person override currently set, for the management UI —
+    narrowed to just this user's scope for an hr login that isn't a full
+    permissions.manage admin (e.g. only sees roles.manage overrides)."""
+    scope = get_overrides_scope(user)
+    query = supabase.table("hr_permission_overrides").select(
+        "*, hr_employees!hr_permission_overrides_employee_id_fkey(first_name,last_name,employee_code)"
     )
+    if scope is not None:
+        query = query.in_("permission_key", list(scope))
+    resp = query.order("updated_at", desc=True).execute()
     return resp.data
 
 
 @router.put("/overrides/{employee_id}/{permission_key}")
-def set_override(employee_id: str, permission_key: str, body: PermissionUpdate, user: dict = Depends(require_permissions_manage)):
+def set_override(employee_id: str, permission_key: str, body: PermissionUpdate, user: dict = Depends(require_overrides_access)):
+    _check_scope(user, permission_key)
     row = {
         "employee_id": employee_id,
         "permission_key": permission_key,
@@ -82,16 +96,18 @@ def set_override(employee_id: str, permission_key: str, body: PermissionUpdate, 
 
 
 @router.delete("/overrides/{employee_id}/{permission_key}")
-def clear_override(employee_id: str, permission_key: str, user: dict = Depends(require_permissions_manage)):
+def clear_override(employee_id: str, permission_key: str, user: dict = Depends(require_overrides_access)):
+    _check_scope(user, permission_key)
     supabase.table("hr_permission_overrides").delete().eq("employee_id", employee_id).eq("permission_key", permission_key).execute()
     invalidate_permission_cache(employee_id)
     return {"ok": True}
 
 
 @router.post("/overrides/bulk")
-def bulk_set_overrides(body: BulkOverrideRequest, user: dict = Depends(require_permissions_manage)):
+def bulk_set_overrides(body: BulkOverrideRequest, user: dict = Depends(require_overrides_access)):
     """Grant or deny one permission for many employees at once — e.g. hide
     the salary column for a whole list of hr logins in one action."""
+    _check_scope(user, body.permission_key)
     now = datetime.now(timezone.utc).isoformat()
     rows = [
         {

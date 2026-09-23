@@ -53,7 +53,7 @@ const navItems = [
   { to: "/admin/help", label: "Help", icon: HelpCircle },
 
   // Console administration
-  { to: "/admin/team-access", label: "Team Access", icon: Shield, permission: "permissions.manage", sectionBreak: true },
+  { to: "/admin/team-access", label: "Team Access", icon: Shield, permission: ["permissions.manage", "roles.manage"], sectionBreak: true },
 ];
 
 // Every navigable section — top-level nav items plus each Reports sub-page

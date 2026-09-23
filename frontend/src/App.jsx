@@ -265,7 +265,7 @@ export default function App() {
             <Route path="policy" element={<RequirePermission anyOf={["employees.manage", "policy.manage"]}><Policy /></RequirePermission>} />
             <Route path="policy-document" element={<PolicyDocument />} />
             <Route path="policy-acknowledgements" element={<RequirePermission anyOf={["policy.acknowledgements.view"]}><PolicyAcknowledgements /></RequirePermission>} />
-            <Route path="team-access" element={<RequirePermission anyOf={["permissions.manage"]}><TeamAccess /></RequirePermission>} />
+            <Route path="team-access" element={<RequirePermission anyOf={["permissions.manage", "roles.manage"]}><TeamAccess /></RequirePermission>} />
             <Route path="onboarding" element={<RequirePermission anyOf={["onboarding.manage"]}><OnboardingReview /></RequirePermission>} />
             <Route path="hr-tasks" element={<RequireHrRole><HrTasks /></RequireHrRole>} />
             <Route path="hr-tasks/report" element={<RequireHrRole><HrTasksReport /></RequireHrRole>} />
