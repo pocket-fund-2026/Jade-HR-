@@ -85,6 +85,19 @@ def get_current_user(request: Request) -> dict:
 CONSOLE_ROLES = ("accounts", "hr")
 
 
+def my_report_ids(user: dict) -> list[str]:
+    """IDs of everyone who lists this user as their leave approver OR their
+    reporting manager (hr_employees.leave_approver_id / hr_employee_profile.
+    reporting_to_id) — the same "who's on my team" definition get_current_user
+    uses for is_leave_approver above. Single source of truth for every
+    /me/team-* endpoint (leave.py, wfh.py, market_visits.py) instead of each
+    router keeping its own copy of this union query, which could otherwise
+    silently drift out of step with each other."""
+    direct_resp = supabase.table("hr_employees").select("id").eq("leave_approver_id", user["id"]).execute()
+    reporting_resp = supabase.table("hr_employee_profile").select("employee_id").eq("reporting_to_id", user["id"]).execute()
+    return list({r["id"] for r in direct_resp.data} | {r["employee_id"] for r in reporting_resp.data})
+
+
 def require_console(user: dict = Depends(get_current_user)) -> dict:
     """Any admin-console user (accounts or hr) — endpoint itself decides finer-grained access."""
     if user["role"] not in CONSOLE_ROLES:

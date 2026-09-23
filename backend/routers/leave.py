@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 import email_service
-from auth import get_current_user, require_permission, user_can
+from auth import get_current_user, my_report_ids, require_permission, user_can
 from database import maybe_single_data, supabase
 from models import CompOffGrant, LeaveRequestCreate, LeaveResolve
 from payroll import WEEKOFF_LOOKBACK_DAYS, apply_late_coming_policy, compute_daily_attendance, pay_period_bounds
@@ -667,22 +667,12 @@ def list_leave_requests(status: str | None = Query(None), admin: dict = Depends(
     return resp.data
 
 
-def _my_report_ids(user: dict) -> list[str]:
-    """IDs of everyone who lists this user as their leave approver OR their
-    reporting manager — the same "who's on my team" definition auth.py uses
-    for is_leave_approver, shared by every /me/team-* endpoint so they all
-    agree on who counts as a direct report."""
-    direct_resp = supabase.table("hr_employees").select("id").eq("leave_approver_id", user["id"]).execute()
-    reporting_resp = supabase.table("hr_employee_profile").select("employee_id").eq("reporting_to_id", user["id"]).execute()
-    return list({r["id"] for r in direct_resp.data} | {r["employee_id"] for r in reporting_resp.data})
-
-
 @router.get("/me/team-leave-requests")
 def my_team_leave_requests(status: str | None = Query(None), user: dict = Depends(get_current_user)):
     """Leave requests from anyone who lists this user as their leave
     approver OR their reporting manager — a scoped view, not a role. Any
     employee can hit this; it's naturally empty for someone nobody reports to."""
-    report_ids = _my_report_ids(user)
+    report_ids = my_report_ids(user)
     if not report_ids:
         return []
 
@@ -701,10 +691,10 @@ def my_team_leave_requests(status: str | None = Query(None), user: dict = Depend
 def my_team_members(user: dict = Depends(get_current_user)):
     """The actual roster of people who report to this user — not a request
     queue like the endpoints above, just who's on the team. Scoped strictly
-    to this user's own direct reports (same definition as _my_report_ids),
+    to this user's own direct reports (same definition as my_report_ids),
     never the wider org — a manager should see their own team here, not
     everyone HR/Accounts can see via Employees."""
-    report_ids = _my_report_ids(user)
+    report_ids = my_report_ids(user)
     if not report_ids:
         return []
     resp = (

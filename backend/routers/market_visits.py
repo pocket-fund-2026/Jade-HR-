@@ -12,7 +12,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from auth import get_current_user, require_permission, user_can
+from auth import get_current_user, my_report_ids, require_permission, user_can
 from database import supabase
 from models import MarketVisitCreate, MarketVisitResolve
 
@@ -105,9 +105,7 @@ def list_market_visits(status: str | None = None, user: dict = Depends(require_p
 def my_team_market_visits(status: str | None = None, user: dict = Depends(get_current_user)):
     """Market-visit check-ins from anyone who lists this user as their leave
     approver OR reporting manager — mirrors routers/wfh.py's /my-team."""
-    direct_resp = supabase.table("hr_employees").select("id").eq("leave_approver_id", user["id"]).execute()
-    reporting_resp = supabase.table("hr_employee_profile").select("employee_id").eq("reporting_to_id", user["id"]).execute()
-    report_ids = list({r["id"] for r in direct_resp.data} | {r["employee_id"] for r in reporting_resp.data})
+    report_ids = my_report_ids(user)
     if not report_ids:
         return []
     q = supabase.table("hr_market_visits").select(EMPLOYEE_JOIN).in_("employee_id", report_ids)

@@ -32,7 +32,7 @@ from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from auth import get_current_user, require_permission, user_can
+from auth import get_current_user, my_report_ids, require_permission, user_can
 from database import supabase
 from models import WFHCompletionConfirm, WFHRequestCreate, WFHResolve
 from payroll import pay_period_bounds
@@ -95,9 +95,7 @@ def my_team_wfh_requests(status: str | None = None, user: dict = Depends(get_cur
     reporting manager — mirrors routers/leave.py's /me/team-leave-requests.
     Primarily for the completion-confirmation step (doc §25): an approved
     request awaiting its Reporting Manager's confirmation shows up here."""
-    direct_resp = supabase.table("hr_employees").select("id").eq("leave_approver_id", user["id"]).execute()
-    reporting_resp = supabase.table("hr_employee_profile").select("employee_id").eq("reporting_to_id", user["id"]).execute()
-    report_ids = list({r["id"] for r in direct_resp.data} | {r["employee_id"] for r in reporting_resp.data})
+    report_ids = my_report_ids(user)
     if not report_ids:
         return []
     q = supabase.table("hr_wfh_requests").select(EMPLOYEE_JOIN).in_("employee_id", report_ids)
