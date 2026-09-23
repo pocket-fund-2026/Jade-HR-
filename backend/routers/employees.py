@@ -4,10 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from auth import CONSOLE_ROLES, get_current_user, hash_password, require_accounts, require_permission, user_can
 from database import maybe_single_data, supabase
+from email_service import notify_new_joiner
 from models import (
     EmployeeCreate, EmployeeUpdate, PasswordReset, ReportingManagerImportRequest, SalaryImportRequest,
     StatutoryFlagsImportRequest,
 )
+from routers.new_joiner_email import recipient_emails
 
 router = APIRouter(prefix="/api/employees", tags=["employees"])
 
@@ -396,7 +398,10 @@ def create_employee(body: EmployeeCreate, user: dict = Depends(require_permissio
             row[field] = 0
 
     inserted = supabase.table("hr_employees").insert(row).execute()
-    return _sanitize(inserted.data[0], user_can(user, "salary.view"))
+    new_employee = inserted.data[0]
+    if new_employee.get("date_of_joining"):
+        notify_new_joiner(new_employee, recipient_emails())
+    return _sanitize(new_employee, user_can(user, "salary.view"))
 
 
 @router.put("/{employee_id}")
@@ -418,10 +423,28 @@ def update_employee(employee_id: str, body: EmployeeUpdate, user: dict = Depends
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
 
+    # Fetch the prior date_of_joining before overwriting it, so the new-joiner
+    # email only fires on an actual change (a joining date being SET or
+    # moved), not on every unrelated save that happens to touch this row.
+    prior_date_of_joining = None
+    if "date_of_joining" in updates:
+        prior = (
+            supabase.table("hr_employees").select("date_of_joining").eq("id", employee_id).maybe_single().execute()
+        )
+        prior_data = maybe_single_data(prior)
+        prior_date_of_joining = prior_data.get("date_of_joining") if prior_data else None
+
     resp = supabase.table("hr_employees").update(updates).eq("id", employee_id).execute()
     if not resp.data:
         raise HTTPException(status_code=404, detail="Employee not found")
-    return _sanitize(resp.data[0], user_can(user, "salary.view"))
+    updated_employee = resp.data[0]
+    if (
+        "date_of_joining" in updates
+        and updated_employee.get("date_of_joining")
+        and updated_employee.get("date_of_joining") != prior_date_of_joining
+    ):
+        notify_new_joiner(updated_employee, recipient_emails())
+    return _sanitize(updated_employee, user_can(user, "salary.view"))
 
 
 @router.put("/{employee_id}/password")

@@ -46,6 +46,7 @@ function ResolveRow({ visit, onResolved }) {
       <td className="px-5 py-3.5">
         <span className="text-ink font-medium">{employee?.first_name} {employee?.last_name}</span>
         <div className="text-xs text-ink/70 font-nums">{employee?.employee_code}</div>
+        <div className="text-xs text-ink/70">{visit.visit_type === "check_out" ? "Check-out" : "Check-in"}</div>
       </td>
       <td className="px-5 py-3.5 font-nums text-ink/70">{formatDateTime(visit.captured_at)}</td>
       <td className="px-5 py-3.5">
@@ -155,6 +156,7 @@ export default function MarketVisits() {
                   <td className="px-5 py-3.5">
                     <span className="text-ink font-medium">{v.hr_employees?.first_name} {v.hr_employees?.last_name}</span>
                     <div className="text-xs text-ink/70 font-nums">{v.hr_employees?.employee_code}</div>
+                    <div className="text-xs text-ink/70">{v.visit_type === "check_out" ? "Check-out" : "Check-in"}</div>
                   </td>
                   <td className="px-5 py-3.5 font-nums text-ink/70">{formatDateTime(v.captured_at)}</td>
                   <td className="px-5 py-3.5">

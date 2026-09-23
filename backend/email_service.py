@@ -125,6 +125,26 @@ def notify_leave_approved(employee_email: str, employee_name: str, leave_type: s
     send_email(employee_email, subject, body)
 
 
+def notify_new_joiner(employee: dict, recipients: list[str]) -> None:
+    """HR meeting 25 Sept 2026: fires when a joining date is first set (or
+    changed) on an employee, to whichever recipients HR has picked on the
+    New Joiner Email tab (Policy console) — so credential setup (OMS login,
+    HRMS) starts without HR having to remember to ask for it by hand."""
+    if not recipients:
+        return
+    name = f"{employee.get('first_name', '')} {employee.get('last_name') or ''}".strip()
+    subject = f"New joiner — set up credentials for {name}"
+    body = (
+        f"{name} ({employee.get('employee_code', '')}) is joining on {employee.get('date_of_joining', '')}.\n\n"
+        f"Department: {employee.get('department', '') or '—'}\n"
+        f"Location: {employee.get('location', '') or '—'}\n\n"
+        f"Please set up their OMS login and HRMS access ahead of the joining date.\n"
+    )
+    for recipient in recipients:
+        if recipient:
+            send_email(recipient, subject, body)
+
+
 def notify_late_digest(
     date_iso: str, late_employees: list[dict], hr_email: str, extra_recipients: list[str] | None = None,
     include_report_link: bool = True,

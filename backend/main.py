@@ -6,7 +6,8 @@ from routers import (
     absence, arrears, auth, biometric, careers, clocks, comp_off, confirmations, disputes, employee_profile,
     employees,
     exit_procedure, hr_tasks_report,
-    holidays, hr_tasks, late_policy, leave, leave_ledger, letters, loans, market_visits, onboarding, payroll,
+    holidays, hr_tasks, late_policy, leave, leave_ledger, letters, loans, market_visits, new_joiner_email, onboarding,
+    payroll,
     payslip_approvals, permissions, personal_info, policy_ack, policy_notices, reports, salary_paid, salary_structure,
     selfie, store_timings, tax_declaration, wfh,
 )
@@ -59,6 +60,7 @@ app.include_router(confirmations.router)
 app.include_router(exit_procedure.router)
 app.include_router(exit_procedure.me_router)
 app.include_router(loans.router)
+app.include_router(new_joiner_email.router)
 
 # Loads admin-defined shift time slots (hr_time_slots) into payroll.py's
 # in-memory SHIFT_START_BY_TIME_SLOT so lateness grading picks them up from

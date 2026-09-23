@@ -1,4 +1,4 @@
-import { Cake, CalendarDays, Clock3, Pencil, Plus, ShieldAlert, Store, X } from "lucide-react";
+import { Cake, CalendarDays, Clock3, Mail, Pencil, Plus, ShieldAlert, Store, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import api from "../../lib/api.js";
@@ -728,6 +728,84 @@ function StoreTimings() {
   );
 }
 
+function NewJoinerRecipients() {
+  const [recipients, setRecipients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [email, setEmail] = useState("");
+  const [label, setLabel] = useState("");
+  const [error, setError] = useState("");
+
+  const load = () => {
+    setLoading(true);
+    api.get("/api/new-joiner-recipients").then(({ data }) => setRecipients(data)).finally(() => setLoading(false));
+  };
+
+  useEffect(load, []);
+
+  const addRecipient = async (e) => {
+    e.preventDefault();
+    setError("");
+    try {
+      await api.post("/api/new-joiner-recipients", { email, label });
+      setEmail(""); setLabel("");
+      load();
+    } catch (err) {
+      setError(err.response?.data?.detail || "Could not add — try again");
+    }
+  };
+
+  const removeRecipient = async (id) => {
+    await api.delete(`/api/new-joiner-recipients/${id}`);
+    load();
+  };
+
+  if (loading) return <p className="text-ink/70 text-sm">Loading…</p>;
+
+  return (
+    <div>
+      <p className="text-sm text-ink/70 mb-4">
+        Everyone listed here gets an email the moment a joining date is set (or changed) on an employee, so they can
+        start setting up OMS login and HRMS credentials ahead of the start date. Being on this list does not grant
+        any HR console access.
+      </p>
+      <form onSubmit={addRecipient} className="bg-paper rounded-sm shadow-card p-5 mb-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <label htmlFor="recipient_email" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Email</label>
+          <input id="recipient_email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+            placeholder="name@jadecouture.com"
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+        </div>
+        <div>
+          <label htmlFor="recipient_label" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Label (optional)</label>
+          <input id="recipient_label" type="text" value={label} onChange={(e) => setLabel(e.target.value)}
+            placeholder="e.g. OMS admin"
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+        </div>
+        <div className="flex items-end">
+          <button type="submit" className="flex items-center gap-1.5 bg-jade-600 text-white px-4 py-2.5 rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors">
+            <Plus size={14} /> Add recipient
+          </button>
+        </div>
+        {error && <p className="sm:col-span-3 text-sm text-rust-500">{error}</p>}
+      </form>
+      <div className="bg-paper rounded-sm shadow-card divide-y divide-ink/[0.06]">
+        {recipients.length === 0 ? (
+          <p className="px-5 py-8 text-ink/70 text-center text-sm">No recipients on file — the new-joiner email won't send until at least one is added.</p>
+        ) : (
+          recipients.map((r) => (
+            <div key={r.id} className="flex items-center justify-between gap-4 px-5 py-3">
+              <p className="text-sm text-ink"><span className="font-medium">{r.email}</span>{r.label && <span className="text-ink/70"> — {r.label}</span>}</p>
+              <button type="button" onClick={() => removeRecipient(r.id)} aria-label="Remove recipient" className="text-ink/70 hover:text-rust-500 p-1">
+                <X size={16} />
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Policy() {
   const [tab, setTab] = useState("holidays");
   const [holidays, setHolidays] = useState([]);
@@ -774,7 +852,7 @@ export default function Policy() {
   };
 
   return (
-    <div className={tab === "latemarks" || tab === "timings" ? "max-w-5xl" : "max-w-2xl"}>
+    <div className={tab === "latemarks" || tab === "timings" || tab === "newjoiner" ? "max-w-5xl" : "max-w-2xl"}>
       <div className="flex items-center gap-2 mb-1">
         <CalendarDays size={20} className="text-jade-600" />
         <h2 className="font-display text-2xl text-ink">Leave Policy</h2>
@@ -806,6 +884,10 @@ export default function Policy() {
           className={`flex items-center gap-1.5 px-4 py-2 rounded-sm text-sm font-medium transition-colors ${tab === "timings" ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}>
           <Store size={14} /> Store Timings
         </button>
+        <button onClick={() => setTab("newjoiner")}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-sm text-sm font-medium transition-colors ${tab === "newjoiner" ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}>
+          <Mail size={14} /> New Joiner Email
+        </button>
       </div>
 
       {loading ? (
@@ -821,6 +903,8 @@ export default function Policy() {
         <LateMarkCards />
       ) : tab === "timings" ? (
         <StoreTimings />
+      ) : tab === "newjoiner" ? (
+        <NewJoinerRecipients />
       ) : (
         <Birthdays />
       )}

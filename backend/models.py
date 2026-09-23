@@ -38,6 +38,7 @@ class EmployeeCreate(BaseModel):
     role: str = "employee"
     requires_selfie_checkin: bool = False
     market_visit_checkin_enabled: bool = False
+    market_visit_checkout_enabled: bool = False
     leave_approver_id: Optional[str] = None
     employee_category: str = "factory_retail"
     standard_working_days_per_month: Optional[float] = None
@@ -69,6 +70,7 @@ class EmployeeUpdate(BaseModel):
     is_active: Optional[bool] = None
     requires_selfie_checkin: Optional[bool] = None
     market_visit_checkin_enabled: Optional[bool] = None
+    market_visit_checkout_enabled: Optional[bool] = None
     leave_approver_id: Optional[str] = None
     employee_category: Optional[str] = None
     standard_working_days_per_month: Optional[float] = None
@@ -216,6 +218,7 @@ class MarketVisitCreate(BaseModel):
     latitude: float
     longitude: float
     accuracy: float | None = None
+    visit_type: str = "check_in"  # "check_in" | "check_out"
 
 
 class MarketVisitResolve(BaseModel):

@@ -10,6 +10,7 @@ const SUCCESS_MS = 2200;
 export default function MarketVisitCheckinCard() {
   const { user } = useAuth() || {};
   const [mode, setMode] = useState("idle");
+  const [visitType, setVisitType] = useState("check_in");
   const [photo, setPhoto] = useState(null);
   const [location, setLocation] = useState(null);
   const [error, setError] = useState("");
@@ -26,7 +27,8 @@ export default function MarketVisitCheckinCard() {
     streamRef.current = null;
   };
 
-  const start = () => {
+  const start = (type) => {
+    setVisitType(type);
     setError("");
     setPhoto(null);
     setLocation(null);
@@ -98,6 +100,7 @@ export default function MarketVisitCheckinCard() {
         latitude: location.latitude,
         longitude: location.longitude,
         accuracy: location.accuracy,
+        visit_type: visitType,
       });
       setPhoto(null);
       setLocation(null);
@@ -116,23 +119,37 @@ export default function MarketVisitCheckinCard() {
     setMode("idle");
   };
 
-  if (!user?.market_visit_checkin_enabled) return null;
+  const checkinEnabled = !!user?.market_visit_checkin_enabled;
+  const checkoutEnabled = !!user?.market_visit_checkout_enabled;
+  if (!checkinEnabled && !checkoutEnabled) return null;
 
   return (
     <div className="bg-paper rounded-sm shadow-card p-5 mb-6 border-t-4 border-jade-500">
       <div className="flex items-center justify-between mb-3">
-        <p className="text-xs font-semibold uppercase tracking-wider text-jade-700">Market visit check-in</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-jade-700">Market visit</p>
       </div>
 
       {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5 mb-3">{error}</p>}
 
       {mode === "idle" && (
-        <button
-          onClick={start}
-          className="flex items-center gap-2 bg-jade-600 text-white px-4 py-2.5 rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors"
-        >
-          <MapPin size={15} /> Check in from here
-        </button>
+        <div className="flex flex-wrap gap-3">
+          {checkinEnabled && (
+            <button
+              onClick={() => start("check_in")}
+              className="flex items-center gap-2 bg-jade-600 text-white px-4 py-2.5 rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors"
+            >
+              <MapPin size={15} /> Check in from here
+            </button>
+          )}
+          {checkoutEnabled && (
+            <button
+              onClick={() => start("check_out")}
+              className="flex items-center gap-2 bg-ledger-800 text-manila px-4 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+            >
+              <MapPin size={15} /> Check out from here
+            </button>
+          )}
+        </div>
       )}
 
       {mode === "locating" && (
@@ -173,7 +190,7 @@ export default function MarketVisitCheckinCard() {
               disabled={mode === "submitting"}
               className="flex items-center gap-2 bg-jade-600 text-white px-4 py-2.5 rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
             >
-              <CheckCircle2 size={15} /> {mode === "submitting" ? "Submitting…" : "Submit check-in"}
+              <CheckCircle2 size={15} /> {mode === "submitting" ? "Submitting…" : `Submit ${visitType === "check_out" ? "check-out" : "check-in"}`}
             </button>
             <button
               onClick={retake}

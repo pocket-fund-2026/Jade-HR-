@@ -767,7 +767,7 @@ def resolve_leave_request(request_id: str, body: LeaveResolve, user: dict = Depe
 
 
 @router.get("/comp-off/{employee_id}")
-def list_comp_off_ledger(employee_id: str, user: dict = Depends(require_permission("employees.manage", "policy.manage"))):
+def list_comp_off_ledger(employee_id: str, user: dict = Depends(require_permission("employees.manage", "policy.manage", "comp_off.manage"))):
     resp = (
         supabase.table("hr_comp_off_ledger")
         .select("*")
@@ -779,7 +779,7 @@ def list_comp_off_ledger(employee_id: str, user: dict = Depends(require_permissi
 
 
 @router.post("/comp-off/grant")
-def grant_comp_off(body: CompOffGrant, user: dict = Depends(require_permission("employees.manage", "policy.manage"))):
+def grant_comp_off(body: CompOffGrant, user: dict = Depends(require_permission("employees.manage", "policy.manage", "comp_off.manage"))):
     """HR granting a Comp-Off by hand — for the cases the punch data can't
     see on its own (a holiday worked from home, an HOD-confirmed day, a
     correction). Automatic issuance off the punch data now also exists

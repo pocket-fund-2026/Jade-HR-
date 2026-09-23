@@ -52,10 +52,19 @@ def _is_reporting_manager_of(user_id: str, employee_id: str) -> bool:
     return bool(data and data.get("reporting_to_id") == user_id)
 
 
+ENABLED_FLAG_BY_VISIT_TYPE = {
+    "check_in": "market_visit_checkin_enabled",
+    "check_out": "market_visit_checkout_enabled",
+}
+
+
 @router.post("")
 def create_market_visit(body: MarketVisitCreate, user: dict = Depends(get_current_user)):
-    if not user.get("market_visit_checkin_enabled"):
-        raise HTTPException(status_code=403, detail="Market-visit check-in isn't enabled for this account")
+    flag = ENABLED_FLAG_BY_VISIT_TYPE.get(body.visit_type)
+    if flag is None:
+        raise HTTPException(status_code=400, detail="visit_type must be 'check_in' or 'check_out'")
+    if not user.get(flag):
+        raise HTTPException(status_code=403, detail=f"Market-visit {body.visit_type.replace('_', '-')} isn't enabled for this account")
 
     try:
         raw = body.photo_base64.split(",", 1)[-1]
@@ -80,6 +89,7 @@ def create_market_visit(body: MarketVisitCreate, user: dict = Depends(get_curren
         "accuracy": body.accuracy,
         "captured_at": now.isoformat(),
         "status": "pending",
+        "visit_type": body.visit_type,
     }).execute()
     return inserted.data[0]
 
