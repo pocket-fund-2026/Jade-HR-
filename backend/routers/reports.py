@@ -422,6 +422,7 @@ def attendance_report(
             "name": s["name"],
             "location": s["location"],
             "department": s["department"],
+            "time_slot": s.get("time_slot"),
             "daily": s["daily"],
         }
         for s in summaries
@@ -487,6 +488,7 @@ def attendance_report_range(
             "name": f"{e['first_name']} {e.get('last_name', '')}".strip(),
             "location": e.get("location"),
             "department": e.get("department"),
+            "time_slot": employee.get("time_slot"),
             "daily": daily,
         })
     return results

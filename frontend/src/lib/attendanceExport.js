@@ -275,18 +275,23 @@ function formatBlockDate(iso) {
 
 const BLOCK_FONT = { name: "Arial", size: 8 };
 
-// Date-wise export, structured to match the attendance-machine export format
-// HR already gets from the biometric system (reference file supplied
-// 2026-07-20): one block per employee — an "Employee Code"/name header row,
-// a column-header row, then one row per day — separated by a blank row,
-// stacked down a single sheet, rather than one flat table with the employee
-// repeated on every row. No color-coding here; the reference sheet is plain
-// black-on-white, unlike exportAttendanceExcel's status-colored cells.
-export async function exportAttendanceTimingsExcel(rows, year, month, rangeLabel) {
-  const ExcelJS = await loadExcelJS();
-  const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet("DailyAttendance_BasicReport_Emp");
+// Excel sheet names can't exceed 31 chars or contain : \ / ? * [ ], and must
+// be unique within the workbook — a raw time_slot label ("10:00 AM – 7:40
+// PM") trips all three, so it's sanitized and de-duped here rather than
+// passed straight to addWorksheet.
+function safeSheetName(label, used) {
+  let name = (label || "Unassigned").replace(/[:\\/?*[\]]/g, "").trim().slice(0, 31) || "Unassigned";
+  let unique = name;
+  let n = 2;
+  while (used.has(unique)) {
+    const suffix = ` (${n++})`;
+    unique = name.slice(0, 31 - suffix.length) + suffix;
+  }
+  used.add(unique);
+  return unique;
+}
 
+function writeTimingsSheet(ws, rows) {
   addLateLegend(ws, BLOCK_FONT, rows[0]?.daily ?? []);
   ws.addRow([]);
 
@@ -346,6 +351,43 @@ export async function exportAttendanceTimingsExcel(rows, year, month, rangeLabel
   ws.getColumn(6).width = 5;
   ws.getColumn(7).width = 9;
   ws.getColumn(8).width = 6;
+}
+
+// Date-wise export, structured to match the attendance-machine export format
+// HR already gets from the biometric system (reference file supplied
+// 2026-07-20): one block per employee — an "Employee Code"/name header row,
+// a column-header row, then one row per day — separated by a blank row,
+// stacked down a single sheet. Employees are split into one worksheet PER
+// shift timing (hr_employee_profile.time_slot — 25 Sept 2026 HR ask, ahead
+// of payroll) so each shift's rows can be worked/printed independently
+// instead of hunting through one flat sheet for a given shift's employees.
+// An employee with no time_slot assigned lands on an "Unassigned" tab rather
+// than being silently dropped. No color-coding beyond lateness; the
+// reference sheet is plain black-on-white, unlike exportAttendanceExcel's
+// status-colored cells.
+export async function exportAttendanceTimingsExcel(rows, year, month, rangeLabel) {
+  const ExcelJS = await loadExcelJS();
+  const wb = new ExcelJS.Workbook();
+
+  const bySlot = new Map();
+  for (const r of rows) {
+    const key = r.time_slot || "Unassigned";
+    if (!bySlot.has(key)) bySlot.set(key, []);
+    bySlot.get(key).push(r);
+  }
+  // Sort slots by earliest shift start where discernible ("10:00 AM ..."
+  // sorts before "11:00 AM ..."), with "Flexible"/"Unassigned" pushed last.
+  const slots = [...bySlot.keys()].sort((a, b) => {
+    const rank = (s) => (s === "Flexible" || s === "Unassigned" ? 1 : 0);
+    if (rank(a) !== rank(b)) return rank(a) - rank(b);
+    return a.localeCompare(b);
+  });
+
+  const used = new Set();
+  for (const slot of slots) {
+    const ws = wb.addWorksheet(safeSheetName(slot, used));
+    writeTimingsSheet(ws, bySlot.get(slot));
+  }
 
   await downloadWorkbook(wb, `jade-hr-attendance-timings-${rangeLabel || `${MONTH_NAMES[month - 1]}-${year}`}.xlsx`);
 }

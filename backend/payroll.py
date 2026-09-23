@@ -64,6 +64,7 @@ DEFAULT_SHIFT_START = time(10, 0)
 SHIFT_START_BY_TIME_SLOT = {
     "10:00 AM – 6:30 PM": time(10, 0),
     "10:00 AM – 7:00 PM": time(10, 0),
+    "10:00 AM – 7:40 PM": time(10, 0),
     "11:00 AM – 8:00 PM": time(11, 0),
     "Intern (10:00 AM – 6:00 PM)": time(10, 0),
 }
@@ -142,6 +143,15 @@ SATURDAY_SHIFT_HOURS = {
 # they arrived).
 SATURDAY_OT_CUTOFF = time(15, 0)
 
+# HR policy, 25 Sept 2026: some time_slots grade OT off a fixed weekday clock
+# cutoff (mirroring SATURDAY_OT_CUTOFF's mechanism) instead of hours worked
+# past standard_hours_per_day — e.g. the "10:00 AM – 7:40 PM" slot's OT
+# starts strictly after 7:00 PM regardless of standard_hours_per_day. A
+# time_slot not listed here keeps the hours-past-standard rule below.
+WEEKDAY_OT_CUTOFF_BY_TIME_SLOT = {
+    "10:00 AM – 7:40 PM": time(19, 0),
+}
+
 # Company policy: OT is only payable to employees whose base gross (Basic +
 # HRA + Conveyance, the same figure OT is already priced off of below) is at
 # or below this ceiling — anyone earning more than this has no OT hours/
@@ -166,13 +176,19 @@ def _standard_hours_for_day(d: date, standard_hours_per_day: float, time_slot: s
     return standard_hours_per_day
 
 
-def _ot_hours(d: date, start: datetime, end: datetime, day_standard: float) -> float:
+def _ot_hours(d: date, start: datetime, end: datetime, day_standard: float, time_slot: str | None = None) -> float:
     """OT for one worked span. Saturdays use the fixed 3pm clock cutoff
-    above for every employee; every other day is hours worked beyond that
-    day's standard (day_standard — Saturday-shortened for the late-coming
-    policy's own purposes, but irrelevant to OT now)."""
+    above for every employee; a time_slot in WEEKDAY_OT_CUTOFF_BY_TIME_SLOT
+    uses its own fixed weekday clock cutoff the same way; every other
+    day/slot is hours worked beyond that day's standard (day_standard —
+    Saturday-shortened for the late-coming policy's own purposes, but
+    irrelevant to OT now)."""
     if d.weekday() == 5:
         cutoff = datetime.combine(d, SATURDAY_OT_CUTOFF, tzinfo=IST)
+        return max(0.0, (end - max(start, cutoff)).total_seconds() / 3600.0)
+    weekday_cutoff = WEEKDAY_OT_CUTOFF_BY_TIME_SLOT.get(time_slot)
+    if weekday_cutoff is not None:
+        cutoff = datetime.combine(d, weekday_cutoff, tzinfo=IST)
         return max(0.0, (end - max(start, cutoff)).total_seconds() / 3600.0)
     hours_worked = max(0.0, (end - start).total_seconds() / 3600.0)
     return max(0.0, hours_worked - day_standard)
@@ -254,7 +270,7 @@ def _apply_override(d: date, override: dict, standard_hours_per_day: float, time
         start = datetime.combine(d, first_in, tzinfo=IST)
         end = datetime.combine(d, last_out, tzinfo=IST)
         hours_worked = max(0.0, (end - start).total_seconds() / 3600.0)
-        ot_hours = _ot_hours(d, start, end, day_standard)
+        ot_hours = _ot_hours(d, start, end, day_standard, time_slot)
         first_in_iso, last_out_iso = start.isoformat(), end.isoformat()
         late = (hours_worked < day_standard) if is_flexible else (first_in > grace)
     elif status == "present":
@@ -559,7 +575,7 @@ def compute_daily_attendance(
         last_out = punches[-1]
         day_standard = _standard_hours_for_day(d, standard_hours_per_day, time_slot)
         hours_worked = max(0.0, (last_out - first_in).total_seconds() / 3600.0)
-        ot_hours = _ot_hours(d, first_in, last_out, day_standard)
+        ot_hours = _ot_hours(d, first_in, last_out, day_standard, time_slot)
         first_in_local = first_in.astimezone(IST).time()
 
         row = {
@@ -1083,6 +1099,7 @@ def compute_monthly_summary(
         "date_of_birth": employee.get("date_of_birth"),
         "grade": employee.get("grade", ""),
         "cost_center": employee.get("cost_center", ""),
+        "time_slot": time_slot,
         "year": year,
         "month": month,
         "period_start": period_start.isoformat(),
