@@ -590,6 +590,14 @@ def compute_daily_attendance(
                 if time_slot == FLEXIBLE_TIME_SLOT
                 else first_in_local > _extended_grace_for(d, by_day, midnight_tail_dates, time_slot)
             ),
+            # Always computed, regardless of employee_category — unlike
+            # comp_off_eligible below (corporate-only, and about actual
+            # comp-off entitlement), this only flags "they clocked in on their
+            # declared weekly off" for display (the attendance sheet shows
+            # WOP instead of a bare P), which every employee needs, factory/
+            # retail included — HR flagged that a Sunday punch was reading as
+            # plain Present with no indication it was their weekoff at all.
+            "worked_on_weekly_off": d.weekday() == weekly_off_day,
         }
         if is_corporate:
             row["after_noon"] = first_in_local > NOON

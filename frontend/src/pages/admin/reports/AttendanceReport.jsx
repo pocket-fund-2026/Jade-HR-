@@ -8,13 +8,16 @@ import MonthPicker from "../../../components/MonthPicker.jsx";
 import api from "../../../lib/api.js";
 import { useAuth } from "../../../lib/auth.jsx";
 import { LEAVE_LABELS } from "../../../lib/leaveTypes.js";
-import { dayCode, dayNumber, exportAttendanceExcel, exportAttendanceTimingsExcel, summarize } from "../../../lib/attendanceExport.js";
+import { dayCode, dayNumber, exportAttendanceExcel, exportAttendanceTimingsExcel, statusColorKey, summarize } from "../../../lib/attendanceExport.js";
 import { formatHoursMins, formatTime } from "../../../lib/format.js";
 
 const today = new Date();
 
 const STATUS_CLASS = {
   present: "bg-jade-50 text-jade-700", absent: "bg-rust-50 text-rust-600", weekoff: "bg-ink/5 text-ink/70",
+  // Present, but worked their declared weekly off — same jade background as
+  // an ordinary Present, bolded so WOP doesn't blend into a plain P.
+  weekoff_present: "bg-jade-50 text-jade-700 font-bold",
   holiday: "bg-ochre-50 text-ochre-700", leave: "bg-manila text-ink/70", half_day: "bg-ochre-50 text-ochre-700",
   wfh: "bg-ink/5 text-jade-700",
   future: "text-ink/20",
@@ -23,8 +26,10 @@ const STATUS_CLASS = {
 function cellTitle(d) {
   if (d.status === "present") {
     const late = d.late ? " (late)" : "";
-    const compOff = d.comp_off_eligible ? " — Comp-Off eligible (worked a weekoff/holiday)" : "";
-    return `${formatTime(d.first_in)} – ${formatTime(d.last_out)}${late}, ${formatHoursMins(d.hours_worked)} worked, ${formatHoursMins(d.ot_hours)} OT${compOff}`;
+    const wop = d.worked_on_weekly_off
+      ? ` — worked their weekly off${d.comp_off_eligible ? " (Comp-Off eligible)" : ""}`
+      : "";
+    return `${formatTime(d.first_in)} – ${formatTime(d.last_out)}${late}, ${formatHoursMins(d.hours_worked)} worked, ${formatHoursMins(d.ot_hours)} OT${wop}`;
   }
   if (d.status === "holiday") return d.holiday_description || "Holiday";
   if (d.status === "leave") return `${LEAVE_LABELS[d.leave_type] || "Leave"}${d.leave_type === "comp_off" ? " (from a day already worked)" : ""}`;
@@ -287,7 +292,7 @@ export default function AttendanceReport() {
                         >
                           <div className="flex flex-col items-center gap-0.5">
                             <span
-                              className={`relative inline-flex items-center justify-center w-7 h-5 rounded-sm font-semibold ${STATUS_CLASS[d.status] || ""}`}
+                              className={`relative inline-flex items-center justify-center w-7 h-5 rounded-sm font-semibold ${STATUS_CLASS[statusColorKey(d)] || ""}`}
                             >
                               {dayCode(d)}
                               {d.comp_off_eligible && (

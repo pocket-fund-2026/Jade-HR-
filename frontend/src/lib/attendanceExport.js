@@ -20,10 +20,23 @@ export const LEAVE_TYPE_CODE = {
 };
 
 // The code that actually goes in a day's cell: leave days carry their own
-// type code, everything else uses the status code.
+// type code, a present day worked on the employee's declared weekly off
+// shows WOP (never just a bare P — HR, 25 Sept 2026: "if somebody is
+// present on [their weekoff] it needs to show WOP"), everything else uses
+// the plain status code.
 export function dayCode(d) {
   if (d.status === "leave") return LEAVE_TYPE_CODE[d.leave_type] || STATUS_CODE.leave;
+  if (d.status === "present" && d.worked_on_weekly_off) return "WOP";
   return STATUS_CODE[d.status] ?? d.status;
+}
+
+// Which STATUS_COLORS/STATUS_CLASS key actually applies to a day — same
+// "present but flag the weekoff" override as dayCode above, kept as one
+// function so the Excel fill/font and the on-screen cell class can never
+// drift out of sync with what dayCode prints.
+export function statusColorKey(d) {
+  if (d.status === "present" && d.worked_on_weekly_off) return "weekoff_present";
+  return d.status;
 }
 
 // Mirrors AttendanceReport.jsx's STATUS_CLASS (tailwind.config.js jade/rust/
@@ -34,6 +47,10 @@ const STATUS_COLORS = {
   present: { fill: "FFEAF4EF", font: "FF1B4A37" },
   absent: { fill: "FFFBEEE9", font: "FF832F23" },
   weekoff: { fill: "FFEFECE5", font: "FFA19F9A" },
+  // Present + worked their declared weekly off — same jade background as an
+  // ordinary Present (they did show up and work), bolded and flagged gold
+  // so it doesn't read as an indistinguishable P on a scan of the sheet.
+  weekoff_present: { fill: "FFEAF4EF", font: "FF8B5219", bold: true },
   holiday: { fill: "FFFBF0E2", font: "FF8B5219" },
   leave: { fill: "FFEFE9DA", font: "FF5B5952" },
   half_day: { fill: "FFFBF0E2", font: "FF8B5219" },
@@ -170,7 +187,7 @@ function colorRowByStatus(row, status, fromCol, toCol) {
   for (let col = fromCol; col <= toCol; col++) {
     const cell = row.getCell(col);
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: c.fill } };
-    cell.font = { color: { argb: c.font } };
+    cell.font = { color: { argb: c.font }, bold: !!c.bold };
   }
 }
 
@@ -223,7 +240,7 @@ export async function exportAttendanceExcel(rows, year, month, rangeLabel) {
 
     r.daily.forEach((d, i) => {
       const col = 4 + i * 3; // 1-indexed — Employee Code/Name/Department occupy 1-3
-      colorRowByStatus(row, d.status, col, col + 2);
+      colorRowByStatus(row, statusColorKey(d), col, col + 2);
       // col is the "In" cell of the group — grade it by lateness severity,
       // overriding just that cell's fill+font (Out/Status keep their normal
       // status coloring — a late day is still Present everywhere else).
@@ -419,7 +436,7 @@ export async function exportDailyAttendanceExcel(daily, { employeeCode, name, ra
       formatDurationHHMM(d.ot_hours),
       dayCode(d),
     ]);
-    colorRowByStatus(row, d.status, 1, 6);
+    colorRowByStatus(row, statusColorKey(d), 1, 6);
     const tier = lateTier(d);
     if (tier) applyLateTier(row.getCell(2), tier, {});
   }
