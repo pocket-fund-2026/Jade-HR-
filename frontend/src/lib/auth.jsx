@@ -121,6 +121,7 @@ export function AuthProvider({ children }) {
       user, loading, permissionsLoading, login, logout, permissions, can,
       reloadPermissions: loadPermissions, policyAck, reloadPolicyAck: loadPolicyAck,
       personalInfo, reloadPersonalInfo: loadPersonalInfo,
+      reloadUser: loadMe,
     }}>
       {children}
     </AuthContext.Provider>

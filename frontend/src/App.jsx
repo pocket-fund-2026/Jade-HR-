@@ -89,6 +89,7 @@ const Policy = lazyWithReload(() => import("./pages/admin/Policy.jsx"));
 const PolicyDocument = lazyWithReload(() => import("./pages/PolicyDocument.jsx"));
 const PolicyAcknowledgement = lazyWithReload(() => import("./pages/PolicyAcknowledgement.jsx"));
 const PersonalInfoGate = lazyWithReload(() => import("./pages/PersonalInfoGate.jsx"));
+const ChangePasswordGate = lazyWithReload(() => import("./pages/ChangePasswordGate.jsx"));
 const PolicyAcknowledgements = lazyWithReload(() => import("./pages/admin/PolicyAcknowledgements.jsx"));
 const Reports = lazyWithReload(() => import("./pages/admin/Reports.jsx"));
 const SalarySheetReport = lazyWithReload(() => import("./pages/admin/reports/SalarySheetReport.jsx"));
@@ -169,6 +170,11 @@ function Protected({ roles, children }) {
   // acknowledgement — same in-place-render / null-means-"don't decide" contract.
   if (personalInfo && !personalInfo.complete) return <PersonalInfoGate />;
   if (!personalInfo) return <PageFallback />;
+  // Mandatory one-time password-change gate, last in the chain — everyone
+  // starts with password_changed_by_employee = false (new joiners and every
+  // pre-existing account alike) until they use POST /api/auth/change-password
+  // themselves, which is the only thing that flips it.
+  if (!user.password_changed_by_employee) return <ChangePasswordGate />;
   return (
     <>
       {children}
