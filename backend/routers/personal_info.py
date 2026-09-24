@@ -1,7 +1,7 @@
 """Mandatory "Personal Information" login gate, required from every employee,
 shown right after the policy acknowledgement gate. Covers: core personal
-details, government IDs, bank details, medical (blood group, insurance) and
-2 emergency contacts.
+details, government IDs, bank details, medical (blood group, insurance),
+2 emergency contacts, and their reporting manager's name/email.
 
 Deliberately NOT enforced at the API layer, same as routers/policy_ack.py:
 this is a console/UI gate only, so the sync accounts driving
@@ -11,7 +11,11 @@ deliberately its own endpoint rather than reusing
 routers/employee_profile.py's PUT /employees/{id}/profile — that one requires
 `employees.manage` even to edit your own row, which an ordinary employee
 never has. This endpoint only ever writes the signed-in user's own row, and
-only the field set below (nothing role/salary/reporting-line related).
+only the field set below — reporting_to/reporting_to_email are self-service
+safe (see PersonalInfoUpdate in models.py for why), but reporting_to_id
+(the field that actually grants leave-approval authority) is not: HR/Accounts
+sets that separately, via Employee Details' "Reporting To" picker, after
+matching this free-text name to a real employee_code.
 """
 
 from datetime import datetime, timezone
@@ -45,12 +49,19 @@ ALWAYS_REQUIRED_FIELDS = (
     "additional_contact_2_phone",
 )
 
+# Optional — shown on the same Personal Information screen but doesn't block
+# login if left blank, unlike ALWAYS_REQUIRED_FIELDS above. HR reviews these
+# against the real employee roster (see employees.py's
+# reporting_manager_suggestions) before turning any of them into an actual
+# reporting_to_id, so a sparse rollout here doesn't block anyone.
+OPTIONAL_FIELDS = ("reporting_to", "reporting_to_email")
+
 # Exactly one of these two is required, depending on marital_status — a
 # single person has no spouse to name, a married person's mother's name
 # isn't the field that matters here.
 CONDITIONAL_FIELDS = ("mother_name", "spouse_name")
 
-ALL_FIELDS = ALWAYS_REQUIRED_FIELDS + CONDITIONAL_FIELDS
+ALL_FIELDS = ALWAYS_REQUIRED_FIELDS + CONDITIONAL_FIELDS + OPTIONAL_FIELDS
 
 DATE_FIELDS = ("date_of_birth",)
 

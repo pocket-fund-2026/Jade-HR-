@@ -702,7 +702,15 @@ class PersonalInfoUpdate(BaseModel):
     # routers/personal_info.py) — personal/ID/bank/medical/emergency-contact
     # fields the employee themselves is the authority on, so an employee can
     # never touch anything HR/Accounts-controlled (role, salary structure,
-    # reporting line, etc.) through this endpoint.
+    # etc.) through this endpoint.
+    #
+    # reporting_to / reporting_to_email ARE included here (unlike
+    # reporting_to_id) — an employee stating who their manager is by name/email
+    # is just information HR reviews and matches to a real employee_code (see
+    # employees.py's reporting_manager_suggestions/bulk_import_reporting_manager),
+    # not a grant of anything. Only reporting_to_id actually confers
+    # leave-approval authority, and that stays HR/Accounts-only, set via
+    # EmployeeProfileUpdate.
     gender: Optional[str] = None
     date_of_birth: Optional[date] = None
     marital_status: Optional[str] = None
@@ -722,6 +730,8 @@ class PersonalInfoUpdate(BaseModel):
     additional_contact_1_phone: Optional[str] = None
     additional_contact_2_name: Optional[str] = None
     additional_contact_2_phone: Optional[str] = None
+    reporting_to: Optional[str] = None
+    reporting_to_email: Optional[str] = None
 
 
 class PolicyAcknowledgementCreate(BaseModel):

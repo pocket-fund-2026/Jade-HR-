@@ -53,9 +53,20 @@ const SECTIONS = [
       { k: "additional_contact_2_phone", l: "Additional Contact 2 — Phone", t: "text" },
     ],
   },
+  {
+    label: "Reporting Manager",
+    // Optional (unlike every other section here) — HR matches this free-text
+    // name/email to a real employee record afterward rather than it granting
+    // anything on its own, so it's fine for it to stay blank meanwhile.
+    fields: [
+      { k: "reporting_to", l: "Reporting Manager Name", t: "text", optional: true },
+      { k: "reporting_to_email", l: "Reporting Manager Email", t: "email", optional: true },
+    ],
+  },
 ];
 
 const ALL_KEYS = SECTIONS.flatMap((s) => s.fields.map((f) => f.k));
+const REQUIRED_KEYS = SECTIONS.flatMap((s) => s.fields.filter((f) => !f.optional).map((f) => f.k));
 
 export default function PersonalInfoGate() {
   const { user, personalInfo, reloadPersonalInfo } = useAuth();
@@ -81,7 +92,7 @@ export default function PersonalInfoGate() {
   );
 
   const allFilled =
-    ALL_KEYS.every((k) => form[k]?.trim()) && form[conditionalField.k]?.trim();
+    REQUIRED_KEYS.every((k) => form[k]?.trim()) && form[conditionalField.k]?.trim();
 
   const submit = async (e) => {
     e.preventDefault();
@@ -132,7 +143,7 @@ export default function PersonalInfoGate() {
           value={form[f.k]}
           onChange={(e) => set(f.k, e.target.value)}
           placeholder={f.placeholder}
-          required
+          required={!f.optional}
           className="mt-1 w-full border border-ink/20 rounded-sm px-3 py-2 text-sm"
         />
       )}
