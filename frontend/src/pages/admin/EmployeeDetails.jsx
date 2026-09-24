@@ -66,6 +66,10 @@ const SECTIONS = [
             hint: "\"10:00 AM – 6:30 PM\" additionally gets a shortened Saturday of 10:00 AM – 3:00 PM for late-mark purposes — no separate setting needed. Saturday OT (after 3:00 PM) applies to every time slot.",
           },
           {
+            k: "flexible_reference_time_slot", l: "Reference Time Slot (Flexible only)", t: "select", options: [],
+            hint: "Only shown when Time Slot is \"Flexible\". Doesn't affect late-mark grading (still hours-based) — it's what groups this employee into a shift's own tab on the time-slot-wise attendance sheet, instead of a generic \"Flexible\" tab.",
+          },
+          {
             k: "saturday_extended_hours", l: "Saturday Extended Hours", t: "boolean",
             hint: "Only meaningful for the Intern time slot — extends this employee's Saturday to 10:00 AM – 7:00 PM instead of 10:00 AM – 6:00 PM",
           },
@@ -1391,6 +1395,9 @@ export default function EmployeeDetails() {
                           if (SENSITIVE_OFFICIAL_KEYS.has(field.k) && !canViewSalary) {
                             return null;
                           }
+                          if (field.k === "flexible_reference_time_slot" && form.time_slot !== "Flexible") {
+                            return null;
+                          }
                           if (field.t === "role") {
                             return (
                               <div key={field.k}>
@@ -1458,7 +1465,11 @@ export default function EmployeeDetails() {
                           return (
                             <Field
                               key={field.k}
-                              field={field.k === "time_slot" ? { ...field, options: timeSlotOptions } : field}
+                              field={
+                                field.k === "time_slot" ? { ...field, options: timeSlotOptions }
+                                : field.k === "flexible_reference_time_slot" ? { ...field, options: timeSlotOptions.filter((o) => o !== "Flexible") }
+                                : field
+                              }
                               value={form[field.k]}
                               editing={editing}
                               onChange={(v) => setField(field.k, v)}

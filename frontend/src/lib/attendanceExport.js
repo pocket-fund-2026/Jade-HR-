@@ -388,7 +388,11 @@ export async function exportAttendanceTimingsExcel(rows, year, month, rangeLabel
 
   const bySlot = new Map();
   for (const r of rows) {
-    const key = r.time_slot || "Unassigned";
+    // A Flexible employee with a Reference Time Slot set (Employee Details —
+    // only shown/settable when Time Slot is "Flexible") lands on THAT slot's
+    // own tab instead of a generic "Flexible" one — late-mark grading is
+    // unaffected either way, this only changes which tab they print on.
+    const key = (r.time_slot === "Flexible" && r.flexible_reference_time_slot) || r.time_slot || "Unassigned";
     if (!bySlot.has(key)) bySlot.set(key, []);
     bySlot.get(key).push(r);
   }

@@ -1108,6 +1108,7 @@ def compute_monthly_summary(
         "grade": employee.get("grade", ""),
         "cost_center": employee.get("cost_center", ""),
         "time_slot": time_slot,
+        "flexible_reference_time_slot": employee.get("flexible_reference_time_slot"),
         "year": year,
         "month": month,
         "period_start": period_start.isoformat(),

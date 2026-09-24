@@ -336,6 +336,8 @@ class EmployeeProfileUpdate(BaseModel):
     holiday_group: Optional[str] = None
     shift_group: Optional[str] = None
     time_slot: Optional[str] = None
+    # Only meaningful when time_slot == "Flexible" — see sql/068 for why.
+    flexible_reference_time_slot: Optional[str] = None
     saturday_extended_hours: Optional[bool] = None
     ess_role: Optional[str] = None
     head_of_department: Optional[bool] = None

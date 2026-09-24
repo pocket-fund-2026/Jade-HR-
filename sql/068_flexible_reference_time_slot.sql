@@ -1,0 +1,13 @@
+-- HR ask, 25 Sept 2026: Flexible employees have no fixed shift start (graded
+-- on hours worked, not arrival time — see payroll.py's FLEXIBLE_TIME_SLOT),
+-- but HR still needs to be able to pick a real named time slot for each of
+-- them, for two things: (1) it shows on Employee Details next to the Time
+-- Slot field, and (2) the time-slot-wise attendance sheet groups them into
+-- that slot's own tab instead of dumping every Flexible employee into one
+-- generic "Flexible" tab.
+--
+-- Deliberately just a label (not a foreign key into hr_time_slots, which has
+-- no unique constraint on `label` to reference, and slots can be renamed/
+-- deleted freely) — same "reference string, not an enforced link" pattern as
+-- store_timings.default_time_slot.
+alter table hr_employee_profile add column if not exists flexible_reference_time_slot text;

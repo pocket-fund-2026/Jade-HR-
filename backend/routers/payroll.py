@@ -270,7 +270,8 @@ def _get_active_employee(employee_id: str) -> dict:
 COMPLIANCE_COLUMNS = (
     "employee_id,pf_applicable,eps_applicable,pf_gross_limit,esic_applicable,"
     "pt_applicable,lwf_applicable,gender,pan_no,uan_no,aadhar_no,pf_no,esic_no,payment_mode,"
-    "bank_name,bank_account_no,bank_ifsc,exit_date,date_of_birth,grade,cost_center,time_slot"
+    "bank_name,bank_account_no,bank_ifsc,exit_date,date_of_birth,grade,cost_center,time_slot,"
+    "flexible_reference_time_slot"
 )
 
 
