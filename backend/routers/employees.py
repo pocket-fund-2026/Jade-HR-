@@ -9,6 +9,7 @@ from models import (
     EmployeeCreate, EmployeeUpdate, PasswordReset, ReportingManagerImportRequest, SalaryImportRequest,
     StatutoryFlagsImportRequest,
 )
+from routers.employee_profile import SENSITIVE_PROFILE_FIELDS
 from routers.new_joiner_email import recipient_emails
 
 router = APIRouter(prefix="/api/employees", tags=["employees"])
@@ -354,6 +355,34 @@ def bulk_import_statutory_flags(body: StatutoryFlagsImportRequest, user: dict = 
         supabase.table("hr_employee_profile").upsert(rows_to_upsert, on_conflict="employee_id").execute()
 
     return {"updated": len(updated), "not_found": not_found}
+
+
+@router.get("/export-full")
+def export_full(user: dict = Depends(require_permission("employees.manage"))):
+    """Every field for every employee (core hr_employees + hr_employee_profile,
+    merged), for the Employees page's "Complete Details (Excel)" export —
+    unlike GET "" above, this includes the profile columns (personal/official/
+    dates/communication/statutory/other) that page never fetches, so a caller
+    who only wants the roster table isn't paying for ~140 extra columns on
+    every page load. Gated the same as the bulk-import endpoints above
+    (employees.manage) since it's a bulk read of the same sensitive fields."""
+    core_resp = supabase.table("hr_employees").select("*").order("first_name").execute()
+    can_view_salary = user_can(user, "salary.view")
+    profiles = {p["employee_id"]: p for p in supabase.table("hr_employee_profile").select("*").execute().data}
+
+    rows = []
+    for emp in core_resp.data:
+        core = _sanitize(dict(emp), can_view_salary)
+        profile = dict(profiles.get(core["id"], {}))
+        profile.pop("employee_id", None)
+        profile.pop("updated_at", None)
+        if not can_view_salary:
+            for field in SENSITIVE_PROFILE_FIELDS:
+                profile.pop(field, None)
+        # core wins on any name collision (there are none today, but core is
+        # the source of truth for anything both tables happen to define).
+        rows.append({**profile, **core})
+    return rows
 
 
 def _require_role_grant_allowed(user: dict, role: str | None) -> None:
