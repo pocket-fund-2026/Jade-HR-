@@ -10,8 +10,8 @@ from config import IST
 from database import maybe_single_data, supabase
 from models import SalaryHoldUpdate
 from payroll import (
-    WEEKOFF_LOOKBACK_DAYS, compute_attendance_for_range, compute_monthly_summary, fy_label_for_month,
-    pay_period_bounds,
+    FLEXIBLE_TIME_SLOT, WEEKOFF_LOOKBACK_DAYS, compute_attendance_for_range, compute_monthly_summary,
+    fy_label_for_month, pay_period_bounds,
 )
 from routers.leave import (
     fetch_all_approved_leaves_by_employee, fetch_approved_leaves, pl_ledger_for_period, pl_ledger_for_period_bulk,
@@ -541,6 +541,16 @@ def late_digest(
 
     late = []
     for summary in summaries:
+        # Flexible-time-slot employees are judged on completed hours, not
+        # arrival time (see FLEXIBLE_TIME_SLOT) — compute_daily_attendance
+        # still sets `late` for them whenever hours_worked falls short of
+        # standard, which has nothing to do with what time they clocked in.
+        # Without this guard the digest read that flag literally, emailing
+        # HR/their manager an "arrived late" alert stamped with their actual
+        # (often perfectly on-time) first-in time — reported live 2026-09-25
+        # for a Flexible employee whose first punch was 9:30 AM.
+        if summary.get("time_slot") == FLEXIBLE_TIME_SLOT:
+            continue
         row = next((r for r in summary["daily"] if r["date"] == target_iso), None)
         if row and row["status"] == "present" and row.get("late"):
             first_in = row.get("first_in")
