@@ -258,7 +258,12 @@ def reconcile(csv_text: str, token: str):
         body = {
             "employee_code": code, "first_name": first, "last_name": last,
             "location": location, "role": "employee",
-            "password": f"{pw_prefix}@{code}!2026",
+            # "Jade@<last 3 digits of employee code>" — the scheme HR
+            # actually communicates to employees (2026-09-25 go-ahead).
+            # Deliberately ignores pw_prefix/location and the old
+            # "!2026" suffix from the previous scheme (both broke login
+            # for anyone told the "Jade@xxx" version instead).
+            "password": f"Jade@{code[-3:]}",
         }
         doj = master.get("DOJ", "")
         if doj and doj not in ("1900-01-01", "3000-01-01", ""):

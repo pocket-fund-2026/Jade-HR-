@@ -1,3 +1,4 @@
+import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -8,6 +9,7 @@ export default function Login() {
   const navigate = useNavigate();
   const [employeeCode, setEmployeeCode] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -57,14 +59,25 @@ export default function Login() {
               <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">
                 Password
               </label>
-              <input
-                id="password"
-                type="password"
-                className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 pr-10 text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  tabIndex={-1}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-ink/40 hover:text-ink/70"
+                >
+                  {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                </button>
+              </div>
             </div>
 
             {error && (
