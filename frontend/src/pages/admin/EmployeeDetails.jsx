@@ -4,7 +4,9 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import AddArrearModal from "../../components/AddArrearModal.jsx";
 import { useConfirm } from "../../components/ConfirmDialog.jsx";
+import MonthPicker from "../../components/MonthPicker.jsx";
 import PasswordResetModal from "../../components/PasswordResetModal.jsx";
+import PayslipDetail from "../../components/PayslipDetail.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
 import { useAuth } from "../../lib/auth.jsx";
@@ -694,6 +696,57 @@ function LineItemTable({ fields, form, editing, onChange }) {
   );
 }
 
+// The actual computed payslip (attendance/LOP/PF/ESIC/TDS all applied) for
+// one pay period, inline in the Salary tab — same GET /api/payroll/{id}
+// + <PayslipDetail> the standalone Payroll → payslip page uses, so Accounts
+// doesn't have to leave Employee Details to see what this month's Basic/
+// HRA numbers above actually turn into on the payslip.
+const today = new Date();
+
+function EmployeePayslipBreakdown({ employeeId }) {
+  const [year, setYear] = useState(today.getFullYear());
+  const [month, setMonth] = useState(today.getMonth() + 1);
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+    api
+      .get(`/api/payroll/${employeeId}`, { params: { year, month } })
+      .then(({ data }) => {
+        if (!cancelled) setSummary(data);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err.response?.data?.detail || "Could not load this period's payslip.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [employeeId, year, month]);
+
+  return (
+    <div className="mt-8 pt-6 border-t border-ink/10">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <h3 className="font-display text-lg text-ink">Payslip Breakdown</h3>
+        <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
+      </div>
+      {loading ? (
+        <p className="text-sm text-ink/70">Loading…</p>
+      ) : error ? (
+        <p className="text-sm text-rust-500">{error}</p>
+      ) : (
+        <PayslipDetail summary={summary} />
+      )}
+    </div>
+  );
+}
+
 function SalaryStructureSection({ employeeId, dateOfJoining, canView, canEdit, pfApplicable, epsApplicable, pfGrossLimit, esicApplicable, ptApplicable, location, gender }) {
   const [list, setList] = useState([]);
   const [loadingList, setLoadingList] = useState(true);
@@ -1096,6 +1149,11 @@ export default function EmployeeDetails() {
   const canViewSalary = can("salary.view");
   const canEditSalary = can("salary.edit");
   const canAssignRole = can("roles.manage");
+  // Separate permission from salary.view — gates GET /api/payroll/{id} on
+  // the backend (routers/payroll.py's payroll_for_employee), so someone with
+  // salary.view but not payroll.view still sees the raw Basic/HRA fields
+  // above but not the computed payslip breakdown.
+  const canViewPayroll = can("payroll.view");
 
   const [form, setForm] = useState(EMPTY_FORM);
   const [mode, setMode] = useState(isNew ? "edit" : "view");
@@ -1525,6 +1583,13 @@ export default function EmployeeDetails() {
                     value={form.standing_loan_emi} editing={editing && canEditSalary} onChange={(v) => setField("standing_loan_emi", v)}
                   />
                 </div>
+                {!isNew && (canViewPayroll ? (
+                  <EmployeePayslipBreakdown employeeId={id} />
+                ) : (
+                  <p className="text-xs text-ink/70 mt-8 pt-6 border-t border-ink/10">
+                    Ask Accounts for Payroll access to see this period's computed payslip breakdown.
+                  </p>
+                ))}
               </div>
             ) : (
               <p className="text-sm text-ink/70">Salary structure is managed by Accounts.</p>
