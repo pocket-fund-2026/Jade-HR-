@@ -1,4 +1,4 @@
-import { AlignLeft, Briefcase, ClipboardCheck, Eye, EyeOff, MapPin } from "lucide-react";
+import { AlignLeft, Briefcase, ClipboardCheck, Eye, EyeOff, HelpCircle, MapPin, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -13,6 +13,116 @@ const EMPTY = {
 const FIELD = "w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink placeholder:text-ink/35 focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500 transition-shadow";
 const LABEL = "block text-xs font-semibold uppercase tracking-wider text-ink/60 mb-1.5";
 const HINT = "text-[11px] text-ink/45 mt-1.5";
+
+const QUESTION_TYPES = [
+  { value: "short_text", label: "Short text answer" },
+  { value: "long_text", label: "Long text answer" },
+  { value: "file_pdf", label: "File upload (PDF)" },
+];
+
+function QuestionsEditor({ jobId }) {
+  const [questions, setQuestions] = useState(null);
+  const [draft, setDraft] = useState({ question_text: "", type: "short_text", required: true });
+  const [saving, setSaving] = useState(false);
+
+  const load = () => api.get(`/api/careers/jobs/${jobId}/questions`).then(({ data }) => setQuestions(data));
+
+  useEffect(() => { load(); }, [jobId]);
+
+  const addQuestion = async (e) => {
+    e.preventDefault();
+    if (!draft.question_text.trim()) return;
+    setSaving(true);
+    try {
+      await api.post(`/api/careers/jobs/${jobId}/questions`, {
+        ...draft,
+        sort_order: questions?.length || 0,
+      });
+      setDraft({ question_text: "", type: "short_text", required: true });
+      await load();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleRequired = async (q) => {
+    await api.put(`/api/careers/questions/${q.id}`, { ...q, required: !q.required });
+    await load();
+  };
+
+  const removeQuestion = async (q) => {
+    if (!window.confirm(`Remove "${q.question_text}"? Any answers already submitted for it stay on file.`)) return;
+    await api.delete(`/api/careers/questions/${q.id}`);
+    await load();
+  };
+
+  if (questions === null) return <p className="text-xs text-ink/50">Loading questions…</p>;
+
+  return (
+    <div className="space-y-4">
+      {questions.length === 0 && (
+        <p className="text-xs text-ink/50">No custom questions yet — applicants only see the standard fields.</p>
+      )}
+      {questions.map((q) => (
+        <div key={q.id} className="flex items-start gap-3 rounded-sm border border-ink/10 bg-manila/25 px-4 py-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-ink font-medium">{q.question_text}</p>
+            <p className="text-[11px] text-ink/50 mt-0.5">
+              {QUESTION_TYPES.find((t) => t.value === q.type)?.label || q.type}
+            </p>
+          </div>
+          <label className="flex items-center gap-1.5 text-[11px] text-ink/60 flex-shrink-0 cursor-pointer">
+            <input type="checkbox" checked={Boolean(q.required)} onChange={() => toggleRequired(q)} />
+            Required
+          </label>
+          <button
+            type="button"
+            onClick={() => removeQuestion(q)}
+            className="text-ink/40 hover:text-rust-500 flex-shrink-0"
+            aria-label="Remove question"
+          >
+            <Trash2 size={15} />
+          </button>
+        </div>
+      ))}
+
+      <form onSubmit={addQuestion} className="flex flex-col gap-2.5 rounded-sm border border-dashed border-ink/20 p-4">
+        <input
+          className={FIELD}
+          placeholder="Question text, e.g. What's your notice period?"
+          value={draft.question_text}
+          onChange={(e) => setDraft((d) => ({ ...d, question_text: e.target.value }))}
+        />
+        <div className="flex flex-wrap items-center gap-3">
+          <select
+            className={`${FIELD} w-auto`}
+            value={draft.type}
+            onChange={(e) => setDraft((d) => ({ ...d, type: e.target.value }))}
+          >
+            {QUESTION_TYPES.map((t) => (
+              <option key={t.value} value={t.value}>{t.label}</option>
+            ))}
+          </select>
+          <label className="flex items-center gap-1.5 text-xs text-ink/60 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={draft.required}
+              onChange={(e) => setDraft((d) => ({ ...d, required: e.target.checked }))}
+            />
+            Required
+          </label>
+          <button
+            type="submit"
+            disabled={saving || !draft.question_text.trim()}
+            className="ml-auto flex items-center gap-1.5 bg-jade-600 text-white px-3 py-2 rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
+          >
+            <Plus size={13} /> Add question
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
 
 function SectionCard({ icon: Icon, title, subtitle, children }) {
   return (
@@ -122,6 +232,14 @@ export default function CareersJobForm() {
               <label className={LABEL}>Deadline to submit (days after applying)</label>
               <input type="number" min={1} className={FIELD} value={form.assignment_deadline_days} onChange={set("assignment_deadline_days")} />
             </div>
+          </SectionCard>
+
+          <SectionCard icon={HelpCircle} title="Application Questions" subtitle="Custom screening questions candidates answer on the Apply form, before the resume upload">
+            {editing ? (
+              <QuestionsEditor jobId={id} />
+            ) : (
+              <p className="text-xs text-ink/50">Save this job first, then come back here to add custom questions.</p>
+            )}
           </SectionCard>
         </div>
 

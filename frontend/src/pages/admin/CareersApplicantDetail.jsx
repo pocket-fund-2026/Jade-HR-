@@ -40,7 +40,7 @@ export default function CareersApplicantDetail() {
   };
 
   if (!data) return <p className="text-ink/70 text-sm">Loading…</p>;
-  const { application: a, job, submission } = data;
+  const { application: a, job, submission, answers } = data;
 
   const isAccepted = a.status === "Offered" || a.status === "Hired";
   const isRejected = a.status === "Rejected";
@@ -138,6 +138,32 @@ export default function CareersApplicantDetail() {
         <div className="bg-paper rounded-sm shadow-card p-6 mb-5">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/50 mb-2">About</p>
           <p className="text-sm text-ink whitespace-pre-wrap">{a.about}</p>
+        </div>
+      )}
+
+      {answers && answers.length > 0 && (
+        <div className="bg-paper rounded-sm shadow-card p-6 mb-5 space-y-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/50">Application Questions</p>
+          {answers.map((ans) => (
+            <div key={ans.id}>
+              <p className="text-xs font-medium text-ink/70">{ans.question_text}</p>
+              {ans.type === "file_pdf" ? (
+                ans.file_path ? (
+                  <a
+                    href={`${CAREERS_SITE_URL}/uploads/${ans.file_path}`}
+                    target="_blank" rel="noreferrer"
+                    className="flex items-center gap-1 text-sm text-jade-600 underline w-fit mt-0.5"
+                  >
+                    <FileText size={14} /> {ans.file_original_name || "Download file"}
+                  </a>
+                ) : (
+                  <p className="text-sm text-ink/40 mt-0.5">Not uploaded</p>
+                )
+              ) : (
+                <p className="text-sm text-ink whitespace-pre-wrap mt-0.5">{ans.answer_text}</p>
+              )}
+            </div>
+          ))}
         </div>
       )}
 

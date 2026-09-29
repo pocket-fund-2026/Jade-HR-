@@ -65,6 +65,27 @@ def delete_job(job_id: int, user: dict = _gate):
     return _proxy("DELETE", f"/api/admin/jobs/{job_id}")
 
 
+# ---------- Per-job custom application questions ----------
+@router.get("/jobs/{job_id}/questions")
+def list_questions(job_id: int, user: dict = _gate):
+    return _proxy("GET", f"/api/admin/jobs/{job_id}/questions")
+
+
+@router.post("/jobs/{job_id}/questions")
+def create_question(job_id: int, body: dict = Body(...), user: dict = _gate):
+    return _proxy("POST", f"/api/admin/jobs/{job_id}/questions", json=body)
+
+
+@router.put("/questions/{question_id}")
+def update_question(question_id: int, body: dict = Body(...), user: dict = _gate):
+    return _proxy("PUT", f"/api/admin/questions/{question_id}", json=body)
+
+
+@router.delete("/questions/{question_id}")
+def delete_question(question_id: int, user: dict = _gate):
+    return _proxy("DELETE", f"/api/admin/questions/{question_id}")
+
+
 # ---------- Applicants ----------
 @router.get("/applications")
 def list_applications(job_id: str | None = Query(None), status: str | None = Query(None), user: dict = _gate):
