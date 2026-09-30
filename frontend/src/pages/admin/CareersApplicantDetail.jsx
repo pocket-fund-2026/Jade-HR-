@@ -102,6 +102,10 @@ export default function CareersApplicantDetail() {
         <Field label="Phone" value={a.phone} />
         <Field label="City" value={a.city} />
         <Field label="Work Preference" value={a.work_preference} />
+        <Field label="Current CTC" value={a.current_ctc} />
+        <Field label="Expected CTC" value={a.expected_ctc} />
+        <Field label="Ready to Move to Bombay" value={a.willing_to_relocate} />
+        <Field label="Reason to Leave Last Organisation" value={a.reason_to_leave} />
         <Field label="Education" value={a.education} />
         <Field label="Course" value={a.course} />
         <Field label="Study Stage" value={a.study_stage} />
