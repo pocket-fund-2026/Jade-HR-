@@ -124,6 +124,18 @@ export default function CareersApplicantDetail() {
             <a href={a.portfolio_url} target="_blank" rel="noreferrer" className="text-sm text-jade-600 underline">{a.portfolio_url}</a>
           </div>
         )}
+        {a.portfolio_path && (
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/50">Portfolio (PDF)</p>
+            <a
+              href={`${CAREERS_SITE_URL}/uploads/${a.portfolio_path}`}
+              target="_blank" rel="noreferrer"
+              className="flex items-center gap-1 text-sm text-jade-600 underline mt-0.5"
+            >
+              <FileText size={14} /> {a.portfolio_original_name || "Download portfolio"}
+            </a>
+          </div>
+        )}
         {a.resume_path && (
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/50">Resume</p>
