@@ -18,7 +18,7 @@ const navItems = [
   // People — headcount, hiring, absence
   { to: "/admin/employees", label: "Employees", icon: Users, permission: "employees.view" },
   { to: "/admin/onboarding", label: "Onboarding", icon: UserPlus, badgeKey: "onboarding", permission: "onboarding.manage" },
-  { to: "/admin/careers", label: "Careers", icon: Users2, permission: "careers.manage" },
+  { to: "/admin/careers", label: "Careers", icon: Users2, badgeKey: "careers", permission: "careers.manage" },
   { to: "/admin/work-absence", label: "Work Absence", icon: Briefcase, badgeKey: "workAbsence", permission: "absence.manage" },
   { to: "/admin/confirmations", label: "Confirmations", icon: CalendarCheck, permission: "employees.manage" },
   { to: "/admin/exit", label: "Exit Procedure", icon: DoorOpen, permission: "exit.manage" },
@@ -260,6 +260,7 @@ export default function AdminLayout() {
   const [pendingLeave, setPendingLeave] = useState([]);
   const [pendingPayslipApprovals, setPendingPayslipApprovals] = useState([]);
   const [pendingOnboarding, setPendingOnboarding] = useState([]);
+  const [pendingCareers, setPendingCareers] = useState([]);
   const [pendingWorkAbsence, setPendingWorkAbsence] = useState([]);
   const [pendingWfh, setPendingWfh] = useState([]);
   const [pendingMarketVisits, setPendingMarketVisits] = useState([]);
@@ -275,6 +276,7 @@ export default function AdminLayout() {
     payslipApprovals: pendingPayslipApprovals.length, onboarding: pendingOnboarding.length,
     workAbsence: pendingWorkAbsence.length, wfh: pendingWfh.length,
     marketVisits: pendingMarketVisits.length, loans: pendingLoans.length,
+    careers: pendingCareers.length,
   };
   const canDisputes = can("disputes.manage");
   const canLeave = can("leave.manage");
@@ -284,6 +286,7 @@ export default function AdminLayout() {
   const canWfh = can("leave.manage", "wfh.approve");
   const canMarketVisits = can("market_visits.review");
   const canLoans = can("loans.manage");
+  const canCareers = can("careers.manage");
 
   useEffect(() => {
     let cancelled = false;
@@ -297,8 +300,9 @@ export default function AdminLayout() {
         canWfh ? api.get("/api/wfh-requests", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
         canMarketVisits ? api.get("/api/market-visits", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
         canLoans ? api.get("/api/loan-requests", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
+        canCareers ? api.get("/api/careers/applications", { params: { status: "New" } }) : Promise.resolve({ data: [] }),
       ])
-        .then(([disputesRes, leaveRes, payslipApprovalsRes, onboardingRes, workAbsenceRes, wfhRes, marketVisitsRes, loansRes]) => {
+        .then(([disputesRes, leaveRes, payslipApprovalsRes, onboardingRes, workAbsenceRes, wfhRes, marketVisitsRes, loansRes, careersRes]) => {
           if (cancelled) return;
           setPendingDisputes(disputesRes.data);
           setPendingLeave(leaveRes.data);
@@ -308,6 +312,9 @@ export default function AdminLayout() {
           setPendingWfh(wfhRes.data);
           setPendingMarketVisits(marketVisitsRes.data);
           setPendingLoans(loansRes.data);
+          // careers rows carry SQLite UTC timestamps ("YYYY-MM-DD HH:MM:SS");
+          // normalise to ISO so the dashboard's "since last seen" compare works.
+          setPendingCareers((careersRes.data || []).map((a) => ({ ...a, created_at: String(a.created_at).replace(" ", "T") + "Z" })));
           setPendingLoaded(true);
         })
         .catch(() => {});
@@ -315,7 +322,7 @@ export default function AdminLayout() {
     poll();
     const interval = setInterval(poll, POLL_MS);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [canDisputes, canLeave, canPayslipApprovals, canOnboarding, canWorkAbsence, canWfh, canMarketVisits, canLoans]);
+  }, [canDisputes, canLeave, canPayslipApprovals, canOnboarding, canWorkAbsence, canWfh, canMarketVisits, canLoans, canCareers]);
 
   return (
     <div className="h-screen flex bg-manila overflow-hidden">
@@ -366,7 +373,7 @@ export default function AdminLayout() {
           <Outlet
             context={{
               pendingDisputes, pendingLeave, pendingPayslipApprovals, pendingOnboarding, pendingWorkAbsence,
-              pendingWfh, pendingMarketVisits, pendingLoaded,
+              pendingWfh, pendingMarketVisits, pendingCareers, pendingLoaded,
             }}
           />
         </ConfirmProvider>

@@ -1,4 +1,4 @@
-import { GripVertical, Pencil, Plus, Trash2, Users } from "lucide-react";
+import { Bell, GripVertical, Pencil, Plus, Trash2, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -7,11 +7,19 @@ import api from "../../lib/api.js";
 
 export default function Careers() {
   const [jobs, setJobs] = useState([]);
+  const [newByJob, setNewByJob] = useState({});
   const [loading, setLoading] = useState(true);
 
   const load = () => {
     setLoading(true);
     api.get("/api/careers/jobs").then(({ data }) => setJobs(data)).finally(() => setLoading(false));
+    api.get("/api/careers/applications", { params: { status: "New" } })
+      .then(({ data }) => {
+        const counts = {};
+        data.forEach((a) => { counts[a.job_id] = (counts[a.job_id] || 0) + 1; });
+        setNewByJob(counts);
+      })
+      .catch(() => {});
   };
 
   useEffect(load, []);
@@ -99,7 +107,17 @@ export default function Careers() {
                   <td className="w-10 px-2 py-3.5 text-ink/40">
                     {job.is_active ? <GripVertical size={16} className="cursor-grab mx-auto" aria-label="Drag to reorder" /> : null}
                   </td>
-                  <td className="px-5 py-3.5 text-ink font-medium">{job.title}</td>
+                  <td className="px-5 py-3.5 text-ink font-medium">
+                    {job.title}
+                    {newByJob[job.id] > 0 && (
+                      <Link
+                        to={`/admin/careers/applicants?job_id=${job.id}&status=New`}
+                        className="ml-2 inline-flex items-center gap-1 rounded-full bg-rust-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white align-middle"
+                      >
+                        <Bell size={10} /> {newByJob[job.id]} new
+                      </Link>
+                    )}
+                  </td>
                   <td className="px-5 py-3.5 text-ink/70">{job.department}</td>
                   <td className="px-5 py-3.5 text-ink/70">{job.location}</td>
                   <td className="px-5 py-3.5 text-ink/70">{job.employment_type}</td>

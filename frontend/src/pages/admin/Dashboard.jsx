@@ -141,7 +141,7 @@ export default function Dashboard() {
   // before rendering counts from them.
   const {
     pendingDisputes = [], pendingLeave = [], pendingPayslipApprovals = [], pendingOnboarding = [],
-    pendingWorkAbsence = [], pendingWfh = [], pendingMarketVisits = [],
+    pendingWorkAbsence = [], pendingWfh = [], pendingMarketVisits = [], pendingCareers = [],
   } = useOutletContext() || {};
 
   useEffect(() => {
@@ -230,6 +230,7 @@ export default function Dashboard() {
   const newWorkAbsence = pendingWorkAbsence.filter((w) => w.created_at > seenAt);
   const newWfh = pendingWfh.filter((w) => w.created_at > seenAt);
   const newMarketVisits = pendingMarketVisits.filter((m) => m.created_at > seenAt);
+  const newCareers = pendingCareers.filter((c) => c.created_at > seenAt);
   const NOTIFICATION_GROUPS = [
     { items: newLeave, label: "new leave request", to: "/admin/leave", cta: "Review leave" },
     { items: newDisputes, label: "new attendance dispute", to: "/admin/disputes", cta: "Review disputes" },
@@ -238,6 +239,7 @@ export default function Dashboard() {
     { items: newWorkAbsence, label: "work absence report", to: "/admin/work-absence", cta: "Review work absence" },
     { items: newWfh, label: "WFH request", to: "/admin/wfh-requests", cta: "Review WFH requests" },
     { items: newMarketVisits, label: "market visit", to: "/admin/market-visits", cta: "Review market visits" },
+    { items: newCareers, label: "new job application", to: "/admin/careers/applicants?status=New", cta: "Review applicants" },
   ].filter((g) => g.items.length > 0);
   const hasNew = !dismissed && NOTIFICATION_GROUPS.length > 0;
 
