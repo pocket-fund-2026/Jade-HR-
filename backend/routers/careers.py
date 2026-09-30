@@ -55,6 +55,11 @@ def create_job(body: dict = Body(...), user: dict = _gate):
     return _proxy("POST", "/api/admin/jobs", json=body)
 
 
+@router.put("/jobs/reorder")
+def reorder_jobs(body: dict = Body(...), user: dict = _gate):
+    return _proxy("PUT", "/api/admin/jobs/reorder", json=body)
+
+
 @router.put("/jobs/{job_id}")
 def update_job(job_id: int, body: dict = Body(...), user: dict = _gate):
     return _proxy("PUT", f"/api/admin/jobs/{job_id}", json=body)

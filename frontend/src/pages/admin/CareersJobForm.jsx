@@ -282,9 +282,8 @@ export default function CareersJobForm() {
               </label>
             </div>
             <div>
-              <label className={LABEL}>Sort Order</label>
-              <input type="number" className={FIELD} value={form.sort_order} onChange={set("sort_order")} />
-              <p className={HINT}>Lower numbers list first on the careers page.</p>
+              <label className={LABEL}>Order on careers page</label>
+              <p className={HINT}>Arrange roles by dragging them on the Careers job list.</p>
             </div>
           </SectionCard>
         </div>
