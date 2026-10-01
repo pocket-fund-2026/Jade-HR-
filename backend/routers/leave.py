@@ -752,15 +752,22 @@ def resolve_leave_request(request_id: str, body: LeaveResolve, user: dict = Depe
         "resolved_at": datetime.now(timezone.utc).isoformat(),
     }).eq("id", request_id).execute()
 
+    # Both outcomes are mailed — a rejection used to send nothing at all, so
+    # the employee only found out by checking the console.
+    employee_resp = (
+        supabase.table("hr_employees").select("email,first_name,last_name").eq("id", leave_request["employee_id"]).maybe_single().execute()
+    )
+    employee = maybe_single_data(employee_resp) or {}
+    employee_name = f"{employee.get('first_name', '')} {employee.get('last_name', '')}".strip()
     if body.action == "approve":
-        employee_resp = (
-            supabase.table("hr_employees").select("email,first_name,last_name").eq("id", leave_request["employee_id"]).maybe_single().execute()
-        )
-        employee = maybe_single_data(employee_resp) or {}
-        employee_name = f"{employee.get('first_name', '')} {employee.get('last_name', '')}".strip()
         email_service.notify_leave_approved(
             employee.get("email", ""), employee_name, leave_request["leave_type"],
             leave_request["start_date"], leave_request["end_date"],
+        )
+    else:
+        email_service.notify_leave_rejected(
+            employee.get("email", ""), employee_name, leave_request["leave_type"],
+            leave_request["start_date"], leave_request["end_date"], body.admin_note or "",
         )
 
     return {"ok": True}

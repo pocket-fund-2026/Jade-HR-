@@ -45,22 +45,53 @@ def is_configured() -> bool:
     return bool(RESEND_API_KEY)
 
 
-def send_email(to: str, subject: str, body: str) -> bool:
-    ok, _ = send_email_detailed(to, subject, body)
+def log_attempt(
+    kind: str, to: str, subject: str, status: str, error: str | None = None,
+    provider_id: str | None = None, cc: list[str] | None = None, letter_id: str | None = None,
+) -> None:
+    """Best-effort row in hr_email_log (sql/069). Never raises — an audit
+    write failing must not take the leave/letter workflow down with it."""
+    try:
+        from database import supabase  # lazy: email_service is imported by ops scripts too
+
+        supabase.table("hr_email_log").insert({
+            "kind": kind,
+            "to_email": to or "",
+            "cc": cc or [],
+            "subject": subject[:500],
+            "status": status,
+            "error": (error or None) and error[:1000],
+            "provider_id": provider_id,
+            "letter_id": letter_id,
+        }).execute()
+    except Exception:
+        logger.exception("Could not write hr_email_log row for %s", to)
+
+
+def send_email(to: str, subject: str, body: str, kind: str = "general") -> bool:
+    ok, _ = send_email_detailed(to, subject, body, kind=kind)
     return ok
 
 
-def send_email_detailed(to: str, subject: str, body: str) -> tuple[bool, str | None]:
+def send_email_detailed(
+    to: str, subject: str, body: str, *, kind: str = "general", html: str | None = None,
+    cc: list[str] | None = None, reply_to: str | None = None, letter_id: str | None = None,
+    attachments: list[dict] | None = None,
+) -> tuple[bool, str | None]:
     """Same as send_email, but also returns a short failure reason
     ("no_recipient" | "not_configured" | "http_<code>" | "exception:<msg>" |
     None on success) — callers that need to surface *why* a send didn't go
     through (e.g. the late-digest endpoint, which was silently returning
     emailed=False in production for weeks with `logger.error`/`.info` never
-    showing up anywhere reachable) should use this instead of send_email."""
+    showing up anywhere reachable) should use this instead of send_email.
+    Every attempt, including skipped ones, lands in hr_email_log."""
+    cc = [c for c in dict.fromkeys(cc or []) if c and c != to]
     if not to:
+        log_attempt(kind, "", subject, "skipped", "no_recipient", cc=cc, letter_id=letter_id)
         return False, "no_recipient"
     if not is_configured():
         logger.info("Email not configured — skipping send to %s: %s", to, subject)
+        log_attempt(kind, to, subject, "skipped", "not_configured", cc=cc, letter_id=letter_id)
         return False, "not_configured"
 
     payload = {
@@ -69,32 +100,68 @@ def send_email_detailed(to: str, subject: str, body: str) -> tuple[bool, str | N
         "subject": subject,
         "text": body,
     }
+    if html:
+        payload["html"] = html
+    if cc:
+        payload["cc"] = cc
+    if reply_to:
+        payload["reply_to"] = reply_to
+    if attachments:
+        payload["attachments"] = attachments  # [{"filename": ..., "content": <base64>}]
     req = urllib.request.Request(
         RESEND_API_URL,
         data=json.dumps(payload).encode(),
-        headers={
-            "Authorization": f"Bearer {RESEND_API_KEY}",
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-            # Resend's edge sits behind Cloudflare, which blocks the default
-            # "Python-urllib/x.y" User-Agent as a bot signature (Cloudflare
-            # error 1010) — every send silently 403'd until this was added.
-            "User-Agent": "JADE-HR/1.0 (+https://jade-hr.vercel.app)",
-        },
+        headers=_resend_headers(),
         method="POST",
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            resp.read()
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            raw = resp.read()
+        try:
+            provider_id = json.loads(raw or b"{}").get("id")
+        except ValueError:
+            provider_id = None
+        log_attempt(kind, to, subject, "sent", provider_id=provider_id, cc=cc, letter_id=letter_id)
         return True, None
     except urllib.error.HTTPError as e:
         detail = e.read().decode(errors="replace")
         logger.error("Resend send to %s failed: HTTP %s %s", to, e.code, detail)
-        return False, f"http_{e.code}:{detail[:200]}"
+        err = f"http_{e.code}:{detail[:200]}"
+        log_attempt(kind, to, subject, "failed", err, cc=cc, letter_id=letter_id)
+        return False, err
     except Exception as e:
         logger.exception("Failed to send email to %s", to)
+        log_attempt(kind, to, subject, "failed", f"exception:{e}", cc=cc, letter_id=letter_id)
         return False, f"exception:{e}"
+
+
+def _resend_headers() -> dict:
+    return {
+        "Authorization": f"Bearer {RESEND_API_KEY}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        # Resend's edge sits behind Cloudflare, which blocks the default
+        # "Python-urllib/x.y" User-Agent as a bot signature (Cloudflare
+        # error 1010) — every send silently 403'd until this was added.
+        "User-Agent": "JADE-HR/1.0 (+https://jade-hr.vercel.app)",
+    }
+
+
+def fetch_delivery_status(provider_id: str) -> tuple[str | None, str | None]:
+    """Resend's own view of a sent email: (last_event, error). last_event is
+    e.g. "delivered", "bounced", "complained", "delivery_delayed", "sent"."""
+    if not is_configured():
+        return None, "not_configured"
+    req = urllib.request.Request(f"{RESEND_API_URL}/{provider_id}", headers=_resend_headers(), method="GET")
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read() or b"{}")
+        return data.get("last_event"), None
+    except urllib.error.HTTPError as e:
+        return None, f"http_{e.code}:{e.read().decode(errors='replace')[:200]}"
+    except Exception as e:
+        return None, f"exception:{e}"
 
 
 def notify_leave_submitted(
@@ -111,18 +178,35 @@ def notify_leave_submitted(
     )
     for recipient in {*approver_emails, hr_email}:
         if recipient:
-            send_email(recipient, subject, body)
+            send_email(recipient, subject, body, kind="leave_submitted")
 
 
 def notify_leave_approved(employee_email: str, employee_name: str, leave_type: str, start_date: str, end_date: str) -> None:
     if not employee_email:
+        log_attempt("leave_resolved", "", f"Leave approved for {employee_name}", "skipped", "employee_has_no_email")
         return
     subject = "Your leave request has been approved"
     body = (
         f"Hi {employee_name},\n\n"
         f"Your {leave_type} leave request for {start_date} to {end_date} has been approved.\n"
     )
-    send_email(employee_email, subject, body)
+    send_email(employee_email, subject, body, kind="leave_resolved")
+
+
+def notify_leave_rejected(
+    employee_email: str, employee_name: str, leave_type: str, start_date: str, end_date: str, admin_note: str,
+) -> None:
+    if not employee_email:
+        log_attempt("leave_resolved", "", f"Leave rejected for {employee_name}", "skipped", "employee_has_no_email")
+        return
+    subject = "Your leave request was not approved"
+    body = (
+        f"Hi {employee_name},\n\n"
+        f"Your {leave_type} leave request for {start_date} to {end_date} was not approved.\n"
+        + (f"\nNote from your approver: {admin_note}\n" if admin_note else "")
+        + "\nYou can view it in the JADE HR console: https://jade-hr.vercel.app/employee\n"
+    )
+    send_email(employee_email, subject, body, kind="leave_resolved")
 
 
 def notify_new_joiner(employee: dict, recipients: list[str]) -> None:
@@ -130,8 +214,10 @@ def notify_new_joiner(employee: dict, recipients: list[str]) -> None:
     changed) on an employee, to whichever recipients HR has picked on the
     New Joiner Email tab (Policy console) — so credential setup (OMS login,
     HRMS) starts without HR having to remember to ask for it by hand."""
-    if not recipients:
-        return
+    # The HR-picked list (Leave Policy → New Joiner Email) was never filled
+    # in, so this email went to nobody at all. Fall back to the HR inbox
+    # until HR picks recipients, rather than silently dropping it.
+    recipients = [r for r in recipients if r] or [HR_NOTIFY_EMAIL]
     name = f"{employee.get('first_name', '')} {employee.get('last_name') or ''}".strip()
     subject = f"New joiner — set up credentials for {name}"
     body = (
@@ -142,7 +228,7 @@ def notify_new_joiner(employee: dict, recipients: list[str]) -> None:
     )
     for recipient in recipients:
         if recipient:
-            send_email(recipient, subject, body)
+            send_email(recipient, subject, body, kind="new_joiner")
 
 
 def notify_late_digest(
@@ -187,7 +273,7 @@ def notify_late_digest(
     sent_ok = False
     last_error: str | None = None
     for recipient in recipients:
-        ok, err = send_email_detailed(recipient, subject, body)
+        ok, err = send_email_detailed(recipient, subject, body, kind="late_digest")
         sent_ok = sent_ok or ok
         if err:
             last_error = err
@@ -242,7 +328,7 @@ def notify_clocks_digest(
     if include_report_link:
         lines.append("Full view: https://jade-hr.vercel.app/admin/dashboard")
     subject = f"HR clocks due — {date_iso} ({total})"
-    return send_email_detailed(recipient, subject, "\n".join(lines).rstrip())
+    return send_email_detailed(recipient, subject, "\n".join(lines).rstrip(), kind="clocks_digest")
 
 
 def notify_absence_submitted(
@@ -258,7 +344,7 @@ def notify_absence_submitted(
     )
     for recipient in {approver_email, hr_email}:
         if recipient:
-            send_email(recipient, subject, body)
+            send_email(recipient, subject, body, kind="absence_submitted")
 
 
 def notify_onboarding_submitted(submission: dict, hr_email: str) -> None:
@@ -326,7 +412,7 @@ def notify_onboarding_submitted(submission: dict, hr_email: str) -> None:
         "",
         "Review it in the JADE HR console: https://jade-hr.vercel.app/admin/onboarding",
     ]
-    send_email(hr_email, subject, "\n".join(lines))
+    send_email(hr_email, subject, "\n".join(lines), kind="onboarding_submitted")
 
 
 def notify_absence_resolved(
@@ -340,7 +426,7 @@ def notify_absence_resolved(
         f"Your work-related absence request for {start_date} to {end_date} has been {status}.\n"
         + (f"\nNote: {admin_note}\n" if admin_note else "")
     )
-    send_email(employee_email, subject, body)
+    send_email(employee_email, subject, body, kind="absence_resolved")
 
 
 def notify_loan_submitted(employee_name: str, department: str, amount: float, reason: str, hr_email: str) -> None:
@@ -352,7 +438,7 @@ def notify_loan_submitted(employee_name: str, department: str, amount: float, re
         f"Reason: {reason}\n\n"
         f"Review it in the JADE HR console: https://jade-hr.vercel.app/admin/loans\n"
     )
-    send_email(hr_email, subject, body)
+    send_email(hr_email, subject, body, kind="loan_submitted")
 
 
 def notify_loan_resolved(
@@ -366,7 +452,7 @@ def notify_loan_resolved(
         f"Your loan/salary advance request for ₹{amount:,.0f} has been {status}.\n"
         + (f"\nNote: {admin_note}\n" if admin_note else "")
     )
-    send_email(employee_email, subject, body)
+    send_email(employee_email, subject, body, kind="loan_resolved")
 
 
 def notify_salary_hold(holds: list[dict], recipients: list[str]) -> tuple[bool, str | None]:
@@ -402,7 +488,7 @@ def notify_salary_hold(holds: list[dict], recipients: list[str]) -> tuple[bool, 
     body = "\n".join(lines)
     sent_ok, last_error = False, None
     for recipient in recipients:
-        ok, err = send_email_detailed(recipient, subject, body)
+        ok, err = send_email_detailed(recipient, subject, body, kind="salary_hold")
         sent_ok = sent_ok or ok
         if err:
             last_error = err
@@ -422,4 +508,4 @@ def notify_exit_initiated(
         f"Track departmental clearance and the exit interview in the JADE HR console: "
         f"https://jade-hr.vercel.app/admin/exit\n"
     )
-    send_email(hr_email, subject, body)
+    send_email(hr_email, subject, body, kind="exit_initiated")

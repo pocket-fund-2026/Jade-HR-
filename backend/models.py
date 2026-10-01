@@ -518,6 +518,17 @@ class LetterGenerateRequest(BaseModel):
     field_values: dict[str, str] = {}
 
 
+class LetterEmailRequest(BaseModel):
+    to: str
+    cc: list[str] = []
+    subject: str
+    message: str = ""
+    # Optional client-rendered PDF of the letter (base64, no data: prefix) —
+    # the exact page HR previewed, attached alongside the inline HTML copy.
+    pdf_base64: Optional[str] = None
+    pdf_filename: Optional[str] = None
+
+
 class OnboardingUpload(BaseModel):
     filename: str
     content_base64: str  # may be a data: URL or raw base64

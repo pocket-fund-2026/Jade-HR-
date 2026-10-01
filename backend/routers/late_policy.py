@@ -219,7 +219,9 @@ def _late_mark_summary_html(row: dict) -> str:
         f"{date(m['year'], m['month'], 1).strftime('%B %Y')}: {m['late_mark_count']} late markings"
         for m in row["months"] if m["in_policy"]
     ]
-    return "<br>".join(parts)
+    # A <ul> (not <br>-joined text) since the final_warning template places
+    # {{late_mark_summary}} as its own block — sql/070.
+    return "<ul>" + "".join(f"<li>{p}</li>" for p in parts) + "</ul>"
 
 
 def _forfeit_paid_leave(row: dict, financial_year: str, quarter: int, entry_date: date, user: dict) -> dict:
@@ -279,8 +281,9 @@ def _forfeit_paid_leave(row: dict, financial_year: str, quarter: int, entry_date
             }
             letter = supabase.table("hr_generated_letters").insert({
                 "letter_type": "final_warning",
+                "title": "Final Warning Letter: Late Arrival",
                 "employee_id": row["employee_id"],
-                "rendered_body": _substitute(template.data[0]["body"], field_values),
+                "rendered_body": _substitute(template.data[0]["body"], field_values, frozenset({"late_mark_summary"})),
                 "field_values": field_values,
                 "generated_by": user["id"],
             }).execute()

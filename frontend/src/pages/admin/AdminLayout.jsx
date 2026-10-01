@@ -1,4 +1,4 @@
-import { Briefcase, BookOpen, CalendarCheck, CalendarClock, CalendarDays, CalendarPlus, CheckSquare, ClipboardList, DoorOpen, FileBarChart, FileText, Flag, HelpCircle, Home, KeyRound, LayoutDashboard, LogOut, MapPin, Menu, Plane, Receipt, Search, Shield, ShieldAlert, ShieldCheck, Stamp, UserPlus, Users, Users2, Wallet, X } from "lucide-react";
+import { Briefcase, BookOpen, CalendarCheck, CalendarClock, CalendarDays, CalendarPlus, CheckSquare, ClipboardList, DoorOpen, FileBarChart, FileText, Flag, HelpCircle, Home, KeyRound, LayoutDashboard, LogOut, Mail, MapPin, Menu, Plane, Receipt, Search, Shield, ShieldAlert, ShieldCheck, Stamp, UserPlus, Users, Users2, Wallet, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
@@ -40,6 +40,7 @@ const navItems = [
 
   // Documents & Compliance
   { to: "/admin/letters", label: "Letters", icon: FileText, permission: ["letters.generate", "letters.manage"], sectionBreak: true },
+  { to: "/admin/email-log", label: "Email Log", icon: Mail, permission: "email_log.view" },
   { to: "/admin/disputes", label: "Disputes", icon: Flag, badgeKey: "disputes", permission: "disputes.manage" },
   { to: "/admin/policy-document", label: "Company Policy", icon: BookOpen },
   { to: "/admin/policy-acknowledgements", label: "Policy Sign-off", icon: ShieldCheck, permission: "policy.acknowledgements.view" },
