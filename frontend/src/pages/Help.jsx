@@ -684,7 +684,7 @@ export default function Help({ scope }) {
           />
           <div className="px-5 py-3.5 flex flex-wrap items-baseline justify-between gap-2">
             <p className="font-display text-base text-ink">Video walkthrough of the HR console</p>
-            <p className="text-xs text-ink/60">2 min 20 s · Dashboard, Employees, Leave, Reports, Letters, Email Log, Help</p>
+            <p className="text-xs text-ink/60">3 min, with narration · Dashboard, Employees, Leave, Reports, Letters, Email Log, Help</p>
           </div>
         </div>
       )}
