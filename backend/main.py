@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import ALLOWED_ORIGINS
 from routers import (
-    absence, arrears, auth, biometric, careers, clocks, comp_off, confirmations, disputes, email_log, employee_profile,
+    absence, arrears, auth, biometric, careers, clocks, comp_off, confirmations, disputes, email_log, employee_profile, help_media,
     employees,
     exit_procedure, hr_tasks_report,
     holidays, hr_tasks, late_policy, leave, leave_ledger, letters, loans, market_visits, new_joiner_email, onboarding,
@@ -62,6 +62,7 @@ app.include_router(exit_procedure.me_router)
 app.include_router(loans.router)
 app.include_router(new_joiner_email.router)
 app.include_router(email_log.router)
+app.include_router(help_media.router)
 
 # Loads admin-defined shift time slots (hr_time_slots) into payroll.py's
 # in-memory SHIFT_START_BY_TIME_SLOT so lateness grading picks them up from

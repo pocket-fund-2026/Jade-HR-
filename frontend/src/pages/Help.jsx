@@ -673,6 +673,22 @@ export default function Help({ scope }) {
         leave, payroll, and onboarding so you can explain a figure with confidence.
       </p>
 
+      {isConsole && !q && (
+        <div className="bg-paper rounded-sm shadow-card overflow-hidden mb-6">
+          <video
+            controls
+            preload="none"
+            poster="/help/walkthrough-poster.jpg"
+            src="/api/help/walkthrough.mp4"
+            className="w-full aspect-[8/5] bg-ledger-800"
+          />
+          <div className="px-5 py-3.5 flex flex-wrap items-baseline justify-between gap-2">
+            <p className="font-display text-base text-ink">Video walkthrough of the HR console</p>
+            <p className="text-xs text-ink/60">2 min 20 s · Dashboard, Employees, Leave, Reports, Letters, Email Log, Help</p>
+          </div>
+        </div>
+      )}
+
       <div className="relative mb-6">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
         <input
