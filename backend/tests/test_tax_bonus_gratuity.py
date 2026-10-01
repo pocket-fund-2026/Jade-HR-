@@ -49,23 +49,35 @@ def test_metro_classification():
     assert location_is_metro("Ahmedabad") is False
 
 
+# compute_bonus(monthly_basic_for_eligibility, basic_wage_sum, days_worked_in_year, rate)
+# — basic_wage_sum is the Basic actually drawn across the FY (see bonus.py).
 def test_bonus_eligibility_wage_ceiling():
-    assert compute_bonus(15000, 300, 0.0833, 12)["eligible"] is True
-    assert compute_bonus(25000, 300, 0.0833, 12)["eligible"] is False  # over 21,000 ceiling
+    assert compute_bonus(15000, 180000, 300, 0.0833)["eligible"] is True
+    assert compute_bonus(21000, 252000, 300, 0.0833)["eligible"] is True  # ceiling is inclusive
+    assert compute_bonus(25000, 300000, 300, 0.0833)["eligible"] is False  # over 21,000 ceiling
 
 
 def test_bonus_eligibility_min_service_days():
-    assert compute_bonus(15000, 20, 0.0833, 12)["eligible"] is False  # under 30 days
+    assert compute_bonus(15000, 15000, 20, 0.0833)["eligible"] is False  # under 30 days
+    assert compute_bonus(15000, 15000, 30, 0.0833)["eligible"] is True
 
 
-def test_bonus_wage_is_capped_at_7000_per_month():
-    b = compute_bonus(15000, 300, 0.0833, 12)
-    assert b["bonus_wage"] == 7000 * 12
+def test_bonus_wage_is_actual_basic_not_capped_at_7000():
+    # Company policy (2026-07-15): bonus on the full Basic drawn, NOT the
+    # Sec 12 Rs 7,000/month calculation ceiling.
+    b = compute_bonus(15000, 180000, 300, 0.0833)
+    assert b["bonus_wage"] == 180000
+    assert b["bonus_amount"] == round(180000 * 0.0833, 2)
+
+
+def test_ineligible_bonus_is_zero():
+    assert compute_bonus(25000, 300000, 300, 0.0833) == {"eligible": False, "bonus_wage": 0.0, "rate": 0.0, "bonus_amount": 0.0}
 
 
 def test_bonus_rate_clamped_to_statutory_range():
-    assert compute_bonus(15000, 300, 0.5, 12)["rate"] == 0.20
-    assert compute_bonus(15000, 300, 0.01, 12)["rate"] == 0.0833
+    assert compute_bonus(15000, 180000, 300, 0.5)["rate"] == 0.20
+    assert compute_bonus(15000, 180000, 300, 0.01)["rate"] == 0.0833
+    assert compute_bonus(15000, 180000, 300)["rate"] == 0.0833  # default = statutory minimum
 
 
 def test_gratuity_years_rounds_up_at_six_months():
