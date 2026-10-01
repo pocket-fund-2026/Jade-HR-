@@ -10,7 +10,7 @@ import html as html_lib
 COMPANY_NAME = "JADE Lifestyles India"
 OFFICE_ADDRESS = "101 Raheja Xion, Dr. Ambedkar Road, Byculla (East), Mumbai 400027, India"
 HR_CONTACT = "team.hr@jadecouture.com"
-LOGO_URL = "https://jade-hr.vercel.app/jade-logo.png"
+LOGO_URL = "https://jade-hr.vercel.app/jade-letterhead-logo.png"
 
 LETTER_CSS = """
 .letter-doc{font-family:'IBM Plex Sans',Arial,Helvetica,sans-serif;font-size:14px;line-height:1.65;color:#1B1B18}
@@ -64,18 +64,16 @@ def build_letter_email_html(rendered_body: str, cover_message: str, title: str) 
 <div style="max-width:720px;margin:0 auto;padding:24px 12px;">
   <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#1B1B18;padding:0 6px 18px;">{cover}</div>
   <div style="background:#ffffff;border:1px solid #e2dccb;padding:36px 40px;">
-    <table role="presentation" style="width:100%;border-collapse:collapse;margin:0 0 22px;border-bottom:2px solid #16302A;">
-      <tr>
-        <td style="border:0;padding:0 0 14px;width:52px;vertical-align:middle;"><div style="width:46px;height:46px;background:#16302A;border-radius:2px;text-align:center;"><img src="{LOGO_URL}" alt="JADE" width="34" height="34" style="display:inline-block;margin-top:6px;"></div></td>
-        <td style="border:0;padding:0 0 14px 10px;vertical-align:middle;">
-          <div style="font-family:Georgia,serif;font-size:19px;color:#16302A;letter-spacing:0.02em;">{COMPANY_NAME}</div>
-        </td>
-        <td style="border:0;padding:0 0 14px;text-align:right;vertical-align:middle;font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.5;color:#666;">
-          {OFFICE_ADDRESS}<br>{HR_CONTACT}
-        </td>
-      </tr>
-    </table>
+    <div style="text-align:center;margin:0 0 26px;">
+      <img src="{LOGO_URL}" alt="JADE" height="58" style="display:inline-block;height:58px;width:auto;">
+      <div style="font-family:Arial,Helvetica,sans-serif;font-size:9.5px;font-weight:bold;letter-spacing:0.38em;text-transform:uppercase;color:#777;margin-top:9px;">Lifestyles India</div>
+      <div style="border-top:1px solid #444;margin-top:14px;"></div>
+      <div style="border-top:1px solid #ccc;margin-top:3px;"></div>
+    </div>
     <div class="letter-doc">{rendered_body}</div>
+    <div style="margin-top:40px;padding-top:10px;border-top:1px solid #ddd;text-align:center;font-family:Arial,Helvetica,sans-serif;font-size:10px;line-height:1.6;color:#888;">
+      {COMPANY_NAME} · {OFFICE_ADDRESS}<br>{HR_CONTACT}
+    </div>
   </div>
   <p style="font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#777;text-align:center;margin:16px 0 0;">
     Sent by the HR team at {COMPANY_NAME} via the JADE HR console. Replies reach {HR_CONTACT}.

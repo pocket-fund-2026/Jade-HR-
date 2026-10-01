@@ -155,25 +155,16 @@ const HR_CONTACT = "team.hr@jadecouture.com";
 function LetterSheet({ html, sheetRef }) {
   return (
     <article ref={sheetRef} className="letter-sheet relative mx-auto w-full max-w-[794px] bg-white shadow-stamp px-6 py-8 sm:px-14 sm:py-12">
-      <header className="flex items-start justify-between gap-6 pb-5 mb-7 border-b-2 border-ledger-800">
-        <div className="flex items-center gap-3">
-          <span className="w-12 h-12 flex-shrink-0 rounded-sm bg-ledger-800 flex items-center justify-center" style={{ printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}>
-            <img src="/jade-logo.png" alt="" className="w-9 h-9" crossOrigin="anonymous" />
-          </span>
-          <div>
-            <p className="font-display text-ledger-800 text-[22px] leading-none tracking-wide">JADE</p>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-ink/60 mt-1.5">Lifestyles India</p>
-          </div>
-        </div>
-        <div className="text-right text-[10.5px] leading-relaxed text-ink/60 max-w-[240px]">
-          <p>{OFFICE_ADDRESS}</p>
-          <p>{HR_CONTACT}</p>
-        </div>
+      <header className="flex flex-col items-center text-center mb-8">
+        <img src="/jade-letterhead-logo.png" alt="JADE" className="h-[60px] w-auto" crossOrigin="anonymous" />
+        <p className="text-[9.5px] font-semibold uppercase tracking-[0.38em] text-ink/55 mt-2.5 pl-[0.38em]">Lifestyles India</p>
+        <div className="w-full mt-4 border-t border-ink/70" />
+        <div className="w-full mt-[3px] border-t border-ink/20" />
       </header>
       <div className="letter-doc" dangerouslySetInnerHTML={{ __html: html }} />
-      <footer className="mt-10 pt-3 border-t border-ink/10 flex justify-between text-[9.5px] uppercase tracking-[0.18em] text-ink/45">
-        <span>JADE Lifestyles India</span>
-        <span>{HR_CONTACT}</span>
+      <footer className="mt-12 pt-3 border-t border-ink/15 text-center text-[9.5px] leading-relaxed tracking-[0.06em] text-ink/50">
+        <p>JADE Lifestyles India · {OFFICE_ADDRESS}</p>
+        <p>{HR_CONTACT}</p>
       </footer>
     </article>
   );
@@ -741,7 +732,7 @@ function IssuedLettersTable({ onOpen }) {
   }, [rows, q]);
 
   return (
-    <section className="mt-10">
+    <section className="mt-6">
       <div className="flex flex-wrap items-end justify-between gap-3 mb-3">
         <div>
           <h3 className="font-display text-xl text-ink">Issued letters</h3>
@@ -753,7 +744,7 @@ function IssuedLettersTable({ onOpen }) {
         {rows === null ? (
           <p className="p-5 text-sm text-ink/70">Loading…</p>
         ) : filtered.length === 0 ? (
-          <p className="p-5 text-sm text-ink/60">{rows.length ? "No letters match that search." : "No letters issued yet. Pick a template above to issue the first one."}</p>
+          <p className="px-4 py-3 text-sm text-ink/60">{rows.length ? "No letters match that search." : "No letters issued yet. Pick a template above to issue the first one."}</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
@@ -864,7 +855,7 @@ export default function Letters() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
         <div>
           <h2 className="font-display text-2xl text-ink">Letters</h2>
           <p className="text-sm text-ink/70 mt-1">Issue offer, confirmation, conduct and exit letters on JADE letterhead, then print, download or email them.</p>
@@ -879,26 +870,26 @@ export default function Letters() {
       {loading ? (
         <p className="text-ink/70">Loading…</p>
       ) : (
-        <div className="space-y-7">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {grouped.map(([group, items]) => (
-            <section key={group}>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/55 mb-2.5">{group}</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <section key={group} className="bg-paper rounded-sm shadow-card">
+              <p className="px-4 pt-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/55 border-b border-ink/10">{group}</p>
+              <ul className="divide-y divide-ink/[0.07]">
                 {items.map((t) => {
                   const meta = LETTER_META[t.letter_type] || { icon: FileText, blurb: "Custom letter template." };
                   const Icon = meta.icon;
                   return (
-                    <div key={t.letter_type} className="group bg-paper rounded-sm shadow-card p-5 flex flex-col border-t-2 border-jade-500/70 hover:shadow-stamp transition-shadow">
-                      <div className="flex items-start gap-3 mb-2">
-                        <span className="w-9 h-9 rounded-sm bg-jade-50 text-jade-600 flex items-center justify-center flex-shrink-0"><Icon size={18} /></span>
-                        <p className="font-display text-lg text-ink leading-snug pt-1">{t.title}</p>
+                    <li key={t.letter_type} className="flex items-center gap-3 px-4 py-3 hover:bg-manila/30 transition-colors">
+                      <span className="w-8 h-8 rounded-sm bg-jade-50 text-jade-600 flex items-center justify-center flex-shrink-0"><Icon size={16} /></span>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-display text-[15px] text-ink leading-tight">{t.title}</p>
+                        <p className="text-xs text-ink/60 leading-snug mt-0.5 line-clamp-2">{meta.blurb}</p>
                       </div>
-                      <p className="text-xs text-ink/65 leading-relaxed mb-4 flex-1">{meta.blurb}</p>
-                      <div className="flex gap-2">
+                      <div className="flex gap-1.5 flex-shrink-0">
                         {can("letters.generate") && (
                           <button
                             onClick={() => { setActiveType(t.letter_type); setView("generate"); }}
-                            className="flex-1 bg-ledger-800 text-manila px-3 py-2 rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors"
+                            className="bg-ledger-800 text-manila px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors"
                           >
                             Generate
                           </button>
@@ -906,16 +897,18 @@ export default function Letters() {
                         {can("letters.manage") && (
                           <button
                             onClick={() => { setActiveType(t.letter_type); setView("edit"); }}
-                            className="flex items-center gap-1.5 border border-ink/15 text-ink px-3 py-2 rounded-sm text-xs font-semibold hover:border-jade-500 transition-colors"
+                            title="Edit template"
+                            aria-label={`Edit ${t.title} template`}
+                            className="flex items-center border border-ink/15 text-ink px-2 py-1.5 rounded-sm hover:border-jade-500 hover:text-jade-700 transition-colors"
                           >
-                            <Pencil size={13} /> Edit
+                            <Pencil size={13} />
                           </button>
                         )}
                       </div>
-                    </div>
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             </section>
           ))}
         </div>

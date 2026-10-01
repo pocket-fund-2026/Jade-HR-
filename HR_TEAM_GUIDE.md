@@ -12,6 +12,7 @@ A detailed summary of the admin console at **https://jade-hr.vercel.app**, scope
 6. [Leave (managing the team's requests)](#leave-managing-the-teams-requests)
 7. [Leave Entry](#leave-entry)
 8. [Letters](#letters)
+   - [Email Log](#email-log)
 9. [Leave Policy](#leave-policy)
 10. [Glossary](#glossary)
 11. [Status colors, everywhere](#status-colors-everywhere)
@@ -155,9 +156,26 @@ Record leave on someone's behalf when it didn't come through their own leave req
 
 *(needs `letters.generate` or `letters.manage`)*
 
-Generate employee letters (offer, experience, warning, termination, etc.) from templates. Pick a letter type and an employee — name, code, designation, department, Date of Joining, and address auto-fill from their record; everything else you type in, and it's all editable before generating. Fields like a KRA list or termination reasons accept multiple lines and get auto-formatted as a numbered/bulleted list. Generated letters are printable.
+Issue employee letters on JADE letterhead: offers (employment and internship), confirmation, the probation review form, warnings, termination, and relieving.
+
+1. Click **Generate** on a letter type and pick the employee (or choose **New / not in system** for a candidate). Name, code, designation, department, joining date, email and address auto-fill.
+2. Fill in the rest. Blank fields are highlighted in the live preview. KRAs, termination reasons and warning details take one item per line.
+3. Click **Issue letter**. It's saved under **Issued letters** on the Letters page.
+4. From there: **Print**, **Download PDF**, or **Email this letter** (sent from Tina at JADE HR, PDF attached, team.hr@ in CC, replies go to team.hr@).
+
+Final Warning letters from the Quarter Red Card run appear under Issued letters automatically, ready to email.
 
 `letters.manage` additionally lets you create/edit the templates; `letters.generate` alone just lets you produce letters from existing ones.
+
+---
+
+## Email Log
+
+*(needs `email_log.view`)*
+
+Every email sent as Tina at JADE HR, with its status: **Sent** (click **Check** for delivered / bounced / spam), **Skipped** (nobody to send to, usually no email on the employee's record) or **Failed** (reason shown). If someone says they didn't get an email, search their address here first, then use **Send a test email** and ask them to check Spam.
+
+The daily late-arrival digest goes to HR and each late person's reporting manager, not to the late employees themselves.
 
 ---
 

@@ -519,11 +519,36 @@ const ADMIN_SECTIONS = [
     id: "letters",
     title: "Letters",
     tag: "letters.generate or letters.manage",
-    keywords: "offer letter experience letter warning termination template",
+    keywords: "offer letter experience relieving letter warning termination confirmation template pdf email print issue",
     body: (
       <>
-        <p>Generate employee letters (offer, experience, warning, termination, etc.) from templates. Pick a letter type and an employee — name, code, designation, department, Date of Joining, and address auto-fill from their record; everything else is typed in and fully editable before generating. Fields like a KRA list or termination reasons accept multiple lines and get auto-formatted as a numbered/bulleted list. Generated letters are printable.</p>
+        <p>Issue employee letters on JADE letterhead: offers (employment and internship), confirmation, the probation review form, warnings, termination, and relieving.</p>
+        <ol className="list-decimal pl-5 space-y-1">
+          <li>Click <strong>Generate</strong> on a letter type and pick the employee. Their name, code, designation, department, joining date, email and address fill in automatically. For a candidate who isn't in the system yet, choose <strong>New / not in system</strong> and type their details.</li>
+          <li>Fill in the rest. Anything still blank is highlighted in the live preview on the right. Fields like KRAs or termination reasons take one item per line and become a numbered or bulleted list.</li>
+          <li>Click <strong>Issue letter</strong>. It is saved under <strong>Issued letters</strong> at the bottom of the Letters page.</li>
+          <li>From the issued letter you can <strong>Print</strong>, <strong>Download PDF</strong>, or <strong>Email this letter</strong>. The email goes from Tina at JADE HR with the PDF attached and team.hr@ in CC; replies come back to team.hr@.</li>
+        </ol>
+        <p>Offer letters include a sign-and-return acceptance slip; warnings include an acknowledgement of receipt. Final Warning letters (Quarter Red Card) are issued automatically by the late-arrival policy run and show up under Issued letters, ready to email.</p>
         <p><code className="bg-manila/50 px-1 rounded-sm">letters.manage</code> additionally lets you create/edit the templates; <code className="bg-manila/50 px-1 rounded-sm">letters.generate</code> alone just lets you produce letters from existing ones.</p>
+      </>
+    ),
+  },
+  {
+    id: "email-log",
+    title: "Email Log",
+    tag: "email_log.view",
+    keywords: "email not received mail tina resend delivered bounced spam test notification digest",
+    body: (
+      <>
+        <p>Every email the console sends as <strong>Tina at JADE HR</strong> (leave requests and decisions, late-arrival digests, new joiner, onboarding, loans, salary hold, exit, letters) is listed here with its status:</p>
+        <ul className="list-disc pl-5 space-y-1">
+          <li><strong>Sent</strong>: accepted for delivery. Click <strong>Check</strong> to see whether it was actually delivered, bounced, or marked as spam.</li>
+          <li><strong>Skipped</strong>: there was nobody to send it to, most often because the employee has no email on their record. Add the email on their Employees profile.</li>
+          <li><strong>Failed</strong>: the send was rejected; the reason is shown underneath.</li>
+        </ul>
+        <p>If someone says they never got an email, search their address here first. Use <strong>Send a test email</strong> to confirm an inbox receives HR mail, and ask them to check Spam. The page also shows who receives HR notifications, and how many active staff have no email or no leave approver on file.</p>
+        <p>The daily late-arrival digest goes to HR and to each late person's reporting manager (managers only see their own reportees), not to the late employees themselves.</p>
       </>
     ),
   },

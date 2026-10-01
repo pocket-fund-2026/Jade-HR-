@@ -20,9 +20,11 @@ Uses stdlib urllib only (no new dependency on requests/httpx) — a plain
 HTTPS POST to https://api.resend.com/emails.
 """
 
+import html as html_lib
 import json
 import logging
 import os
+import re
 import urllib.error
 import urllib.request
 
@@ -100,8 +102,7 @@ def send_email_detailed(
         "subject": subject,
         "text": body,
     }
-    if html:
-        payload["html"] = html
+    payload["html"] = html or _text_to_html(subject, body)
     if cc:
         payload["cc"] = cc
     if reply_to:
@@ -134,6 +135,66 @@ def send_email_detailed(
         logger.exception("Failed to send email to %s", to)
         log_attempt(kind, to, subject, "failed", f"exception:{e}", cc=cc, letter_id=letter_id)
         return False, f"exception:{e}"
+
+
+_URL_RE = re.compile(r"https?://[^\s<]+")
+_CONSOLE_LINK_RE = re.compile(r"^(.*?):?\s*(https://jade-hr\.vercel\.app\S*)\s*$")
+
+
+def _text_to_html(subject: str, body: str) -> str:
+    """Branded HTML version of a plain-text notification, so every Tina
+    email reads as JADE HR rather than a raw text dump. The text stays the
+    source of truth (sent alongside as the plain part): blank lines become
+    paragraph breaks, "  • " lines become a list, and a line that is just
+    "Label: https://jade-hr.vercel.app/..." becomes a button."""
+    blocks: list[str] = []
+    bullets: list[str] = []
+
+    def flush_bullets():
+        if bullets:
+            items = "".join(f'<li style="margin:0 0 6px;">{b}</li>' for b in bullets)
+            blocks.append(f'<ul style="margin:0 0 14px;padding-left:20px;">{items}</ul>')
+            bullets.clear()
+
+    def linkify(text: str) -> str:
+        return _URL_RE.sub(lambda m: f'<a href="{m.group(0)}" style="color:#256349;">{m.group(0)}</a>', text)
+
+    for raw in body.split("\n"):
+        line = raw.rstrip()
+        stripped = line.strip()
+        if not stripped:
+            flush_bullets()
+            continue
+        if stripped.startswith("•"):
+            bullets.append(linkify(html_lib.escape(stripped.lstrip("• ").strip())))
+            continue
+        flush_bullets()
+        button = _CONSOLE_LINK_RE.match(stripped)
+        if button:
+            label = "Open in JADE HR"
+            blocks.append(
+                f'<p style="margin:18px 0;"><a href="{html_lib.escape(button.group(2))}" '
+                'style="display:inline-block;background:#16302A;color:#EFE9DA;text-decoration:none;'
+                f'padding:10px 18px;border-radius:2px;font-weight:600;font-size:14px;">{html_lib.escape(label)}</a></p>'
+            )
+            continue
+        indent = ' style="margin:0 0 4px;padding-left:14px;color:#444;"' if raw.startswith("  ") else ' style="margin:0 0 10px;"'
+        blocks.append(f"<p{indent}>{linkify(html_lib.escape(stripped))}</p>")
+    flush_bullets()
+
+    return f"""<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#EFE9DA;">
+<div style="max-width:600px;margin:0 auto;padding:24px 12px;font-family:Arial,Helvetica,sans-serif;">
+  <div style="background:#16302A;padding:16px 24px;">
+    <span style="font-family:Georgia,serif;font-size:20px;color:#EFE9DA;letter-spacing:0.03em;">JADE HR</span>
+    <span style="font-size:10px;color:rgba(239,233,218,0.65);letter-spacing:0.18em;text-transform:uppercase;margin-left:10px;">JADE Lifestyles India</span>
+  </div>
+  <div style="background:#ffffff;padding:24px;border:1px solid #e2dccb;border-top:0;font-size:14px;line-height:1.6;color:#1B1B18;">
+    <p style="margin:0 0 16px;font-family:Georgia,serif;font-size:17px;color:#16302A;">{html_lib.escape(subject)}</p>
+    {"".join(blocks)}
+  </div>
+  <p style="font-size:11px;color:#777;text-align:center;margin:14px 0 0;">Sent automatically by the JADE HR console. For questions, write to team.hr@jadecouture.com.</p>
+</div></body></html>"""
 
 
 def _resend_headers() -> dict:
