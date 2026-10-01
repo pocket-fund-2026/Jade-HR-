@@ -1,6 +1,7 @@
 import { HelpCircle, Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import api from "../lib/api.js";
 import { useAuth } from "../lib/auth.jsx";
 
 // A single collapsible topic. `keywords` is extra text (not necessarily
@@ -629,6 +630,33 @@ const SECTIONS = [
   { group: "Admin Console (HR / Accounts)", items: ADMIN_SECTIONS, roles: "console" },
 ];
 
+// The walkthrough lives in private storage; the backend hands signed-in
+// console users a short-lived signed URL (routers/help_media.py).
+function WalkthroughVideo() {
+  const [src, setSrc] = useState("");
+  const [error, setError] = useState("");
+  useEffect(() => {
+    api.get("/api/help/walkthrough")
+      .then(({ data }) => setSrc(data.url))
+      .catch((err) => setError(err.response?.data?.detail || "The walkthrough video could not be loaded."));
+  }, []);
+  if (error) {
+    return <div className="w-full aspect-[8/5] bg-ledger-800 text-manila/80 text-sm flex items-center justify-center p-6 text-center">{error}</div>;
+  }
+  return (
+    <video
+      key={src}
+      controls
+      playsInline
+      preload="metadata"
+      poster="/help/walkthrough-poster.jpg"
+      src={src || undefined}
+      className="w-full aspect-[8/5] bg-ledger-800"
+      onError={() => src && setError("The video didn't load. Refresh the page to get a fresh link.")}
+    />
+  );
+}
+
 function textOf(node) {
   if (node == null || typeof node === "boolean") return "";
   if (typeof node === "string" || typeof node === "number") return String(node);
@@ -680,13 +708,7 @@ export default function Help({ scope }) {
 
       {isConsole && !q && (
         <div className="bg-paper rounded-sm shadow-card overflow-hidden mb-6">
-          <video
-            controls
-            preload="none"
-            poster="/help/walkthrough-poster.jpg"
-            src="/api/help/walkthrough.mp4"
-            className="w-full aspect-[8/5] bg-ledger-800"
-          />
+          <WalkthroughVideo />
           <div className="px-5 py-3.5 flex flex-wrap items-baseline justify-between gap-2">
             <p className="font-display text-base text-ink">Video walkthrough of the HR console</p>
             <p className="text-xs text-ink/60">3 min, with narration · Dashboard, Employees, Leave, Reports, Letters, Email Log, Help</p>
