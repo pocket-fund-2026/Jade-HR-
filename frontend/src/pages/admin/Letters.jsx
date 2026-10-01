@@ -201,18 +201,26 @@ function printSheet(el, title) {
   Promise.all([fonts, ...imgs]).then(() => setTimeout(go, 150));
 }
 
-async function sheetToPdf(el, filename) {
+// html2pdf's worker is a thenable, so it must never be returned from an
+// async function or awaited directly — that "resolves" it to undefined and
+// .save()/.outputPdf() are lost. Run the final step here instead.
+async function sheetToPdf(el, filename, output = "save") {
   const html2pdf = (await import("html2pdf.js")).default;
-  return html2pdf()
+  const worker = html2pdf()
     .set({
       margin: [12, 0, 14, 0],
       filename,
       image: { type: "jpeg", quality: 0.92 },
       html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
       jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      pagebreak: { mode: ["css", "legacy"], avoid: [".lt-sign", ".lt-accept", "tr", ".lt-heading"] },
+      pagebreak: { mode: ["css", "legacy"], avoid: ["p", "li", "tr", ".lt-to", ".lt-sign", ".lt-accept", ".lt-callout", ".lt-lines", "header"] },
     })
     .from(el);
+  if (output === "save") {
+    await worker.save();
+    return null;
+  }
+  return worker.outputPdf("datauristring");
 }
 
 function pdfFilename(title, name) {
@@ -605,7 +613,7 @@ function EmailPanel({ letter, sheetRef, onSent }) {
       let pdf_base64 = null;
       const pdf_filename = pdfFilename(letter.title, letter.employee_name);
       if (attachPdf && sheetRef.current) {
-        const uri = await (await sheetToPdf(sheetRef.current, pdf_filename)).outputPdf("datauristring");
+        const uri = await sheetToPdf(sheetRef.current, pdf_filename, "datauri");
         pdf_base64 = uri.slice(uri.indexOf(",") + 1);
       }
       const { data } = await api.post(`/api/letters/history/${letter.id}/email`, {
@@ -680,7 +688,7 @@ function IssuedLetter({ letterId, onClose }) {
   const download = async () => {
     setDownloading(true);
     try {
-      await (await sheetToPdf(sheetRef.current, pdfFilename(letter.title, letter.employee_name))).save();
+      await sheetToPdf(sheetRef.current, pdfFilename(letter.title, letter.employee_name));
     } finally {
       setDownloading(false);
     }
