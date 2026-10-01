@@ -7,7 +7,7 @@ quarter_red_card_notify.py keep working headlessly instead of every automated
 call starting to 403 the moment a policy version is bumped.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
@@ -246,5 +246,118 @@ def acknowledgement_register(
         "acknowledged": acknowledged,
         "pending": len(rows) - acknowledged,
         "generated_at": datetime.now().isoformat(),
+        "employees": rows,
+    }
+
+
+PULSE_DAYS = 14
+TRACKING_STARTED = "2026-10-01"
+
+
+@router.get("/team-pulse")
+def team_pulse(
+    include_inactive: bool = Query(default=False),
+    user: dict = Depends(require_permission("policy.acknowledgements.view")),
+):
+    """Team Pulse: when each person last logged in / was last active, how
+    often in the last PULSE_DAYS days, and on which days (sql/071). Same
+    access as the sign-off register above. Logins were never recorded
+    before TRACKING_STARTED, so for anyone with no newer record the policy
+    acknowledgement time — which can only happen while signed in — stands
+    in as their last known activity, flagged as such."""
+    from activity import IST
+
+    employees = (
+        supabase.table("hr_employees")
+        .select("id,employee_code,first_name,last_name,department,designation,location,role,is_active,"
+                "last_login_at,last_seen_at,login_count")
+        .order("first_name")
+        .execute()
+        .data
+    )
+    if not include_inactive:
+        employees = [e for e in employees if e.get("is_active")]
+
+    today = datetime.now(IST).date()
+    window_start = today.fromordinal(today.toordinal() - (PULSE_DAYS - 1))
+    days = (
+        supabase.table("hr_activity_days").select("employee_id,day").gte("day", window_start.isoformat())
+        .limit(20000).execute().data or []
+    )
+    days_by_emp: dict[str, set[str]] = {}
+    for d in days:
+        days_by_emp.setdefault(d["employee_id"], set()).add(d["day"])
+
+    since = datetime.combine(window_start, datetime.min.time(), tzinfo=IST).isoformat()
+    events = (
+        supabase.table("hr_login_events").select("employee_id,at,device").gte("at", since)
+        .order("at", desc=True).limit(20000).execute().data or []
+    )
+    logins_by_emp: dict[str, int] = {}
+    last_device: dict[str, str] = {}
+    for ev in events:
+        logins_by_emp[ev["employee_id"]] = logins_by_emp.get(ev["employee_id"], 0) + 1
+        last_device.setdefault(ev["employee_id"], ev.get("device") or "")
+
+    acks = supabase.table("hr_policy_acknowledgements").select("employee_id,acknowledged_at").execute().data or []
+    last_ack: dict[str, str] = {}
+    for a in acks:
+        if not a.get("acknowledged_at"):
+            continue
+        if a["acknowledged_at"] > last_ack.get(a["employee_id"], ""):
+            last_ack[a["employee_id"]] = a["acknowledged_at"]
+        # A sign-off can only happen while signed in, so it is a real active
+        # day — this also back-fills the strip for the days before tracking.
+        ack_day = datetime.fromisoformat(a["acknowledged_at"]).astimezone(IST).date()
+        if ack_day >= window_start:
+            days_by_emp.setdefault(a["employee_id"], set()).add(ack_day.isoformat())
+
+    def parse(ts):
+        return datetime.fromisoformat(ts) if ts else None
+
+    now = datetime.now(timezone.utc)
+    rows = []
+    counts = {"today": 0, "week": 0, "quiet": 0, "never": 0}
+    for e in employees:
+        seen = parse(e.get("last_seen_at"))
+        ack = parse(last_ack.get(e["id"]))
+        last_active, source = (seen, "tracked") if seen else ((ack, "policy_signoff") if ack else (None, None))
+        if last_active is None:
+            bucket = "never"
+        elif last_active.astimezone(IST).date() == today:
+            bucket = "today"
+        elif now - last_active <= timedelta(days=7):
+            bucket = "week"
+        else:
+            bucket = "quiet"
+        counts[bucket] += 1
+        active_days = sorted(days_by_emp.get(e["id"], set()))
+        rows.append({
+            "employee_id": e["id"],
+            "employee_code": e["employee_code"],
+            "name": f"{e['first_name']} {e.get('last_name') or ''}".strip(),
+            "department": e.get("department"),
+            "designation": e.get("designation"),
+            "location": e.get("location"),
+            "role": e.get("role"),
+            "is_active": e.get("is_active"),
+            "last_login_at": e.get("last_login_at"),
+            "last_active_at": last_active.isoformat() if last_active else None,
+            "last_active_source": source,
+            "bucket": bucket,
+            "logins_in_window": logins_by_emp.get(e["id"], 0),
+            "login_count": e.get("login_count") or 0,
+            "last_device": last_device.get(e["id"], ""),
+            "active_days": active_days,
+        })
+
+    rows.sort(key=lambda r: r["last_active_at"] or "", reverse=True)
+    return {
+        "window_days": PULSE_DAYS,
+        "window_start": window_start.isoformat(),
+        "today": today.isoformat(),
+        "tracking_started": TRACKING_STARTED,
+        "counts": counts,
+        "total": len(rows),
         "employees": rows,
     }

@@ -569,8 +569,13 @@ const ADMIN_SECTIONS = [
     id: "policy-signoff",
     title: "Policy Sign-off",
     tag: "policy.acknowledgements.view",
-    keywords: "acknowledgement quiz score register who has read",
-    body: <p>A register of who has and hasn't acknowledged the current policy version, with their quiz score if applicable. Bumping the policy version re-prompts everyone to read and acknowledge it again.</p>,
+    keywords: "acknowledgement quiz score register who has read team pulse activity last login last seen logged in device",
+    body: (
+      <>
+        <p><strong>Sign-off register</strong>: who has and hasn't acknowledged the current policy version, with their quiz score if applicable. Bumping the policy version re-prompts everyone to read and acknowledge it again.</p>
+        <p><strong>Team Pulse</strong>: who has been signing in to JADE HR. For each person it shows when they were last active, their last login and the device used (phone or desktop), a strip of the last 14 days with active days filled in, and how many times they logged in. Click a tile (Active today, This week, Quiet 7+ days, No login recorded) to filter, and export to CSV. Sign-ins are recorded from 1 October 2026; before that, a person's policy sign-off time is shown as their last known activity.</p>
+      </>
+    ),
   },
   {
     id: "hr-tasks",

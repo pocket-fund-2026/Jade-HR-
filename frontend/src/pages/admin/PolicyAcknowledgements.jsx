@@ -2,6 +2,7 @@ import { CheckCircle2, Clock, Download, Search, ShieldCheck } from "lucide-react
 import { useEffect, useMemo, useState } from "react";
 
 import api from "../../lib/api.js";
+import TeamPulse from "./TeamPulse.jsx";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "Everyone" },
@@ -18,7 +19,27 @@ function formatWhen(iso) {
   });
 }
 
+const TABS = [
+  { key: "register", label: "Sign-off register" },
+  { key: "pulse", label: "Team Pulse" },
+];
+
+function readTab() {
+  try {
+    return new URLSearchParams(window.location.search).get("tab") === "pulse" ? "pulse" : "register";
+  } catch {
+    return "register";
+  }
+}
+
 export default function PolicyAcknowledgements() {
+  const [tab, setTab] = useState(readTab);
+  const switchTab = (key) => {
+    setTab(key);
+    const url = new URL(window.location.href);
+    if (key === "pulse") url.searchParams.set("tab", "pulse"); else url.searchParams.delete("tab");
+    window.history.replaceState(null, "", url);
+  };
   const [data, setData] = useState(null);
   const [status, setStatus] = useState("all");
   const [includeInactive, setIncludeInactive] = useState(false);
@@ -67,10 +88,30 @@ export default function PolicyAcknowledgements() {
 
   return (
     <div className="max-w-5xl">
-      <div className="flex items-center gap-2 mb-1">
+      <div className="flex items-center gap-2">
         <ShieldCheck size={20} className="text-jade-600" />
         <h2 className="font-display text-2xl text-ink">Policy Sign-off</h2>
       </div>
+      <div className="flex gap-1 border-b border-ink/10 mb-5 mt-4">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => switchTab(t.key)}
+            className={`px-4 py-2 text-sm font-semibold -mb-px border-b-2 transition-colors ${tab === t.key ? "border-jade-600 text-ink" : "border-transparent text-ink/60 hover:text-ink"}`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "pulse" ? (
+        <>
+          <p className="text-sm text-ink/70 mb-5">Who has been signing in to JADE HR and how recently: last activity, last login and device, and a day-by-day strip for the last two weeks.</p>
+          <TeamPulse />
+        </>
+      ) : (
+      <>
       <p className="text-sm text-ink/70 mb-6">
         Who has read and acknowledged the company policy documents on login. Acknowledgements are recorded against a
         policy version{data?.policy_version && <> — currently <span className="font-nums">{data.policy_version}</span></>};
@@ -183,6 +224,8 @@ export default function PolicyAcknowledgements() {
             </table>
           </div>
         </>
+      )}
+      </>
       )}
     </div>
   );

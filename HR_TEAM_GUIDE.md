@@ -169,6 +169,14 @@ Final Warning letters from the Quarter Red Card run appear under Issued letters 
 
 ---
 
+## Policy Sign-off → Team Pulse
+
+*(needs `policy.acknowledgements.view`)*
+
+The **Team Pulse** tab on Policy Sign-off shows who has been signing in: last active, last login and device, a 14-day activity strip, and login count. Filter by Active today / This week / Quiet 7+ days / No login recorded, or by location, and export to CSV. Sign-ins are recorded from 1 October 2026; before that, the policy sign-off time stands in as last known activity.
+
+---
+
 ## Email Log
 
 *(needs `email_log.view`)*

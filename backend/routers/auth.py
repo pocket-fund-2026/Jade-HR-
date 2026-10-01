@@ -1,8 +1,9 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
+from activity import record_login
 from auth import COOKIE_NAME, create_access_token, get_current_user, hash_password, verify_password
 from config import COOKIE_SECURE, JWT_EXPIRE_MINUTES
 from database import maybe_single_data, supabase
@@ -27,7 +28,7 @@ def _set_session_cookie(response: Response, token: str) -> None:
 
 
 @router.post("/login")
-def login(body: LoginRequest, response: Response):
+def login(body: LoginRequest, response: Response, request: Request):
     resp = (
         supabase.table("hr_employees")
         .select("*")
@@ -63,6 +64,7 @@ def login(body: LoginRequest, response: Response):
             {"failed_login_count": 0, "locked_until": None}
         ).eq("id", employee["id"]).execute()
 
+    record_login(employee, request.headers.get("user-agent", ""))
     token = create_access_token(employee)
     _set_session_cookie(response, token)
     return {

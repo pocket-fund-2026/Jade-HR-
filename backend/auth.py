@@ -6,6 +6,7 @@ import bcrypt
 from fastapi import Depends, HTTPException, Request, status
 from jose import JWTError, jwt
 
+from activity import touch_seen
 from config import JWT_ALGORITHM, JWT_EXPIRE_MINUTES, JWT_SECRET
 from database import maybe_single_data, supabase
 
@@ -79,6 +80,7 @@ def get_current_user(request: Request) -> dict:
         raise _credentials_error()
 
     employee["_claims"] = payload
+    touch_seen(employee)
     return employee
 
 
