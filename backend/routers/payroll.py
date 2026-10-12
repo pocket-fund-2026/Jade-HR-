@@ -185,10 +185,23 @@ def _register_override(r: dict) -> dict:
 
 
 def _fetch_register_rows(start: date, end: date, employee_id: str | None = None) -> list[dict]:
-    query = supabase.table("hr_attendance_register").select("*").gte("date", start.isoformat()).lte("date", end.isoformat())
-    if employee_id:
-        query = query.eq("employee_id", employee_id)
-    return query.limit(20000).execute().data or []
+    """Paged: Supabase caps a single response at 1000 rows, and a full
+    register is ~89 employees x 31 days = 2759 rows."""
+    rows: list[dict] = []
+    page, offset = 1000, 0
+    while True:
+        query = (
+            supabase.table("hr_attendance_register").select("*")
+            .gte("date", start.isoformat()).lte("date", end.isoformat())
+            .order("employee_id").order("date")
+        )
+        if employee_id:
+            query = query.eq("employee_id", employee_id)
+        batch = query.range(offset, offset + page - 1).execute().data or []
+        rows.extend(batch)
+        if len(batch) < page:
+            return rows
+        offset += page
 
 
 def _fetch_all_overrides_by_employee_range(start: date, end: date) -> dict[str, dict[date, dict]]:
