@@ -133,8 +133,8 @@ function PayslipLedgerTable({ earningsRows, deductionsRows, pl, netSalary }) {
 // just border-ink/50 and bg-manila/60 pre-flattened against a white page,
 // so this looks identical to before, just with nothing left for a
 // rasterizer to mis-composite.
-const cellCls = "border border-[#8c8c89] px-2.5 py-1.5 whitespace-nowrap";
-const labelCls = `${cellCls} font-semibold bg-[#f5f2e9]`;
+const cellCls = "border border-[#9aa9a4] px-2.5 py-1.5 whitespace-nowrap";
+const labelCls = `${cellCls} font-semibold bg-[#e8efec] text-[#16302A]`;
 
 // The Earnings/Deductions/Description ledger table can run to 10 columns
 // (with a PL ledger) — at that width, cellCls's whitespace-nowrap on every
@@ -143,8 +143,8 @@ const labelCls = `${cellCls} font-semibold bg-[#f5f2e9]`;
 // + explicit per-column widths keeps it within the page regardless of
 // content; dropping whitespace-nowrap here lets a cell wrap instead of
 // bleeding off the edge in the rare case content doesn't fit its column.
-const ledgerCellCls = "border border-[#8c8c89] px-1.5 py-1.5 text-[11px] break-words";
-const ledgerLabelCls = `${ledgerCellCls} font-semibold bg-[#f5f2e9]`;
+const ledgerCellCls = "border border-[#9aa9a4] px-1.5 py-1.5 text-[11px] break-words";
+const ledgerLabelCls = `${ledgerCellCls} font-semibold bg-[#e8efec] text-[#16302A]`;
 
 // Exact replica of the company's official (pre-existing, Zoho-derived)
 // payslip form — the only thing that should render when a payslip is
@@ -184,14 +184,17 @@ function PayslipPrintFormat({ summary }) {
 
   return (
     <div className="payslip-print-page hidden print:block text-ink text-[12px] leading-normal font-sans">
-      {/* Solid #5f5f5d, not border-ink/70 -- see cellCls above for why a
-          thick (2px) opacity-based rule is exactly the kind of border most
-          likely to show print-rasterizer hatching, and this one sits right
-          under the letterhead where it'd be the first thing anyone notices. */}
-      <div className="text-center mb-5 pb-3 border-b-2 border-[#5f5f5d]">
-        <p className="font-display text-base tracking-wide">JADE by MK</p>
-        <p className="text-ink/75 text-[11px] mt-1">{OFFICE_ADDRESS.replace(", India", ". India")}</p>
-        <p className="font-semibold text-sm mt-3">Payslip for the Month {MONTH_NAMES[summary.month - 1]} {summary.year}</p>
+      {/* Letterhead: logo left, legal name + address right, then a solid
+          dark-green title band. Solid colors only (see cellCls note). */}
+      <div className="flex items-center justify-between gap-6 pb-3 border-b-[3px] border-[#16302A]">
+        <img src="/jade-letterhead-logo.png" alt="JADE" className="h-[56px] w-auto" />
+        <div className="text-right">
+          <p className="font-display text-[17px] tracking-wide text-[#16302A]">JADE Lifestyles India</p>
+          <p className="text-[#5f5f5d] text-[10.5px] mt-1 max-w-[95mm] leading-snug ml-auto">{OFFICE_ADDRESS}</p>
+        </div>
+      </div>
+      <div className="bg-[#16302A] text-white text-center py-1.5 mb-4 text-[12.5px] font-semibold tracking-[0.18em] uppercase">
+        Payslip for {MONTH_NAMES[summary.month - 1]} {summary.year}
       </div>
 
       <table className="w-full border-collapse mb-3">
@@ -322,21 +325,21 @@ function PayslipPrintFormat({ summary }) {
               </tr>
             );
           })}
-          <tr className="font-semibold bg-[#f5f2e9]">
+          <tr className="font-semibold bg-[#e8efec]">
             <td className={ledgerCellCls}>Total :</td>
             <td className={`${ledgerCellCls} text-right font-nums`}>{formatPlainAmount(totalMonthly)}</td>
             <td className={`${ledgerCellCls} text-right font-nums`}>{formatPlainAmount(totalEarned)}</td>
             <td className={ledgerCellCls}>Total :</td>
             <td className={`${ledgerCellCls} text-right font-nums`}>{formatPlainAmount(totalDeductions)}</td>
-            <td className={`${ledgerCellCls} text-jade-700`} colSpan={pl ? 4 : 1}>
+            <td className={`${ledgerCellCls} bg-[#16302A] text-white text-[13px]`} colSpan={pl ? 4 : 1}>
               Net Salary : {formatPlainAmount(summary.total_payable)}
             </td>
           </tr>
         </tbody>
       </table>
 
-      <p className="text-center text-ink/70 text-[10px] mt-5 pt-3 border-t border-ink/25">
-        Computer generated payslip, signature
+      <p className="text-center text-ink/70 text-[10px] mt-6 pt-3 border-t-2 border-[#16302A]">
+        This is a computer-generated payslip and does not require a signature.
       </p>
     </div>
   );
