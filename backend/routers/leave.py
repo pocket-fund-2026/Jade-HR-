@@ -699,12 +699,13 @@ def my_team_members(user: dict = Depends(get_current_user)):
         return []
     resp = (
         supabase.table("hr_employees")
-        .select("id,employee_code,first_name,last_name,designation,department,location,role,is_active")
+        .select("id,employee_code,first_name,last_name,designation,department,location,role,is_active,avatar_path")
         .in_("id", report_ids)
         .order("first_name")
         .execute()
     )
-    return resp.data
+    from avatars import attach_avatar_urls
+    return attach_avatar_urls(resp.data)
 
 
 def _is_leave_approver(user: dict, leave_request: dict) -> bool:

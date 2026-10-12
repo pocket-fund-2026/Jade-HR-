@@ -4,6 +4,7 @@ import secrets
 from fastapi import APIRouter, Depends, HTTPException
 
 from auth import CONSOLE_ROLES, get_current_user, hash_password, require_accounts, require_permission, user_can
+from avatars import attach_avatar_urls
 from database import maybe_single_data, supabase
 from email_service import notify_new_joiner
 from models import (
@@ -31,7 +32,7 @@ def _sanitize(employee: dict, can_view_salary: bool) -> dict:
     return employee
 
 
-LITE_FIELDS = "id,employee_code,first_name,last_name,is_active,department,designation,location,role,employee_category,is_intern"
+LITE_FIELDS = "id,employee_code,first_name,last_name,is_active,department,designation,location,role,employee_category,is_intern,avatar_path"
 
 
 @router.get("")
@@ -40,14 +41,14 @@ def list_employees(lite: bool = False, user: dict = Depends(require_permission("
     # (a dropdown, a report filter) — lite=true skips salary/compliance/bank
     # columns and the salary.view permission check entirely.
     if lite:
-        return supabase.table("hr_employees").select(LITE_FIELDS).order("first_name").execute().data
+        return attach_avatar_urls(supabase.table("hr_employees").select(LITE_FIELDS).order("first_name").execute().data)
     resp = supabase.table("hr_employees").select("*").order("first_name").execute()
     # Compute once per request, not once per employee — user_can() re-queries
     # hr_permissions/hr_permission_overrides for any non-"accounts" role, so
     # calling it inside the loop turned a single request into 2x the
     # employee count in extra Supabase round-trips (~450 for 223 employees).
     can_view_salary = user_can(user, "salary.view")
-    return [_sanitize(e, can_view_salary) for e in resp.data]
+    return attach_avatar_urls([_sanitize(e, can_view_salary) for e in resp.data])
 
 
 @router.get("/birthdays")

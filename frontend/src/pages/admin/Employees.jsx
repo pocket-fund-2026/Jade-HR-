@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight, FileSpreadsheet, Plus, Search, Upload } from "lucide-react";
+import PersonAvatar from "../../components/PersonAvatar.jsx";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -335,7 +336,8 @@ export default function Employees() {
               pageItems.map((e) => (
                 <tr key={e.id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
                   <td className="px-5 py-3.5">
-                    <Link to={`/admin/employees/${e.id}`} className="text-ink hover:text-jade-600 font-medium transition-colors">
+                    <Link to={`/admin/employees/${e.id}`} className="inline-flex items-center gap-2.5 text-ink hover:text-jade-600 font-medium transition-colors">
+                      <PersonAvatar person={e} />
                       {e.first_name} {e.last_name}
                     </Link>
                     {e.is_intern && (

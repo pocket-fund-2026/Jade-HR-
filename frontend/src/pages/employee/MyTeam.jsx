@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import PersonAvatar from "../../components/PersonAvatar.jsx";
 import api from "../../lib/api.js";
 
 const ROLE_LABELS = { employee: "Employee", hr: "HR", accounts: "Accounts" };
@@ -94,7 +95,7 @@ export default function MyTeam() {
               members.map((m) => (
                 <tr key={m.id} className="border-b border-ink/[0.06] last:border-0">
                   <td className="px-5 py-3.5">
-                    <span className="text-ink font-medium">{m.first_name} {m.last_name}</span>
+                    <span className="inline-flex items-center gap-2.5 text-ink font-medium"><PersonAvatar person={m} />{m.first_name} {m.last_name}</span>
                     <div className="text-xs text-ink/70 font-nums">{m.employee_code}{m.role !== "employee" ? ` · ${ROLE_LABELS[m.role] || m.role}` : ""}</div>
                   </td>
                   <td className="px-5 py-3.5 text-ink/70">{m.designation || "—"}</td>
