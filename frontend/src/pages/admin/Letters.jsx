@@ -157,8 +157,7 @@ function LetterSheet({ html, sheetRef }) {
     <article ref={sheetRef} className="letter-sheet relative mx-auto w-full max-w-[794px] bg-white shadow-stamp px-6 py-8 sm:px-14 sm:py-12">
       <header className="flex flex-col items-center text-center mb-8">
         <img src="/jade-letterhead-logo.png" alt="JADE" className="h-[60px] w-auto" crossOrigin="anonymous" />
-        <p className="text-[9.5px] font-semibold uppercase tracking-[0.38em] text-ink/55 mt-2.5 pl-[0.38em]">Lifestyles India</p>
-        <div className="w-full mt-4 border-t border-ink/70" />
+        <div className="w-full mt-5 border-t border-ink/70" />
         <div className="w-full mt-[3px] border-t border-ink/20" />
       </header>
       <div className="letter-doc" dangerouslySetInnerHTML={{ __html: html }} />
@@ -672,6 +671,74 @@ function formatStamp(iso) {
   return `${formatOrdinalDate(iso)}, ${d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}`;
 }
 
+const APPROVAL_LABELS = {
+  awaiting_approval: "Waiting for approver",
+  awaiting_candidate: "Approved, waiting for candidate to sign",
+  accepted: "Signed and accepted",
+};
+
+function ApprovalPanel({ letter, onChange }) {
+  const [approver, setApprover] = useState(letter.approver_email || "nimit.b@jadecouture.com");
+  const [candidate, setCandidate] = useState(letter.candidate_email || letter.employee_email || "");
+  const [notify, setNotify] = useState((letter.notify_recipients || []).join(", "));
+  const [includeAccounts, setIncludeAccounts] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const locked = letter.approval_status === "awaiting_candidate" || letter.approval_status === "accepted";
+
+  const send = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const { data } = await api.post(`/api/offers/${letter.id}/send-for-approval`, {
+        approver_email: approver, candidate_email: candidate, include_accounts: includeAccounts,
+        notify: notify.split(/[,;\s]+/).filter(Boolean),
+      });
+      onChange({ approval_status: data.approval_status, approver_email: data.approver_email, candidate_email: candidate });
+    } catch (err) {
+      setError(err.response?.data?.detail || err.message || "Could not send for approval");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="bg-paper rounded-sm shadow-card p-5 space-y-3 mb-4">
+      <div className="flex items-center gap-2">
+        <FileSignature size={16} className="text-jade-600" />
+        <p className="font-display text-lg text-ink">Approval and signature</p>
+      </div>
+      {letter.approval_status && (
+        <p className="text-sm text-jade-700 flex items-center gap-1.5"><CheckCircle2 size={14} /> {APPROVAL_LABELS[letter.approval_status]}
+          {letter.approver_initials ? ` (initials ${letter.approver_initials})` : ""}</p>
+      )}
+      <p className="text-xs text-ink/60">The approver gets a link to add initials and approve. Then the candidate gets a link to sign. The signed copy goes to the candidate, {HR_CONTACT} and the recipients below.</p>
+      <div>
+        <label className={labelCls}>Approver email</label>
+        <input value={approver} onChange={(e) => setApprover(e.target.value)} className={inputCls} disabled={locked} />
+      </div>
+      <div>
+        <label className={labelCls}>Candidate email</label>
+        <input value={candidate} onChange={(e) => setCandidate(e.target.value)} className={inputCls} disabled={locked} />
+      </div>
+      <div>
+        <label className={labelCls}>Also send signed copy to (emails or employee IDs)</label>
+        <input value={notify} onChange={(e) => setNotify(e.target.value)} placeholder="accounts@…, 14456" className={inputCls} disabled={locked} />
+        <p className="text-[11px] text-ink/50 mt-1">Employee IDs also see the accepted offer on their dashboard.</p>
+      </div>
+      <label className="flex items-center gap-2 text-sm text-ink">
+        <input type="checkbox" checked={includeAccounts} onChange={(e) => setIncludeAccounts(e.target.checked)} disabled={locked} /> Include the accounts team
+      </label>
+      {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
+      {!locked && (
+        <button onClick={send} disabled={busy || !approver.includes("@") || !candidate.includes("@")} className={`${primaryBtn} w-full`}>
+          <Send size={15} /> {busy ? "Sending…" : letter.approval_status ? "Resend to approver" : "Send for approval"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function IssuedLetter({ letterId, onClose }) {
   const sheetRef = useRef(null);
   const [letter, setLetter] = useState(null);
@@ -715,6 +782,9 @@ function IssuedLetter({ letterId, onClose }) {
       </div>
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(320px,380px)_1fr] gap-6 items-start">
         <div className="xl:sticky xl:top-4">
+          {letter.letter_type?.startsWith("offer") && (
+            <ApprovalPanel letter={letter} onChange={(d) => setLetter((l) => ({ ...l, ...d }))} />
+          )}
           <EmailPanel letter={letter} sheetRef={sheetRef} onSent={(d) => setLetter((l) => ({ ...l, ...d }))} />
         </div>
         <div className="bg-manila/60 rounded-sm p-3 sm:p-6 overflow-x-auto">

@@ -140,6 +140,7 @@ const MyTeam = lazyWithReload(() => import("./pages/employee/MyTeam.jsx"));
 const TaxDeclaration = lazyWithReload(() => import("./pages/employee/TaxDeclaration.jsx"));
 const EmployeeMyPayslip = lazyWithReload(() => import("./pages/employee/MyPayslip.jsx"));
 const EmployeeMyOnboarding = lazyWithReload(() => import("./pages/employee/MyOnboarding.jsx"));
+const SignLetter = lazyWithReload(() => import("./pages/SignLetter.jsx"));
 const Help = lazyWithReload(() => import("./pages/Help.jsx"));
 
 const CONSOLE_ROLES = ["accounts", "hr"];
@@ -216,6 +217,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/setup" element={<Setup />} />
           <Route path="/onboarding/new" element={<Onboarding />} />
+          <Route path="/sign/:token" element={<SignLetter />} />
 
           <Route
             path="/admin"

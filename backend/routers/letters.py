@@ -180,7 +180,7 @@ def _with_people(rows: list[dict]) -> list[dict]:
         gen = people.get(r.get("generated_by")) or {}
         fv = r.get("field_values") or {}
         out.append({
-            **r,
+            **{k: v for k, v in r.items() if k not in ("approver_token", "candidate_token")},
             "title": r.get("title") or titles.get(r["letter_type"], r["letter_type"]),
             "employee_name": f"{emp.get('first_name', '')} {emp.get('last_name') or ''}".strip() or fv.get("employee_name", ""),
             "employee_code": emp.get("employee_code") or fv.get("employee_code", ""),

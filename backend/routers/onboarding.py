@@ -1,4 +1,5 @@
 import base64
+import secrets
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -221,6 +222,30 @@ def _create_employee_from_submission(submission: dict, body: OnboardingResolve) 
     return employee_id
 
 
+def _next_employee_code() -> str:
+    """Next free numeric employee code. Real codes are biometric device IDs in
+    the 10000s; a few legacy outliers (225427) are ignored so they don't
+    skew the sequence. The new joiner must be enrolled on the device with
+    this same ID."""
+    rows = supabase.table("hr_employees").select("employee_code").execute().data or []
+    nums = [int(r["employee_code"]) for r in rows if str(r["employee_code"]).isdigit() and int(r["employee_code"]) < 100000]
+    return str(max(nums, default=10000) + 1)
+
+
+def _email_login_details(submission: dict, code: str, password: str) -> None:
+    to = (submission.get("email") or "").strip()
+    if not to:
+        return
+    name = (submission.get("full_name") or "").split(" ")[0] or "there"
+    email_service.send_email_detailed(
+        to, "Your JADE HR login",
+        f"Dear {name},\n\nWelcome to JADE. Your HR console account is ready.\n\n"
+        f"Employee ID: {code}\nTemporary password: {password}\n\n"
+        "Sign in here and change your password: https://jade-hr.vercel.app/login\n",
+        kind="new_joiner_login", reply_to="team.hr@jadecouture.com",
+    )
+
+
 @router.put("/submissions/{submission_id}")
 def resolve_submission(
     submission_id: str, body: OnboardingResolve, user: dict = Depends(require_permission("onboarding.manage"))
@@ -235,11 +260,11 @@ def resolve_submission(
         raise HTTPException(status_code=400, detail="action must be 'approve' or 'reject'")
 
     created_employee_id = None
+    issued = None
     if body.action == "approve":
-        if not body.employee_code:
-            raise HTTPException(status_code=400, detail="employee_code is required to approve")
+        code = (body.employee_code or "").strip() or _next_employee_code()
         existing = (
-            supabase.table("hr_employees").select("id").eq("employee_code", body.employee_code).execute()
+            supabase.table("hr_employees").select("id").eq("employee_code", code).execute()
         )
         if existing.data:
             # Code already exists — the biometric device (first-punch
@@ -249,11 +274,12 @@ def resolve_submission(
             created_employee_id = existing.data[0]["id"]
             _attach_submission_to_employee(submission, created_employee_id)
         else:
-            if not body.password:
-                raise HTTPException(
-                    status_code=400, detail="password is required to create a new employee_code"
-                )
+            body.employee_code = code
+            generated = not body.password
+            body.password = body.password or secrets.token_urlsafe(9)
             created_employee_id = _create_employee_from_submission(submission, body)
+            issued = {"employee_code": code, "password": body.password if generated else None}
+            _email_login_details(submission, code, body.password)
 
     supabase.table("hr_onboarding_submissions").update({
         "status": "approved" if body.action == "approve" else "rejected",
@@ -263,4 +289,4 @@ def resolve_submission(
         "created_employee_id": created_employee_id,
     }).eq("id", submission_id).execute()
 
-    return {"ok": True, "created_employee_id": created_employee_id}
+    return {"ok": True, "created_employee_id": created_employee_id, "issued": issued}

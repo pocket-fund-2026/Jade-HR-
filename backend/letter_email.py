@@ -66,8 +66,7 @@ def build_letter_email_html(rendered_body: str, cover_message: str, title: str) 
   <div style="background:#ffffff;border:1px solid #e2dccb;padding:36px 40px;">
     <div style="text-align:center;margin:0 0 26px;">
       <img src="{LOGO_URL}" alt="JADE" height="58" style="display:inline-block;height:58px;width:auto;">
-      <div style="font-family:Arial,Helvetica,sans-serif;font-size:9.5px;font-weight:bold;letter-spacing:0.38em;text-transform:uppercase;color:#777;margin-top:9px;">Lifestyles India</div>
-      <div style="border-top:1px solid #444;margin-top:14px;"></div>
+      <div style="border-top:1px solid #444;margin-top:18px;"></div>
       <div style="border-top:1px solid #ccc;margin-top:3px;"></div>
     </div>
     <div class="letter-doc">{rendered_body}</div>

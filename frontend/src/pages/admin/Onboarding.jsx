@@ -54,15 +54,17 @@ function SubmissionDetail({ id, onBack, onResolved, canViewSalary }) {
 
   const resolve = async (action) => {
     setError("");
-    if (action === "approve" && (!employeeCode || !password)) {
-      setError("Employee Code and Password are required to approve");
-      return;
-    }
     setBusy(true);
     try {
-      await api.put(`/api/onboarding/submissions/${id}`, {
+      const { data } = await api.put(`/api/onboarding/submissions/${id}`, {
         action, admin_note: note, employee_code: employeeCode, password, employee_category: employeeCategory,
       });
+      if (data.issued) {
+        window.alert(
+          `Employee created.\n\nEmployee ID: ${data.issued.employee_code}` +
+          (data.issued.password ? `\nTemporary password: ${data.issued.password}\n\nThe login details were also emailed to the employee.` : "")
+        );
+      }
       onResolved();
     } catch (err) {
       setError(err.response?.data?.detail || "Failed to resolve");
@@ -176,7 +178,7 @@ function SubmissionDetail({ id, onBack, onResolved, canViewSalary }) {
           <div className="border-t border-ink/10 pt-5">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1">Resolve</h4>
             <p className="text-xs text-ink/70 mb-3">
-              Approving creates the real employee record — Employee Code must match whatever's assigned on the biometric device.
+              Approving creates the real employee record. Leave Employee Code and Password blank to auto-assign the next free ID and a temporary password (emailed to the employee). If you type a code, it must match the biometric device.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-3">
               <div>
@@ -184,7 +186,7 @@ function SubmissionDetail({ id, onBack, onResolved, canViewSalary }) {
                 <input
                   value={employeeCode}
                   onChange={(e) => setEmployeeCode(e.target.value)}
-                  placeholder="Must match biometric device"
+                  placeholder="Auto-assign next free ID"
                   className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
                 />
               </div>
@@ -192,6 +194,7 @@ function SubmissionDetail({ id, onBack, onResolved, canViewSalary }) {
                 <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Initial Password</label>
                 <input
                   value={password}
+                  placeholder="Auto-generate"
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
                 />

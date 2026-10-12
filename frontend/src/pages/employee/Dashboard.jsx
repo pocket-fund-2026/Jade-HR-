@@ -1,4 +1,5 @@
 import { Bell, Briefcase, Flag, Home, Paperclip, Plane, Printer, Wallet, X } from "lucide-react";
+import OfferNotices from "../../components/OfferNotices.jsx";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
@@ -127,6 +128,8 @@ export default function Dashboard() {
           <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
         </div>
       </div>
+
+      <OfferNotices />
 
       {!dismissedNotice && freshUpdates.length > 0 && (
         <div className="bg-ochre-50 border border-ochre-400/40 rounded-sm px-4 py-3 mb-6 flex items-start gap-3">
