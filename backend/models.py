@@ -17,7 +17,7 @@ class BootstrapAdminRequest(BaseModel):
 
 
 class EmployeeCreate(BaseModel):
-    employee_code: str
+    employee_code: str = ""  # blank -> next free ID
     first_name: str
     last_name: str = ""
     designation: str = ""
@@ -45,7 +45,7 @@ class EmployeeCreate(BaseModel):
     is_intern: bool = False
     ot_applicable: bool = True
     standing_loan_emi: float = 0
-    password: str
+    password: str = ""  # blank -> auto-generated temporary password
 
 
 class EmployeeUpdate(BaseModel):

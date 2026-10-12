@@ -1,4 +1,5 @@
 import re
+import secrets
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -11,6 +12,7 @@ from models import (
 )
 from routers.employee_profile import SENSITIVE_PROFILE_FIELDS
 from routers.new_joiner_email import recipient_emails
+from routers.onboarding import _next_employee_code
 
 router = APIRouter(prefix="/api/employees", tags=["employees"])
 
@@ -409,6 +411,12 @@ def get_employee(employee_id: str, user: dict = Depends(get_current_user)):
 @router.post("")
 def create_employee(body: EmployeeCreate, user: dict = Depends(require_permission("employees.manage"))):
     _require_role_grant_allowed(user, body.role)
+    # Blank code/password = auto-assign the next free ID and a temporary
+    # password (returned once in the response so HR can hand it over).
+    body.employee_code = body.employee_code.strip() or _next_employee_code()
+    generated_password = None
+    if not body.password:
+        generated_password = body.password = secrets.token_urlsafe(9)
     existing = (
         supabase.table("hr_employees")
         .select("id")
@@ -430,7 +438,7 @@ def create_employee(body: EmployeeCreate, user: dict = Depends(require_permissio
     new_employee = inserted.data[0]
     if new_employee.get("date_of_joining"):
         notify_new_joiner(new_employee, recipient_emails())
-    return _sanitize(new_employee, user_can(user, "salary.view"))
+    return {**_sanitize(new_employee, user_can(user, "salary.view")), "generated_password": generated_password}
 
 
 @router.put("/{employee_id}")

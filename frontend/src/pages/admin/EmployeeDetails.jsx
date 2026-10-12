@@ -1228,8 +1228,8 @@ export default function EmployeeDetails() {
 
   const save = async (andThen) => {
     setError("");
-    if (isNew && (!form.employee_code.trim() || !form.first_name.trim() || !form.password)) {
-      setError("Employee Code, First Name, and Password are required.");
+    if (isNew && !form.first_name.trim()) {
+      setError("First Name is required. Leave Employee Code and Password blank to auto-assign them.");
       return;
     }
     if (!form.first_name.trim()) {
@@ -1261,6 +1261,10 @@ export default function EmployeeDetails() {
         const { data } = await api.post("/api/employees", corePayload);
         employeeId = data.id;
         await api.put(`/api/employees/${employeeId}/profile`, buildProfilePayload());
+        window.alert(
+          `Employee created.\n\nEmployee ID: ${data.employee_code}` +
+          (data.generated_password ? `\nTemporary password: ${data.generated_password}\n\nNote it down now; it is not shown again.` : "")
+        );
       } else {
         // Both PUTs target an already-known id and don't depend on each
         // other's result — run them concurrently instead of one after another.
@@ -1353,7 +1357,7 @@ export default function EmployeeDetails() {
                   className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 disabled:opacity-50 disabled:bg-ink/5"
                   value={form.employee_code}
                   disabled={!isNew}
-                  required={isNew}
+                  placeholder={isNew ? "Leave blank to auto-assign the next free ID" : ""}
                   onChange={(e) => setField("employee_code", e.target.value)}
                 />
               </div>
@@ -1366,7 +1370,7 @@ export default function EmployeeDetails() {
                   type="password"
                   className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
                   value={form.password}
-                  required={isNew}
+                  placeholder={isNew ? "Leave blank to auto-generate" : ""}
                   onChange={(e) => setField("password", e.target.value)}
                 />
               </div>
