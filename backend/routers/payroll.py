@@ -5,7 +5,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 import email_service
-from auth import CONSOLE_ROLES, get_current_user, require_console, require_permission, user_can
+from auth import CONSOLE_ROLES, get_current_user, my_report_ids, require_console, require_permission, user_can
 from config import IST
 from database import maybe_single_data, supabase
 from models import SalaryHoldUpdate
@@ -566,6 +566,22 @@ def late_today(for_date: date | None = Query(default=None), user: dict = Depends
         "date": target.isoformat(), "count": len(late), "late": late,
         "last_sync_at": last_sync[0]["run_at"] if last_sync else None,
     }
+
+
+@router.get("/me/team-late")
+def team_late(for_date: date | None = Query(default=None), user: dict = Depends(get_current_user)):
+    """Who in MY team (reporting manager / leave approver, same definition as
+    my_report_ids) arrived after their cutoff on a day. Only that manager's own
+    reportees, never the company-wide list, and the same attendance engine as
+    the payslip and HR's late digest, so the three can never disagree."""
+    target = for_date or datetime.now(IST).date()
+    report_ids = set(my_report_ids(user))
+    late = [
+        {k: v for k, v in e.items() if k != "employee_id"}
+        for e in (_late_arrivals(target) if report_ids else [])
+        if e["employee_id"] in report_ids
+    ]
+    return {"date": target.isoformat(), "count": len(late), "late": late}
 
 
 @router.post("/attendance/late-digest")
