@@ -189,7 +189,7 @@ function PayslipPrintFormat({ summary }) {
       <div className="flex items-center justify-between gap-6 pb-3 border-b-[3px] border-[#16302A]">
         <img src="/jade-letterhead-logo.png" alt="JADE" className="h-[56px] w-auto" />
         <div className="text-right">
-          <p className="font-display text-[17px] tracking-wide text-[#16302A]">JADE Lifestyles India</p>
+          <p className="font-display text-[17px] tracking-wide text-[#16302A]">JADE Lifestyle India</p>
           <p className="text-[#5f5f5d] text-[10.5px] mt-1 max-w-[95mm] leading-snug ml-auto">{OFFICE_ADDRESS}</p>
         </div>
       </div>
