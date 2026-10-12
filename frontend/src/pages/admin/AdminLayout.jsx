@@ -1,8 +1,9 @@
 import { Briefcase, BookOpen, CalendarCheck, CalendarClock, CalendarDays, CalendarPlus, CheckSquare, ClipboardList, DoorOpen, FileBarChart, FileText, Flag, HelpCircle, Home, KeyRound, LayoutDashboard, LogOut, Mail, MapPin, Menu, Plane, Receipt, Search, Shield, ShieldAlert, ShieldCheck, Stamp, UserPlus, Users, Users2, Wallet, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 import ChangePasswordModal from "../../components/ChangePasswordModal.jsx";
+import NotificationBell, { NotificationToasts } from "../../components/NotificationCenter.jsx";
 import { ConfirmProvider } from "../../components/ConfirmDialog.jsx";
 import api from "../../lib/api.js";
 import { useAuth } from "../../lib/auth.jsx";
@@ -183,7 +184,7 @@ function SidebarSearch({ user, can, onNavigate }) {
   );
 }
 
-function SidebarContent({ user, can, logout, pendingCounts, onNavigate }) {
+function SidebarContent({ user, can, logout, pendingCounts, onNavigate, bell }) {
   const visibleItems = navItems.filter(({ permission, hrOnly, requiresApprover }) => {
     if (hrOnly) return canSeeHrTasks(user);
     if (requiresApprover && !user?.is_leave_approver) return false;
@@ -194,12 +195,13 @@ function SidebarContent({ user, can, logout, pendingCounts, onNavigate }) {
     <>
       <div className="px-6 py-6 relative flex items-center gap-3">
         <img src="/jade-logo.png" alt="" className="w-9 h-9 flex-shrink-0" />
-        <div>
+        <div className="min-w-0">
           <p className="font-display text-manila text-xl leading-none">JADE HR</p>
           <p className="text-manila/60 text-[11px] uppercase tracking-[0.2em] mt-1.5">
             {user?.role === "accounts" ? "Accounts Ledger" : "HR Ledger"}
           </p>
         </div>
+        {bell && <div className="ml-auto -mr-2">{bell}</div>}
       </div>
       <SidebarSearch user={user} can={can} onNavigate={onNavigate} />
       <nav className="flex-1 px-3 py-2 space-y-1 relative overflow-y-auto">
@@ -279,6 +281,11 @@ export default function AdminLayout() {
     marketVisits: pendingMarketVisits.length, loans: pendingLoans.length,
     careers: pendingCareers.length,
   };
+  const pendingByType = useMemo(() => ({
+    leave: pendingLeave, disputes: pendingDisputes, payslipApprovals: pendingPayslipApprovals,
+    onboarding: pendingOnboarding, workAbsence: pendingWorkAbsence, wfh: pendingWfh,
+    marketVisits: pendingMarketVisits, loans: pendingLoans, careers: pendingCareers,
+  }), [pendingLeave, pendingDisputes, pendingPayslipApprovals, pendingOnboarding, pendingWorkAbsence, pendingWfh, pendingMarketVisits, pendingLoans, pendingCareers]);
   const canDisputes = can("disputes.manage");
   const canLeave = can("leave.manage");
   const canPayslipApprovals = can("payslip_approvals.manage");
@@ -327,10 +334,14 @@ export default function AdminLayout() {
 
   return (
     <div className="h-screen flex bg-manila overflow-hidden">
+      <NotificationToasts pending={pendingByType} loaded={pendingLoaded} />
       {/* Desktop sidebar — fixed height, never scrolls with page content */}
       <aside className="hidden md:flex w-60 h-screen bg-ledger-800 flex-col relative flex-shrink-0">
         <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
-        <SidebarContent user={user} can={can} logout={logout} pendingCounts={pendingCounts} />
+        <SidebarContent
+          user={user} can={can} logout={logout} pendingCounts={pendingCounts}
+          bell={<NotificationBell pending={pendingByType} variant="sidebar" />}
+        />
       </aside>
 
       {/* Mobile top bar — Sign out sits here directly (not just inside the
@@ -347,6 +358,7 @@ export default function AdminLayout() {
           </div>
         </div>
         <div className="flex items-center gap-1">
+          <NotificationBell pending={pendingByType} variant="mobile" />
           <button onClick={logout} aria-label="Sign out" title="Sign out" className="text-manila/70 hover:text-manila p-2">
             <LogOut size={20} />
           </button>

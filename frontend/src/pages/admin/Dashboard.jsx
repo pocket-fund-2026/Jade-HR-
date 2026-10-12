@@ -1,14 +1,17 @@
-import { Award, Bell, Cake, CalendarPlus, Clock, FileSpreadsheet, LogOut, ShieldAlert, UserCheck, X } from "lucide-react";
+import { Award, Cake, CalendarPlus, Clock, FileSpreadsheet, LogOut, ShieldAlert, UserCheck, X } from "lucide-react";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 
 import MonthPicker from "../../components/MonthPicker.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
+import LateTodayPanel from "../../components/LateTodayPanel.jsx";
 import StatCard from "../../components/StatCard.jsx";
 import api from "../../lib/api.js";
 import { exportAttendanceExcel, exportAttendanceTimingsExcel } from "../../lib/attendanceExport.js";
 import { useAuth } from "../../lib/auth.jsx";
 import { daysUntilAnnualDate, formatDate, formatHoursMins, formatINR, nextAnniversary } from "../../lib/format.js";
+import OfferNotices from "../../components/OfferNotices.jsx";
+import { NOTIFICATION_TYPES, TONES, itemTime, markAllSeen, readSeenAt } from "../../lib/notifications.js";
 
 // recharts is a heavy dependency (~380KB) — split out of the main bundle
 // the same way Payroll.jsx lazy-imports xlsx for its Excel export.
@@ -16,7 +19,6 @@ const OtTrendChart = lazy(() => import("../../components/OtTrendChart.jsx"));
 
 const today = new Date();
 const todayIso = today.toISOString().slice(0, 10);
-const SEEN_KEY = "jade_hr_admin_notif_seen_at";
 // Dismissal is by calendar date, not a growing "seen" set like disputes/leave
 // above — a birthday banner should reappear each new day it's still true,
 // not stay silenced forever after the first dismiss.
@@ -117,6 +119,8 @@ export default function Dashboard() {
   const canBiometric = can("biometric.view");
   const canEmployees = can("employees.view");
   const canAttendance = can("attendance.view") && !canPayroll;
+  // Right-rail Late arrivals panel — anyone who can see attendance, incl. Accounts.
+  const showLateRail = can("attendance.view");
 
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
@@ -220,31 +224,22 @@ export default function Dashboard() {
     return [...priorTrendRaw, { label: currentLabel, rows }];
   }, [priorTrendRaw, rows, year, month, canPayroll]);
 
-  const seenAt = localStorage.getItem(SEEN_KEY) || "1970-01-01";
-  const newDisputes = pendingDisputes.filter((d) => d.created_at > seenAt);
-  const newLeave = pendingLeave.filter((l) => l.created_at > seenAt);
-  // hr_payslip_approvals/hr_onboarding_submissions use submitted_at, not
-  // created_at, unlike every other queue here.
-  const newPayslipApprovals = pendingPayslipApprovals.filter((p) => p.submitted_at > seenAt);
-  const newOnboarding = pendingOnboarding.filter((o) => o.submitted_at > seenAt);
-  const newWorkAbsence = pendingWorkAbsence.filter((w) => w.created_at > seenAt);
-  const newWfh = pendingWfh.filter((w) => w.created_at > seenAt);
-  const newMarketVisits = pendingMarketVisits.filter((m) => m.created_at > seenAt);
-  const newCareers = pendingCareers.filter((c) => c.created_at > seenAt);
-  const NOTIFICATION_GROUPS = [
-    { items: newLeave, label: "new leave request", to: "/admin/leave", cta: "Review leave" },
-    { items: newDisputes, label: "new attendance dispute", to: "/admin/disputes", cta: "Review disputes" },
-    { items: newPayslipApprovals, label: "payslip approval", to: "/admin/payslip-approvals", cta: "Review payslips" },
-    { items: newOnboarding, label: "onboarding submission", to: "/admin/onboarding", cta: "Review onboarding" },
-    { items: newWorkAbsence, label: "work absence report", to: "/admin/work-absence", cta: "Review work absence" },
-    { items: newWfh, label: "WFH request", to: "/admin/wfh-requests", cta: "Review WFH requests" },
-    { items: newMarketVisits, label: "market visit", to: "/admin/market-visits", cta: "Review market visits" },
-    { items: newCareers, label: "new job application", to: "/admin/careers/applicants?status=New", cta: "Review applicants" },
-  ].filter((g) => g.items.length > 0);
+  // Shared with the console-wide bell (components/NotificationCenter.jsx):
+  // same types, same wording, same "seen" marker, so dismissing here also
+  // clears the bell's "new" badge.
+  const seenAt = readSeenAt();
+  const pendingByType = {
+    leave: pendingLeave, disputes: pendingDisputes, payslipApprovals: pendingPayslipApprovals,
+    onboarding: pendingOnboarding, workAbsence: pendingWorkAbsence, wfh: pendingWfh,
+    marketVisits: pendingMarketVisits, careers: pendingCareers,
+  };
+  const NOTIFICATION_GROUPS = NOTIFICATION_TYPES
+    .map((t) => ({ ...t, items: (pendingByType[t.key] || []).filter((i) => itemTime(i) > seenAt) }))
+    .filter((g) => g.items.length > 0);
   const hasNew = !dismissed && NOTIFICATION_GROUPS.length > 0;
 
   const dismiss = () => {
-    localStorage.setItem(SEEN_KEY, new Date().toISOString());
+    markAllSeen();
     setDismissed(true);
   };
 
@@ -304,6 +299,7 @@ export default function Dashboard() {
 
   return (
     <div>
+      <OfferNotices />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-1">
         <h2 className="font-display text-2xl text-ink">Dashboard</h2>
         <div className="flex flex-wrap items-center gap-3">
@@ -340,20 +336,38 @@ export default function Dashboard() {
       )}
 
       {hasNew && (
-        <div className="bg-ochre-50 border border-ochre-400/40 rounded-sm px-4 py-3 mb-6 flex items-start gap-3">
-          <Bell size={16} className="text-ochre-700 flex-shrink-0 mt-0.5" />
-          <div className="flex-1 space-y-1 text-sm text-ink/80">
-            {NOTIFICATION_GROUPS.map((g) => (
-              <p key={g.to}>
-                {g.items.length} new {g.label}{g.items.length > 1 ? "s" : ""} awaiting review —{" "}
-                <Link to={g.to} className="text-jade-700 hover:underline font-medium">{g.cta}</Link>
-              </p>
-            ))}
+        <section className="rise-in mb-6 rounded-sm border border-ochre-400/50 bg-ochre-50 shadow-card" aria-labelledby="new-items-title">
+          <div className="flex items-center justify-between gap-3 px-4 pt-3 pb-2">
+            <h3 id="new-items-title" className="flex items-center gap-2 text-sm font-semibold text-ink">
+              <span className="relative flex w-2.5 h-2.5">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-rust-500 opacity-60 animate-ping motion-reduce:hidden" />
+                <span className="relative inline-flex w-2.5 h-2.5 rounded-full bg-rust-500" />
+              </span>
+              New since you last checked
+            </h3>
+            <button onClick={dismiss} className="flex items-center gap-1 text-xs font-semibold text-ink/60 hover:text-ink">
+              <X size={14} /> Mark all seen
+            </button>
           </div>
-          <button onClick={dismiss} aria-label="Dismiss" className="text-ink/70 hover:text-ink">
-            <X size={16} />
-          </button>
-        </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 px-4 pb-4">
+            {NOTIFICATION_GROUPS.map((g) => {
+              const tone = TONES[g.tone];
+              const Icon = g.icon;
+              return (
+                <Link key={g.key} to={g.to} className="group flex items-center gap-3 bg-paper rounded-sm px-3.5 py-3 border border-ink/[0.07] hover:border-jade-500 hover:shadow-stamp transition-all">
+                  <span className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${tone.chip}`}><Icon size={17} /></span>
+                  <span className="min-w-0">
+                    <span className="flex items-baseline gap-1.5">
+                      <span className="font-display text-2xl text-ink font-nums leading-none">{g.items.length}</span>
+                      <span className="text-sm text-ink truncate">new {g.items.length === 1 ? g.singular : g.plural}</span>
+                    </span>
+                    <span className={`block text-xs font-semibold mt-1 ${tone.text} group-hover:underline`}>{g.cta} →</span>
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
       )}
 
       {showBirthdayBanner && (
@@ -381,6 +395,13 @@ export default function Dashboard() {
         </div>
       )}
 
+      <div className={showLateRail ? "grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px] gap-6 items-start" : ""}>
+      {showLateRail && (
+        <aside className="order-1 xl:order-2 xl:sticky xl:top-4">
+          <LateTodayPanel />
+        </aside>
+      )}
+      <div className="order-2 xl:order-1 min-w-0">
       {upcomingBirthdays.length > 0 && (
         <div className="bg-paper rounded-sm shadow-card px-5 py-4 mb-6">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70 mb-3 flex items-center gap-1.5">
@@ -557,6 +578,8 @@ export default function Dashboard() {
           </div>
         </>
       )}
+      </div>
+      </div>
     </div>
   );
 }

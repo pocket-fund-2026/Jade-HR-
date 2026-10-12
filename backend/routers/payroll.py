@@ -491,36 +491,11 @@ def _pay_period_label_for(d: date) -> tuple[int, int]:
     return year, month
 
 
-@router.post("/attendance/late-digest")
-def late_digest(
-    for_date: date | None = Query(default=None),
-    dry_run: bool = Query(default=False),
-    user: dict = Depends(require_console),
-):
-    """Daily late-marking digest: one email to HR listing every corporate
-    employee whose first punch on `for_date` (default: today, IST) was after
-    their applicable on-time cutoff (10:00 AM under Policy v3, banded from
-    there — or the pre-v3 10:11 AM grace for a date before v3 took effect;
-    either way, extended by the stay-back grace to 11 AM / noon when it
-    applies). Separately, each late employee's actual reporting manager gets
-    their OWN email listing ONLY their reportees' late entries that day —
-    never the full company-wide list HR gets (see _reporting_manager_emails).
-
-    'Late' here is exactly the payslip's own late flag: it runs the same
-    attendance engine (overrides, approved leave, holidays, weekly-off and
-    stay-back grace all honoured), then reads out that one day's row — so the
-    digest and the month-end payslip can never disagree. Only corporate-roster
-    staff are included, since the late policy only governs them.
-
-    Triggered once a day by the cron in /etc/cron.d/jade-hr-sync, after the
-    morning punch sync has landed the day's clock-ins. Note the punch data is
-    only as fresh as that last sync (arrivals after it show up the next run).
-    `dry_run` returns the list WITHOUT sending, for safe verification; the
-    real run sends nothing on a day with no late arrivals (no empty emails).
-    Gated on require_console so the sync account (already console-capable for
-    /api/biometric/ingest) can call it — no new credential needed.
-    """
-    target = for_date or datetime.now(IST).date()
+def _late_arrivals(target: date) -> list[dict]:
+    """Everyone on the corporate roster whose first punch on `target` was
+    late by the payslip's own rules — the single source for both the daily
+    digest email and the dashboard's Late Today panel, so they can never
+    disagree. See late_digest's docstring for the rules applied."""
     target_iso = target.isoformat()
     year, month = _pay_period_label_for(target)
 
@@ -566,10 +541,65 @@ def late_digest(
                 "department": summary.get("department"),
                 "time": in_time,
                 "sort_key": first_in or "",
+                # Pay-period-to-date standing, for the dashboard panel; the
+                # digest email ignores these.
+                "late_mark_count": summary.get("late_mark_count"),
+                "late_card": summary.get("late_card"),
             })
     late.sort(key=lambda x: x["sort_key"])
     for e in late:
         e.pop("sort_key", None)
+
+    return late
+
+
+@router.get("/attendance/late-today")
+def late_today(for_date: date | None = Query(default=None), user: dict = Depends(require_permission("attendance.view"))):
+    """Read-only list for the dashboard's Late Today panel. Sends nothing.
+    Punch data is only as fresh as the last biometric sync."""
+    target = for_date or datetime.now(IST).date()
+    late = _late_arrivals(target)
+    last_sync = (
+        supabase.table("hr_sync_log").select("run_at").order("run_at", desc=True).limit(1).execute().data
+    )
+    return {
+        "date": target.isoformat(), "count": len(late), "late": late,
+        "last_sync_at": last_sync[0]["run_at"] if last_sync else None,
+    }
+
+
+@router.post("/attendance/late-digest")
+def late_digest(
+    for_date: date | None = Query(default=None),
+    dry_run: bool = Query(default=False),
+    user: dict = Depends(require_console),
+):
+    """Daily late-marking digest: one email to HR listing every corporate
+    employee whose first punch on `for_date` (default: today, IST) was after
+    their applicable on-time cutoff (10:00 AM under Policy v3, banded from
+    there — or the pre-v3 10:11 AM grace for a date before v3 took effect;
+    either way, extended by the stay-back grace to 11 AM / noon when it
+    applies). Separately, each late employee's actual reporting manager gets
+    their OWN email listing ONLY their reportees' late entries that day —
+    never the full company-wide list HR gets (see _reporting_manager_emails).
+
+    'Late' here is exactly the payslip's own late flag: it runs the same
+    attendance engine (overrides, approved leave, holidays, weekly-off and
+    stay-back grace all honoured), then reads out that one day's row — so the
+    digest and the month-end payslip can never disagree. Only corporate-roster
+    staff are included, since the late policy only governs them.
+
+    Triggered once a day by the cron in /etc/cron.d/jade-hr-sync, after the
+    morning punch sync has landed the day's clock-ins. Note the punch data is
+    only as fresh as that last sync (arrivals after it show up the next run).
+    `dry_run` returns the list WITHOUT sending, for safe verification; the
+    real run sends nothing on a day with no late arrivals (no empty emails).
+    Gated on require_console so the sync account (already console-capable for
+    /api/biometric/ingest) can call it — no new credential needed.
+    """
+    target = for_date or datetime.now(IST).date()
+    target_iso = target.isoformat()
+    late = _late_arrivals(target)
 
     public_late = [{k: v for k, v in e.items() if k != "employee_id"} for e in late]
     emailed, email_error = False, None
