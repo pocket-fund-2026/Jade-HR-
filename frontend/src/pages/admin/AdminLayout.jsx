@@ -205,23 +205,23 @@ function SidebarContent({ user, can, logout, pendingCounts, onNavigate, bell }) 
         {bell && <div className="ml-auto -mr-2">{bell}</div>}
       </div>
       <SidebarSearch user={user} can={can} onNavigate={onNavigate} />
-      <nav className="flex-1 px-3 py-2 space-y-1 relative overflow-y-auto nav-scroll overscroll-contain">
+      <nav className="flex-1 px-3 py-2 space-y-0.5 relative overflow-y-auto nav-scroll overscroll-contain">
         {visibleItems.map(({ to, label, icon: Icon, end, badgeKey, sectionBreak }) => (
-          <div key={to} className={sectionBreak ? "mt-3 pt-3 border-t border-manila/10" : ""}>
+          <div key={to} className={sectionBreak ? "mt-4 pt-4 border-t border-manila/10" : ""}>
             <NavLink
               to={to}
               end={end}
               onClick={onNavigate}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 min-h-[44px] md:min-h-0 rounded-sm text-sm font-medium transition-colors ${
+                `group relative flex items-center gap-3 px-3 py-2.5 min-h-[44px] md:min-h-0 rounded-md text-sm font-medium transition-all duration-150 ${
                   isActive
-                    ? "bg-manila text-ledger-900"
-                    : "text-manila/75 hover:bg-manila/10 hover:text-manila"
+                    ? "bg-manila text-ledger-900 shadow-sm before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-r before:bg-jade-500"
+                    : "text-manila/75 hover:bg-manila/10 hover:text-manila hover:translate-x-0.5"
                 }`
               }
             >
-              <Icon size={17} strokeWidth={2} />
-              {label}
+              <Icon size={17} strokeWidth={2} className="flex-shrink-0 opacity-90 group-hover:opacity-100" />
+              <span className="truncate">{label}</span>
               {badgeKey && pendingCounts[badgeKey] > 0 && (
                 <span className="ml-auto bg-ochre-500 text-ledger-900 text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
                   {pendingCounts[badgeKey]}
@@ -233,20 +233,25 @@ function SidebarContent({ user, can, logout, pendingCounts, onNavigate, bell }) 
       </nav>
       <div className="px-3 py-4 relative">
         <div className="border-t border-manila/10 pt-4">
-          <div className="px-3 pb-2">
-            <p className="text-manila text-sm font-medium">{user?.name}</p>
-            <p className="text-manila/75 text-xs font-nums">{user?.employee_code}</p>
+          <div className="px-3 pb-3 flex items-center gap-3">
+            <span className="w-9 h-9 rounded-full bg-manila/15 text-manila flex items-center justify-center text-sm font-semibold flex-shrink-0" aria-hidden="true">
+              {(user?.name || "?").trim().charAt(0).toUpperCase()}
+            </span>
+            <div className="min-w-0">
+              <p className="text-manila text-sm font-medium truncate">{user?.name}</p>
+              <p className="text-manila/75 text-xs font-nums">{user?.employee_code}</p>
+            </div>
           </div>
           <button
             onClick={() => setShowPw(true)}
-            className="flex items-center gap-3 px-3 py-2 min-h-[44px] md:min-h-0 rounded-sm text-sm font-medium text-manila/75 hover:bg-manila/10 hover:text-manila w-full transition-colors"
+            className="flex items-center gap-3 px-3 py-2 min-h-[44px] md:min-h-0 rounded-md text-sm font-medium text-manila/75 hover:bg-manila/10 hover:text-manila w-full transition-colors"
           >
             <KeyRound size={16} />
             Change password
           </button>
           <button
             onClick={logout}
-            className="flex items-center gap-3 px-3 py-2 min-h-[44px] md:min-h-0 rounded-sm text-sm font-medium text-manila/75 hover:bg-manila/10 hover:text-manila w-full transition-colors"
+            className="flex items-center gap-3 px-3 py-2 min-h-[44px] md:min-h-0 rounded-md text-sm font-medium text-manila/75 hover:bg-manila/10 hover:text-manila w-full transition-colors"
           >
             <LogOut size={16} />
             Sign out
