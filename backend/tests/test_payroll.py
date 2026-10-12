@@ -768,3 +768,22 @@ def test_esic_labour_codes_rule():
     assert esic_wages(18000, 500) == 18500  # Basic + DA + Retention, not gross
     e = compute_esic(esic_wages(18000, 0))
     assert e["ded_esic"] == 135.0 and e["oth_esic_employer"] == 585.0
+
+
+def test_register_mode_uses_sheet_credits_exactly():
+    from datetime import date, time, timedelta
+    emp = {**CORPORATE_EMPLOYEE, "basic": 31000, "hra": 0, "conveyance": 0, "other_allowance": 0}
+    start = date(2026, 8, 23)
+    overrides = {}
+    for i in range(31):
+        d = start + timedelta(days=i)
+        credit, late = (0.75, 1) if i == 3 else (0.0, None) if i == 5 else (1.0, None)
+        overrides[d] = {
+            "status_override": "present", "first_in": time(10, 20), "last_out": time(19, 0),
+            "register": {"credit": credit, "late_count": late, "shift_code": "P", "work_hours": 8.0, "ot_hours": 0.0},
+        }
+    s = compute_monthly_summary(emp, 2026, 9, [], overrides, {}, [], 0.0)
+    assert s["paid_days"] == 29.8  # 29.75 shown to 1dp
+    assert s["without_pay_days"] == 1.2
+    assert s["late_mark_count"] == 1
+    assert s["basic"] == round(31000 * 29.75 / 31, 2) == 29750.0

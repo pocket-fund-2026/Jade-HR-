@@ -257,6 +257,25 @@ def _holidays_for_employee(all_holidays: list[dict], employee_location: str | No
 
 
 def _apply_override(d: date, override: dict, standard_hours_per_day: float, time_slot: str | None = None) -> dict:
+    reg = override.get("register")
+    if reg:
+        # An imported register day (hr_attendance_register): shown and paid
+        # exactly as the sheet has it. register_credit is the payable credit.
+        iso = lambda t: datetime.combine(d, t, tzinfo=IST).isoformat() if t else None
+        return {
+            "date": d.isoformat(),
+            "first_in": iso(override.get("first_in")),
+            "last_out": iso(override.get("last_out")),
+            "hours_worked": reg["work_hours"],
+            "ot_hours": reg["ot_hours"],
+            "status": override["status_override"],
+            "late": reg["late_count"] is not None,
+            "late_half_day_tier": False,
+            "corrected": True,
+            "register_credit": reg["credit"],
+            "register_late_count": reg["late_count"] or 0,
+            "register_shift": reg["shift_code"],
+        }
     status = override["status_override"]
     first_in, last_out = override.get("first_in"), override.get("last_out")
     day_standard = _standard_hours_for_day(d, standard_hours_per_day, time_slot)
@@ -397,7 +416,7 @@ def _apply_weekly_off_earning_rule(rows: list[dict]) -> None:
     """
     by_date = {date.fromisoformat(r["date"]): r for r in rows}
     for d, row in by_date.items():
-        if row["status"] != "weekoff":
+        if row["status"] != "weekoff" or row.get("register_credit") is not None:
             continue
         week_days = [d - timedelta(days=i) for i in range(1, 7)]
         week_rows = [by_date[wd] for wd in week_days if wd in by_date]
@@ -986,9 +1005,14 @@ def compute_monthly_summary(
     )
 
     _, period_end_for_v3 = pay_period_bounds(year, month, calendar_month)
-    v3_active = is_corporate and late_policy_v3_active(period_end_for_v3)
+    # Register mode: every day of the period came from an imported register,
+    # so the sheet's credits ARE the attendance (no policy engine on top).
+    register_mode = bool(daily) and all(r.get("register_credit") is not None for r in daily)
+    v3_active = is_corporate and late_policy_v3_active(period_end_for_v3) and not register_mode
     v3_summary = apply_late_coming_policy_v3(daily, time_slot) if v3_active else None
-    if v3_active:
+    if register_mode:
+        late_mark_count, red_card = max((r["register_late_count"] for r in daily), default=0), False
+    elif v3_active:
         late_mark_count, red_card = v3_summary["yellow_card_count"], v3_summary["red_card"]
     else:
         late_mark_count, red_card = (
@@ -1009,11 +1033,16 @@ def compute_monthly_summary(
     # is — 50% — reusing that exact fractional-day mechanism rather than a
     # new one, per PAY_TREATMENT_PERCENT in routers/wfh.py.
     paid_days = present_days + weekoff_days + holiday_days + pl_days + 0.5 * half_days + 0.5 * wfh_day_count - late_lop_days
+    if register_mode:
+        paid_days = sum(float(r["register_credit"]) for r in daily)
+        late_lop_days = 0.0
     # Payslip "WithoutPayDays" — the complement of paid_days over total_days:
     # full absences, unpaid leave (excluded from pl_days above), the unpaid
     # halves of half-days and WFH days, and late-coming LOP days (already a
     # day-amount, not a count — see LATE_LOP_DAYS).
     without_pay_days = absent_days + unpaid_leave_days + 0.5 * half_days + 0.5 * wfh_day_count + late_lop_days
+    if register_mode:
+        without_pay_days = max(0.0, len(daily) - paid_days)
     late_days = sum(1 for r in daily if r["status"] == "present" and r.get("late"))
     on_time_days = present_days - late_days
     total_hours_worked = round(sum(r["hours_worked"] for r in daily), 2)
@@ -1081,7 +1110,9 @@ def compute_monthly_summary(
     lop_amount = per_day_salary * late_lop_days
 
     period_start, period_end = pay_period_bounds(year, month, calendar_month)
-    if v3_active:
+    if register_mode:
+        late_card = "yellow" if late_mark_count > 0 else "none"
+    elif v3_active:
         late_card = "red" if red_card else ("yellow" if late_mark_count > 0 else "none")
     else:
         late_card = late_card_status(late_mark_count, period_end) if is_corporate else "none"

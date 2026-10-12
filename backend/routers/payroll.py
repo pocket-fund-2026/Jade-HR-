@@ -168,6 +168,29 @@ def _fetch_all_punches_by_employee_range(start: date, end: date) -> dict[str, li
     return by_employee
 
 
+def _register_override(r: dict) -> dict:
+    """An hr_attendance_register row, shaped like an override (see
+    payroll._apply_override's `register` branch)."""
+    shift = r["shift_code"]
+    status = {"P": "present", "WOP": "present", "WO": "weekoff", "H": "holiday"}.get(shift, "absent")
+    return {
+        "status_override": status,
+        "first_in": _parse_time(r["first_in"]),
+        "last_out": _parse_time(r["last_out"]),
+        "register": {
+            "credit": float(r["credit"]), "late_count": r["late_count"], "shift_code": shift,
+            "work_hours": float(r["work_hours"]), "ot_hours": float(r["ot_hours"]),
+        },
+    }
+
+
+def _fetch_register_rows(start: date, end: date, employee_id: str | None = None) -> list[dict]:
+    query = supabase.table("hr_attendance_register").select("*").gte("date", start.isoformat()).lte("date", end.isoformat())
+    if employee_id:
+        query = query.eq("employee_id", employee_id)
+    return query.limit(20000).execute().data or []
+
+
 def _fetch_all_overrides_by_employee_range(start: date, end: date) -> dict[str, dict[date, dict]]:
     """`start` widened by WEEKOFF_LOOKBACK_DAYS at the front for the same
     reason as _fetch_punch_times_range."""
@@ -186,6 +209,8 @@ def _fetch_all_overrides_by_employee_range(start: date, end: date) -> dict[str, 
             "first_in": _parse_time(r["first_in"]),
             "last_out": _parse_time(r["last_out"]),
         }
+    for r in _fetch_register_rows(start, end):
+        by_employee.setdefault(r["employee_id"], {})[date.fromisoformat(r["date"])] = _register_override(r)
     return by_employee
 
 
@@ -201,7 +226,7 @@ def _fetch_overrides(employee_id: str, year: int, month: int) -> dict[date, dict
         .lte("date", to_d)
         .execute()
     )
-    return {
+    out = {
         date.fromisoformat(r["date"]): {
             "status_override": r["status_override"],
             "first_in": _parse_time(r["first_in"]),
@@ -209,6 +234,9 @@ def _fetch_overrides(employee_id: str, year: int, month: int) -> dict[date, dict
         }
         for r in resp.data
     }
+    for r in _fetch_register_rows(start, end, employee_id):
+        out[date.fromisoformat(r["date"])] = _register_override(r)
+    return out
 
 
 def _fetch_overrides_range(employee_id: str, start: date, end: date) -> dict[date, dict]:
@@ -223,7 +251,7 @@ def _fetch_overrides_range(employee_id: str, start: date, end: date) -> dict[dat
         .lte("date", end.isoformat())
         .execute()
     )
-    return {
+    out = {
         date.fromisoformat(r["date"]): {
             "status_override": r["status_override"],
             "first_in": _parse_time(r["first_in"]),
@@ -231,6 +259,9 @@ def _fetch_overrides_range(employee_id: str, start: date, end: date) -> dict[dat
         }
         for r in resp.data
     }
+    for r in _fetch_register_rows(start, end, employee_id):
+        out[date.fromisoformat(r["date"])] = _register_override(r)
+    return out
 
 
 def _fetch_all_overrides_by_employee(year: int, month: int, calendar_month: bool = False) -> dict[str, dict[date, dict]]:
@@ -251,6 +282,8 @@ def _fetch_all_overrides_by_employee(year: int, month: int, calendar_month: bool
             "first_in": _parse_time(r["first_in"]),
             "last_out": _parse_time(r["last_out"]),
         }
+    for r in _fetch_register_rows(start, end):
+        by_employee.setdefault(r["employee_id"], {})[date.fromisoformat(r["date"])] = _register_override(r)
     return by_employee
 
 
