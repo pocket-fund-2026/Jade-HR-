@@ -2,6 +2,7 @@ import { CheckCircle2, Clock, Download, Search, ShieldCheck } from "lucide-react
 import { useEffect, useMemo, useState } from "react";
 
 import api from "../../lib/api.js";
+import LoginLog from "./LoginLog.jsx";
 import TeamPulse from "./TeamPulse.jsx";
 
 const STATUS_OPTIONS = [
@@ -22,11 +23,13 @@ function formatWhen(iso) {
 const TABS = [
   { key: "register", label: "Sign-off register" },
   { key: "pulse", label: "Team Pulse" },
+  { key: "logins", label: "Login log" },
 ];
 
 function readTab() {
   try {
-    return new URLSearchParams(window.location.search).get("tab") === "pulse" ? "pulse" : "register";
+    const t = new URLSearchParams(window.location.search).get("tab");
+    return t === "pulse" || t === "logins" ? t : "register";
   } catch {
     return "register";
   }
@@ -37,7 +40,7 @@ export default function PolicyAcknowledgements() {
   const switchTab = (key) => {
     setTab(key);
     const url = new URL(window.location.href);
-    if (key === "pulse") url.searchParams.set("tab", "pulse"); else url.searchParams.delete("tab");
+    if (key !== "register") url.searchParams.set("tab", key); else url.searchParams.delete("tab");
     window.history.replaceState(null, "", url);
   };
   const [data, setData] = useState(null);
@@ -67,13 +70,14 @@ export default function PolicyAcknowledgements() {
   }, [data, search]);
 
   const exportCsv = () => {
-    const header = ["Employee Code", "Name", "Department", "Designation", "Location", "Status", "Quiz Score", "Quiz Attempts", "Acknowledged At (IST)"];
+    const header = ["Employee Code", "Name", "Department", "Designation", "Location", "Status", "Quiz Score", "Quiz Attempts", "Acknowledged At (IST)", "Last Login (IST)"];
     const lines = rows.map((r) => [
       r.employee_code, r.name, r.department || "", r.designation || "", r.location || "",
       r.acknowledged ? "Acknowledged" : "Pending",
       r.quiz_score != null ? `${r.quiz_score}/${r.quiz_total}` : "",
       r.quiz_attempts || 0,
       r.acknowledged ? formatWhen(r.acknowledged_at) : "",
+      r.last_login_at ? formatWhen(r.last_login_at) : "",
     ]);
     const csv = [header, ...lines]
       .map((cells) => cells.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
@@ -105,7 +109,9 @@ export default function PolicyAcknowledgements() {
         ))}
       </div>
 
-      {tab === "pulse" ? (
+      {tab === "logins" ? (
+        <LoginLog />
+      ) : tab === "pulse" ? (
         <>
           <p className="text-sm text-ink/70 mb-5">Who has been signing in to JADE HR and how recently: last activity, last login and device, and a day-by-day strip for the last two weeks.</p>
           <TeamPulse />
@@ -178,11 +184,12 @@ export default function PolicyAcknowledgements() {
                   <th className="px-5 py-3">Status</th>
                   <th className="px-5 py-3">Quiz</th>
                   <th className="px-5 py-3">Acknowledged (IST)</th>
+                  <th className="px-5 py-3">Last login (IST)</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.length === 0 ? (
-                  <tr><td className="px-5 py-8 text-center text-ink/70" colSpan={6}>No employees match.</td></tr>
+                  <tr><td className="px-5 py-8 text-center text-ink/70" colSpan={7}>No employees match.</td></tr>
                 ) : (
                   rows.map((r) => (
                     <tr key={r.employee_id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
@@ -217,6 +224,7 @@ export default function PolicyAcknowledgements() {
                         )}
                       </td>
                       <td className="px-5 py-3 font-nums text-ink/70">{formatWhen(r.acknowledged_at)}</td>
+                      <td className="px-5 py-3 font-nums text-ink/70">{r.last_login_at ? formatWhen(r.last_login_at) : "No login recorded"}</td>
                     </tr>
                   ))
                 )}

@@ -176,7 +176,7 @@ def acknowledgement_register(
     acknowledgements table alone."""
     employees = (
         supabase.table("hr_employees")
-        .select("id,employee_code,first_name,last_name,department,designation,location,role,is_active,employee_category")
+        .select("id,employee_code,first_name,last_name,department,designation,location,role,is_active,employee_category,last_login_at")
         .order("first_name")
         .execute()
         .data
@@ -223,6 +223,7 @@ def acknowledgement_register(
             "role": e.get("role"),
             "employee_category": e.get("employee_category"),
             "is_active": e.get("is_active"),
+            "last_login_at": e.get("last_login_at"),
             "acknowledged": ack is not None and bool(quiz and quiz["passed"]),
             "acknowledged_at": ack["acknowledged_at"] if ack else None,
             "documents_read": ack["documents_read"] if ack else [],
@@ -248,6 +249,18 @@ def acknowledgement_register(
         "generated_at": datetime.now().isoformat(),
         "employees": rows,
     }
+
+
+def _paged(build):
+    """Supabase caps one response at 1000 rows whatever .limit() says, so any
+    read that can exceed that has to page. `build()` returns a fresh query."""
+    rows, offset, page = [], 0, 1000
+    while True:
+        batch = build().range(offset, offset + page - 1).execute().data or []
+        rows.extend(batch)
+        if len(batch) < page:
+            return rows
+        offset += page
 
 
 PULSE_DAYS = 14
@@ -280,19 +293,13 @@ def team_pulse(
 
     today = datetime.now(IST).date()
     window_start = today.fromordinal(today.toordinal() - (PULSE_DAYS - 1))
-    days = (
-        supabase.table("hr_activity_days").select("employee_id,day").gte("day", window_start.isoformat())
-        .limit(20000).execute().data or []
-    )
+    days = _paged(lambda: supabase.table("hr_activity_days").select("employee_id,day").gte("day", window_start.isoformat()).order("day").order("employee_id"))
     days_by_emp: dict[str, set[str]] = {}
     for d in days:
         days_by_emp.setdefault(d["employee_id"], set()).add(d["day"])
 
     since = datetime.combine(window_start, datetime.min.time(), tzinfo=IST).isoformat()
-    events = (
-        supabase.table("hr_login_events").select("employee_id,at,device").gte("at", since)
-        .order("at", desc=True).limit(20000).execute().data or []
-    )
+    events = _paged(lambda: supabase.table("hr_login_events").select("employee_id,at,device").gte("at", since).order("at", desc=True))
     logins_by_emp: dict[str, int] = {}
     last_device: dict[str, str] = {}
     for ev in events:
@@ -361,3 +368,46 @@ def team_pulse(
         "total": len(rows),
         "employees": rows,
     }
+
+
+@router.get("/login-log")
+def login_log(
+    from_date: str | None = Query(default=None, alias="from"),
+    to_date: str | None = Query(default=None, alias="to"),
+    employee_id: str | None = Query(default=None),
+    user: dict = Depends(require_permission("policy.acknowledgements.view")),
+):
+    """Every individual sign-in (hr_login_events, sql/071), newest first, with
+    who/when/device. `from`/`to` are IST dates (inclusive); default is the
+    last 7 days. Tracking began on TRACKING_STARTED, nothing earlier exists."""
+    from activity import IST
+
+    today = datetime.now(IST).date()
+    try:
+        start = datetime.fromisoformat(from_date).date() if from_date else today - timedelta(days=6)
+        end = datetime.fromisoformat(to_date).date() if to_date else today
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Dates must be YYYY-MM-DD")
+    since = datetime.combine(start, datetime.min.time(), tzinfo=IST).isoformat()
+    until = datetime.combine(end + timedelta(days=1), datetime.min.time(), tzinfo=IST).isoformat()
+
+    def build():
+        q = supabase.table("hr_login_events").select("id,employee_id,at,device").gte("at", since).lt("at", until).order("at", desc=True)
+        return q.eq("employee_id", employee_id) if employee_id else q
+
+    events = _paged(build)
+    ids = list({e["employee_id"] for e in events})
+    people = {}
+    for i in range(0, len(ids), 200):
+        for p in supabase.table("hr_employees").select("id,employee_code,first_name,last_name,department,location,is_active").in_("id", ids[i:i + 200]).execute().data or []:
+            people[p["id"]] = p
+    out = []
+    for e in events:
+        p = people.get(e["employee_id"], {})
+        out.append({
+            "id": e["id"], "at": e["at"], "device": e.get("device") or "",
+            "employee_id": e["employee_id"], "employee_code": p.get("employee_code", ""),
+            "name": f"{p.get('first_name', '')} {p.get('last_name') or ''}".strip(),
+            "department": p.get("department"), "location": p.get("location"),
+        })
+    return {"from": start.isoformat(), "to": end.isoformat(), "tracking_started": TRACKING_STARTED, "count": len(out), "logins": out}
