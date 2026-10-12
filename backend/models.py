@@ -800,3 +800,8 @@ class HrTaskUpdate(BaseModel):
     due_date: Optional[date] = None
     status: Optional[str] = None  # open | done
     priority: Optional[str] = None  # low | normal | high | urgent
+
+
+class AvatarUpload(BaseModel):
+    content_base64: str  # data: URL or raw base64; the browser sends a 256px JPEG
+    content_type: str = "image/jpeg"

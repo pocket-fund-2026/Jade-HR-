@@ -1,3 +1,4 @@
+import base64
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
@@ -7,7 +8,7 @@ from activity import record_login
 from auth import COOKIE_NAME, create_access_token, get_current_user, hash_password, verify_password
 from config import COOKIE_SECURE, JWT_EXPIRE_MINUTES
 from database import maybe_single_data, supabase
-from models import BootstrapAdminRequest, LoginRequest, PasswordChange
+from models import AvatarUpload, BootstrapAdminRequest, LoginRequest, PasswordChange
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -128,7 +129,62 @@ def me(user: dict = Depends(get_current_user)):
         direct_resp = direct_future.result()
         reporting_resp = reporting_future.result()
     user["is_leave_approver"] = bool(direct_resp.data or reporting_resp.data)
+    user["avatar_url"] = _avatar_url(user.get("avatar_path"))
     return user
+
+
+AVATAR_BUCKET = "profile-photos"
+AVATAR_MAX_BYTES = 1_000_000  # the browser sends ~20 KB; this is only a ceiling
+AVATAR_TYPES = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
+
+
+def _avatar_url(path: str | None) -> str | None:
+    if not path:
+        return None
+    try:
+        res = supabase.storage.from_(AVATAR_BUCKET).create_signed_url(path, 3600)
+        return res.get("signedURL") or res.get("signedUrl")
+    except Exception:
+        return None
+
+
+@router.post("/me/avatar")
+def upload_avatar(body: AvatarUpload, user: dict = Depends(get_current_user)):
+    ext = AVATAR_TYPES.get(body.content_type)
+    if not ext:
+        raise HTTPException(status_code=400, detail="Use a JPG, PNG or WebP image")
+    try:
+        data = base64.b64decode(body.content_base64.split(",", 1)[-1])
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid image data")
+    if len(data) > AVATAR_MAX_BYTES:
+        raise HTTPException(status_code=400, detail="Image is too large")
+    # A new filename each time so the browser never shows a cached old photo.
+    path = f"{user['id']}/{int(datetime.now(timezone.utc).timestamp())}.{ext}"
+    try:
+        supabase.storage.from_(AVATAR_BUCKET).upload(path, data, {"content-type": body.content_type})
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Upload failed: {e}")
+    old = user.get("avatar_path")
+    supabase.table("hr_employees").update({"avatar_path": path}).eq("id", user["id"]).execute()
+    if old:
+        try:
+            supabase.storage.from_(AVATAR_BUCKET).remove([old])
+        except Exception:
+            pass
+    return {"avatar_url": _avatar_url(path)}
+
+
+@router.delete("/me/avatar")
+def delete_avatar(user: dict = Depends(get_current_user)):
+    old = user.get("avatar_path")
+    supabase.table("hr_employees").update({"avatar_path": None}).eq("id", user["id"]).execute()
+    if old:
+        try:
+            supabase.storage.from_(AVATAR_BUCKET).remove([old])
+        except Exception:
+            pass
+    return {"ok": True}
 
 
 @router.post("/bootstrap-admin")

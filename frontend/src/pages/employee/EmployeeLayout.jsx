@@ -2,6 +2,7 @@ import { BookOpen, FileText, HelpCircle, Home, KeyRound, LogOut, MapPin, Receipt
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
+import Avatar from "../../components/Avatar.jsx";
 import ChangePasswordModal from "../../components/ChangePasswordModal.jsx";
 import api from "../../lib/api.js";
 import { useAuth } from "../../lib/auth.jsx";
@@ -35,6 +36,7 @@ export default function EmployeeLayout() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-5 flex flex-wrap items-center justify-between gap-3 relative">
           <div className="flex items-center gap-3 min-w-0">
             <img src="/jade-logo.png" alt="" className="w-8 h-8 flex-shrink-0" />
+            <Avatar className="w-10 h-10" />
             <div className="min-w-0">
               <p className="font-display text-manila text-lg leading-none">JADE HR</p>
               <p className="text-manila/75 text-xs mt-1 truncate">{user?.name}</p>

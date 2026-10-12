@@ -2,6 +2,7 @@ import { Briefcase, BookOpen, CalendarCheck, CalendarClock, CalendarDays, Calend
 import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
+import Avatar from "../../components/Avatar.jsx";
 import ChangePasswordModal from "../../components/ChangePasswordModal.jsx";
 import NotificationBell, { NotificationToasts } from "../../components/NotificationCenter.jsx";
 import { ConfirmProvider } from "../../components/ConfirmDialog.jsx";
@@ -234,9 +235,7 @@ function SidebarContent({ user, can, logout, pendingCounts, onNavigate, bell }) 
       <div className="px-3 py-4 relative">
         <div className="border-t border-manila/10 pt-4">
           <div className="px-3 pb-3 flex items-center gap-3">
-            <span className="w-9 h-9 rounded-full bg-manila/15 text-manila flex items-center justify-center text-sm font-semibold flex-shrink-0" aria-hidden="true">
-              {(user?.name || "?").trim().charAt(0).toUpperCase()}
-            </span>
+            <Avatar className="w-10 h-10" />
             <div className="min-w-0">
               <p className="text-manila text-sm font-medium truncate">{user?.name}</p>
               <p className="text-manila/75 text-xs font-nums">{user?.employee_code}</p>
