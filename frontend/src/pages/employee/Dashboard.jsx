@@ -326,7 +326,7 @@ export default function Dashboard() {
 
           <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
             <p className="px-5 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-ink/70">Daily attendance</p>
-            <table className="w-full text-sm mt-2">
+            <table className="w-full min-w-[560px] text-sm mt-2">
               <thead className="text-left sticky top-0 z-10 bg-paper">
                 <tr className="border-b-2 border-ink/10">
                   <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Date</th>
@@ -382,9 +382,9 @@ export default function Dashboard() {
           </div>
 
           {disputes.length > 0 && (
-            <div className="bg-paper rounded-sm shadow-card overflow-hidden mt-6">
+            <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto mt-6">
               <p className="px-5 pt-4 pb-3 text-xs font-semibold uppercase tracking-wider text-ink/70">My reported issues</p>
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[520px] text-sm">
                 <tbody>
                   {disputes.map((d) => (
                     <tr key={d.id} className="border-t border-ink/[0.06]">
@@ -409,9 +409,9 @@ export default function Dashboard() {
           )}
 
           {leaveRequests.length > 0 && (
-            <div className="bg-paper rounded-sm shadow-card overflow-hidden mt-6">
+            <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto mt-6">
               <p className="px-5 pt-4 pb-3 text-xs font-semibold uppercase tracking-wider text-ink/70">My leave requests</p>
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[520px] text-sm">
                 <tbody>
                   {leaveRequests.map((l) => (
                     <tr key={l.id} className="border-t border-ink/[0.06]">
@@ -430,9 +430,9 @@ export default function Dashboard() {
           )}
 
           {absenceRequests.length > 0 && (
-            <div className="bg-paper rounded-sm shadow-card overflow-hidden mt-6">
+            <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto mt-6">
               <p className="px-5 pt-4 pb-3 text-xs font-semibold uppercase tracking-wider text-ink/70">My work absence requests</p>
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[520px] text-sm">
                 <tbody>
                   {absenceRequests.map((a) => (
                     <tr key={a.id} className="border-t border-ink/[0.06]">
@@ -451,9 +451,9 @@ export default function Dashboard() {
             </div>
           )}
           {loanRequests.length > 0 && (
-            <div className="bg-paper rounded-sm shadow-card overflow-hidden mt-6">
+            <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto mt-6">
               <p className="px-5 pt-4 pb-3 text-xs font-semibold uppercase tracking-wider text-ink/70">My loan requests</p>
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[520px] text-sm">
                 <tbody>
                   {loanRequests.map((l) => (
                     <tr key={l.id} className="border-t border-ink/[0.06]">
@@ -471,9 +471,9 @@ export default function Dashboard() {
             </div>
           )}
           {wfhRequests.length > 0 && (
-            <div className="bg-paper rounded-sm shadow-card overflow-hidden mt-6">
+            <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto mt-6">
               <p className="px-5 pt-4 pb-3 text-xs font-semibold uppercase tracking-wider text-ink/70">My WFH requests</p>
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[520px] text-sm">
                 <tbody>
                   {wfhRequests.map((w) => (
                     <tr key={w.id} className="border-t border-ink/[0.06]">

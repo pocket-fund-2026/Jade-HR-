@@ -607,7 +607,7 @@ function UDFSection({ udfs, editing, onChange }) {
       <p className="text-sm text-ink/70">No user defined fields.</p>
     ) : (
       <div className="bg-manila/30 rounded-sm overflow-hidden">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm tabular-nums">
           <thead>
             <tr className="border-b border-ink/10 text-left">
               <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-ink/70">UDF Name</th>
@@ -661,7 +661,7 @@ function UDFSection({ udfs, editing, onChange }) {
 
 function LineItemTable({ fields, form, editing, onChange }) {
   return (
-    <table className="w-full text-sm">
+    <table className="w-full text-sm tabular-nums">
       <thead>
         <tr className="border-b border-ink/10 text-left">
           <th className="py-2 pr-4 text-xs font-semibold uppercase tracking-wider text-ink/70">Description</th>
@@ -833,7 +833,7 @@ function SalaryStructureSection({ employeeId, dateOfJoining, canView, canEdit, p
           <p className="text-sm text-ink/70">No salary structure recorded yet.</p>
         ) : (
           <div className="bg-manila/30 rounded-sm overflow-hidden overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm tabular-nums">
               <thead className="sticky top-0 z-10 bg-manila">
                 <tr className="border-b border-ink/10 text-left">
                   <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-ink/70">Effective Date</th>

@@ -285,7 +285,7 @@ export default function Employees() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search name or code"
-            className="w-full rounded-sm border border-ink/15 bg-paper pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500"
+            className="w-full rounded-sm border border-ink/15 bg-paper pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500 transition-shadow"
           />
         </div>
         <select
@@ -312,8 +312,8 @@ export default function Employees() {
       </div>
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="text-left sticky top-0 z-10 bg-paper">
+        <table className="w-full text-sm tabular-nums">
+          <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
             <tr className="border-b-2 border-ink/10">
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Name</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Code</th>
@@ -328,9 +328,9 @@ export default function Employees() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={7}>Loading ledger…</td></tr>
+              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={7}>Loading ledger…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={7}>No employees match.</td></tr>
+              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={7}>No employees match.</td></tr>
             ) : (
               pageItems.map((e) => (
                 <tr key={e.id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">

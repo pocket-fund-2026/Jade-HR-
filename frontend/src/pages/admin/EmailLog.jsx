@@ -188,7 +188,7 @@ export default function EmailLog() {
             <p className="text-sm text-ink/60">No emails logged yet. Logging started on 1st October 2026.</p>
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full text-sm tabular-nums">
             <thead>
               <tr className="text-left text-[11px] uppercase tracking-wider text-ink/60 border-b border-ink/10">
                 <th className="px-4 py-2.5 font-semibold">When</th>

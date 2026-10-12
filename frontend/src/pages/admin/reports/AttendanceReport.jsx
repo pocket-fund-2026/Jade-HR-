@@ -255,7 +255,7 @@ export default function AttendanceReport() {
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-xs">
-          <thead className="text-left sticky top-0 z-10 bg-paper">
+          <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
             <tr className="border-b-2 border-ink/10">
               <th className="px-3 py-2 font-semibold text-[11px] uppercase tracking-wider text-ink/70 sticky left-0 bg-paper">Employee</th>
               {days.map((d) => (

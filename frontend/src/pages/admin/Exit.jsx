@@ -203,7 +203,7 @@ function ExitDetail({ id }) {
             Departmental Clearance ({completedCount}/{record.checklist.length})
           </p>
         </div>
-        <table className="w-full text-sm">
+        <table className="w-full text-sm tabular-nums">
           <thead className="text-left">
             <tr className="border-b border-ink/10">
               <th className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Department</th>
@@ -360,12 +360,12 @@ function ExitList() {
       </div>
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm tabular-nums">
           <tbody>
             {loading ? (
-              <tr><td className="px-5 py-8 text-ink/70 text-center">Loading…</td></tr>
+              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm">Loading…</td></tr>
             ) : records.length === 0 ? (
-              <tr><td className="px-5 py-8 text-ink/70 text-center">No {tab === "in_progress" ? "exits in progress" : "completed exits"}.</td></tr>
+              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm">No {tab === "in_progress" ? "exits in progress" : "completed exits"}.</td></tr>
             ) : (
               records.map((r) => (
                 <tr key={r.id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/30 cursor-pointer" onClick={() => navigate(`/admin/exit/${r.id}`)}>

@@ -57,7 +57,7 @@ function ResolveRow({ visit, onResolved }) {
           value={note}
           onChange={(e) => setNote(e.target.value)}
           aria-label="Note (optional)" placeholder="Note (optional)"
-          className="w-40 rounded-sm border border-ink/15 bg-manila/40 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-jade-500"
+          className="w-full sm:w-40 rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-jade-500"
         />
       </td>
       <td className="px-5 py-3.5">
@@ -65,14 +65,14 @@ function ResolveRow({ visit, onResolved }) {
           <button
             disabled={busy}
             onClick={() => resolve("approve")}
-            className="flex items-center gap-1 bg-jade-600 text-white px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
+            className="flex items-center justify-center gap-1.5 min-h-[44px] bg-jade-600 text-white px-4 py-2 rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
           >
             <Check size={13} /> Approve
           </button>
           <button
             disabled={busy}
             onClick={() => resolve("reject")}
-            className="flex items-center gap-1 bg-paper border border-rust-500 text-rust-500 px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-rust-50 disabled:opacity-50 transition-colors"
+            className="flex items-center justify-center gap-1.5 min-h-[44px] bg-paper border border-rust-500 text-rust-500 px-4 py-2 rounded-sm text-sm font-semibold hover:bg-rust-50 disabled:opacity-50 transition-colors"
           >
             <X size={13} /> Reject
           </button>
@@ -101,7 +101,7 @@ export default function TeamMarketVisits() {
       </div>
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[640px] text-sm">
           <thead className="text-left sticky top-0 z-10 bg-paper">
             <tr className="border-b-2 border-ink/10">
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Photo</th>

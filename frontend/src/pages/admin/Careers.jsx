@@ -75,8 +75,8 @@ export default function Careers() {
       </div>
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="text-left sticky top-0 z-10 bg-paper">
+        <table className="w-full text-sm tabular-nums">
+          <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
             <tr className="border-b-2 border-ink/10">
               <th className="w-10 px-2 py-3" aria-label="Reorder"></th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Title</th>
@@ -90,9 +90,9 @@ export default function Careers() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={8}>Loading…</td></tr>
+              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={8}>Loading…</td></tr>
             ) : jobs.length === 0 ? (
-              <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={8}>No job postings yet.</td></tr>
+              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={8}>No job postings yet.</td></tr>
             ) : (
               [...active, ...hidden].map((job) => (
                 <tr

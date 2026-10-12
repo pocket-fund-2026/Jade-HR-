@@ -494,8 +494,8 @@ export default function Dashboard() {
           )}
 
           <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-left sticky top-0 z-10 bg-paper">
+            <table className="w-full text-sm tabular-nums">
+              <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
                 <tr className="border-b-2 border-ink/10">
                   <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
                   <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Present</th>
@@ -507,9 +507,9 @@ export default function Dashboard() {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={6}>Loading ledger…</td></tr>
+                  <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={6}>Loading ledger…</td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={6}>No employees match.</td></tr>
+                  <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={6}>No employees match.</td></tr>
                 ) : (
                   filtered.map((r) => (
                     <tr key={r.employee_id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">

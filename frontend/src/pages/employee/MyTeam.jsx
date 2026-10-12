@@ -27,18 +27,18 @@ function TeamLate() {
           <p className="text-xs text-ink/60">Arrived after their cutoff, on the same basis as their payslip.</p>
         </div>
         <input type="date" value={day} max={today} onChange={(e) => e.target.value && setDay(e.target.value)}
-          className="rounded-sm border border-ink/15 bg-manila/40 px-2 py-1.5 text-sm text-ink" />
+          className="rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 min-h-[44px] text-sm text-ink" />
       </div>
       {error ? (
         <p className="px-5 py-4 text-sm text-rust-500">{error}</p>
       ) : !data ? (
-        <p className="px-5 py-4 text-sm text-ink/60">Loading…</p>
+        <p className="px-5 py-4 text-sm text-ink/60">Loading late arrivals…</p>
       ) : data.late.length === 0 ? (
         <p className="px-5 py-4 text-sm text-ink/60">Nobody in your team was late on this day.</p>
       ) : (
         <ul className="divide-y divide-ink/[0.07]">
           {data.late.map((r) => (
-            <li key={r.employee_code} className="flex items-center gap-3 px-5 py-2.5">
+            <li key={r.employee_code} className="flex items-center gap-3 px-5 py-3 flex-wrap">
               <span className="font-nums text-sm font-semibold text-rust-600 w-[70px]">{r.time}</span>
               <span className="flex-1 min-w-0">
                 <span className="block text-sm text-ink truncate">{r.name}</span>
@@ -75,7 +75,7 @@ export default function MyTeam() {
       <TeamLate />
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[640px] text-sm">
           <thead className="text-left sticky top-0 z-10 bg-paper">
             <tr className="border-b-2 border-ink/10">
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Name</th>

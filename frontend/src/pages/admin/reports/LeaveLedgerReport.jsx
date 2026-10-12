@@ -140,8 +140,8 @@ export default function LeaveLedgerReport() {
             </button>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-left sticky top-0 z-10 bg-paper">
+            <table className="w-full text-sm tabular-nums">
+              <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
                 <tr className="border-b-2 border-ink/10">
                   <th className="px-3 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Date</th>
                   <th className="px-3 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Description</th>

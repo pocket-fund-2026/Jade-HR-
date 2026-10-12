@@ -199,8 +199,8 @@ export default function Leave() {
       </div>
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="text-left sticky top-0 z-10 bg-paper">
+        <table className="w-full text-sm tabular-nums">
+          <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
             <tr className="border-b-2 border-ink/10">
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Location</th>
@@ -214,9 +214,9 @@ export default function Leave() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={7}>Loading ledger…</td></tr>
+              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={7}>Loading ledger…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={7}>No {tab} leave requests.</td></tr>
+              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={7}>No {tab} leave requests.</td></tr>
             ) : tab === "pending" ? (
               filtered.map((r) => <ResolveRow key={r.id} request={r} onResolved={load} />)
             ) : (

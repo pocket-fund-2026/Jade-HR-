@@ -34,7 +34,7 @@ function ConfirmRow({ request, onResolved }) {
           value={note}
           onChange={(e) => setNote(e.target.value)}
           aria-label="Note (optional)" placeholder="Note (optional)"
-          className="w-40 rounded-sm border border-ink/15 bg-manila/40 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-jade-500"
+          className="w-full sm:w-40 rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-jade-500"
         />
       </td>
       <td className="px-5 py-3.5">
@@ -42,14 +42,14 @@ function ConfirmRow({ request, onResolved }) {
           <button
             disabled={busy}
             onClick={() => confirm(true)}
-            className="flex items-center gap-1 bg-jade-600 text-white px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
+            className="flex items-center justify-center gap-1.5 min-h-[44px] bg-jade-600 text-white px-4 py-2 rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
           >
             <Check size={13} /> Work Completed
           </button>
           <button
             disabled={busy}
             onClick={() => confirm(false)}
-            className="flex items-center gap-1 bg-paper border border-rust-500 text-rust-500 px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-rust-50 disabled:opacity-50 transition-colors"
+            className="flex items-center justify-center gap-1.5 min-h-[44px] bg-paper border border-rust-500 text-rust-500 px-4 py-2 rounded-sm text-sm font-semibold hover:bg-rust-50 disabled:opacity-50 transition-colors"
           >
             <X size={13} /> Not Completed
           </button>
@@ -81,7 +81,7 @@ export default function TeamWFH() {
       </div>
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto mb-6">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[640px] text-sm">
           <thead className="text-left sticky top-0 z-10 bg-paper">
             <tr className="border-b-2 border-ink/10">
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
@@ -106,7 +106,7 @@ export default function TeamWFH() {
       {confirmed.length > 0 && (
         <div className="bg-paper rounded-sm shadow-card overflow-hidden">
           <p className="px-5 pt-4 pb-3 text-xs font-semibold uppercase tracking-wider text-ink/70">Already confirmed</p>
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[640px] text-sm">
             <tbody>
               {confirmed.map((r) => (
                 <tr key={r.id} className="border-t border-ink/[0.06]">

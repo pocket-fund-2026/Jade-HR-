@@ -17,7 +17,7 @@ function BreakdownTable({ title, rows, total }) {
   return (
     <div className="bg-paper rounded-sm shadow-card overflow-hidden">
       <p className="px-4 pt-3 pb-2 text-xs font-semibold uppercase tracking-wider text-ink/70">{title}</p>
-      <table className="w-full text-sm">
+      <table className="w-full text-sm tabular-nums">
         <tbody>
           {rows.map(([label, count]) => (
             <tr key={label} className="border-t border-ink/[0.06]">

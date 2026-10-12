@@ -60,7 +60,7 @@ export default function TaxDeclaration() {
 
   if (loading) return <p className="text-ink/70">Loading…</p>;
 
-  const inputClass = "w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
+  const inputClass = "w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-3 min-h-[44px] text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
 
   return (
     <div className="max-w-2xl">

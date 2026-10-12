@@ -77,8 +77,8 @@ export default function BankTransferReport() {
       )}
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto mb-6">
-        <table className="w-full text-sm">
-          <thead className="text-left sticky top-0 z-10 bg-paper">
+        <table className="w-full text-sm tabular-nums">
+          <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
             <tr className="border-b-2 border-ink/10">
               <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
               <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Bank</th>
@@ -113,7 +113,7 @@ export default function BankTransferReport() {
       {others.length > 0 && (
         <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
           <p className="px-4 pt-3 pb-2 text-xs font-semibold uppercase tracking-wider text-ink/70">Paid by Cheque / Cash (not part of the transfer file)</p>
-          <table className="w-full text-sm">
+          <table className="w-full text-sm tabular-nums">
             <tbody>
               {others.map((r) => (
                 <tr key={r.employee_id} className="border-t border-ink/[0.06]">

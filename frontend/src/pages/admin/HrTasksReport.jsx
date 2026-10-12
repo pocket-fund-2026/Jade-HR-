@@ -36,7 +36,7 @@ function TaskList({ icon: Icon, title, blurb, tasks, note, empty }) {
       {tasks.length === 0 ? (
         <p className="px-5 py-6 text-sm text-ink/70 text-center">{empty}</p>
       ) : (
-        <table className="w-full text-sm">
+        <table className="w-full text-sm tabular-nums">
           <tbody>
             {tasks.map((t) => (
               <tr key={t.id} className="border-b border-ink/[0.06] last:border-0">
@@ -127,7 +127,7 @@ export default function HrTasksReport() {
 
         <div className="bg-paper rounded-sm shadow-card overflow-hidden">
           <p className="px-5 pt-4 pb-3 text-xs font-semibold uppercase tracking-wider text-ink/70">Load by person</p>
-          <table className="w-full text-sm">
+          <table className="w-full text-sm tabular-nums">
             <thead className="text-left">
               <tr className="border-b border-ink/10">
                 <th className="px-5 py-2 font-semibold text-[10px] uppercase tracking-wider text-ink/70">Person</th>

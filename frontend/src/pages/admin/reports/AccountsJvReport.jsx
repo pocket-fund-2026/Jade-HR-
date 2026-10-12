@@ -156,8 +156,8 @@ export default function AccountsJvReport() {
         <p className="text-sm text-ink/70">No payroll data for this month.</p>
       ) : (
         <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-left sticky top-0 z-10 bg-paper">
+          <table className="w-full text-sm tabular-nums">
+            <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
               <tr className="border-b-2 border-ink/10">
                 <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Account</th>
                 <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">Debit</th>

@@ -78,14 +78,14 @@ function ResolveRow({ dispute, onResolved }) {
           <button
             disabled={busy}
             onClick={() => resolve("approve")}
-            className="flex items-center gap-1 bg-jade-600 text-white px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
+            className="flex items-center justify-center gap-1.5 min-h-[44px] bg-jade-600 text-white px-4 py-2 rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
           >
             <Check size={13} /> Approve
           </button>
           <button
             disabled={busy}
             onClick={() => resolve("reject")}
-            className="flex items-center gap-1 bg-paper border border-rust-500 text-rust-500 px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-rust-50 disabled:opacity-50 transition-colors"
+            className="flex items-center justify-center gap-1.5 min-h-[44px] bg-paper border border-rust-500 text-rust-500 px-4 py-2 rounded-sm text-sm font-semibold hover:bg-rust-50 disabled:opacity-50 transition-colors"
           >
             <X size={13} /> Reject
           </button>
@@ -139,7 +139,7 @@ export default function TeamDisputes() {
       </div>
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[640px] text-sm">
           <thead className="text-left sticky top-0 z-10 bg-paper">
             <tr className="border-b-2 border-ink/10">
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>

@@ -212,3 +212,41 @@ a:focus-visible, button:focus-visible {
     max-width: 186mm;
   }
 }
+
+/* ── Shell polish (additive) ─────────────────────────────────────────── */
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body { overflow-x: hidden; -webkit-tap-highlight-color: transparent; text-rendering: optimizeLegibility; }
+::selection { background: theme("colors.jade.100"); color: theme("colors.ink"); }
+h1, h2, h3 { text-wrap: balance; }
+input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible,
+[role="button"]:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid theme("colors.jade.500");
+  outline-offset: 1px;
+}
+/* Dark shell surfaces: jade-on-green is low contrast, use manila */
+aside a:focus-visible, aside button:focus-visible, header a:focus-visible, header button:focus-visible {
+  outline-color: theme("colors.manila");
+}
+button:disabled, [aria-disabled="true"] { cursor: not-allowed; }
+button, a, [role="button"] { touch-action: manipulation; }
+button:active:not(:disabled) { transform: translateY(0.5px); }
+/* Mobile: 16px inputs stop iOS zoom-on-focus; 44px targets */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select, textarea { font-size: 16px; }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select { min-height: 44px; }
+}
+/* Thin, quiet scrollbars for nav strips */
+.nav-scroll { scrollbar-width: thin; scrollbar-color: rgba(239,233,218,0.25) transparent; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; }
+.nav-scroll::-webkit-scrollbar { height: 4px; width: 4px; }
+.nav-scroll::-webkit-scrollbar-thumb { background: rgba(239,233,218,0.25); border-radius: 4px; }
+/* Subtle loading + empty states */
+@keyframes skeleton-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 0.25; } }
+.skeleton { background: rgba(27,27,24,0.08); border-radius: 2px; animation: skeleton-pulse 1.4s ease-in-out infinite; }
+.empty-state { text-align: center; padding: 2.5rem 1rem; color: rgba(27,27,24,0.65); font-size: 0.875rem; }
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+  html { scroll-behavior: auto; }
+  button:active:not(:disabled) { transform: none; }
+}

@@ -32,19 +32,19 @@ export default function EmployeeLayout() {
     <div className="min-h-screen bg-manila">
       <header className="bg-ledger-800 relative">
         <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
-        <div className="max-w-4xl mx-auto px-6 py-5 flex flex-wrap items-center justify-between gap-3 relative">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-5 flex flex-wrap items-center justify-between gap-3 relative">
           <div className="flex items-center gap-3 min-w-0">
             <img src="/jade-logo.png" alt="" className="w-8 h-8 flex-shrink-0" />
             <div className="min-w-0">
               <p className="font-display text-manila text-lg leading-none">JADE HR</p>
-              <p className="text-manila/60 text-xs mt-1 truncate">{user?.name}</p>
+              <p className="text-manila/75 text-xs mt-1 truncate">{user?.name}</p>
             </div>
           </div>
-          <div className="flex items-center gap-4 flex-shrink-0">
+          <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
             <button
               onClick={() => setShowPw(true)}
               title="Change password"
-              className="flex items-center gap-2 text-sm text-manila/60 hover:text-manila transition-colors whitespace-nowrap"
+              className="flex items-center gap-2 text-sm min-h-[44px] px-1 text-manila/75 hover:text-manila transition-colors whitespace-nowrap"
             >
               <KeyRound size={16} className="flex-shrink-0" />
               <span className="hidden sm:inline">Change password</span>
@@ -52,21 +52,21 @@ export default function EmployeeLayout() {
             <button
               onClick={logout}
               title="Sign out"
-              className="flex items-center gap-2 text-sm text-manila/60 hover:text-manila transition-colors whitespace-nowrap"
+              className="flex items-center gap-2 text-sm min-h-[44px] px-1 text-manila/75 hover:text-manila transition-colors whitespace-nowrap"
             >
               <LogOut size={16} className="flex-shrink-0" />
               <span className="hidden sm:inline">Sign out</span>
             </button>
           </div>
         </div>
-        <div className="max-w-4xl mx-auto px-6 relative">
-          <nav className="flex gap-1 -mb-px overflow-x-auto sm:overflow-visible">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 relative">
+          <nav className="flex gap-1 -mb-px overflow-x-auto sm:overflow-visible nav-scroll">
             <NavLink
               to="/employee"
               end
               className={({ isActive }) =>
-                `flex-shrink-0 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-manila text-manila" : "border-transparent text-manila/60 hover:text-manila/80"
+                `flex-shrink-0 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-3 min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
+                  isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
                 }`
               }
             >
@@ -76,8 +76,8 @@ export default function EmployeeLayout() {
               <NavLink
                 to="/employee/my-team"
                 className={({ isActive }) =>
-                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                    isActive ? "border-manila text-manila" : "border-transparent text-manila/60 hover:text-manila/80"
+                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-3 min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
+                    isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
                   }`
                 }
               >
@@ -89,8 +89,8 @@ export default function EmployeeLayout() {
               <NavLink
                 to="/employee/team-leave"
                 className={({ isActive }) =>
-                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                    isActive ? "border-manila text-manila" : "border-transparent text-manila/60 hover:text-manila/80"
+                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-3 min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
+                    isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
                   }`
                 }
               >
@@ -107,8 +107,8 @@ export default function EmployeeLayout() {
               <NavLink
                 to="/employee/team-wfh"
                 className={({ isActive }) =>
-                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                    isActive ? "border-manila text-manila" : "border-transparent text-manila/60 hover:text-manila/80"
+                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-3 min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
+                    isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
                   }`
                 }
               >
@@ -120,8 +120,8 @@ export default function EmployeeLayout() {
               <NavLink
                 to="/employee/team-disputes"
                 className={({ isActive }) =>
-                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                    isActive ? "border-manila text-manila" : "border-transparent text-manila/60 hover:text-manila/80"
+                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-3 min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
+                    isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
                   }`
                 }
               >
@@ -133,8 +133,8 @@ export default function EmployeeLayout() {
               <NavLink
                 to="/employee/team-market-visits"
                 className={({ isActive }) =>
-                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                    isActive ? "border-manila text-manila" : "border-transparent text-manila/60 hover:text-manila/80"
+                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-3 min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
+                    isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
                   }`
                 }
               >
@@ -145,8 +145,8 @@ export default function EmployeeLayout() {
             <NavLink
               to="/employee/tax-declaration"
               className={({ isActive }) =>
-                `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-manila text-manila" : "border-transparent text-manila/60 hover:text-manila/80"
+                `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-3 min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
+                  isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
                 }`
               }
             >
@@ -156,8 +156,8 @@ export default function EmployeeLayout() {
             <NavLink
               to="/employee/my-payslip"
               className={({ isActive }) =>
-                `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-manila text-manila" : "border-transparent text-manila/60 hover:text-manila/80"
+                `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-3 min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
+                  isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
                 }`
               }
             >
@@ -167,8 +167,8 @@ export default function EmployeeLayout() {
             <NavLink
               to="/employee/my-onboarding"
               className={({ isActive }) =>
-                `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-manila text-manila" : "border-transparent text-manila/60 hover:text-manila/80"
+                `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-3 min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
+                  isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
                 }`
               }
             >
@@ -178,8 +178,8 @@ export default function EmployeeLayout() {
             <NavLink
               to="/employee/policy"
               className={({ isActive }) =>
-                `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-manila text-manila" : "border-transparent text-manila/60 hover:text-manila/80"
+                `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-3 min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
+                  isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
                 }`
               }
             >
@@ -189,8 +189,8 @@ export default function EmployeeLayout() {
             <NavLink
               to="/employee/help"
               className={({ isActive }) =>
-                `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-manila text-manila" : "border-transparent text-manila/60 hover:text-manila/80"
+                `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-3 min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
+                  isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
                 }`
               }
             >
@@ -200,7 +200,7 @@ export default function EmployeeLayout() {
           </nav>
         </div>
       </header>
-      <main className="max-w-4xl mx-auto px-6 py-8">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
         <Outlet context={{ pendingTeamLeave, refreshTeamLeaveBadge: () => setPendingTeamLeave((n) => n) }} />
       </main>
       {showPw && <ChangePasswordModal onClose={() => setShowPw(false)} />}

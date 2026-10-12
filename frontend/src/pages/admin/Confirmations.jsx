@@ -199,7 +199,7 @@ export default function Confirmations() {
       )}
 
       <div className="bg-paper rounded-sm shadow-card overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm tabular-nums">
           <thead className="text-left">
             <tr className="border-b-2 border-ink/10">
               {headers.map((h, i) => (
@@ -209,10 +209,10 @@ export default function Confirmations() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={headers.length}>Loading…</td></tr>
+              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={headers.length}>Loading…</td></tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td className="px-5 py-8 text-ink/70 text-center" colSpan={headers.length}>
+                <td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={headers.length}>
                   {tab === "due"
                     ? "Nobody is currently awaiting confirmation. If that looks wrong, check the \"No probation date set\" tab — someone with no date recorded never reaches this list."
                     : tab === "unset"

@@ -121,7 +121,7 @@ export default function FullAndFinalReport() {
               </div>
 
               <div className="bg-paper rounded-sm shadow-card overflow-hidden">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm tabular-nums">
                   <tbody>
                     <tr className="border-b border-ink/[0.06]">
                       <td className="px-5 py-3 text-ink/80">Last pay-period net salary (payslip)</td>
