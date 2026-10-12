@@ -1,4 +1,4 @@
-import { BookOpen, FileText, HelpCircle, Home, KeyRound, LogOut, MapPin, Receipt, UserPlus, Users } from "lucide-react";
+import { BookOpen, FileText, HelpCircle, Home, KeyRound, LogOut, MapPin, Receipt, ShieldAlert, UserPlus, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
@@ -114,6 +114,19 @@ export default function EmployeeLayout() {
               >
                 <Home size={14} />
                 Team WFH
+              </NavLink>
+            )}
+            {user?.is_leave_approver && (
+              <NavLink
+                to="/employee/team-disputes"
+                className={({ isActive }) =>
+                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                    isActive ? "border-manila text-manila" : "border-transparent text-manila/60 hover:text-manila/80"
+                  }`
+                }
+              >
+                <ShieldAlert size={14} />
+                Team Disputes
               </NavLink>
             )}
             {user?.is_leave_approver && (

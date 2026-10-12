@@ -60,6 +60,7 @@ const navItems = [
   { to: "/admin/my-team", label: "My Team", icon: Users2, requiresApprover: true, sectionBreak: true },
   { to: "/admin/team-leave", label: "Team Leave", icon: Plane, requiresApprover: true },
   { to: "/admin/team-wfh", label: "Team WFH", icon: Home, requiresApprover: true },
+  { to: "/admin/team-disputes", label: "Team Disputes", icon: ShieldAlert, requiresApprover: true },
   { to: "/admin/team-market-visits", label: "Team Market Visits", icon: MapPin, requiresApprover: true },
   { to: "/admin/my-leave", label: "My Leave", icon: CalendarPlus },
   { to: "/admin/my-payslip", label: "My Payslip", icon: Receipt },

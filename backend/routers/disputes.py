@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from auth import get_current_user, require_permission
+from auth import get_current_user, my_report_ids, require_permission
 from database import maybe_single_data, supabase
 from models import AttendanceImportRequest, AttendanceOverrideUpsert, DisputeCreate, DisputePhotoUpload, DisputeResolve
 
@@ -93,43 +93,97 @@ def list_disputes(status: str | None = Query(None), admin: dict = Depends(requir
     return resp.data
 
 
-@router.put("/disputes/{dispute_id}")
-def resolve_dispute(dispute_id: str, body: DisputeResolve, admin: dict = Depends(require_permission("disputes.manage"))):
-    dispute_resp = supabase.table("hr_attendance_disputes").select("*").eq("id", dispute_id).maybe_single().execute()
-    dispute = maybe_single_data(dispute_resp)
+def _settle(dispute_id: str, body: DisputeResolve, actor: dict, role: str, allowed_employee_ids: set[str] | None = None) -> dict:
+    """The single settle path for BOTH HR and reporting managers, so the two
+    can never behave differently or overlap. The conditional update only
+    succeeds while the dispute is still pending, so whoever acts first wins and
+    the other gets a 409 naming who settled it; hr_dispute_actions has a
+    unique(dispute_id) as a second, database-level guard."""
+    dispute = maybe_single_data(supabase.table("hr_attendance_disputes").select("*").eq("id", dispute_id).maybe_single().execute())
     if not dispute:
         raise HTTPException(status_code=404, detail="Dispute not found")
-    if dispute["status"] != "pending":
-        raise HTTPException(status_code=409, detail="Dispute already resolved")
-
+    if allowed_employee_ids is not None and (dispute["employee_id"] not in allowed_employee_ids or dispute["employee_id"] == actor["id"]):
+        raise HTTPException(status_code=403, detail="This dispute is not from someone who reports to you")
     if body.action not in ("approve", "reject"):
         raise HTTPException(status_code=400, detail="action must be 'approve' or 'reject'")
 
     now = datetime.now(timezone.utc).isoformat()
-    supabase.table("hr_attendance_disputes").update({
-        "status": "approved" if body.action == "approve" else "rejected",
-        "admin_note": body.admin_note,
-        "resolved_by": admin["id"],
-        "resolved_at": now,
-    }).eq("id", dispute_id).execute()
+    claimed = (
+        supabase.table("hr_attendance_disputes")
+        .update({
+            "status": "approved" if body.action == "approve" else "rejected",
+            "admin_note": body.admin_note,
+            "resolved_by": actor["id"],
+            "resolved_by_role": role,
+            "resolved_at": now,
+        })
+        .eq("id", dispute_id).eq("status", "pending")
+        .execute()
+    )
+    if not claimed.data:
+        latest = maybe_single_data(
+            supabase.table("hr_attendance_disputes").select("resolved_by_role,resolved_at").eq("id", dispute_id).maybe_single().execute()
+        ) or {}
+        who = {"manager": "the reporting manager", "hr": "HR"}.get(latest.get("resolved_by_role"), "someone else")
+        raise HTTPException(status_code=409, detail=f"Already settled by {who}")
 
-    if body.action == "approve":
-        first_in = (body.first_in or dispute.get("claimed_in"))
-        last_out = (body.last_out or dispute.get("claimed_out"))
-        override_row = {
-            "employee_id": dispute["employee_id"],
-            "date": dispute["date"],
-            "status_override": body.status_override,
-            "first_in": first_in.isoformat() if hasattr(first_in, "isoformat") else first_in,
-            "last_out": last_out.isoformat() if hasattr(last_out, "isoformat") else last_out,
-            "note": f"Approved dispute: {dispute['reason']}",
-            "created_by": admin["id"],
-        }
-        supabase.table("hr_attendance_overrides").upsert(
-            override_row, on_conflict="employee_id,date"
-        ).execute()
-
+    first_in = body.first_in or dispute.get("claimed_in")
+    last_out = body.last_out or dispute.get("claimed_out")
+    iso = lambda t: t.isoformat() if hasattr(t, "isoformat") else t
+    try:
+        supabase.table("hr_dispute_actions").insert({
+            "dispute_id": dispute_id, "actor_id": actor["id"], "actor_role": role, "action": body.action,
+            "note": body.admin_note, "first_in": iso(first_in), "last_out": iso(last_out),
+            "status_override": body.status_override if body.action == "approve" else None,
+        }).execute()
+        if body.action == "approve":
+            supabase.table("hr_attendance_overrides").upsert({
+                "employee_id": dispute["employee_id"],
+                "date": dispute["date"],
+                "status_override": body.status_override,
+                "first_in": iso(first_in),
+                "last_out": iso(last_out),
+                "note": f"Approved dispute ({'manager' if role == 'manager' else 'HR'}): {dispute['reason']}",
+                "created_by": actor["id"],
+            }, on_conflict="employee_id,date").execute()
+    except Exception:
+        # Put it back in the queue rather than leave a settled-looking dispute with no effect.
+        supabase.table("hr_dispute_actions").delete().eq("dispute_id", dispute_id).execute()
+        supabase.table("hr_attendance_disputes").update(
+            {"status": "pending", "resolved_by": None, "resolved_by_role": None, "resolved_at": None}
+        ).eq("id", dispute_id).execute()
+        raise
     return {"ok": True}
+
+
+@router.put("/disputes/{dispute_id}")
+def resolve_dispute(dispute_id: str, body: DisputeResolve, admin: dict = Depends(require_permission("disputes.manage"))):
+    return _settle(dispute_id, body, admin, "hr")
+
+
+@router.get("/me/team-disputes")
+def team_disputes(status: str | None = Query(None), user: dict = Depends(get_current_user)):
+    """Disputes raised by MY reportees only (same team definition as every
+    other /me/team-* endpoint). Managers settle them through PUT below; HR sees
+    the same disputes on its own queue and the first decision stands."""
+    report_ids = [i for i in my_report_ids(user) if i != user["id"]]
+    if not report_ids:
+        return []
+    query = supabase.table("hr_attendance_disputes").select(
+        "*, hr_employees!hr_attendance_disputes_employee_id_fkey(first_name,last_name,employee_code,location)"
+    ).in_("employee_id", report_ids)
+    if status:
+        query = query.eq("status", status)
+    rows = query.order("created_at", desc=True).limit(300).execute().data
+    urls = _signed_urls([r.get("photo_path") for r in rows])
+    for r in rows:
+        r["photo_url"] = urls.get(r.get("photo_path"))
+    return rows
+
+
+@router.put("/me/team-disputes/{dispute_id}")
+def settle_team_dispute(dispute_id: str, body: DisputeResolve, user: dict = Depends(get_current_user)):
+    return _settle(dispute_id, body, user, "manager", set(my_report_ids(user)))
 
 
 @router.put("/attendance-overrides/{employee_id}")

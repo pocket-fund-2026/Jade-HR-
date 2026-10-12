@@ -141,6 +141,7 @@ const TaxDeclaration = lazyWithReload(() => import("./pages/employee/TaxDeclarat
 const EmployeeMyPayslip = lazyWithReload(() => import("./pages/employee/MyPayslip.jsx"));
 const EmployeeMyOnboarding = lazyWithReload(() => import("./pages/employee/MyOnboarding.jsx"));
 const SignLetter = lazyWithReload(() => import("./pages/SignLetter.jsx"));
+const TeamDisputes = lazyWithReload(() => import("./pages/employee/TeamDisputes.jsx"));
 const Help = lazyWithReload(() => import("./pages/Help.jsx"));
 
 const CONSOLE_ROLES = ["accounts", "hr"];
@@ -271,6 +272,7 @@ export default function App() {
             <Route path="my-team" element={<MyTeam />} />
             <Route path="team-leave" element={<TeamLeave />} />
             <Route path="team-wfh" element={<TeamWFH />} />
+            <Route path="team-disputes" element={<TeamDisputes />} />
             <Route path="team-market-visits" element={<TeamMarketVisits />} />
             <Route path="my-leave" element={<MyLeave />} />
             <Route path="my-payslip" element={<MyPayslip />} />
@@ -304,6 +306,7 @@ export default function App() {
             <Route path="my-team" element={<MyTeam />} />
             <Route path="team-leave" element={<TeamLeave />} />
             <Route path="team-wfh" element={<TeamWFH />} />
+            <Route path="team-disputes" element={<TeamDisputes />} />
             <Route path="team-market-visits" element={<TeamMarketVisits />} />
             <Route path="tax-declaration" element={<TaxDeclaration />} />
             <Route path="my-payslip" element={<EmployeeMyPayslip />} />

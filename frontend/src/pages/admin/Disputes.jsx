@@ -29,6 +29,9 @@ function ResolveRow({ dispute, onResolved }) {
         status_override: "present",
       });
       onResolved();
+    } catch (err) {
+      window.alert(err.response?.data?.detail || "Could not settle this dispute");
+      onResolved();
     } finally {
       setBusy(false);
     }
@@ -202,7 +205,7 @@ export default function Disputes() {
                       </a>
                     )}
                   </td>
-                  <td className="px-5 py-3.5"><StampBadge status={d.status}>{d.status}</StampBadge></td>
+                  <td className="px-5 py-3.5"><StampBadge status={d.status}>{d.status}</StampBadge>{d.resolved_by_role && <div className="text-[11px] text-ink/60 mt-1">by {d.resolved_by_role === "manager" ? "reporting manager" : "HR"}</div>}</td>
                 </tr>
               ))
             )}
