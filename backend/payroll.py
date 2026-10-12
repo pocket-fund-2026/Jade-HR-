@@ -18,7 +18,7 @@ from collections import defaultdict
 from datetime import date, datetime, time, timedelta
 
 from config import IST
-from statutory import ZERO_ESIC, ZERO_PF, compute_esic, compute_lwf, compute_pf, compute_pt, location_to_state
+from statutory import ZERO_ESIC, ZERO_PF, compute_esic, esic_applies, esic_wages as esic_wage_base, compute_lwf, compute_pf, compute_pt, location_to_state
 
 # ── Late-coming policy generations ──────────────────────────────────────────
 # JADE HR's Sept 2026 policy change (w.e.f. 22 Sept 2026) widens the grace
@@ -1053,8 +1053,10 @@ def compute_monthly_summary(
     else:
         pf = ZERO_PF
 
+    # PT still runs on gross; ESIC now runs on Basic + DA + Retention only,
+    # and only while the full monthly Basic is <= 21,000 (Labour Codes).
     esic_gross_wages = basic + hra + conveyance + other_allowance + monthly_bonus + retention + incentive
-    esic = compute_esic(esic_gross_wages) if employee.get("esic_applicable") else ZERO_ESIC
+    esic = compute_esic(esic_wage_base(basic, retention)) if esic_applies(basic_rate) else ZERO_ESIC
     ded_pf = pf["ded_pf"]
     ded_esic = esic["ded_esic"]
 

@@ -289,7 +289,8 @@ def test_compute_monthly_summary_ot_formula_matches_documented_example():
     assert summary["paid_days"] == 1.0
     assert summary["basic"] == 516.13  # 16000 * 1/31
     assert summary["gross_salary"] == 864.52  # 516.13 + 309.68 + 38.71
-    assert summary["total_payable"] == 864.52  # gross_salary only — ot_amount is 0
+    assert summary["ded_esic"] == 4.0  # basic 16000 <= 21000 -> ESIC on 516.13 (Labour Codes), rounded up
+    assert summary["total_payable"] == round(864.52 - 4.0, 2)  # gross_salary less ESIC — ot_amount is 0
 
 
 def test_compute_monthly_summary_ot_formula_for_ot_eligible_employee():
@@ -306,7 +307,7 @@ def test_compute_monthly_summary_ot_formula_for_ot_eligible_employee():
     assert summary["per_day_salary"] == 516.13  # 16000 / 31
     assert summary["per_hour_salary"] == 64.52  # per_day_salary / 8
     assert summary["ot_amount"] == 129.03  # unrounded per_hour_salary * 2h, then rounded
-    assert summary["total_payable"] == round(summary["gross_salary"] + 129.03, 2)
+    assert summary["total_payable"] == round(summary["gross_salary"] + 129.03 - summary["ded_esic"], 2)
 
 
 def test_compute_monthly_summary_ot_ceiling_is_inclusive_at_exactly_25000():
@@ -758,3 +759,12 @@ def test_fy_quarters_map_pay_period_labels_apr_to_mar():
     assert quarter_month_labels("2026-27", 2) == [(2026, 7), (2026, 8), (2026, 9)]
     # Q4's Jan-Mar fall in the FY's second calendar year.
     assert quarter_month_labels("2026-27", 4) == [(2027, 1), (2027, 2), (2027, 3)]
+
+
+def test_esic_labour_codes_rule():
+    from statutory import compute_esic, esic_applies, esic_wages
+    assert esic_applies(21000) and not esic_applies(21001)
+    assert not esic_applies(25100)  # basic over 21k: no ESIC even if gross is higher
+    assert esic_wages(18000, 500) == 18500  # Basic + DA + Retention, not gross
+    e = compute_esic(esic_wages(18000, 0))
+    assert e["ded_esic"] == 135.0 and e["oth_esic_employer"] == 585.0

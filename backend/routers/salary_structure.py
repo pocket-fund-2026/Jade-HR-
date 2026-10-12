@@ -6,7 +6,7 @@ from auth import require_permission
 from database import maybe_single_data, supabase
 from models import LumpsumSave, SalaryStructureSave
 from payroll import pay_period_bounds
-from statutory import ZERO_ESIC, ZERO_PF, compute_esic, compute_pf, compute_pt, location_to_state
+from statutory import ZERO_ESIC, ZERO_PF, compute_esic, compute_pf, esic_applies, esic_wages, compute_pt, location_to_state
 
 router = APIRouter(prefix="/api/employees", tags=["salary-structure"])
 
@@ -68,8 +68,8 @@ def _apply_statutory(row: dict, profile: dict, state: str | None, month: int) ->
         updates.update(ZERO_PF)
 
     gross_wages = sum(row[k] for k in ESIC_WAGE_KEYS)
-    if profile.get("esic_applicable"):
-        updates.update(compute_esic(gross_wages))
+    if esic_applies(row.get("me_basic") or row["earn_basic"]):
+        updates.update(compute_esic(esic_wages(row["earn_basic"], row["earn_retention"])))
     else:
         updates.update(ZERO_ESIC)
 

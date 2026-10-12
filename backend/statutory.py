@@ -15,12 +15,10 @@ pf_gross_limit the employer has chosen for the PF-employee-contribution base
 itself (pf_gross_limit == 0 means "no cap, use full Basic", per its hint text
 in the Compliances tab).
 
-ESIC membership is decided by the employee's esic_applicable flag (HR sets it
-per the ₹21,000 entry ceiling and the contribution-period-continuity rule).
-Once someone is covered, contributions are computed on their ACTUAL gross
-wages even above ₹21,000 — coverage continues to the end of the contribution
-period once it has started — and each contribution is rounded UP to the next
-whole rupee per the ESIC Act's rounding rule.
+ESIC (Labour Codes, from the September 2026 payroll): applies only when
+Basic + DA is ₹21,000 or less per month (see esic_applies), and the wage base
+is Basic + DA + Retaining Allowance, not gross (see esic_wages). Each
+contribution is rounded UP to the next whole rupee per the ESIC Act.
 """
 
 import math
@@ -75,11 +73,24 @@ def compute_pf(wage_base: float, pf_gross_limit: float, eps_applicable: bool) ->
     }
 
 
+def esic_applies(monthly_basic: float, da: float = 0.0) -> bool:
+    """New Labour Codes: ESIC covers an employee only while Basic + DA (the
+    full monthly rate, not the attendance-prorated amount) is ₹21,000 or less
+    — even if Basic + DA is 50%+ of CTC. This replaces the old per-employee
+    esic_applicable flag, which only 1 of 205 employees had set."""
+    return (monthly_basic + da) <= ESIC_WAGE_CEILING
+
+
+def esic_wages(basic: float, retention: float = 0.0, da: float = 0.0) -> float:
+    """ESIC wages under the Labour Codes = Basic + DA + Retaining Allowance,
+    not gross. (This system has no DA field, so DA defaults to 0.)"""
+    return basic + da + retention
+
+
 def compute_esic(gross_wages: float) -> dict:
     """Employee (0.75%) and employer (3.25%) ESIC, each rounded UP to the next
-    whole rupee (ESIC Act rounding). Callers gate on esic_applicable; there is
-    deliberately no ₹21,000 cutoff here — an already-covered member contributes
-    on actual wages above the entry ceiling too (see module docstring)."""
+    whole rupee (ESIC Act rounding). Callers decide applicability with
+    esic_applies() and pass esic_wages() as the base."""
     if gross_wages <= 0:
         return dict(ZERO_ESIC)
     return {
