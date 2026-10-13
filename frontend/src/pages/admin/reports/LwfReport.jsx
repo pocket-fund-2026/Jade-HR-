@@ -109,7 +109,7 @@ export default function LwfReport() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={4}>Loading…</td></tr>
+              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={4}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : rows.length === 0 ? (
               <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={4}>No LWF due this month.</td></tr>
             ) : (

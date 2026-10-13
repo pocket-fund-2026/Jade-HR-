@@ -236,7 +236,7 @@ export default function LeaveEntry() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={8}>Loading…</td></tr>
+              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={8}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : rows.length === 0 ? (
               <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={8}>No entries match.</td></tr>
             ) : (

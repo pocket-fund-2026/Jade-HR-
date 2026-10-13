@@ -59,7 +59,7 @@ export default function MyLeave() {
       <p className="text-sm text-ink/70 mb-6">Submit and track your own leave requests.</p>
 
       {loading ? (
-        <p className="text-ink/70 text-sm">Loading…</p>
+        <p className="text-ink/70 text-sm"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>
       ) : (
         <>
           {balance.length > 0 && (

@@ -181,7 +181,7 @@ export default function EmailLog() {
 
       <div className="bg-paper rounded-sm shadow-card overflow-x-auto">
         {rows === null ? (
-          <p className="p-5 text-sm text-ink/70">Loading…</p>
+          <p className="p-5 text-sm text-ink/70"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>
         ) : rows.length === 0 ? (
           <div className="p-8 text-center">
             <Mail size={22} className="mx-auto text-ink/30 mb-2" />

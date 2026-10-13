@@ -21,7 +21,7 @@ export default function SignLetter() {
   }, [token]);
 
   if (error) return <p className="p-8 text-center text-rust-500">{error}</p>;
-  if (!data) return <p className="p-8 text-center text-ink/70">Loading…</p>;
+  if (!data) return <p className="p-8 text-center text-ink/70"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>;
 
   const isApprover = data.role === "approver";
   const submit = async () => {

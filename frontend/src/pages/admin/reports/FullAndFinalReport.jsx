@@ -51,7 +51,7 @@ export default function FullAndFinalReport() {
       <p className="text-xs text-ink/70 mb-6">Last pay-period payslip, unused earned-leave encashment, and gratuity.</p>
 
       {loadingList ? (
-        <p className="text-ink/70">Loading…</p>
+        <p className="text-ink/70"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>
       ) : employees.length === 0 ? (
         <p className="text-sm text-ink/70">No employees found.</p>
       ) : (

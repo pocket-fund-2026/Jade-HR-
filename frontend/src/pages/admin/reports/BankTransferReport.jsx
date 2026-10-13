@@ -89,7 +89,7 @@ export default function BankTransferReport() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={5}>Loading…</td></tr>
+              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={5}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : byTransfer.length === 0 ? (
               <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={5}>No employees on Bank Transfer.</td></tr>
             ) : (

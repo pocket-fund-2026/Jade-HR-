@@ -114,7 +114,7 @@ export default function TeamMarketVisits() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={6}>Loading…</td></tr>
+              <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={6}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : visits.length === 0 ? (
               <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={6}>No pending check-ins from your team.</td></tr>
             ) : (

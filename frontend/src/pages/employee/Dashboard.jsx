@@ -17,6 +17,7 @@ import WFHRequestModal from "../../components/WFHRequestModal.jsx";
 import api from "../../lib/api.js";
 import { currentPayPeriod, formatDate, formatHolidayDate, formatHoursMins, formatTime } from "../../lib/format.js";
 import { LEAVE_LABELS } from "../../lib/leaveTypes.js";
+import AnimatedNumber from "../../components/AnimatedNumber.jsx";
 
 const today = new Date();
 const DAY_TYPE_LABELS = {
@@ -255,7 +256,7 @@ export default function Dashboard() {
                 <div key={b.leave_type}>
                   <p className="text-[11px] uppercase tracking-wider text-ink/70">{LEAVE_LABELS[b.leave_type]}</p>
                   <p className="font-nums text-lg text-ink mt-0.5">
-                    {b.remaining} <span className="text-ink/65 text-sm">/ {b.allocated}</span>
+                    <AnimatedNumber value={String(b.remaining)} /> <span className="text-ink/65 text-sm">/ {b.allocated}</span>
                   </p>
                   {b.leave_type === "paid" && b.carried_forward > 0 && (
                     <p className="text-[10px] text-ink/70 mt-0.5">
@@ -272,7 +273,7 @@ export default function Dashboard() {
               <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
                 <p className="text-xs font-semibold uppercase tracking-wider text-ink/70">Comp-Off earned</p>
                 <p className="text-xs text-ink/70">
-                  Balance <span className="font-nums text-ink font-semibold">{compOff.balance}</span> day(s) ·
+                  Balance <span className="font-nums text-ink font-semibold"><AnimatedNumber value={String(compOff.balance)} /></span> day(s) ·
                   valid {compOff.validity_days} days from the day worked
                 </p>
               </div>

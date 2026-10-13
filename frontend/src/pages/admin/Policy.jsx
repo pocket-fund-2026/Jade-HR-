@@ -231,7 +231,7 @@ function Birthdays() {
     [rows],
   );
 
-  if (loading) return <p className="text-ink/70 text-sm">Loading…</p>;
+  if (loading) return <p className="text-ink/70 text-sm"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>;
 
   return (
     <div>
@@ -604,7 +604,7 @@ function StoreTimings() {
     load();
   };
 
-  if (loading) return <p className="text-ink/70 text-sm">Loading…</p>;
+  if (loading) return <p className="text-ink/70 text-sm"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>;
 
   return (
     <div>
@@ -759,7 +759,7 @@ function NewJoinerRecipients() {
     load();
   };
 
-  if (loading) return <p className="text-ink/70 text-sm">Loading…</p>;
+  if (loading) return <p className="text-ink/70 text-sm"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>;
 
   return (
     <div>
@@ -891,7 +891,7 @@ export default function Policy() {
       </div>
 
       {loading ? (
-        <p className="text-ink/70 text-sm">Loading…</p>
+        <p className="text-ink/70 text-sm"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>
       ) : tab === "holidays" ? (
         <HolidayCalendar
           holidays={holidays} onAdd={addHoliday} onRemove={removeHoliday} adding={adding}

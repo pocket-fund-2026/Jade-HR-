@@ -65,7 +65,7 @@ export default function HrTasksReport() {
     api.get("/api/hr-tasks-report").then(({ data }) => setData(data)).finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <p className="text-ink/70">Loading…</p>;
+  if (loading) return <p className="text-ink/70"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>;
   if (!data) return <p className="text-ink/70">Could not load the report.</p>;
 
   const { totals, turnaround_days: turn, by_priority: prio, by_person } = data;

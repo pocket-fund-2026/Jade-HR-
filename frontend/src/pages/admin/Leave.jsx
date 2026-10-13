@@ -7,6 +7,7 @@ import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
 import { formatDate } from "../../lib/format.js";
 import { LEAVE_LABELS } from "../../lib/leaveTypes.js";
+import SlidingTabs from "../../components/SlidingTabs.jsx";
 
 const TABS = [
   { key: "pending", label: "Pending" },
@@ -184,19 +185,7 @@ export default function Leave() {
         </div>
       </div>
 
-      <div className="flex gap-1 mb-4">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`px-4 py-2 rounded-sm text-sm font-medium transition-colors ${
-              tab === t.key ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <SlidingTabs tabs={TABS} value={tab} onChange={setTab} className="flex gap-1 mb-4" />
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm tabular-nums">

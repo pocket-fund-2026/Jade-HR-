@@ -114,7 +114,7 @@ export default function PunctualityReport() {
         {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5 mt-3">{error}</p>}
       </div>
 
-      {loading && <p className="text-ink/70">Loading…</p>}
+      {loading && <p className="text-ink/70"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>}
 
       {report && !loading && (
         <div className="bg-paper rounded-sm shadow-card overflow-hidden">

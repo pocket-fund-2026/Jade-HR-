@@ -4,6 +4,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./lib/auth.jsx";
 import { canSeeHrTasks } from "./lib/hrTasksAccess.js";
 import api from "./lib/api.js";
+import MatrixLoader from "./components/MatrixLoader.jsx";
 import Login from "./pages/Login.jsx";
 import Onboarding from "./pages/Onboarding.jsx";
 import Setup from "./pages/Setup.jsx";
@@ -149,7 +150,10 @@ const CONSOLE_ROLES = ["accounts", "hr"];
 function PageFallback() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-manila">
-      <p className="font-display text-ink/70 text-lg">Opening the ledger…</p>
+      <div className="flex flex-col items-center gap-4">
+        <MatrixLoader />
+        <p className="font-display text-lg"><span className="t-shimmer" data-text="Opening the ledger…">Opening the ledger…</span></p>
+      </div>
     </div>
   );
 }

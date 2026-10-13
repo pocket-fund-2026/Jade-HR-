@@ -1,6 +1,6 @@
 import { BookOpen, FileText, HelpCircle, Home, KeyRound, LogOut, MapPin, Receipt, ShieldAlert, UserPlus, Users } from "lucide-react";
 import { useEffect, useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import Avatar from "../../components/Avatar.jsx";
 import ChangePasswordModal from "../../components/ChangePasswordModal.jsx";
@@ -10,6 +10,7 @@ import { useAuth } from "../../lib/auth.jsx";
 const POLL_MS = 25000;
 
 export default function EmployeeLayout() {
+  const location = useLocation();
   const { user, logout } = useAuth();
   const [pendingTeamLeave, setPendingTeamLeave] = useState(0);
   const [showPw, setShowPw] = useState(false);
@@ -99,7 +100,7 @@ export default function EmployeeLayout() {
                 <Users size={14} />
                 Team Leave
                 {pendingTeamLeave > 0 && (
-                  <span className="bg-ochre-500 text-ledger-900 text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  <span key={pendingTeamLeave} className="t-pop bg-ochre-500 text-ledger-900 text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
                     {pendingTeamLeave}
                   </span>
                 )}
@@ -203,7 +204,9 @@ export default function EmployeeLayout() {
         </div>
       </header>
       <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
-        <Outlet context={{ pendingTeamLeave, refreshTeamLeaveBadge: () => setPendingTeamLeave((n) => n) }} />
+        <div key={location.pathname} className="page-transition">
+          <Outlet context={{ pendingTeamLeave, refreshTeamLeaveBadge: () => setPendingTeamLeave((n) => n) }} />
+        </div>
       </main>
       {showPw && <ChangePasswordModal onClose={() => setShowPw(false)} />}
     </div>

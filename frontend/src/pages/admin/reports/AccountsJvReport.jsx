@@ -151,7 +151,7 @@ export default function AccountsJvReport() {
       )}
 
       {loading ? (
-        <p className="text-ink/70">Loading…</p>
+        <p className="text-ink/70"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>
       ) : rows.length === 0 ? (
         <p className="text-sm text-ink/70">No payroll data for this month.</p>
       ) : (

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
 import { formatDate } from "../../lib/format.js";
+import SlidingTabs from "../../components/SlidingTabs.jsx";
 
 const TABS = [
   { key: "pending", label: "Pending" },
@@ -92,19 +93,7 @@ export default function Loans() {
         <p className="text-xs text-ink/70 font-nums mt-0.5">Employee salary advance / loan requests</p>
       </div>
 
-      <div className="flex gap-1 mb-4">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`px-4 py-2 rounded-sm text-sm font-medium transition-colors ${
-              tab === t.key ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <SlidingTabs tabs={TABS} value={tab} onChange={setTab} className="flex gap-1 mb-4" />
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm tabular-nums">
@@ -122,7 +111,7 @@ export default function Loans() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={7}>Loading…</td></tr>
+              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={7}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : requests.length === 0 ? (
               <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={7}>No {tab} loan requests.</td></tr>
             ) : tab === "pending" ? (

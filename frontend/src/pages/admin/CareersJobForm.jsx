@@ -171,7 +171,7 @@ export default function CareersJobForm() {
     }
   };
 
-  if (loading) return <p className="text-ink/70 text-sm">Loading…</p>;
+  if (loading) return <p className="text-ink/70 text-sm"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>;
 
   return (
     <div className="w-full pb-24">

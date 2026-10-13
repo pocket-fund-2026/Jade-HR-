@@ -48,7 +48,7 @@ export default function MyOnboarding() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <p className="text-ink/70 text-sm">Loading…</p>;
+  if (loading) return <p className="text-ink/70 text-sm"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>;
 
   if (notFound) {
     return (

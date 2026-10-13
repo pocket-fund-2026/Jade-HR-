@@ -156,14 +156,14 @@ export default function NotificationBell({ pending, variant = "desktop" }) {
         >
           <Bell size={18} className={totalFresh ? "bell-ring" : ""} />
           {totalPending > 0 && (
-            <span className={`absolute -top-1 -right-1 min-w-[19px] h-[19px] px-1 rounded-full text-[10.5px] font-bold font-nums flex items-center justify-center ring-2 ${onDark ? "ring-ledger-800" : "ring-manila"} ${totalFresh ? "bg-rust-500 text-white" : "bg-ink/40 text-white"}`}>
+            <span key={totalPending} className={`t-pop absolute -top-1 -right-1 min-w-[19px] h-[19px] px-1 rounded-full text-[10.5px] font-bold font-nums flex items-center justify-center ring-2 ${onDark ? "ring-ledger-800" : "ring-manila"} ${totalFresh ? "bg-rust-500 text-white" : "bg-ink/40 text-white"}`}>
               {totalPending > 99 ? "99+" : totalPending}
             </span>
           )}
         </button>
 
         {open && (
-          <div className={`absolute z-50 mt-2 w-[360px] max-w-[calc(100vw-2rem)] bg-paper rounded-sm shadow-stamp border border-ink/10 ${variant === "sidebar" ? "left-0" : "right-0"}`}>
+          <div className={`pop-in absolute z-50 mt-2 w-[360px] max-w-[calc(100vw-2rem)] bg-paper rounded-sm shadow-stamp border border-ink/10 ${variant === "sidebar" ? "left-0" : "right-0"}`}>
             <div className="flex items-center justify-between px-4 py-3 border-b border-ink/10">
               <p className="font-display text-base text-ink">Waiting for you</p>
               {totalFresh > 0 && (

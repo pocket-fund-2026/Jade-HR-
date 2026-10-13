@@ -250,3 +250,241 @@ button:active:not(:disabled) { transform: translateY(0.5px); }
   html { scroll-behavior: auto; }
   button:active:not(:disabled) { transform: none; }
 }
+
+/* ── Motion layer ────────────────────────────────────────────────────────
+   One easing family and three durations keep every move feeling related:
+   --ease-out for entrances, --ease-io for state changes. Everything is
+   transform/opacity only (compositor-friendly) and switched off under
+   prefers-reduced-motion at the bottom of this block. */
+:root {
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-io: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 150ms;
+  --dur-base: 260ms;
+  --dur-slow: 420ms;
+}
+
+/* Page change: content settles in. `backwards` (not `both`) so no lingering
+   transform is left behind to trap position:fixed modals inside the page. */
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+.page-transition { animation: page-in var(--dur-slow) var(--ease-out) backwards; }
+
+/* Cards / panels inside a page cascade in once. Applied automatically to
+   direct children of .page-transition so no page needs editing. */
+.page-transition > * { animation: rise-in var(--dur-slow) var(--ease-out) backwards; }
+.page-transition > *:nth-child(1) { animation-delay: 0ms; }
+.page-transition > *:nth-child(2) { animation-delay: 50ms; }
+.page-transition > *:nth-child(3) { animation-delay: 100ms; }
+.page-transition > *:nth-child(4) { animation-delay: 150ms; }
+.page-transition > *:nth-child(5) { animation-delay: 200ms; }
+.page-transition > *:nth-child(n+6) { animation-delay: 240ms; }
+
+/* Modals & dialogs: every full-screen overlay in the app is a
+   `fixed inset-0` div, so one selector animates them all — backdrop fades,
+   the panel (first child) rises and scales in. */
+@keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes panel-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+.fixed.inset-0:not(.no-motion) { animation: overlay-in var(--dur-base) var(--ease-out) backwards; }
+.fixed.inset-0:not(.no-motion) > :first-child:not(.absolute) { animation: panel-in var(--dur-base) var(--ease-out) backwards; }
+
+/* Mobile drawer slides from the edge instead of popping. */
+@keyframes drawer-in { from { transform: translateX(-100%); } to { transform: none; } }
+.drawer-in { animation: drawer-in var(--dur-base) var(--ease-out) backwards; }
+
+/* Dropdown / popover menus (search results etc.) */
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+.pop-in { animation: pop-in var(--dur-fast) var(--ease-out) backwards; transform-origin: top; }
+
+/* Interactive surfaces: smooth colour/shadow changes everywhere, a gentle
+   lift on cards and clickable rows, tactile press on buttons. */
+button, a, input, select, textarea, [role="button"], summary {
+  transition-property: background-color, border-color, color, box-shadow, opacity, transform;
+  transition-duration: var(--dur-fast);
+  transition-timing-function: var(--ease-out);
+}
+.shadow-card, .shadow-stamp { transition: box-shadow var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out); }
+.stagger-rise > .shadow-card:hover, a.shadow-card:hover, button.shadow-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px -6px rgba(27, 27, 24, 0.22), 0 1px 0 rgba(27, 27, 24, 0.04);
+}
+button:active:not(:disabled), a.shadow-card:active { transform: translateY(0.5px) scale(0.985); }
+
+/* Tables: rows ease their hover tint, and fade in with a short cascade. */
+tbody tr { transition: background-color var(--dur-fast) var(--ease-out); }
+tbody tr:hover { background-color: rgba(47, 122, 94, 0.05); }
+@keyframes row-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+tbody tr { animation: row-in var(--dur-base) var(--ease-out) backwards; }
+tbody tr:nth-child(1) { animation-delay: 0ms; }
+tbody tr:nth-child(2) { animation-delay: 20ms; }
+tbody tr:nth-child(3) { animation-delay: 40ms; }
+tbody tr:nth-child(4) { animation-delay: 60ms; }
+tbody tr:nth-child(5) { animation-delay: 80ms; }
+tbody tr:nth-child(6) { animation-delay: 100ms; }
+tbody tr:nth-child(7) { animation-delay: 120ms; }
+tbody tr:nth-child(8) { animation-delay: 140ms; }
+tbody tr:nth-child(n+9) { animation-delay: 160ms; }
+
+/* Sidebar: active marker grows in, badges pop when they appear. */
+@keyframes marker-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+aside nav a[aria-current="page"]::before { animation: marker-grow var(--dur-base) var(--ease-out) backwards; transform-origin: center; }
+@keyframes badge-pop { 0% { transform: scale(0); } 70% { transform: scale(1.18); } 100% { transform: scale(1); } }
+aside nav a > span.rounded-full { animation: badge-pop var(--dur-base) var(--ease-out) backwards; }
+
+/* Skeletons shimmer rather than blink. */
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.skeleton {
+  background: linear-gradient(100deg, rgba(27,27,24,0.07) 30%, rgba(27,27,24,0.15) 50%, rgba(27,27,24,0.07) 70%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+/* Route-level Suspense fallback: soft pulsing dot instead of bare text. */
+.route-loading { display: flex; justify-content: center; padding: 4rem 0; }
+.route-loading::before {
+  content: ""; width: 10px; height: 10px; border-radius: 999px; background: theme("colors.jade.500");
+  animation: dot-pulse 0.9s var(--ease-io) infinite alternate;
+}
+@keyframes dot-pulse { from { transform: scale(0.6); opacity: 0.4; } to { transform: scale(1.2); opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .page-transition, .page-transition > *, .fixed.inset-0, .fixed.inset-0 > *, .drawer-in, .pop-in,
+  tbody tr, aside nav a::before, aside nav a > span.rounded-full, .route-loading::before { animation: none !important; }
+  .skeleton { animation: none; }
+  * { transition-duration: 0.01ms !important; }
+}
+
+/* ── transitions.dev set (tokens + .t-* snippets) ────────────────────────
+   Kept compositor-only (transform/opacity) wherever a large area moves; blur
+   is reserved for tiny elements (digits, icons, badges) so nothing janks. */
+:root {
+  --digit-dur: 500ms; --digit-distance: 8px; --digit-stagger: 70ms; --digit-blur: 2px;
+  --digit-ease: cubic-bezier(0.34, 1.45, 0.64, 1); --digit-dir-x: 0; --digit-dir-y: 1;
+  --badge-pop-dur: 500ms; --badge-pop-ease: cubic-bezier(0.34, 1.36, 0.64, 1); --badge-blur: 2px;
+  --tabs-dur: 250ms; --tabs-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --icon-swap-dur: 250ms; --icon-swap-ease: cubic-bezier(0.22, 1, 0.36, 1); --icon-swap-blur: 2px; --icon-swap-start-scale: 0.25;
+  --shake-distance: 6px; --shake-overshoot: 4px; --shake-dur-a: 80ms; --shake-dur-b: 60ms;
+  --shake-ease: cubic-bezier(0.22, 1, 0.36, 1); --revert-dur: 280ms;
+  --acc-dur: 250ms; --acc-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --shimmer-base: rgba(27, 27, 24, 0.55); --shimmer-highlight: rgba(27, 27, 24, 1); --shimmer-band: 250%; --shimmer-dur: 1800ms; --shimmer-ease: linear;
+  --matrix-base: rgba(27, 27, 24, 0.18); --matrix-active: #2F7A5E; --matrix-cycle: 1200ms; --matrix-ease: ease-in-out;
+}
+
+/* Number pop-in (components/AnimatedNumber.jsx) */
+@keyframes t-digit-pop-in {
+  0% { transform: translate(calc(var(--digit-distance) * var(--digit-dir-x)), calc(var(--digit-distance) * var(--digit-dir-y))); opacity: 0; filter: blur(var(--digit-blur)); }
+  100% { transform: translate(0, 0); opacity: 1; filter: blur(0); }
+}
+.t-digit-group { display: inline-flex; align-items: baseline; }
+.t-digit { display: inline-block; white-space: pre; animation: t-digit-pop-in var(--digit-dur) var(--digit-ease) backwards; }
+.t-digit[data-stagger="1"] { animation-delay: var(--digit-stagger); }
+.t-digit[data-stagger="2"] { animation-delay: calc(var(--digit-stagger) * 2); }
+
+/* Notification badge: dot pops in on mount/count change */
+@keyframes t-badge-pop { from { transform: scale(0); opacity: 0; filter: blur(var(--badge-blur)); } to { transform: scale(1); opacity: 1; filter: blur(0); } }
+.t-pop { animation: t-badge-pop var(--badge-pop-dur) var(--badge-pop-ease) backwards; }
+
+/* Tabs sliding (components/SlidingTabs.jsx) */
+.t-tabs-pill {
+  position: absolute; top: 0; left: 0; width: 0; height: 0; border-radius: 2px;
+  background: theme("colors.ledger.800"); pointer-events: none; z-index: 1; opacity: 0;
+  transition: transform var(--tabs-dur) var(--tabs-ease), width var(--tabs-dur) var(--tabs-ease), height var(--tabs-dur) var(--tabs-ease);
+  will-change: transform, width;
+}
+.t-tab-label { position: relative; z-index: 2; transition: color var(--tabs-dur) var(--tabs-ease); }
+
+/* Icon swap (components/IconSwap.jsx) */
+.t-icon-swap { position: relative; display: inline-grid; }
+.t-icon-swap .t-icon {
+  grid-area: 1 / 1; display: inline-flex; transition: opacity var(--icon-swap-dur) var(--icon-swap-ease), filter var(--icon-swap-dur) var(--icon-swap-ease), transform var(--icon-swap-dur) var(--icon-swap-ease);
+}
+.t-icon-swap[data-state="a"] .t-icon[data-icon="a"], .t-icon-swap[data-state="b"] .t-icon[data-icon="b"] { opacity: 1; filter: blur(0); transform: scale(1); }
+.t-icon-swap[data-state="a"] .t-icon[data-icon="b"], .t-icon-swap[data-state="b"] .t-icon[data-icon="a"] { opacity: 0; filter: blur(var(--icon-swap-blur)); transform: scale(var(--icon-swap-start-scale)); }
+
+/* Error shake + message reveal (Login etc.) */
+.t-input.is-shaking { animation: t-input-shake calc(var(--shake-dur-a) * 2 + var(--shake-dur-b) * 2) linear; }
+@keyframes t-input-shake {
+  0% { transform: translateX(0); animation-timing-function: var(--shake-ease); }
+  28.57% { transform: translateX(var(--shake-distance)); animation-timing-function: var(--shake-ease); }
+  57.14% { transform: translateX(calc(var(--shake-distance) * -1)); animation-timing-function: var(--shake-ease); }
+  78.57% { transform: translateX(var(--shake-overshoot)); animation-timing-function: var(--shake-ease); }
+  100% { transform: translateX(0); }
+}
+@keyframes t-error-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.t-error-in { animation: t-error-in var(--revert-dur) var(--ease-out) backwards; }
+
+/* Success check: ring pops, tick draws itself */
+.t-success { display: inline-flex; animation: t-badge-pop 420ms var(--badge-pop-ease) backwards; }
+.t-success path { stroke-dasharray: 24; stroke-dashoffset: 0; animation: t-draw 380ms var(--ease-out) 120ms backwards; }
+@keyframes t-draw { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
+
+/* Checkbox check: every native checkbox gets the fill-then-draw treatment */
+input[type="checkbox"] {
+  -webkit-appearance: none; appearance: none; flex-shrink: 0; width: 16px; height: 16px; margin: 0;
+  border: 1.5px solid rgba(27, 27, 24, 0.35); border-radius: 3px; background: #fff; cursor: pointer; vertical-align: middle;
+  background-repeat: no-repeat; background-position: center; background-size: 0 0;
+  transition: background-color 150ms var(--ease-out), border-color 150ms var(--ease-out), background-size 250ms var(--ease-out) 60ms;
+}
+input[type="checkbox"]:hover:not(:disabled) { border-color: theme("colors.jade.500"); }
+input[type="checkbox"]:checked {
+  background-color: theme("colors.jade.600"); border-color: theme("colors.jade.600"); background-size: 11px 11px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 6.4 4.8 9 10 3'/%3E%3C/svg%3E");
+}
+input[type="checkbox"]:indeterminate { background-color: theme("colors.jade.600"); border-color: theme("colors.jade.600"); }
+input[type="checkbox"]:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Accordion: native <details> glides open/closed (Chromium/Safari 17.4+;
+   others fall back to the normal instant toggle, which is fine). */
+details { interpolate-size: allow-keywords; }
+details::details-content {
+  block-size: 0; overflow: clip;
+  transition: block-size var(--acc-dur) var(--acc-ease), content-visibility var(--acc-dur) var(--acc-ease) allow-discrete;
+}
+details[open]::details-content { block-size: auto; }
+details > summary { list-style-position: inside; }
+details > summary svg.chev, details > summary .chev { transition: transform var(--acc-dur) var(--acc-ease); }
+details[open] > summary .chev { transform: scaleY(-1); }
+
+/* Shimmer text for inline "Loading…" labels */
+.t-shimmer { position: relative; display: inline-block; color: var(--shimmer-base); }
+.t-shimmer::before {
+  content: attr(data-text); position: absolute; inset: 0; pointer-events: none;
+  background-image: linear-gradient(90deg, transparent 0%, transparent 40%, var(--shimmer-highlight) 50%, transparent 60%, transparent 100%);
+  background-size: var(--shimmer-band) 100%; background-repeat: no-repeat; -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent; animation: t-shimmer var(--shimmer-dur) var(--shimmer-ease) infinite;
+}
+@keyframes t-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0% 0; } }
+
+/* Matrix dot loader (components/MatrixLoader.jsx) */
+.t-matrix { display: grid; grid-template-columns: repeat(4, 4px); grid-auto-rows: 4px; gap: 3px; }
+.t-matrix i { display: block; border-radius: 1px; background: var(--matrix-base); animation: t-matrix-pulse var(--matrix-cycle) var(--matrix-ease) infinite; animation-delay: calc(var(--d, 0) * 1ms); }
+@keyframes t-matrix-pulse { 0%, 45%, 100% { background-color: var(--matrix-base); } 15% { background-color: var(--matrix-active); } }
+
+/* Tooltip: any element with data-tip */
+[data-tip] { position: relative; }
+[data-tip]::after {
+  content: attr(data-tip); position: absolute; left: 50%; bottom: calc(100% + 6px); z-index: 60; white-space: nowrap; pointer-events: none;
+  padding: 4px 8px; border-radius: 3px; background: theme("colors.ledger.900"); color: theme("colors.manila"); font-size: 11px; font-weight: 500;
+  opacity: 0; transform: translate(-50%, 4px) scale(0.96);
+  transition: opacity 150ms var(--ease-out), transform 150ms var(--ease-out);
+}
+[data-tip]:hover::after, [data-tip]:focus-visible::after { opacity: 1; transform: translate(-50%, 0) scale(1); transition-delay: 350ms; }
+
+/* Tuning of the earlier layer for large pages: cap row stagger so long
+   tables never animate hundreds of rows at once, and keep the page entrance
+   transform-only (no blur on a full-page surface). */
+tbody tr:nth-child(n+13) { animation: none; }
+.t-digit, .t-pop, .t-success, .t-success path, .t-error-in, .t-input.is-shaking, .t-shimmer::before, .t-matrix i, .t-tabs-pill, .t-icon-swap .t-icon { will-change: auto; }
+
+@media (prefers-reduced-motion: reduce) {
+  .t-digit, .t-pop, .t-success, .t-success path, .t-error-in, .t-input.is-shaking, .t-shimmer::before, .t-matrix i { animation: none !important; }
+  .t-tabs-pill, .t-tab-label, .t-icon-swap .t-icon, input[type="checkbox"], details::details-content, [data-tip]::after { transition: none !important; }
+}

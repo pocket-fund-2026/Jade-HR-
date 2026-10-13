@@ -74,7 +74,7 @@ export default function CareersApplicants() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={5}>Loading…</td></tr>
+              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={5}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : applications.length === 0 ? (
               <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={5}>No applicants match these filters.</td></tr>
             ) : (

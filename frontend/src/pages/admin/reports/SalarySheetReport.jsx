@@ -236,7 +236,7 @@ export default function SalarySheetReport() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={COLUMNS.length}>Loading…</td></tr>
+              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={COLUMNS.length}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : filtered.length === 0 ? (
               <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={COLUMNS.length}>No employees match.</td></tr>
             ) : (

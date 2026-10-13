@@ -39,7 +39,7 @@ export default function CareersApplicantDetail() {
     }
   };
 
-  if (!data) return <p className="text-ink/70 text-sm">Loading…</p>;
+  if (!data) return <p className="text-ink/70 text-sm"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>;
   const { application: a, job, submission, answers } = data;
 
   const isAccepted = a.status === "Offered" || a.status === "Hired";

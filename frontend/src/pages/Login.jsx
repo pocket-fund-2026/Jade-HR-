@@ -1,7 +1,8 @@
 import { Eye, EyeOff } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
+import IconSwap from "../components/IconSwap.jsx";
 import { useAuth } from "../lib/auth.jsx";
 
 export default function Login() {
@@ -12,6 +13,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const formRef = useRef(null);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -22,6 +24,9 @@ export default function Login() {
       navigate(role === "accounts" || role === "hr" ? "/admin" : "/employee");
     } catch (err) {
       setError(err.response?.data?.detail || "That code and password don't match our records.");
+      // Error shake (transitions.dev): restart the animation on every failed try.
+      const el = formRef.current;
+      if (el) { el.classList.remove("is-shaking"); void el.offsetWidth; el.classList.add("is-shaking"); }
     } finally {
       setBusy(false);
     }
@@ -41,7 +46,7 @@ export default function Login() {
         <div className="bg-paper rounded-sm shadow-stamp px-6 sm:px-8 pt-8 pb-7 border-t-4 border-jade-500 rise-in">
           <p className="font-display text-ink text-lg mb-6">Clock in to your account</p>
 
-          <form onSubmit={submit} className="space-y-5">
+          <form ref={formRef} onSubmit={submit} onAnimationEnd={(e) => e.currentTarget.classList.remove("is-shaking")} className="t-input space-y-5">
             <div>
               <label htmlFor="employee_code" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">
                 Employee Code
@@ -75,13 +80,13 @@ export default function Login() {
                   aria-label={showPassword ? "Hide password" : "Show password"}
                   className="absolute inset-y-0 right-0 w-11 flex items-center justify-center text-ink/55 hover:text-ink/80"
                 >
-                  {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                  <IconSwap active={showPassword} a={<Eye size={17} />} b={<EyeOff size={17} />} />
                 </button>
               </div>
             </div>
 
             {error && (
-              <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>
+              <p key={error} className="t-error-in text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>
             )}
 
             <button

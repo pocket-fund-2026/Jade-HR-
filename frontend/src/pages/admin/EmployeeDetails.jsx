@@ -737,7 +737,7 @@ function EmployeePayslipBreakdown({ employeeId }) {
         <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
       </div>
       {loading ? (
-        <p className="text-sm text-ink/70">Loading…</p>
+        <p className="text-sm text-ink/70"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>
       ) : error ? (
         <p className="text-sm text-rust-500">{error}</p>
       ) : (
@@ -828,7 +828,7 @@ function SalaryStructureSection({ employeeId, dateOfJoining, canView, canEdit, p
           )}
         </div>
         {loadingList ? (
-          <p className="text-sm text-ink/70">Loading…</p>
+          <p className="text-sm text-ink/70"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>
         ) : list.length === 0 ? (
           <p className="text-sm text-ink/70">No salary structure recorded yet.</p>
         ) : (

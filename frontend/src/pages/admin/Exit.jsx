@@ -173,7 +173,7 @@ function ExitDetail({ id }) {
     }
   };
 
-  if (loading) return <p className="text-ink/70">Loading…</p>;
+  if (loading) return <p className="text-ink/70"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>;
   if (!record) return <p className="text-ink/70">Exit record not found.</p>;
 
   const emp = record.employee || {};
@@ -363,7 +363,7 @@ function ExitList() {
         <table className="w-full text-sm tabular-nums">
           <tbody>
             {loading ? (
-              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm">Loading…</td></tr>
+              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm"><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : records.length === 0 ? (
               <tr><td className="px-5 py-12 text-ink/70 text-center text-sm">No {tab === "in_progress" ? "exits in progress" : "completed exits"}.</td></tr>
             ) : (

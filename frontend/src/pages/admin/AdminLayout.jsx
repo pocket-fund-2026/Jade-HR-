@@ -1,6 +1,6 @@
 import { Briefcase, BookOpen, CalendarCheck, CalendarClock, CalendarDays, CalendarPlus, CheckSquare, ClipboardList, DoorOpen, FileBarChart, FileText, Flag, HelpCircle, Home, KeyRound, LayoutDashboard, LogOut, Mail, MapPin, Menu, Plane, Receipt, Search, Shield, ShieldAlert, ShieldCheck, Stamp, UserPlus, Users, Users2, Wallet, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import Avatar from "../../components/Avatar.jsx";
 import ChangePasswordModal from "../../components/ChangePasswordModal.jsx";
@@ -141,7 +141,7 @@ function SidebarSearch({ user, can, onNavigate }) {
         />
       </div>
       {open && q && (
-        <div className="absolute left-3 right-3 mt-1 bg-paper rounded-sm shadow-stamp overflow-hidden z-20 max-h-80 overflow-y-auto">
+        <div className="pop-in absolute left-3 right-3 mt-1 bg-paper rounded-sm shadow-stamp overflow-hidden z-20 max-h-80 overflow-y-auto">
           {sectionMatches.length === 0 && employeeMatches.length === 0 ? (
             <p className="px-3 py-2.5 text-xs text-ink/60">No matches</p>
           ) : (
@@ -224,7 +224,7 @@ function SidebarContent({ user, can, logout, pendingCounts, onNavigate, bell }) 
               <Icon size={17} strokeWidth={2} className="flex-shrink-0 opacity-90 group-hover:opacity-100" />
               <span className="truncate">{label}</span>
               {badgeKey && pendingCounts[badgeKey] > 0 && (
-                <span className="ml-auto bg-ochre-500 text-ledger-900 text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                <span key={pendingCounts[badgeKey]} className="t-pop ml-auto bg-ochre-500 text-ledger-900 text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
                   {pendingCounts[badgeKey]}
                 </span>
               )}
@@ -264,6 +264,7 @@ function SidebarContent({ user, can, logout, pendingCounts, onNavigate, bell }) 
 
 export default function AdminLayout() {
   const { user, can, logout } = useAuth();
+  const location = useLocation();
   const [pendingDisputes, setPendingDisputes] = useState([]);
   const [pendingLeave, setPendingLeave] = useState([]);
   const [pendingPayslipApprovals, setPendingPayslipApprovals] = useState([]);
@@ -377,7 +378,7 @@ export default function AdminLayout() {
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-40 flex">
           <div className="absolute inset-0 bg-ledger-900/60" onClick={() => setMobileOpen(false)} />
-          <aside className="relative w-64 max-w-[85vw] h-screen bg-ledger-800 flex flex-col">
+          <aside className="drawer-in relative w-64 max-w-[85vw] h-screen bg-ledger-800 flex flex-col">
             <button onClick={() => setMobileOpen(false)} aria-label="Close menu" className="absolute top-3 right-3 w-11 h-11 flex items-center justify-center text-manila/80 hover:text-manila">
               <X size={20} />
             </button>
@@ -388,12 +389,14 @@ export default function AdminLayout() {
 
       <main className="flex-1 p-4 pt-20 md:p-8 md:pt-8 overflow-y-auto overflow-x-hidden max-w-[1400px]">
         <ConfirmProvider>
+          <div key={location.pathname} className="page-transition">
           <Outlet
             context={{
               pendingDisputes, pendingLeave, pendingPayslipApprovals, pendingOnboarding, pendingWorkAbsence,
               pendingWfh, pendingMarketVisits, pendingCareers, pendingLoaded,
             }}
           />
+          </div>
         </ConfirmProvider>
       </main>
     </div>

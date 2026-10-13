@@ -750,7 +750,7 @@ function IssuedLetter({ letterId, onClose }) {
   }, [letterId]);
 
   if (error) return <p className="text-sm text-rust-500">{error}</p>;
-  if (!letter) return <p className="text-ink/70">Loading…</p>;
+  if (!letter) return <p className="text-ink/70"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>;
 
   const download = async () => {
     setDownloading(true);
@@ -820,7 +820,7 @@ function IssuedLettersTable({ onOpen }) {
       </div>
       <div className="bg-paper rounded-sm shadow-card overflow-x-auto">
         {rows === null ? (
-          <p className="p-5 text-sm text-ink/70">Loading…</p>
+          <p className="p-5 text-sm text-ink/70"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>
         ) : filtered.length === 0 ? (
           <p className="px-4 py-3 text-sm text-ink/60">{rows.length ? "No letters match that search." : "No letters issued yet. Pick a template above to issue the first one."}</p>
         ) : (
@@ -946,7 +946,7 @@ export default function Letters() {
       </div>
 
       {loading ? (
-        <p className="text-ink/70">Loading…</p>
+        <p className="text-ink/70"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {grouped.map(([group, items]) => (

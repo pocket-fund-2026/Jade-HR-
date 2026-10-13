@@ -79,7 +79,7 @@ export default function LoginLog() {
           </thead>
           <tbody>
             {loading && !data ? (
-              <tr><td className="px-5 py-12 text-center text-ink/60" colSpan={4}>Loading…</td></tr>
+              <tr><td className="px-5 py-12 text-center text-ink/60" colSpan={4}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : rows.length === 0 ? (
               <tr><td className="px-5 py-12 text-center text-ink/60" colSpan={4}>No logins in this range.</td></tr>
             ) : rows.map((r) => (

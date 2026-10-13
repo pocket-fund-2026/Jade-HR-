@@ -90,7 +90,7 @@ export default function Careers() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={8}>Loading…</td></tr>
+              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={8}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : jobs.length === 0 ? (
               <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={8}>No job postings yet.</td></tr>
             ) : (

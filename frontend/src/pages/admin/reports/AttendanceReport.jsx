@@ -269,7 +269,7 @@ export default function AttendanceReport() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={days.length + 5}>Loading…</td></tr>
+              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={days.length + 5}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : rows.length === 0 ? (
               <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={days.length + 5}>No employees found.</td></tr>
             ) : (

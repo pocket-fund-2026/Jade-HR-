@@ -56,7 +56,7 @@ export default function HeadCountReport() {
       <h2 className="font-display text-2xl text-ink mt-2 mb-6">Head Count</h2>
 
       {loading ? (
-        <p className="text-ink/70">Loading…</p>
+        <p className="text-ink/70"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>
       ) : (
         <>
           <div className="bg-paper rounded-sm shadow-card px-5 py-4 border-t-2 border-jade-500 mb-6 max-w-xs">

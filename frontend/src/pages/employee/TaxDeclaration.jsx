@@ -58,7 +58,7 @@ export default function TaxDeclaration() {
     }
   };
 
-  if (loading) return <p className="text-ink/70">Loading…</p>;
+  if (loading) return <p className="text-ink/70"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>;
 
   const inputClass = "w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-3 min-h-[44px] text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
 
