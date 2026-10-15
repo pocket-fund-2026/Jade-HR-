@@ -15,9 +15,9 @@ back leave someone may already have booked against.
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
-from auth import get_current_user, require_console
+from auth import get_current_user, require_accounts, require_console
 from config import IST
 from database import supabase
 from routers.leave import COMP_OFF_VALIDITY_DAYS, _comp_off_available
@@ -27,6 +27,53 @@ from routers.payroll import (
 
 router = APIRouter(prefix="/api/comp-off", tags=["comp-off"])
 me_router = APIRouter(prefix="/api/me/comp-off", tags=["comp-off"])
+
+
+def _revised_credit_expiry(row: dict, today: date) -> dict | None:
+    """Equivalent to sql/076: preserve used credits and restore valid unused ones."""
+    if row["earned_date"] < "2025-11-01":
+        return None
+    expiry = date.fromisoformat(row["earned_date"]) + timedelta(days=COMP_OFF_VALIDITY_DAYS)
+    if row["expiry_date"] == expiry.isoformat():
+        return None
+    return {
+        "expiry_date": expiry.isoformat(),
+        "status": "used" if row["status"] == "used" or row.get("used_in_leave_request_id") else
+                  "expired" if expiry < today else "available",
+    }
+
+
+@router.post("/reconcile-validity")
+def reconcile_comp_off_validity(
+    dry_run: bool = Query(default=True),
+    user: dict = Depends(require_accounts),
+):
+    """Accounts-only, idempotent application of migration 076 via the app's DB connection.
+
+    Dry-run by default. Conditional writes protect concurrent leave approvals;
+    a conflicting change stops the operation and can safely be retried.
+    """
+    rows, offset = [], 0
+    while True:
+        batch = (supabase.table("hr_comp_off_ledger")
+                 .select("id,earned_date,expiry_date,status,used_in_leave_request_id")
+                 .gte("earned_date", "2025-11-01").order("id").range(offset, offset + 999).execute().data or [])
+        rows.extend(batch)
+        if len(batch) < 1000:
+            break
+        offset += len(batch)
+    today = datetime.now(IST).date()
+    changes = [(r, patch) for r in rows if (patch := _revised_credit_expiry(r, today))]
+    if not dry_run:
+        for row, patch in changes:
+            query = (supabase.table("hr_comp_off_ledger").update(patch)
+                     .eq("id", row["id"]).eq("expiry_date", row["expiry_date"]).eq("status", row["status"]))
+            query = query.eq("used_in_leave_request_id", row["used_in_leave_request_id"]) if row.get("used_in_leave_request_id") else query.is_("used_in_leave_request_id", "null")
+            if len(query.execute().data or []) != 1:
+                raise HTTPException(status_code=409, detail="Ledger changed during reconciliation. Retry to preserve concurrent leave activity.")
+    return {"dry_run": dry_run, "reviewed": len(rows), "expiry_updates": len(changes),
+            "restored_unused_credits": sum(r["status"] == "expired" and patch["status"] == "available" for r, patch in changes)}
+
 
 def _accrual_rows_for(summary: dict) -> list[dict]:
     """Every comp-off a single employee's daily attendance says they earned,

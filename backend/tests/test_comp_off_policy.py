@@ -177,3 +177,33 @@ def test_balance_must_survive_until_leave_date(monkeypatch):
     use_on = datetime.now(IST).date() + timedelta(days=45)
     leave._comp_off_available('e1', use_on)
     assert ('expiry_date', use_on.isoformat()) in captured
+
+
+@pytest.mark.parametrize('status,used_id,expected', [('available', None, 'available'), ('expired', None, 'available'), ('used', 'request', 'used'), ('available', 'request', 'used')])
+def test_reconcile_preserves_used_credits_and_restores_valid_unused(status, used_id, expected):
+    row = {'earned_date': '2026-07-01', 'expiry_date': '2026-09-29', 'status': status, 'used_in_leave_request_id': used_id}
+    assert comp_off._revised_credit_expiry(row, date(2026, 10, 15)) == {'expiry_date': '2026-10-29', 'status': expected}
+
+
+def test_reconcile_expired_credit_stays_expired():
+    row = {'earned_date': '2026-01-01', 'expiry_date': '2026-04-01', 'status': 'expired'}
+    assert comp_off._revised_credit_expiry(row, date(2026, 10, 15))['status'] == 'expired'
+
+
+def test_reconcile_is_idempotent():
+    row = {'earned_date': '2026-07-01', 'expiry_date': '2026-10-29', 'status': 'available'}
+    assert comp_off._revised_credit_expiry(row, date(2026, 10, 15)) is None
+
+
+def test_reconcile_excludes_credits_before_effective_date():
+    row = {'earned_date': '2025-10-31', 'expiry_date': '2026-01-29', 'status': 'expired'}
+    assert comp_off._revised_credit_expiry(row, date(2026, 10, 15)) is None
+
+
+def test_reconcile_dry_run_never_writes(monkeypatch):
+    row = {'id':'row', 'earned_date': '2026-07-01', 'expiry_date': '2026-09-29', 'status': 'available'}
+    db = FakeDB({'hr_comp_off_ledger': [row]})
+    monkeypatch.setattr(comp_off, 'supabase', db)
+    result = comp_off.reconcile_comp_off_validity(dry_run=True, user={'role':'accounts'})
+    assert result['expiry_updates'] == 1
+    assert db.writes == []
