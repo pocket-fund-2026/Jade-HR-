@@ -1,7 +1,7 @@
 #!/bin/bash
 # JADE HR late-digest watchdog — runs every 5 min via cron.
 #
-# The 08:00 UTC late-digest cron (late_digest_notify.py) has no retry of its
+# The 06:15 UTC late-digest cron (late_digest_notify.py) has no retry of its
 # own, and on 2026-09-12 it 500'd (Vercel's 60s maxDuration on api/index.py
 # being exceeded by the full-roster attendance computation, most likely) and
 # nobody — not HR, not any reporting manager — got that day's digest until it
@@ -32,9 +32,9 @@ if [ ! -f "$LOG" ]; then
 fi
 
 # Only look at today's slot: don't fire a "retry" the moment midnight UTC
-# ticks over with no run logged yet (the real cron isn't due till 08:00 UTC).
+# ticks over with no run logged yet (the real cron isn't due till 06:15 UTC).
 TODAY_UTC=$(date -u '+%Y-%m-%d')
-CRON_HOUR_UTC=8
+CRON_HOUR_UTC=6
 NOW_HOUR_UTC=$(date -u '+%H')
 if [ "$((10#$NOW_HOUR_UTC))" -lt "$CRON_HOUR_UTC" ]; then
     exit 0
