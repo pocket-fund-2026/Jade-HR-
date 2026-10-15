@@ -1,3 +1,4 @@
+import CompOffPolicy from "./CompOffPolicy.jsx";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -126,6 +127,7 @@ export default function LeaveRequestModal({ onClose, onSubmitted, onBehalfOf }) 
                 ))}
               </select>
             </Field>
+            {leaveType === "comp_off" && <CompOffPolicy />}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="From" required>
                 <input

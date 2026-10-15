@@ -6,8 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 import email_service
 from auth import get_current_user, my_report_ids, require_permission, user_can
 from database import maybe_single_data, supabase
+from config import IST
 from models import CompOffGrant, LeaveRequestCreate, LeaveResolve
-from payroll import WEEKOFF_LOOKBACK_DAYS, apply_late_coming_policy, compute_daily_attendance, pay_period_bounds
+from payroll import WEEKOFF_LOOKBACK_DAYS, _holidays_for_employee, apply_late_coming_policy, compute_daily_attendance, pay_period_bounds
 
 router = APIRouter(prefix="/api", tags=["leave"])
 
@@ -44,11 +45,41 @@ PL_PROBATION_DAYS = 91  # ~3 months
 # documented-exception override is the employee_id-on-behalf-of path below.
 RED_CARD_BLOCKED_TYPES = {"paid", "comp_off"}
 COMP_OFF_MAX_DAYS_PER_REQUEST = 2
-COMP_OFF_VALIDITY_DAYS = 90  # per policy document (PolicyDocument.jsx) — 90 days from the date earned.
-# Was 120 (v1.1 §5) until 2026-09-15: the policy document employees actually
-# read and acknowledge said 90 days in three places, so that's what wins.
-# Only affects grants made from here forward — comp-offs already granted
-# keep the expiry_date already stored on them, not retroactively shortened.
+COMP_OFF_VALIDITY_DAYS = 120  # Revised SOP, effective 1 November 2025.
+
+
+def _comp_off_holidays(employee: dict) -> dict:
+    rows = supabase.table("hr_holidays").select("holiday_date,day_type,location").execute().data or []
+    return _holidays_for_employee([h for h in rows if h.get("day_type") != "anniversary"], employee.get("location"))
+
+
+def _validate_comp_off_dates(employee: dict, start: date, end: date, request_id: str | None = None):
+    """Check the whole adjacent block, so splitting requests cannot bypass the cap."""
+    holidays = _comp_off_holidays(employee)
+    weekly_off = employee.get("weekly_off_day")
+    weekly_off = 6 if weekly_off is None else int(weekly_off)
+    requests = (supabase.table("hr_leave_requests").select("id,start_date,end_date,status")
+                .eq("employee_id", employee["id"]).eq("leave_type", "comp_off")
+                .in_("status", ["pending", "approved"]).execute().data or [])
+    left, right = start, end
+    changed = True
+    while changed:
+        changed = False
+        for r in requests:
+            if request_id and r["id"] == request_id:
+                continue
+            a, b = date.fromisoformat(r["start_date"]), date.fromisoformat(r["end_date"])
+            if a <= right + timedelta(days=1) and b >= left - timedelta(days=1):
+                new_left, new_right = min(left, a), max(right, b)
+                changed |= (new_left, new_right) != (left, right)
+                left, right = new_left, new_right
+    if (right - left).days + 1 > COMP_OFF_MAX_DAYS_PER_REQUEST:
+        raise HTTPException(status_code=400, detail="A maximum of 2 Comp-Off days can be clubbed, including adjacent requests")
+    d = left - timedelta(days=1)
+    while d <= right + timedelta(days=1):
+        if d.weekday() == weekly_off or d in holidays:
+            raise HTTPException(status_code=400, detail="Comp-Off cannot be clubbed with weekly offs, public holidays or festival breaks. Choose separate working days.")
+        d += timedelta(days=1)
 
 
 def _carry_forward_cap(location: str | None) -> float:
@@ -240,8 +271,8 @@ def _pl_accrued_to_date(date_of_joining: str | None, today: date, year: int) -> 
     return min(24, max(0, months_elapsed) * 2)
 
 
-def _comp_off_available(employee_id: str) -> float:
-    today_iso = datetime.now(timezone.utc).date().isoformat()
+def _comp_off_available(employee_id: str, usable_on: date | None = None) -> float:
+    today_iso = max(datetime.now(IST).date(), usable_on or datetime.now(IST).date()).isoformat()
     resp = (
         supabase.table("hr_comp_off_ledger")
         .select("units")
@@ -253,10 +284,10 @@ def _comp_off_available(employee_id: str) -> float:
     return sum(float(r["units"]) for r in resp.data)
 
 
-def _consume_comp_off(employee_id: str, days_needed: float, leave_request_id: str) -> bool:
+def _consume_comp_off(employee_id: str, days_needed: float, leave_request_id: str, usable_on: date | None = None) -> bool:
     """FIFO by expiry date. Returns False (consuming nothing) if the balance
     isn't actually there any more — caller must not approve in that case."""
-    today_iso = datetime.now(timezone.utc).date().isoformat()
+    today_iso = max(datetime.now(IST).date(), usable_on or datetime.now(IST).date()).isoformat()
     resp = (
         supabase.table("hr_comp_off_ledger")
         .select("id,units")
@@ -268,13 +299,20 @@ def _consume_comp_off(employee_id: str, days_needed: float, leave_request_id: st
     )
     if sum(float(r["units"]) for r in resp.data) < days_needed - 1e-9:
         return False
-    remaining = days_needed
-    consumed_ids = []
+    # Choose exact half-day units; a half-day plus a full-day row must not
+    # both be marked used for a one-day request (silently losing half a day).
+    target = round(days_needed * 2)
+    choices = {0: []}
     for entry in resp.data:
-        if remaining <= 1e-9:
+        for amount, ids in list(choices.items()):
+            next_amount = amount + round(float(entry["units"]) * 2)
+            if next_amount <= target and next_amount not in choices:
+                choices[next_amount] = ids + [entry["id"]]
+        if target in choices:
             break
-        consumed_ids.append(entry["id"])
-        remaining -= float(entry["units"])
+    consumed_ids = choices.get(target)
+    if consumed_ids is None:
+        return False
     # Every consumed row gets the identical update — one batched call
     # instead of one round-trip per ledger entry.
     if consumed_ids:
@@ -380,9 +418,10 @@ def create_leave_request(body: LeaveRequestCreate, user: dict = Depends(get_curr
             raise HTTPException(status_code=400, detail=f"Not enough Paid Leave balance — {remaining} day(s) remaining")
 
     if body.leave_type == "comp_off":
+        _validate_comp_off_dates(target, body.start_date, body.end_date)
         if requested_days > COMP_OFF_MAX_DAYS_PER_REQUEST:
             raise HTTPException(status_code=400, detail=f"Comp-Off requests can cover at most {COMP_OFF_MAX_DAYS_PER_REQUEST} days")
-        if _comp_off_available(target["id"]) < requested_days:
+        if _comp_off_available(target["id"], body.end_date) < requested_days:
             raise HTTPException(status_code=400, detail="Not enough available Comp-Off balance")
 
     reason = body.reason
@@ -742,8 +781,13 @@ def resolve_leave_request(request_id: str, body: LeaveResolve, user: dict = Depe
         raise HTTPException(status_code=400, detail="action must be 'approve' or 'reject'")
 
     if body.action == "approve" and leave_request["leave_type"] == "comp_off":
+        employee = maybe_single_data(supabase.table("hr_employees").select("*").eq("id", leave_request["employee_id"]).maybe_single().execute())
+        if not employee:
+            raise HTTPException(status_code=404, detail="Employee not found")
+        end = date.fromisoformat(leave_request["end_date"])
+        _validate_comp_off_dates(employee, date.fromisoformat(leave_request["start_date"]), end, request_id)
         days_needed = _days_in_range(leave_request["start_date"], leave_request["end_date"])
-        if not _consume_comp_off(leave_request["employee_id"], days_needed, request_id):
+        if not _consume_comp_off(leave_request["employee_id"], days_needed, request_id, end):
             raise HTTPException(status_code=409, detail="Comp-Off balance no longer covers this request")
 
     supabase.table("hr_leave_requests").update({
@@ -774,6 +818,13 @@ def resolve_leave_request(request_id: str, body: LeaveResolve, user: dict = Depe
     return {"ok": True}
 
 
+@router.get("/comp-off/employees")
+def comp_off_employees(user: dict = Depends(require_permission("employees.manage", "policy.manage", "comp_off.manage"))):
+    return (supabase.table("hr_employees")
+            .select("id,employee_code,first_name,last_name,department,location,is_active")
+            .eq("is_active", True).order("first_name").execute().data or [])
+
+
 @router.get("/comp-off/{employee_id}")
 def list_comp_off_ledger(employee_id: str, user: dict = Depends(require_permission("employees.manage", "policy.manage", "comp_off.manage"))):
     resp = (
@@ -796,6 +847,20 @@ def grant_comp_off(body: CompOffGrant, user: dict = Depends(require_permission("
     ever double-crediting the same day."""
     if body.units not in (0.5, 1.0):
         raise HTTPException(status_code=400, detail="units must be 0.5 or 1.0")
+    if body.units != (0.5 if body.hours_worked <= 4 else 1.0):
+        raise HTTPException(status_code=400, detail="Up to 4 hours earns half a day; more than 4 hours earns one full day")
+    today = datetime.now(IST).date()
+    if body.earned_date > today:
+        raise HTTPException(status_code=400, detail="Day worked cannot be in the future")
+    if body.earned_date + timedelta(days=COMP_OFF_VALIDITY_DAYS) < today:
+        raise HTTPException(status_code=400, detail="This Comp-Off is already outside the 120-day validity window")
+    employee = maybe_single_data(supabase.table("hr_employees").select("*").eq("id", body.employee_id).maybe_single().execute())
+    if not employee or not employee.get("is_active"):
+        raise HTTPException(status_code=404, detail="Active employee not found")
+    weekly_off = employee.get("weekly_off_day")
+    weekly_off = 6 if weekly_off is None else int(weekly_off)
+    if body.earned_date.weekday() != weekly_off and body.earned_date not in _comp_off_holidays(employee):
+        raise HTTPException(status_code=400, detail="Comp-Off can only be earned on a declared public holiday or the employee's weekly off")
     row = {
         "employee_id": body.employee_id,
         "earned_date": body.earned_date.isoformat(),

@@ -1,3 +1,4 @@
+import CompOff from "./CompOff.jsx";
 import { Cake, CalendarDays, Clock3, Mail, Pencil, Plus, ShieldAlert, Store, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -259,100 +260,8 @@ function Birthdays() {
   );
 }
 
-function CompOffGrant({ corporateEmployees }) {
-  const [employeeId, setEmployeeId] = useState("");
-  const [earnedDate, setEarnedDate] = useState("");
-  const [units, setUnits] = useState("1.0");
-  const [ledger, setLedger] = useState([]);
-  const [error, setError] = useState("");
-  const [granting, setGranting] = useState(false);
-
-  const loadLedger = (id) => {
-    if (!id) { setLedger([]); return; }
-    api.get(`/api/comp-off/${id}`).then(({ data }) => setLedger(data));
-  };
-
-  useEffect(() => { loadLedger(employeeId); }, [employeeId]);
-
-  const grant = async (e) => {
-    e.preventDefault();
-    setError("");
-    setGranting(true);
-    try {
-      await api.post("/api/comp-off/grant", { employee_id: employeeId, earned_date: earnedDate, units: parseFloat(units) });
-      setEarnedDate("");
-      loadLedger(employeeId);
-    } catch (err) {
-      setError(err.response?.data?.detail || "Could not grant — try again");
-    } finally {
-      setGranting(false);
-    }
-  };
-
-  return (
-    <div>
-      <p className="text-sm text-ink/70 mb-4">
-        Comp-Off is earned only when a corporate employee works a weekly off or a declared holiday — grant it
-        manually once you've validated it (biometric log, Zoho form, HOD confirmation). Each grant is valid 120
-        days from the earned date; a leave request can club at most 2 days.
-      </p>
-
-      <form onSubmit={grant} className="bg-paper rounded-sm shadow-card p-5 mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="sm:col-span-2">
-          <label htmlFor="co_employee" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Employee</label>
-          <select id="co_employee" required value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}
-            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
-            <option value="">Select…</option>
-            {corporateEmployees.map((e) => (
-              <option key={e.id} value={e.id}>{e.name} ({e.employee_code})</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="co_date" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Date worked</label>
-          <input id="co_date" type="date" required value={earnedDate} onChange={(e) => setEarnedDate(e.target.value)}
-            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
-        </div>
-        <div>
-          <label htmlFor="co_units" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Units</label>
-          <select id="co_units" value={units} onChange={(e) => setUnits(e.target.value)}
-            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
-            <option value="0.5">½ day (worked ≤ 4 hours)</option>
-            <option value="1.0">Full day (worked &gt; 4 hours)</option>
-          </select>
-        </div>
-        {error && <p className="sm:col-span-2 text-sm text-rust-500">{error}</p>}
-        <div className="sm:col-span-2">
-          <button type="submit" disabled={granting || !employeeId}
-            className="flex items-center gap-1.5 bg-jade-600 text-white px-4 py-2 rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors">
-            <Plus size={14} /> Grant Comp-Off
-          </button>
-        </div>
-      </form>
-
-      {employeeId && (
-        <div className="bg-paper rounded-sm shadow-card divide-y divide-ink/[0.06]">
-          {ledger.length === 0 ? (
-            <p className="px-5 py-8 text-ink/70 text-center text-sm">No Comp-Off history for this employee.</p>
-          ) : (
-            ledger.map((l) => (
-              <div key={l.id} className="flex items-center justify-between gap-4 px-5 py-3">
-                <div>
-                  <p className="text-sm text-ink">{l.units} day earned {formatDate(l.earned_date)}</p>
-                  <p className="text-xs text-ink/70 mt-0.5">Expires {formatDate(l.expiry_date)}</p>
-                </div>
-                <span className={`text-xs font-semibold uppercase tracking-wide ${
-                  l.status === "available" ? "text-jade-600" : l.status === "used" ? "text-ink/70" : "text-rust-500"
-                }`}>
-                  {l.status}
-                </span>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
+function CompOffGrant() {
+  return <CompOff />;
 }
 
 const FY_OPTIONS = (() => {

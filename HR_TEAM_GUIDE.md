@@ -48,7 +48,7 @@ Your own leave — same as any employee.
 
 Corporate roster: Privilege Leave isn't usable until **3 months after your Date of Joining**, and it accrues monthly rather than landing as a lump sum.
 
-**Comp-Off** (corporate roster only): earned by working a declared weekly-off or a "Store closed"/"Day Off" holiday — but it's not automatic. Someone with the right access has to manually confirm it happened before it lands in your balance. It expires **120 days** after being earned, and a single leave request can use at most **2 Comp-Off days**.
+**Comp-Off** (revised SOP, effective 1 November 2025): earned by working a declared weekly-off or a "Store closed"/"Day Off" holiday — but it's not automatic. Someone with the right access has to manually confirm it happened before it lands in your balance. It expires **120 days** after being earned, and at most **2 Comp-Off days** can be clubbed. Up to and including 4 hours earns half a day; more than 4 hours earns one day. It cannot be clubbed with weekly offs, public holidays or festival breaks, encashed or transferred.
 
 **Submitting a request:** pick a type, start date, end date, an optional reason, **Submit Request**. It goes to your leave approver / manager and shows a status:
 

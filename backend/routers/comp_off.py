@@ -1,16 +1,9 @@
 """Comp-Off accrual — turns the attendance engine's existing eligibility
 flags into actual hr_comp_off_ledger credits.
 
-The ledger, balance, consumption-on-approval and 120-day expiry all already
-existed (routers/leave.py), and payroll.py has long computed BOTH eligibility
-signals per day:
-
-  comp_off_eligible     — worked a weekly off or a declared holiday
-                          (v1.1 section 5), 0.5 units under 4h else 1.0
-  comp_off_eligible_v3  — work continuing past midnight, non-OT staff only
-
-...but nothing ever wrote them to the ledger, so every balance was zero and
-the feature was effectively dead. This scan closes that loop.
+The revised SOP (effective 1 November 2025) credits only weekly-off or
+public-holiday work: up to 4 hours earns half a day, above 4 hours earns a
+full day, with 120-day validity. Late-night work alone does not qualify.
 
 Idempotent by construction: hr_comp_off_ledger has a UNIQUE (employee_id,
 earned_date), so a re-run — or a cron retry — can never double-credit a day.
@@ -35,15 +28,9 @@ from routers.payroll import (
 router = APIRouter(prefix="/api/comp-off", tags=["comp-off"])
 me_router = APIRouter(prefix="/api/me/comp-off", tags=["comp-off"])
 
-# Work past midnight earns a full day — unlike weekly-off / holiday work,
-# which is half a day under 4 hours (payroll.comp_off_units).
-MIDNIGHT_COMP_OFF_UNITS = 1.0
-
-
 def _accrual_rows_for(summary: dict) -> list[dict]:
     """Every comp-off a single employee's daily attendance says they earned,
-    as (earned_date, units, reason) — both the weekly-off/holiday kind and
-    the past-midnight kind."""
+    as (earned_date, units, reason) — weekly-off or declared-public-holiday work only."""
     earned = []
     for row in summary.get("daily") or []:
         if row.get("comp_off_eligible"):
@@ -51,12 +38,6 @@ def _accrual_rows_for(summary: dict) -> list[dict]:
                 "earned_date": row["date"],
                 "units": float(row.get("comp_off_units") or 1.0),
                 "reason": "Worked a weekly off / declared holiday",
-            })
-        elif row.get("comp_off_eligible_v3"):
-            earned.append({
-                "earned_date": row["date"],
-                "units": MIDNIGHT_COMP_OFF_UNITS,
-                "reason": "Work continued past midnight",
             })
     return earned
 
@@ -178,8 +159,6 @@ def list_all_comp_off(
     came from, and when it lapses. Per-employee detail stays on the existing
     GET /api/comp-off/{employee_id}."""
     query = supabase.table("hr_comp_off_ledger").select("*").order("earned_date", desc=True)
-    if status:
-        query = query.eq("status", status)
     rows = query.execute().data or []
     employees = {
         e["id"]: e for e in (
@@ -200,7 +179,8 @@ def list_all_comp_off(
             "employee_code": e.get("employee_code"),
             "name": f"{e.get('first_name', '')} {e.get('last_name') or ''}".strip(),
             "department": e.get("department"),
+            "location": e.get("location"),
             "effective_status": "expired" if r["status"] == "available" and expiry < today else r["status"],
             "days_to_expiry": (expiry - today).days,
         })
-    return out
+    return [r for r in out if not status or r["effective_status"] == status]

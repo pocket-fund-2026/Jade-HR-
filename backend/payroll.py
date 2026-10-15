@@ -118,14 +118,6 @@ MIDNIGHT_GRACE = time(12, 0)          # ran past midnight -> next day 12:00 PM
 # is 10 AM) — it's the tail of the PRIOR day's overnight finish.
 MIDNIGHT_TAIL_CUTOFF = time(6, 0)
 
-# Work continuing past MIDNIGHT earns an actual Comp-Off credit (distinct
-# from the §20/v1.1 grace-only extension above). The v3 source doc put this
-# at 12:30 AM, but the policy document employees actually read and
-# acknowledge says plainly "Stayed back past midnight (6+ hours extra):
-# eligible for a comp-off", and HR restated it as midnight on 11 Sept 2026 —
-# so the acknowledged policy wins over the stricter drafting note.
-MIDNIGHT_COMP_OFF_CUTOFF_V3 = time(0, 0)
-
 # Employees on this time_slot (hr_employee_profile.time_slot) get a shortened
 # Saturday — 10:00 AM - 3:00 PM (5h) — instead of their usual weekday
 # standard_hours_per_day, per JADE HR's Jul 2026 Saturday-hours change. This
@@ -629,30 +621,21 @@ def compute_daily_attendance(
             # comp-off — it extends the NEXT day's grace to 12 PM instead
             # (v1.1 section 4, handled in _extended_grace_for), so there is
             # deliberately no midnight branch here.
-            if d.weekday() == weekly_off_day or is_closed_holiday:
+            if hours_worked > 0 and (d.weekday() == weekly_off_day or d in holidays):
                 row["comp_off_eligible"] = True
                 row["comp_off_units"] = 0.5 if hours_worked <= 4 else 1.0
             # ── Policy v3 (LIVE from 23 Aug 2026 — see LATE_POLICY_V3_EFFECTIVE)
             # additive fields only; nothing above this reads or is affected by them.
             extension = _stay_back_extension_for(d, by_day, midnight_tail_dates)
             row["stay_back_grace_until_v3"] = extension.isoformat() if extension else None
-            # v3 doc §21: Comp-Off for work continuing past 12:30 AM — distinct
-            # from the §20 grace-only extension above. The actual post-midnight
-            # finish time is on the NEXT calendar day's punch bucket (see
-            # MIDNIGHT_TAIL_CUTOFF/_midnight_crossing_dates), not in this row's
-            # own last_out, so it has to be looked up there.
+            # Keep the overnight finish visible for attendance review; it
+            # does not independently earn credit under the revised SOP.
             if d in midnight_tail_dates:
                 tail_punches = by_day.get(d + timedelta(days=1), [])
                 tail_time = tail_punches[0].astimezone(IST).time() if tail_punches else None
                 row["midnight_tail_punch_time"] = tail_time.isoformat() if tail_time else None
-                # OT-eligible staff are already PAID for that late night, so
-                # a comp-off on top would be double compensation — the policy's
-                # stay-back section is explicitly headed "not applicable to
-                # OT-eligible depts/designations", and HR restated it as a
-                # non-OT entitlement on 11 Sept 2026.
-                row["comp_off_eligible_v3"] = bool(
-                    tail_time and tail_time > MIDNIGHT_COMP_OFF_CUTOFF_V3 and not ot_eligible
-                )
+                # Revised SOP: late-night work alone never earns Comp-Off.
+                row["comp_off_eligible_v3"] = False
         rows.append(row)
         d += timedelta(days=1)
 

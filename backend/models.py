@@ -1,7 +1,7 @@
 from datetime import date, datetime, time
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class LoginRequest(BaseModel):
@@ -258,6 +258,7 @@ class CompOffGrant(BaseModel):
     employee_id: str
     earned_date: date
     units: float  # 0.5 or 1.0
+    hours_worked: float = Field(gt=0, le=24)
 
 
 class AIPCreate(BaseModel):

@@ -117,16 +117,16 @@ const QUESTION_BANK = [
   {
     id: "corporate-stayback-midnight",
     tag: "corporate",
-    question: "If a corporate employee stays back past midnight (6+ extra hours), what are they eligible for?",
-    options: ["Nothing extra", "Coming in late the next day only", "A comp-off within 90 days", "Double pay for the day"],
+    question: "Under the revised Comp-Off SOP, which work qualifies for Comp-Off?",
+    options: ["Any overtime", "Staying past midnight on a working day", "Work on a declared public holiday or weekly off", "Any Saturday"],
     correctIndex: 2,
   },
   {
     id: "corporate-compoff-window",
     tag: "corporate",
-    question: "Under the corporate policy, a comp-off (for working a Sunday/holiday) must be taken within how many days or it lapses?",
+    question: "Under the corporate policy, a comp-off (for working a weekly off/public holiday) must be taken within how many days or it lapses?",
     options: ["30 days", "60 days", "90 days", "120 days"],
-    correctIndex: 2,
+    correctIndex: 3,
   },
   {
     id: "corporate-carry-forward",

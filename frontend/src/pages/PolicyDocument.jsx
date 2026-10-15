@@ -1,3 +1,4 @@
+import CompOffPolicy from "../components/CompOffPolicy.jsx";
 import { useEffect, useState } from "react";
 
 import { Link } from "react-router-dom";
@@ -492,15 +493,16 @@ function Policy2025({ showCorporateSections = true }) {
             items={[
               "Stayed back past 8:30pm (2+ hours extra): may come in late the next day, up to 11:00am.",
               "Stayed back past 10:30pm (4+ hours extra): may come in late the next day, up to 12:00pm.",
-              "Stayed back past midnight (6+ hours extra): eligible for a comp-off within 90 days.",
+              "Staying back past midnight alone does not earn Comp-Off. Under the revised SOP effective 1 November 2025, only work on a declared public holiday or weekly off qualifies.",
               "Needs HOD approval with the date and reason for staying back, to regularize the late-arrival grace.",
               "No grace time beyond the tiers above.",
             ]}
           />
           <p>
             If called in on a holiday/Sunday for a work exigency (launches, events, trainings, shows, audits,
-            deadlines, or similar), you're entitled to a compensatory off within 90 days, or as otherwise accepted by
-            the HOD — approval must come via email from the HOD, with the date awaited/worked noted.
+            deadlines, or similar), Comp-Off follows the revised SOP: use it within 120 days of the day worked,
+            with reporting-manager/HOD approval and the date worked recorded. Up to 4 hours earns ½ day;
+            more than 4 hours earns 1 day.
           </p>
         </Section>
       ) : (
@@ -546,11 +548,7 @@ function Policy2025({ showCorporateSections = true }) {
           ]}
         />
         <p className="font-medium text-ink">Comp-off</p>
-        <p>
-          1 day comp-off for working a Sunday or public holiday, to be taken within 90 days or it lapses, subject to
-          reporting-manager/HOD approval. Up to 3 continuous comp-off days are allowed — beyond 3 continuous days it
-          counts as regular leave instead.
-        </p>
+        <CompOffPolicy />
         <p className="font-medium text-ink">Long / extended leave</p>
         <Bullets
           items={[

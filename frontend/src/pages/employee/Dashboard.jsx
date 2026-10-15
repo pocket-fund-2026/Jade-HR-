@@ -300,7 +300,7 @@ export default function Dashboard() {
                 </tbody>
               </table>
               <p className="text-[11px] text-ink/60 mt-3">
-                Earned by working a weekly off or declared holiday, or by working past 12:30 AM. Apply it by
+                Earned only by working a weekly off or declared public holiday (up to 4 hours: ½ day; above 4 hours: 1 day). Use within 120 days, up to 2 days at a time; do not club with weekly offs, public holidays or festival breaks. Cannot be encashed or transferred. Apply by
                 requesting leave with type "Comp-Off" — your reporting manager and HR are notified for approval.
               </p>
             </div>
