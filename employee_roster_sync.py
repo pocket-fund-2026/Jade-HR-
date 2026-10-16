@@ -28,7 +28,7 @@ from datetime import datetime, timezone
 
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from playwright.sync_api import sync_playwright
+from backend.initial_passwords import initial_employee_password
 
 # ── CONFIG ────────────────────────────────────────────────────────────────
 
@@ -71,6 +71,8 @@ def _encrypt_password(plaintext: str) -> str:
 
 def export_employee_master_csv() -> str:
     """Logs into SmartOffice and returns the raw CSV text of the employee export."""
+    from playwright.sync_api import sync_playwright
+
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, executable_path=CHROME_PATH)
         context = browser.new_context(accept_downloads=True)
@@ -263,7 +265,7 @@ def reconcile(csv_text: str, token: str):
             # Deliberately ignores pw_prefix/location and the old
             # "!2026" suffix from the previous scheme (both broke login
             # for anyone told the "Jade@xxx" version instead).
-            "password": f"Jade@{code[-3:]}",
+            "password": initial_employee_password(code),
         }
         doj = master.get("DOJ", "")
         if doj and doj not in ("1900-01-01", "3000-01-01", ""):
