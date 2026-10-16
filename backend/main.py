@@ -14,6 +14,12 @@ from routers import (
 
 app = FastAPI(title="JADE HR")
 
+# Pin one fenced database for the entire request.
+from database import supabase as _database
+if hasattr(_database, "middleware"):
+    app.middleware("http")(_database.middleware)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,

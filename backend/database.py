@@ -1,4 +1,5 @@
 import time
+import os
 
 import httpx
 from supabase import create_client
@@ -36,6 +37,8 @@ _MAX_READ_RETRIES = 2
 
 class _RetryingTransport(httpx.HTTPTransport):
     def handle_request(self, request: httpx.Request) -> httpx.Response:
+        if request.method not in {"GET", "HEAD", "OPTIONS"}:
+            return super().handle_request(request)
         for attempt in range(_MAX_READ_RETRIES + 1):
             try:
                 response = super().handle_request(request)
@@ -52,10 +55,18 @@ class _RetryingTransport(httpx.HTTPTransport):
         return response  # pragma: no cover — loop always returns/raises above
 
 
-supabase = create_client(
-    SUPABASE_URL, SUPABASE_SERVICE_KEY,
-    options=SyncClientOptions(httpx_client=httpx.Client(transport=_RetryingTransport(retries=1))),
-)
+if os.environ.get("HR_HA_ENABLED", "false").lower() == "true":
+    from ha import HAProxy
+    supabase = HAProxy(
+        SUPABASE_URL, SUPABASE_SERVICE_KEY,
+        os.environ["HR_HA_STANDBY_URL"], os.environ["HR_HA_STANDBY_KEY"],
+        lambda: _RetryingTransport(retries=1),
+    )
+else:
+    supabase = create_client(
+        SUPABASE_URL, SUPABASE_SERVICE_KEY,
+        options=SyncClientOptions(httpx_client=httpx.Client(transport=_RetryingTransport(retries=1))),
+    )
 
 
 def maybe_single_data(resp):

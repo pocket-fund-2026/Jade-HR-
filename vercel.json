@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "cd frontend && npm install && npm run build",
+  "buildCommand": "PYTHONPATH= HR_HA_ENABLED=false SUPABASE_URL=http://localhost/test SUPABASE_SERVICE_KEY=test-service-key JWT_SECRET=test-jwt-secret uv run --with pytest python -m pytest backend/tests -q && cd frontend && npm install && npm run build",
   "outputDirectory": "frontend/dist",
   "functions": {
     "api/index.py": {
