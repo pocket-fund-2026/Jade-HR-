@@ -1,4 +1,3 @@
-import secrets
 from datetime import datetime
 
 from fastapi import APIRouter, Depends
@@ -42,7 +41,11 @@ def _auto_provision_employees(rows: list[dict]) -> int:
             "last_name": "(auto-added from biometric)",
             "location": location_by_code[code],
             "role": "employee",
-            "password_hash": hash_password(secrets.token_urlsafe(24)),
+            # Use the same initial password HR distributes and roster sync
+            # assigns. Existing employees are excluded above, so personal
+            # passwords are never replaced by an attendance ingest.
+            "password_hash": hash_password(f"Jade@{code[-3:]}"),
+            "password_changed_by_employee": False,
             "is_active": True,
         }
         for code in missing
