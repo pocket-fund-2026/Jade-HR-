@@ -76,15 +76,15 @@ export default function OrgChart() {
   const rows = useMemo(() => (data?.employees || []).filter((r) => !status || r.status === status), [data, status]);
   const { roots, kids } = useMemo(() => buildTree(rows), [rows]);
   // Roots with reports are real tops of the org; childless roots with no manager on record are listed separately.
-  const tops = roots.filter((r) => (kids[r.employee_id] || []).length || r.reporting_manager);
+  const tops = roots.filter((r) => (kids[r.employee_id] || []).length || r.reporting_manager || r.top_of_org);
   const unassigned = roots.filter((r) => !tops.includes(r));
 
   const downloadGaps = () => {
     const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-    const gaps = rows.filter((r) => !r.reporting_manager || !r.designation || r.name_pending);
+    const gaps = rows.filter((r) => (!r.reporting_manager && !r.top_of_org) || !r.designation || r.name_pending);
     const csv = ["Employee Code,Name,Location,Department,Designation,Reporting Manager,Missing"]
       .concat(gaps.map((r) => [r.employee_code, r.name, r.location, r.department, r.designation, r.reporting_manager,
-        [!r.reporting_manager && "manager", !r.designation && "designation", r.name_pending && "name"].filter(Boolean).join(" + ")].map(q).join(",")))
+        [!r.reporting_manager && !r.top_of_org && "manager", !r.designation && "designation", r.name_pending && "name"].filter(Boolean).join(" + ")].map(q).join(",")))
       .join("\n");
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));

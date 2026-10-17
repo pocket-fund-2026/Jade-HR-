@@ -33,6 +33,8 @@ from database import supabase
 router = APIRouter(prefix="/api/org-chart", tags=["org-chart"])
 
 PLACEHOLDER_STATUSES = {"exited", "inactive"}
+# Chairman is not an employee record; "reports to Nehal Sir" is complete, not a data gap.
+CHAIRMAN_NAMES = {"nehal sir"}
 
 
 def _full_name(e: dict) -> str:
@@ -132,7 +134,14 @@ def org_chart(
             elif text:
                 manager_name = text  # named but not linkable — shown, but can't be placed in the tree
 
+        if not manager_id and _norm(manager_name) in CHAIRMAN_NAMES:
+            manager_name = None
+            top_of_org = True
+        else:
+            top_of_org = False
+
         rows.append({
+            "top_of_org": top_of_org,
             "employee_id": e["id"],
             "employee_code": e["employee_code"],
             "name": _full_name(e),
@@ -174,7 +183,9 @@ def org_chart(
         "data_gaps": {
             "name_pending": sum(1 for r in result if r["active_view"] and r["name_pending"]),
             "no_designation": sum(1 for r in result if r["active_view"] and not r["designation"]),
-            "no_reporting_manager": sum(1 for r in result if r["active_view"] and not r["reporting_manager"]),
+            "no_reporting_manager": sum(
+                1 for r in result if r["active_view"] and not r["reporting_manager"] and not r["top_of_org"]
+            ),
             "manager_not_linked": sum(
                 1 for r in result if r["active_view"] and r["reporting_manager"] and not r["reporting_manager_id"]
             ),
