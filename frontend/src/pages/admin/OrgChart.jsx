@@ -1,6 +1,6 @@
 import { Network, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import api from "../../lib/api.js";
 import { formatDate } from "../../lib/format.js";
@@ -18,7 +18,7 @@ const selectCls =
   "rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
 
 function StatusBadge({ status }) {
-  return <span className={`inline-block rounded-sm px-2 py-0.5 text-xs font-medium ${STATUS_CLS[status] || ""}`}>{status}</span>;
+  return <span className={`inline-block whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[10px] font-medium ${STATUS_CLS[status] || ""}`}>{status}</span>;
 }
 
 function buildTree(rows) {
@@ -34,9 +34,9 @@ function buildTree(rows) {
 }
 
 const CHART_CSS = `
-.oc{--c:rgba(60,60,60,.35);display:inline-block;min-width:100%;transform-origin:top left}
+.oc{--c:rgba(60,60,60,.35);display:inline-block;transform-origin:top left}
 .oc ul{display:flex;justify-content:center;padding-top:22px;margin:0;position:relative}
-.oc li{list-style:none;text-align:center;position:relative;padding:22px 8px 0}
+.oc li{list-style:none;text-align:center;position:relative;padding:22px 5px 0}
 .oc li::before,.oc li::after{content:"";position:absolute;top:0;right:50%;width:50%;height:22px;border-top:1.5px solid var(--c)}
 .oc li::after{right:auto;left:50%;border-left:1.5px solid var(--c)}
 .oc li:only-child::before,.oc li:only-child::after{display:none}
@@ -46,12 +46,21 @@ const CHART_CSS = `
 .oc li:first-child::after{border-radius:6px 0 0 0}
 .oc ul ul::before{content:"";position:absolute;top:0;left:50%;height:22px;border-left:1.5px solid var(--c)}
 .oc>ul{padding-top:0}.oc>ul>li{padding-top:0}.oc>ul>li::before,.oc>ul>li::after{display:none}
-.oc-card{display:inline-block;width:176px;border:1.5px solid rgba(60,60,60,.18);border-top-width:4px;border-radius:6px;background:#fff;padding:8px 10px;text-align:left;box-shadow:0 1px 3px rgba(0,0,0,.08);position:relative}
+.oc-card{display:inline-block;width:140px;border:1.5px solid rgba(60,60,60,.18);border-top-width:4px;border-radius:6px;background:#fff;padding:6px 8px;text-align:left;box-shadow:0 1px 3px rgba(0,0,0,.08);position:relative}
 .oc-card.s-Confirmed{border-top-color:#2f8f6b}.oc-card.s-On{border-top-color:#c9962b}
 .oc-card.s-Resigned{border-top-color:#888}.oc-card.s-Absconded,.oc-card.s-Terminated{border-top-color:#c0502f}
 .oc-card.s-Group{border-top-color:#9aa5b1;background:#f1f4f7;border-style:dashed}.oc-card.s-Chair{border-top-color:#1f2937;background:#f4f1ea}
-.oc-name{font-size:13px;font-weight:600;line-height:1.2;color:#1c1c1c}
-.oc-role{font-size:11px;color:#666;margin-top:2px;min-height:14px;line-height:1.2}
+.oc-top{display:inline-flex;align-items:center;gap:0}
+.oc-top .oc-link{width:48px;border-top:1.5px solid var(--c)}
+.oc ul.oc-stack{display:block;width:140px;margin:0 auto;padding:14px 0 0;position:relative}
+.oc ul.oc-stack::before{content:"";position:absolute;left:8px;top:0;bottom:16px;height:auto;border-left:1.5px solid var(--c)}
+.oc ul.oc-stack>li{display:block;text-align:left;padding:5px 0 0 16px}
+.oc ul.oc-stack>li::before{content:"";position:absolute;left:8px;top:26px;width:8px;height:0;right:auto;border:0;border-top:1.5px solid var(--c);border-radius:0}
+.oc ul.oc-stack>li::after{display:none}
+.oc ul.oc-stack .oc-card{width:124px}
+.oc ul.oc-stack .oc-foot span:last-child{display:none}
+.oc-name{font-size:12px;font-weight:600;line-height:1.2;color:#1c1c1c}
+.oc-role{font-size:10px;color:#666;margin-top:2px;min-height:14px;line-height:1.2}
 .oc-foot{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-top:6px}
 .oc-tog{position:absolute;left:50%;bottom:-11px;transform:translateX(-50%);width:22px;height:22px;border-radius:50%;border:1.5px solid rgba(60,60,60,.35);background:#fff;font-size:10px;font-weight:600;cursor:pointer;z-index:2;line-height:1}
 `;
@@ -66,7 +75,7 @@ function Card({ row, count, open, onToggle }) {
       {!chair && !row.group && (
         <div className="oc-foot">
           <StatusBadge status={row.status} />
-          <span className="text-[10px] text-ink/50 truncate" title={row.location}>{row.location.split(",")[0]}</span>
+          <span className="text-[9px] text-ink/40 truncate" title={row.location}>{row.location.split(",")[0].split(" ")[0]}</span>
         </div>
       )}
       {count > 0 && (
@@ -78,19 +87,29 @@ function Card({ row, count, open, onToggle }) {
   );
 }
 
-function Node({ row, kids, depth, seen, collapsed, toggle }) {
+function Node({ row, kids, depth, seen, collapsed, toggle, top }) {
   const children = (kids[row.employee_id] || []).filter((c) => !seen.has(c.employee_id));
   const next = new Set(seen).add(row.employee_id); // guards against manager loops
   const isOpen = !collapsed.has(row.employee_id);
+  // People with no reports of their own stack in a column under the manager instead of
+  // spreading sideways — keeps the chart narrow enough to fit the screen.
+  const branches = children.filter((c) => (kids[c.employee_id] || []).length);
+  const leaves = children.filter((c) => !(kids[c.employee_id] || []).length);
+  const renderNode = (c) => (
+    <Node key={c.employee_id} row={c} kids={kids} depth={depth + 1} seen={next} collapsed={collapsed} toggle={toggle} />
+  );
   return (
     <li>
-      <Card row={row} count={children.length} open={isOpen} onToggle={() => toggle(row.employee_id)} />
+      {top ? (
+        <div className="oc-top">{top}</div>
+      ) : (
+        <Card row={row} count={children.length} open={isOpen} onToggle={() => toggle(row.employee_id)} />
+      )}
       {children.length > 0 && isOpen && (
-        <ul>
-          {children.map((c) => (
-            <Node key={c.employee_id} row={c} kids={kids} depth={depth + 1} seen={next} collapsed={collapsed} toggle={toggle} />
-          ))}
-        </ul>
+        <>
+          {branches.length > 0 && <ul>{branches.map(renderNode)}</ul>}
+          {leaves.length > 0 && <ul className="oc-stack">{leaves.map(renderNode)}</ul>}
+        </>
       )}
     </li>
   );
@@ -121,40 +140,64 @@ export default function OrgChart() {
   // One tree: Chairman -> Monica (Director) -> everyone. People with no manager on record are
   // grouped by location under Monica so a 100-wide row doesn't swamp the chart.
   const chair = { employee_id: "__chair__", name: "Nehal Sir", designation: "Chairman", chair: true };
-  const { kids, depthCollapsed } = useMemo(() => {
+  const topRow = { employee_id: "__top__" };
+  const { kids, depthCollapsed, monica } = useMemo(() => {
     const { roots, kids: base } = buildTree(rows);
-    const k = { ...base, __chair__: [] };
     const monica = rows.find((r) => /^monica\b/i.test(r.name) && /director/i.test(r.designation));
+    // Chairman and Monica share the top row; everyone hangs from a point between them.
+    const topKids = [...(base[monica?.employee_id] || [])];
     const groups = {};
-    const monicaKids = [...(base[monica?.employee_id] || [])];
     for (const r of roots) {
-      if (monica && r.employee_id === monica.employee_id) k.__chair__.push(r);
-      else if (r.top_of_org || !monica) {
-        if (r.top_of_org || (base[r.employee_id] || []).length || r.reporting_manager) k.__chair__.push(r);
-        else (groups[r.location] ||= []).push(r);
-      } else if ((base[r.employee_id] || []).length || r.reporting_manager) monicaKids.push(r);
+      if (monica && r.employee_id === monica.employee_id) continue;
+      if (r.top_of_org || (base[r.employee_id] || []).length || r.reporting_manager) topKids.push(r);
       else (groups[r.location] ||= []).push(r);
     }
-    const target = monica ? monicaKids : k.__chair__;
+    const k = { ...base, __top__: topKids };
+    if (monica) delete k[monica.employee_id];
+    // Direct reports with no team of their own go in one group, so they aren't mistaken for another manager's stack.
+    const solo = topKids.filter((r) => !(k[r.employee_id] || []).length);
+    if (solo.length) {
+      for (const r of solo) topKids.splice(topKids.indexOf(r), 1);
+      const g = { employee_id: "__grp:direct", name: `${monica ? "Monica's" : "Direct"} team`, designation: `${solo.length} direct reports`, group: true };
+      k[g.employee_id] = solo;
+      topKids.unshift(g);
+    }
     for (const [loc, members] of Object.entries(groups)) {
       const g = { employee_id: `__grp:${loc}`, name: `${loc.split(",")[0]} team`, designation: `${members.length} people · no manager recorded`, group: true };
       k[g.employee_id] = members;
-      target.push(g);
+      topKids.push(g);
     }
-    if (monica) k[monica.employee_id] = monicaKids;
-    // Collapse below the third level, and every location group.
+    // Only the first level shows by default; click a card's number to open its team.
     const hide = new Set();
     const walk = (r, d, seen) => {
       const ch = (k[r.employee_id] || []).filter((c) => !seen.has(c.employee_id));
-      if (ch.length && (d >= 3 || String(r.employee_id).startsWith("__grp"))) hide.add(r.employee_id);
+      if (ch.length && (d >= 1 || String(r.employee_id).startsWith("__grp"))) hide.add(r.employee_id);
       const next = new Set(seen).add(r.employee_id);
       ch.forEach((c) => walk(c, d + 1, next));
     };
-    walk(chair, 0, new Set());
-    return { kids: k, depthCollapsed: hide };
+    walk(topRow, 0, new Set());
+    return { kids: k, depthCollapsed: hide, monica };
   }, [rows]);
   useEffect(() => { setCollapsed(depthCollapsed); }, [depthCollapsed]);
   const toggle = (id) => setCollapsed((c) => { const n = new Set(c); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+  // Fit mode scales the whole chart to the available width so it doesn't need sideways scrolling.
+  const outerRef = useRef(null);
+  const innerRef = useRef(null);
+  const [fit, setFit] = useState(true);
+  const [dim, setDim] = useState({ w: 0, h: 0 });
+  useLayoutEffect(() => {
+    const measure = () => {
+      const el = innerRef.current;
+      const box = outerRef.current;
+      if (!el || !box) return;
+      setDim({ w: el.offsetWidth, h: el.offsetHeight });
+      if (fit && el.offsetWidth) setZoom(Math.max(0.25, Math.min(1, (box.clientWidth - 8) / el.offsetWidth)));
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [collapsed, kids, view, fit, rows]);
 
   const downloadGaps = () => {
     const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
@@ -194,9 +237,10 @@ export default function OrgChart() {
           </div>
           {view === "chart" && (
             <div className="flex items-center rounded-sm border border-ink/15 overflow-hidden text-sm bg-manila/40">
-              <button className="px-3 py-2" onClick={() => setZoom((z) => Math.max(0.4, +(z - 0.1).toFixed(1)))}>−</button>
+              <button className="px-3 py-2" onClick={() => { setFit(false); setZoom((z) => Math.max(0.25, +(z - 0.1).toFixed(2))); }}>−</button>
               <span className="px-1 text-xs w-10 text-center">{Math.round(zoom * 100)}%</span>
-              <button className="px-3 py-2" onClick={() => setZoom((z) => Math.min(1.5, +(z + 0.1).toFixed(1)))}>+</button>
+              <button className="px-3 py-2" onClick={() => { setFit(false); setZoom((z) => Math.min(1.5, +(z + 0.1).toFixed(2))); }}>+</button>
+              <button className={`px-3 py-2 border-l border-ink/15 ${fit ? "bg-jade-500 text-white" : ""}`} onClick={() => setFit(true)}>Fit</button>
               <button className="px-3 py-2 border-l border-ink/15" onClick={() => setCollapsed(new Set())}>Expand all</button>
             </div>
           )}
@@ -222,12 +266,22 @@ export default function OrgChart() {
         {view === "chart" ? (
           rows.length ? (
             <>
-              <div className="overflow-auto max-h-[75vh] pb-6">
+              <div ref={outerRef} className="overflow-auto max-h-[80vh] pb-6">
                 <style>{CHART_CSS}</style>
-                <div className="oc" style={{ transform: `scale(${zoom})` }}>
-                  <ul>
-                    <Node row={chair} kids={kids} depth={0} seen={new Set()} collapsed={collapsed} toggle={toggle} />
-                  </ul>
+                <div style={{ width: dim.w * zoom || undefined, height: dim.h * zoom || undefined, margin: "0 auto" }}>
+                  <div ref={innerRef} className="oc" style={{ transform: `scale(${zoom})` }}>
+                    <ul>
+                      <Node
+                        row={topRow} kids={kids} depth={0} seen={new Set()} collapsed={collapsed} toggle={toggle}
+                        top={(
+                          <>
+                            <Card row={chair} count={0} />
+                            {monica && <><span className="oc-link" /><Card row={monica} count={0} /></>}
+                          </>
+                        )}
+                      />
+                    </ul>
+                  </div>
                 </div>
               </div>
             </>
