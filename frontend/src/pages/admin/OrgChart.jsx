@@ -1,4 +1,5 @@
 import { Network, RefreshCw } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import api from "../../lib/api.js";
@@ -117,6 +118,13 @@ export default function OrgChart() {
           <button onClick={load} className={`${selectCls} flex items-center gap-1`} title="Refresh"><RefreshCw size={14} className={loading ? "animate-spin" : ""} /></button>
         </div>
       </div>
+
+      {data && (data.status_counts?.["On Probation"] || 0) > 0.5 * data.headcount && (
+        <div className="rounded-sm border border-ochre-500/40 bg-ochre-500/10 px-4 py-3 text-sm text-ink">
+          Most people show as <b>On Probation</b> because their confirmation date hasn't been entered yet. HR team: please add confirmation dates under{" "}
+          <Link to="/admin/confirmations" className="underline">Confirmations</Link> or on each employee's Employment tab. A task has been added to HR Tasks.
+        </div>
+      )}
 
       {data && (data.data_gaps.no_reporting_manager > 0 || data.data_gaps.no_designation > 0) && (
         <p className="text-xs text-ink/60">
