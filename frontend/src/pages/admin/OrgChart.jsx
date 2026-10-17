@@ -33,21 +33,63 @@ function buildTree(rows) {
   return { roots, kids };
 }
 
-function Node({ row, kids, depth, seen }) {
+const CHART_CSS = `
+.oc{--c:rgba(60,60,60,.35);display:inline-block;min-width:100%;transform-origin:top left}
+.oc ul{display:flex;justify-content:center;padding-top:22px;margin:0;position:relative}
+.oc li{list-style:none;text-align:center;position:relative;padding:22px 8px 0}
+.oc li::before,.oc li::after{content:"";position:absolute;top:0;right:50%;width:50%;height:22px;border-top:1.5px solid var(--c)}
+.oc li::after{right:auto;left:50%;border-left:1.5px solid var(--c)}
+.oc li:only-child::before,.oc li:only-child::after{display:none}
+.oc li:only-child{padding-top:0}
+.oc li:first-child::before,.oc li:last-child::after{border:0 none}
+.oc li:last-child::before{border-right:1.5px solid var(--c);border-radius:0 6px 0 0}
+.oc li:first-child::after{border-radius:6px 0 0 0}
+.oc ul ul::before{content:"";position:absolute;top:0;left:50%;height:22px;border-left:1.5px solid var(--c)}
+.oc>ul{padding-top:0}.oc>ul>li{padding-top:0}.oc>ul>li::before,.oc>ul>li::after{display:none}
+.oc-card{display:inline-block;width:176px;border:1.5px solid rgba(60,60,60,.18);border-top-width:4px;border-radius:6px;background:#fff;padding:8px 10px;text-align:left;box-shadow:0 1px 3px rgba(0,0,0,.08);position:relative}
+.oc-card.s-Confirmed{border-top-color:#2f8f6b}.oc-card.s-On{border-top-color:#c9962b}
+.oc-card.s-Resigned{border-top-color:#888}.oc-card.s-Absconded,.oc-card.s-Terminated{border-top-color:#c0502f}
+.oc-card.s-Chair{border-top-color:#1f2937;background:#f4f1ea}
+.oc-name{font-size:13px;font-weight:600;line-height:1.2;color:#1c1c1c}
+.oc-role{font-size:11px;color:#666;margin-top:2px;min-height:14px;line-height:1.2}
+.oc-foot{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-top:6px}
+.oc-tog{position:absolute;left:50%;bottom:-11px;transform:translateX(-50%);width:22px;height:22px;border-radius:50%;border:1.5px solid rgba(60,60,60,.35);background:#fff;font-size:10px;font-weight:600;cursor:pointer;z-index:2;line-height:1}
+`;
+
+function Card({ row, count, open, onToggle }) {
+  const chair = row.chair;
+  const cls = chair ? "s-Chair" : `s-${row.status.split(" ")[0]}`;
+  return (
+    <div className={`oc-card ${cls}`}>
+      <div className="oc-name">{row.name}</div>
+      <div className="oc-role">{row.designation || (chair ? "Chairman" : "—")}</div>
+      {!chair && (
+        <div className="oc-foot">
+          <StatusBadge status={row.status} />
+          <span className="text-[10px] text-ink/50 truncate" title={row.location}>{row.location.split(",")[0]}</span>
+        </div>
+      )}
+      {count > 0 && (
+        <button className="oc-tog" onClick={onToggle} title={open ? "Collapse" : `Show ${count} direct reports`}>
+          {open ? "−" : count}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function Node({ row, kids, depth, seen, collapsed, toggle }) {
   const children = (kids[row.employee_id] || []).filter((c) => !seen.has(c.employee_id));
   const next = new Set(seen).add(row.employee_id); // guards against manager loops
+  const isOpen = !collapsed.has(row.employee_id);
   return (
     <li>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 py-1.5">
-        <span className="text-sm font-medium text-ink">{row.name}</span>
-        <span className="text-xs text-ink/60">{row.designation || "—"}</span>
-        <StatusBadge status={row.status} />
-        {depth === 0 && row.reporting_manager && <span className="text-xs text-ink/50">reports to {row.reporting_manager}</span>}
-        {children.length > 0 && <span className="text-xs text-ink/40">{children.length} direct</span>}
-      </div>
-      {children.length > 0 && (
-        <ul className="ml-4 border-l border-ink/15 pl-4">
-          {children.map((c) => <Node key={c.employee_id} row={c} kids={kids} depth={depth + 1} seen={next} />)}
+      <Card row={row} count={children.length} open={isOpen} onToggle={() => toggle(row.employee_id)} />
+      {children.length > 0 && isOpen && (
+        <ul>
+          {children.map((c) => (
+            <Node key={c.employee_id} row={c} kids={kids} depth={depth + 1} seen={next} collapsed={collapsed} toggle={toggle} />
+          ))}
         </ul>
       )}
     </li>
@@ -60,6 +102,8 @@ export default function OrgChart() {
   const [status, setStatus] = useState("");
   const [view, setView] = useState("chart");
   const [loading, setLoading] = useState(true);
+  const [zoom, setZoom] = useState(1);
+  const [collapsed, setCollapsed] = useState(new Set());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -76,8 +120,21 @@ export default function OrgChart() {
   const rows = useMemo(() => (data?.employees || []).filter((r) => !status || r.status === status), [data, status]);
   const { roots, kids } = useMemo(() => buildTree(rows), [rows]);
   // Roots with reports are real tops of the org; childless roots with no manager on record are listed separately.
-  const tops = roots.filter((r) => (kids[r.employee_id] || []).length || r.reporting_manager || r.top_of_org);
-  const unassigned = roots.filter((r) => !tops.includes(r));
+  const toggle = (id) => setCollapsed((c) => { const n = new Set(c); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  // Collapse everything below the second level whenever the data or filters change.
+  useEffect(() => {
+    const depthOf = new Set();
+    const walk = (r, d) => { const ch = kids[r.employee_id] || []; if (d >= 2 && ch.length) depthOf.add(r.employee_id); ch.forEach((c) => walk(c, d + 1)); };
+    roots.forEach((r) => walk(r, 1));
+    setCollapsed(depthOf);
+  }, [roots, kids]);
+  const tops0 = roots.filter((r) => (kids[r.employee_id] || []).length || r.reporting_manager || r.top_of_org);
+  const unassigned = roots.filter((r) => !tops0.includes(r));
+  // Chairman sits above everyone whose manager is recorded as the chairman.
+  const chairKids = tops0.filter((r) => r.top_of_org);
+  const chair = { employee_id: "__chair__", name: "Nehal Sir", designation: "Chairman", chair: true };
+  const kidsWithChair = chairKids.length ? { ...kids, __chair__: chairKids } : kids;
+  const tops = chairKids.length ? [chair, ...tops0.filter((r) => !r.top_of_org)] : tops0;
 
   const downloadGaps = () => {
     const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
@@ -115,6 +172,14 @@ export default function OrgChart() {
               <button key={v} onClick={() => setView(v)} className={`px-3 py-2 capitalize ${view === v ? "bg-jade-500 text-white" : "bg-manila/40 text-ink"}`}>{v}</button>
             ))}
           </div>
+          {view === "chart" && (
+            <div className="flex items-center rounded-sm border border-ink/15 overflow-hidden text-sm bg-manila/40">
+              <button className="px-3 py-2" onClick={() => setZoom((z) => Math.max(0.4, +(z - 0.1).toFixed(1)))}>−</button>
+              <span className="px-1 text-xs w-10 text-center">{Math.round(zoom * 100)}%</span>
+              <button className="px-3 py-2" onClick={() => setZoom((z) => Math.min(1.5, +(z + 0.1).toFixed(1)))}>+</button>
+              <button className="px-3 py-2 border-l border-ink/15" onClick={() => setCollapsed(new Set())}>Expand all</button>
+            </div>
+          )}
           <button onClick={load} className={`${selectCls} flex items-center gap-1`} title="Refresh"><RefreshCw size={14} className={loading ? "animate-spin" : ""} /></button>
         </div>
       </div>
@@ -137,11 +202,20 @@ export default function OrgChart() {
         {view === "chart" ? (
           rows.length ? (
             <>
-              <ul className="space-y-1">{tops.map((r) => <Node key={r.employee_id} row={r} kids={kids} depth={0} seen={new Set()} />)}</ul>
+              <div className="overflow-auto max-h-[75vh] pb-6">
+                <style>{CHART_CSS}</style>
+                <div className="oc" style={{ transform: `scale(${zoom})` }}>
+                  <ul>
+                    {tops.map((r) => (
+                      <Node key={r.employee_id} row={r} kids={kidsWithChair} depth={0} seen={new Set()} collapsed={collapsed} toggle={toggle} />
+                    ))}
+                  </ul>
+                </div>
+              </div>
               {unassigned.length > 0 && (
                 <details className="mt-4 border-t border-ink/10 pt-3">
                   <summary className="cursor-pointer text-sm font-medium text-ink">No reporting manager on record ({unassigned.length})</summary>
-                  <ul className="mt-2 space-y-0.5">{unassigned.map((r) => <Node key={r.employee_id} row={r} kids={kids} depth={0} seen={new Set()} />)}</ul>
+                  <div className="oc mt-3 flex flex-wrap gap-2"><style>{CHART_CSS}</style>{unassigned.map((r) => <Card key={r.employee_id} row={r} count={0} />)}</div>
                 </details>
               )}
             </>
