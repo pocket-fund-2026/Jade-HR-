@@ -1,4 +1,4 @@
-import { Network, RefreshCw } from "lucide-react";
+import { Network, RefreshCw, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
@@ -236,12 +236,22 @@ export default function OrgChart() {
             ))}
           </div>
           {view === "chart" && (
-            <div className="flex items-center rounded-sm border border-ink/15 overflow-hidden text-sm bg-manila/40">
-              <button className="px-3 py-2" onClick={() => { setFit(false); setZoom((z) => Math.max(0.25, +(z - 0.1).toFixed(2))); }}>−</button>
-              <span className="px-1 text-xs w-10 text-center">{Math.round(zoom * 100)}%</span>
-              <button className="px-3 py-2" onClick={() => { setFit(false); setZoom((z) => Math.min(1.5, +(z + 0.1).toFixed(2))); }}>+</button>
-              <button className={`px-3 py-2 border-l border-ink/15 ${fit ? "bg-jade-500 text-white" : ""}`} onClick={() => setFit(true)}>Fit</button>
-              <button className="px-3 py-2 border-l border-ink/15" onClick={() => setCollapsed(new Set())}>Expand all</button>
+            <div className="flex items-center gap-1">
+              <button className={`${selectCls} flex items-center gap-1`} title="Zoom out" onClick={() => { setFit(false); setZoom((z) => Math.max(0.25, +(z - 0.15).toFixed(2))); }}>
+                <ZoomOut size={16} /> <span className="hidden sm:inline">Zoom out</span>
+              </button>
+              <span className="text-xs w-10 text-center font-nums">{Math.round(zoom * 100)}%</span>
+              <button className={`${selectCls} flex items-center gap-1`} title="Zoom in" onClick={() => { setFit(false); setZoom((z) => Math.min(2, +(z + 0.15).toFixed(2))); }}>
+                <ZoomIn size={16} /> <span className="hidden sm:inline">Zoom in</span>
+              </button>
+              <button className={`${selectCls} ${fit ? "bg-jade-500 text-white" : ""}`} onClick={() => setFit(true)}>Fit</button>
+              <button className={selectCls} onClick={() => setCollapsed(new Set())}>Expand all</button>
+              <button
+                className={`${selectCls} flex items-center gap-1`} title="Reset zoom, fit to screen and collapse back to the first level"
+                onClick={() => { setCollapsed(depthCollapsed); setFit(true); outerRef.current?.scrollTo({ top: 0, left: 0 }); }}
+              >
+                <RotateCcw size={14} /> Reset view
+              </button>
             </div>
           )}
           <button onClick={load} className={`${selectCls} flex items-center gap-1`} title="Refresh"><RefreshCw size={14} className={loading ? "animate-spin" : ""} /></button>
