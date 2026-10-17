@@ -185,6 +185,26 @@ export default function OrgChart() {
   const outerRef = useRef(null);
   const innerRef = useRef(null);
   const [fit, setFit] = useState(true);
+  const [dragging, setDragging] = useState(false);
+  // Click-and-drag on the chart background pans it (buttons still click normally).
+  const startDrag = (e) => {
+    if (e.button !== 0 || e.target.closest("button")) return;
+    const box = outerRef.current;
+    const start = { x: e.clientX, y: e.clientY, left: box.scrollLeft, top: box.scrollTop };
+    setDragging(true);
+    const move = (ev) => {
+      box.scrollLeft = start.left - (ev.clientX - start.x);
+      box.scrollTop = start.top - (ev.clientY - start.y);
+    };
+    const up = () => {
+      setDragging(false);
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    e.preventDefault();
+  };
   const [dim, setDim] = useState({ w: 0, h: 0 });
   useLayoutEffect(() => {
     const measure = () => {
@@ -276,7 +296,10 @@ export default function OrgChart() {
         {view === "chart" ? (
           rows.length ? (
             <>
-              <div ref={outerRef} className="overflow-auto max-h-[80vh] pb-6">
+              <div
+                ref={outerRef} onMouseDown={startDrag}
+                className={`overflow-auto max-h-[80vh] pb-6 select-none ${dragging ? "cursor-grabbing" : "cursor-grab"}`}
+              >
                 <style>{CHART_CSS}</style>
                 <div style={{ width: dim.w * zoom || undefined, height: dim.h * zoom || undefined, margin: "0 auto" }}>
                   <div ref={innerRef} className="oc" style={{ transform: `scale(${zoom})` }}>
