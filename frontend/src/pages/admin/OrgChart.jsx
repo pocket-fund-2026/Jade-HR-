@@ -49,7 +49,7 @@ const CHART_CSS = `
 .oc-card{display:inline-block;width:176px;border:1.5px solid rgba(60,60,60,.18);border-top-width:4px;border-radius:6px;background:#fff;padding:8px 10px;text-align:left;box-shadow:0 1px 3px rgba(0,0,0,.08);position:relative}
 .oc-card.s-Confirmed{border-top-color:#2f8f6b}.oc-card.s-On{border-top-color:#c9962b}
 .oc-card.s-Resigned{border-top-color:#888}.oc-card.s-Absconded,.oc-card.s-Terminated{border-top-color:#c0502f}
-.oc-card.s-Chair{border-top-color:#1f2937;background:#f4f1ea}
+.oc-card.s-Group{border-top-color:#9aa5b1;background:#f1f4f7;border-style:dashed}.oc-card.s-Chair{border-top-color:#1f2937;background:#f4f1ea}
 .oc-name{font-size:13px;font-weight:600;line-height:1.2;color:#1c1c1c}
 .oc-role{font-size:11px;color:#666;margin-top:2px;min-height:14px;line-height:1.2}
 .oc-foot{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-top:6px}
@@ -58,12 +58,12 @@ const CHART_CSS = `
 
 function Card({ row, count, open, onToggle }) {
   const chair = row.chair;
-  const cls = chair ? "s-Chair" : `s-${row.status.split(" ")[0]}`;
+  const cls = chair ? "s-Chair" : row.group ? "s-Group" : `s-${row.status.split(" ")[0]}`;
   return (
     <div className={`oc-card ${cls}`}>
       <div className="oc-name">{row.name}</div>
       <div className="oc-role">{row.designation || (chair ? "Chairman" : "—")}</div>
-      {!chair && (
+      {!chair && !row.group && (
         <div className="oc-foot">
           <StatusBadge status={row.status} />
           <span className="text-[10px] text-ink/50 truncate" title={row.location}>{row.location.split(",")[0]}</span>
@@ -118,23 +118,43 @@ export default function OrgChart() {
   useEffect(() => { load(); }, [load]);
 
   const rows = useMemo(() => (data?.employees || []).filter((r) => !status || r.status === status), [data, status]);
-  const { roots, kids } = useMemo(() => buildTree(rows), [rows]);
-  // Roots with reports are real tops of the org; childless roots with no manager on record are listed separately.
-  const toggle = (id) => setCollapsed((c) => { const n = new Set(c); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  // Collapse everything below the second level whenever the data or filters change.
-  useEffect(() => {
-    const depthOf = new Set();
-    const walk = (r, d) => { const ch = kids[r.employee_id] || []; if (d >= 2 && ch.length) depthOf.add(r.employee_id); ch.forEach((c) => walk(c, d + 1)); };
-    roots.forEach((r) => walk(r, 1));
-    setCollapsed(depthOf);
-  }, [roots, kids]);
-  const tops0 = roots.filter((r) => (kids[r.employee_id] || []).length || r.reporting_manager || r.top_of_org);
-  const unassigned = roots.filter((r) => !tops0.includes(r));
-  // Chairman sits above everyone whose manager is recorded as the chairman.
-  const chairKids = tops0.filter((r) => r.top_of_org);
+  // One tree: Chairman -> Monica (Director) -> everyone. People with no manager on record are
+  // grouped by location under Monica so a 100-wide row doesn't swamp the chart.
   const chair = { employee_id: "__chair__", name: "Nehal Sir", designation: "Chairman", chair: true };
-  const kidsWithChair = chairKids.length ? { ...kids, __chair__: chairKids } : kids;
-  const tops = chairKids.length ? [chair, ...tops0.filter((r) => !r.top_of_org)] : tops0;
+  const { kids, depthCollapsed } = useMemo(() => {
+    const { roots, kids: base } = buildTree(rows);
+    const k = { ...base, __chair__: [] };
+    const monica = rows.find((r) => /^monica\b/i.test(r.name) && /director/i.test(r.designation));
+    const groups = {};
+    const monicaKids = [...(base[monica?.employee_id] || [])];
+    for (const r of roots) {
+      if (monica && r.employee_id === monica.employee_id) k.__chair__.push(r);
+      else if (r.top_of_org || !monica) {
+        if (r.top_of_org || (base[r.employee_id] || []).length || r.reporting_manager) k.__chair__.push(r);
+        else (groups[r.location] ||= []).push(r);
+      } else if ((base[r.employee_id] || []).length || r.reporting_manager) monicaKids.push(r);
+      else (groups[r.location] ||= []).push(r);
+    }
+    const target = monica ? monicaKids : k.__chair__;
+    for (const [loc, members] of Object.entries(groups)) {
+      const g = { employee_id: `__grp:${loc}`, name: `${loc.split(",")[0]} team`, designation: `${members.length} people · no manager recorded`, group: true };
+      k[g.employee_id] = members;
+      target.push(g);
+    }
+    if (monica) k[monica.employee_id] = monicaKids;
+    // Collapse below the third level, and every location group.
+    const hide = new Set();
+    const walk = (r, d, seen) => {
+      const ch = (k[r.employee_id] || []).filter((c) => !seen.has(c.employee_id));
+      if (ch.length && (d >= 3 || String(r.employee_id).startsWith("__grp"))) hide.add(r.employee_id);
+      const next = new Set(seen).add(r.employee_id);
+      ch.forEach((c) => walk(c, d + 1, next));
+    };
+    walk(chair, 0, new Set());
+    return { kids: k, depthCollapsed: hide };
+  }, [rows]);
+  useEffect(() => { setCollapsed(depthCollapsed); }, [depthCollapsed]);
+  const toggle = (id) => setCollapsed((c) => { const n = new Set(c); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   const downloadGaps = () => {
     const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
@@ -206,18 +226,10 @@ export default function OrgChart() {
                 <style>{CHART_CSS}</style>
                 <div className="oc" style={{ transform: `scale(${zoom})` }}>
                   <ul>
-                    {tops.map((r) => (
-                      <Node key={r.employee_id} row={r} kids={kidsWithChair} depth={0} seen={new Set()} collapsed={collapsed} toggle={toggle} />
-                    ))}
+                    <Node row={chair} kids={kids} depth={0} seen={new Set()} collapsed={collapsed} toggle={toggle} />
                   </ul>
                 </div>
               </div>
-              {unassigned.length > 0 && (
-                <details className="mt-4 border-t border-ink/10 pt-3">
-                  <summary className="cursor-pointer text-sm font-medium text-ink">No reporting manager on record ({unassigned.length})</summary>
-                  <div className="oc mt-3 flex flex-wrap gap-2"><style>{CHART_CSS}</style>{unassigned.map((r) => <Card key={r.employee_id} row={r} count={0} />)}</div>
-                </details>
-              )}
             </>
           ) : <p className="text-sm text-ink/60">{loading ? "Loading…" : "No employees match."}</p>
         ) : (
