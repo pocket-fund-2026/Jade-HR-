@@ -96,6 +96,13 @@ def org_chart(
     for e in employees:
         names.setdefault(_norm(_full_name(e)), []).append(e["id"])
 
+    # First-name-only references ("akshay", "sagar") resolve when exactly one
+    # active person has that first name.
+    first_names: dict[str, list[str]] = {}
+    for e in employees:
+        if e["is_active"] and e.get("first_name"):
+            first_names.setdefault(_norm(e["first_name"].split()[0]), []).append(e["id"])
+
     today = date.today().isoformat()
     rows = []
     for e in employees:
@@ -118,6 +125,8 @@ def org_chart(
             manager_id = None
             text = (p.get("reporting_to") or "").strip()
             matches = names.get(_norm(text), []) if text else []
+            if not matches and text and len(text.split()) == 1:
+                matches = first_names.get(_norm(text), [])
             if len(matches) == 1 and matches[0] != e["id"]:
                 manager_id, manager_name = matches[0], _full_name(by_id[matches[0]])
             elif text:
@@ -127,6 +136,7 @@ def org_chart(
             "employee_id": e["id"],
             "employee_code": e["employee_code"],
             "name": _full_name(e),
+            "name_pending": "auto-added from biometric" in _full_name(e),
             "designation": e.get("designation") or "",
             "department": e.get("department") or "",
             "location": e.get("location") or "",
@@ -162,6 +172,7 @@ def org_chart(
         "status_counts": shown_counts,
         "employees": result,
         "data_gaps": {
+            "name_pending": sum(1 for r in result if r["active_view"] and r["name_pending"]),
             "no_designation": sum(1 for r in result if r["active_view"] and not r["designation"]),
             "no_reporting_manager": sum(1 for r in result if r["active_view"] and not r["reporting_manager"]),
             "manager_not_linked": sum(
