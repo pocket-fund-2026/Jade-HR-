@@ -122,7 +122,7 @@ export default function OrgChart() {
       {data && (data.status_counts?.["On Probation"] || 0) > 0.5 * data.headcount && (
         <div className="rounded-sm border border-ochre-500/40 bg-ochre-500/10 px-4 py-3 text-sm text-ink">
           Most people show as <b>On Probation</b> because their confirmation date hasn't been entered yet. HR team: please add confirmation dates under{" "}
-          <Link to="/admin/confirmations" className="underline">Confirmations</Link> or on each employee's Employment tab. A task has been added to HR Tasks.
+          <Link to="/admin/confirmations" className="underline">Confirmations</Link> or on each employee's Employment tab.
         </div>
       )}
 
