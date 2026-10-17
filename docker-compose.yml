@@ -1,0 +1,9 @@
+services:
+  api:
+    build: .
+    env_file: backend/.env   # SUPABASE_URL, SUPABASE_SERVICE_KEY, JWT_SECRET, ALLOWED_ORIGINS
+    environment:
+      COOKIE_SECURE: "false"  # plain http locally
+    ports:
+      - "8000:8000"
+    restart: unless-stopped

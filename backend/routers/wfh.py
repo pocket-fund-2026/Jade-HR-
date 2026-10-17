@@ -32,6 +32,7 @@ from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from idempotency import find_recent_duplicate
 from auth import get_current_user, my_report_ids, require_permission, user_can
 from database import supabase
 from models import WFHCompletionConfirm, WFHRequestCreate, WFHResolve
@@ -65,6 +66,12 @@ def create_wfh_request(body: WFHRequestCreate, user: dict = Depends(get_current_
         "reason": body.reason,
         "status": "pending",
     }
+    dup = find_recent_duplicate("hr_wfh_requests", {
+        "employee_id": row["employee_id"], "start_date": row["start_date"],
+        "end_date": row["end_date"], "reason": row["reason"],
+    })
+    if dup:
+        return dup
     inserted = supabase.table("hr_wfh_requests").insert(row).execute()
     return inserted.data[0]
 

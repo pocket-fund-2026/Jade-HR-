@@ -4,6 +4,7 @@ from datetime import date, datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
 import email_service
+from idempotency import find_recent_duplicate
 from auth import get_current_user, require_permission
 from config import IST
 from database import maybe_single_data, supabase
@@ -89,6 +90,12 @@ def create_absence_request(body: AbsenceRequestCreate, user: dict = Depends(get_
         "attachment_path": body.attachment_path,
         "attachment_filename": body.attachment_filename,
     }
+    dup = find_recent_duplicate("hr_absence_requests", {
+        "employee_id": row["employee_id"], "start_date": row["start_date"],
+        "end_date": row["end_date"], "details": row["details"],
+    })
+    if dup:
+        return dup
     inserted = supabase.table("hr_absence_requests").insert(row).execute()
 
     if body.save_approver:

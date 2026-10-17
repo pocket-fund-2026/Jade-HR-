@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 import email_service
+from idempotency import find_recent_duplicate
 from auth import get_current_user, my_report_ids, require_permission, user_can
 from database import maybe_single_data, supabase
 from config import IST
@@ -436,6 +437,12 @@ def create_leave_request(body: LeaveRequestCreate, user: dict = Depends(get_curr
         "end_date": body.end_date.isoformat(),
         "reason": reason,
     }
+    dup = find_recent_duplicate("hr_leave_requests", {
+        "employee_id": row["employee_id"], "leave_type": row["leave_type"],
+        "start_date": row["start_date"], "end_date": row["end_date"], "reason": row["reason"],
+    })
+    if dup:
+        return dup  # double-submit: already filed (and approvers already emailed)
     inserted = supabase.table("hr_leave_requests").insert(row).execute()
 
     approver_ids = set()

@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from idempotency import find_recent_duplicate
 from auth import get_current_user, my_report_ids, require_permission
 from database import maybe_single_data, supabase
 from models import AttendanceImportRequest, AttendanceOverrideUpsert, DisputeCreate, DisputePhotoUpload, DisputeResolve
@@ -60,6 +61,12 @@ def create_dispute(body: DisputeCreate, user: dict = Depends(get_current_user)):
         "photo_path": body.photo_path,
         "photo_filename": body.photo_filename,
     }
+    dup = find_recent_duplicate("hr_attendance_disputes", {
+        "employee_id": row["employee_id"], "date": row["date"],
+        "issue_type": row["issue_type"], "reason": row["reason"],
+    })
+    if dup:
+        return dup
     inserted = supabase.table("hr_attendance_disputes").insert(row).execute()
     return inserted.data[0]
 

@@ -1,7 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from config import ALLOWED_ORIGINS
+from ratelimit import RateLimitMiddleware
+from resilience import CircuitOpenError
 from routers import (
     absence, arrears, auth, biometric, careers, clocks, comp_off, confirmations, disputes, email_log, employee_profile, help_media,
     employees,
@@ -19,7 +22,11 @@ from database import supabase as _database
 if hasattr(_database, "middleware"):
     app.middleware("http")(_database.middleware)
 
-
+# Layering (innermost first): database pin -> rate limit -> CORS. Rate limiting
+# sits outside the pin so a flood is rejected before any database routing work,
+# and CORS wraps it so a 429 still carries CORS headers (otherwise the browser
+# reports an opaque network error).
+app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -27,6 +34,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.exception_handler(CircuitOpenError)
+async def _circuit_open(request, exc: CircuitOpenError):
+    return JSONResponse(
+        {"detail": "The database is temporarily unavailable. Please retry in a few seconds."},
+        status_code=503,
+        headers={"Retry-After": str(exc.retry_after)},
+    )
+
 
 app.include_router(auth.router)
 app.include_router(employees.router)

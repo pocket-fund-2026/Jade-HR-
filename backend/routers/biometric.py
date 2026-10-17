@@ -1,4 +1,3 @@
-import secrets
 from datetime import datetime
 
 from fastapi import APIRouter, Depends
@@ -6,6 +5,7 @@ from fastapi import APIRouter, Depends
 from auth import hash_password, require_console, require_permission
 from config import EXCLUDED_SERIALS, IST, SERIAL_TO_LOCATION
 from database import supabase
+from initial_passwords import initial_employee_password
 from models import BiometricPunch
 
 router = APIRouter(prefix="/api/biometric", tags=["biometric"])
@@ -42,7 +42,11 @@ def _auto_provision_employees(rows: list[dict]) -> int:
             "last_name": "(auto-added from biometric)",
             "location": location_by_code[code],
             "role": "employee",
-            "password_hash": hash_password(secrets.token_urlsafe(24)),
+            # Use the same initial password HR distributes and roster sync
+            # assigns. Existing employees are excluded above, so personal
+            # passwords are never replaced by an attendance ingest.
+            "password_hash": hash_password(initial_employee_password(code)),
+            "password_changed_by_employee": False,
             "is_active": True,
         }
         for code in missing

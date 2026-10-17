@@ -6,6 +6,7 @@ from supabase import create_client
 from supabase.lib.client_options import SyncClientOptions
 
 from config import SUPABASE_SERVICE_KEY, SUPABASE_URL
+from resilience import CircuitBreaker, backoff_delay
 
 # Vercel reuses warm function containers across invocations, and Supabase's
 # edge sometimes closes an idle keep-alive connection right as we try to
@@ -35,24 +36,55 @@ _RETRIED_STATUS_CODES = {502, 504}
 _MAX_READ_RETRIES = 2
 
 
+_CONNECT_ERRORS = (httpx.ReadTimeout, httpx.ConnectError, httpx.ConnectTimeout)
+
+
 class _RetryingTransport(httpx.HTTPTransport):
+    """Retries safe (read) requests with jittered exponential backoff and fails
+    fast through a circuit breaker once the database keeps failing.
+
+    The breaker is per transport instance on purpose: in HA mode the local and
+    Supabase clients each get their own transport, so an outage on one never
+    blocks the other (a shared breaker would defeat the failover). Non-read
+    requests are never replayed, since the first attempt may have committed
+    (see ha.py), but they still count toward the breaker and respect it."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.breaker = CircuitBreaker(failure_threshold=6, reset_timeout=10.0)
+
     def handle_request(self, request: httpx.Request) -> httpx.Response:
+        self.breaker.before_call()
         if request.method not in {"GET", "HEAD", "OPTIONS"}:
-            return super().handle_request(request)
+            try:
+                response = super().handle_request(request)
+            except _CONNECT_ERRORS:
+                self.breaker.record_failure()
+                raise
+            self._record(response)
+            return response
         for attempt in range(_MAX_READ_RETRIES + 1):
             try:
                 response = super().handle_request(request)
-            except httpx.ReadTimeout:
+            except _CONNECT_ERRORS:
                 if attempt == _MAX_READ_RETRIES:
+                    self.breaker.record_failure()
                     raise
-                time.sleep(0.5 * (attempt + 1))
+                time.sleep(backoff_delay(attempt))
                 continue
             if response.status_code in _RETRIED_STATUS_CODES and attempt < _MAX_READ_RETRIES:
                 response.close()
-                time.sleep(0.5 * (attempt + 1))
+                time.sleep(backoff_delay(attempt))
                 continue
+            self._record(response)
             return response
         return response  # pragma: no cover — loop always returns/raises above
+
+    def _record(self, response: httpx.Response) -> None:
+        if response.status_code in _RETRIED_STATUS_CODES:
+            self.breaker.record_failure()
+        else:
+            self.breaker.record_success()
 
 
 if os.environ.get("HR_HA_ENABLED", "false").lower() == "true":
