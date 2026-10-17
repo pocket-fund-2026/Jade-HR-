@@ -120,6 +120,7 @@ const TeamAccess = lazyWithReload(() => import("./pages/admin/TeamAccess.jsx"));
 const OnboardingReview = lazyWithReload(() => import("./pages/admin/Onboarding.jsx"));
 const WorkAbsence = lazyWithReload(() => import("./pages/admin/WorkAbsence.jsx"));
 const Exit = lazyWithReload(() => import("./pages/admin/Exit.jsx"));
+const OrgChart = lazyWithReload(() => import("./pages/admin/OrgChart.jsx"));
 const Confirmations = lazyWithReload(() => import("./pages/admin/Confirmations.jsx"));
 const CompOff = lazyWithReload(() => import("./pages/admin/CompOff.jsx"));
 const Loans = lazyWithReload(() => import("./pages/admin/Loans.jsx"));
@@ -268,6 +269,7 @@ export default function App() {
             <Route path="aip" element={<RequirePermission anyOf={["leave.manage"]}><AIP /></RequirePermission>} />
             <Route path="work-absence" element={<RequirePermission anyOf={["absence.manage"]}><WorkAbsence /></RequirePermission>} />
             <Route path="comp-off" element={<RequirePermission anyOf={["employees.manage", "policy.manage", "comp_off.manage"]}><CompOff /></RequirePermission>} />
+            <Route path="org-chart" element={<RequirePermission anyOf={["employees.view"]}><OrgChart /></RequirePermission>} />
             <Route path="confirmations" element={<RequirePermission anyOf={["employees.manage"]}><Confirmations /></RequirePermission>} />
             <Route path="exit" element={<RequirePermission anyOf={["exit.manage"]}><Exit /></RequirePermission>} />
             <Route path="exit/:id" element={<RequirePermission anyOf={["exit.manage"]}><Exit /></RequirePermission>} />

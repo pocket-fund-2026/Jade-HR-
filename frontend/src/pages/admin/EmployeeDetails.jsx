@@ -118,7 +118,7 @@ const SECTIONS = [
           { k: "exit_date", l: "Exit Date", t: "date" },
           { k: "settlement_date", l: "Settlement Date", t: "date" },
           { k: "reason_of_leaving", l: "Reason Of Leaving", t: "select", options: ["Resign", "Termination", "Retirement", "Death", "Disablement", "Contract End", "Absconding", "Other"], hint: "Death/Disablement waives the Gratuity Act's 5-year service requirement on the Gratuity report" },
-          { k: "employee_status", l: "Employee Status", t: "select", options: ["Active", "Inactive", "On Notice", "Exited"] },
+          { k: "employee_status", l: "Employee Status", t: "select", options: ["Active", "Inactive", "On Notice", "Exited", "Absconded", "Terminated"], hint: "Absconded / Terminated show on the Org Chart with that status until a Scheduled/Exit Date is entered" },
         ],
       },
     ],
