@@ -275,6 +275,7 @@ export default function AdminLayout() {
   const [pendingWfh, setPendingWfh] = useState([]);
   const [pendingMarketVisits, setPendingMarketVisits] = useState([]);
   const [pendingLoans, setPendingLoans] = useState([]);
+  const [pendingNewEmployees, setPendingNewEmployees] = useState([]);
   // True once the first poll below has resolved — lets pages seed their own
   // "pending" tab from this data instead of re-fetching it themselves on
   // mount (an empty pending* array is ambiguous with "not fetched yet"
@@ -291,8 +292,8 @@ export default function AdminLayout() {
   const pendingByType = useMemo(() => ({
     leave: pendingLeave, disputes: pendingDisputes, payslipApprovals: pendingPayslipApprovals,
     onboarding: pendingOnboarding, workAbsence: pendingWorkAbsence, wfh: pendingWfh,
-    marketVisits: pendingMarketVisits, loans: pendingLoans, careers: pendingCareers,
-  }), [pendingLeave, pendingDisputes, pendingPayslipApprovals, pendingOnboarding, pendingWorkAbsence, pendingWfh, pendingMarketVisits, pendingLoans, pendingCareers]);
+    marketVisits: pendingMarketVisits, loans: pendingLoans, careers: pendingCareers, newEmployees: pendingNewEmployees,
+  }), [pendingLeave, pendingDisputes, pendingPayslipApprovals, pendingOnboarding, pendingWorkAbsence, pendingWfh, pendingMarketVisits, pendingLoans, pendingCareers, pendingNewEmployees]);
   const canDisputes = can("disputes.manage");
   const canLeave = can("leave.manage");
   const canPayslipApprovals = can("payslip_approvals.manage");
@@ -302,6 +303,7 @@ export default function AdminLayout() {
   const canMarketVisits = can("market_visits.review");
   const canLoans = can("loans.manage");
   const canCareers = can("careers.manage");
+  const canNewEmployees = can("employees.view");
 
   useEffect(() => {
     let cancelled = false;
@@ -316,8 +318,9 @@ export default function AdminLayout() {
         canMarketVisits ? api.get("/api/market-visits", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
         canLoans ? api.get("/api/loan-requests", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
         canCareers ? api.get("/api/careers/applications", { params: { status: "New" } }) : Promise.resolve({ data: [] }),
+        canNewEmployees ? api.get("/api/employees/recent-additions") : Promise.resolve({ data: [] }),
       ])
-        .then(([disputesRes, leaveRes, payslipApprovalsRes, onboardingRes, workAbsenceRes, wfhRes, marketVisitsRes, loansRes, careersRes]) => {
+        .then(([disputesRes, leaveRes, payslipApprovalsRes, onboardingRes, workAbsenceRes, wfhRes, marketVisitsRes, loansRes, careersRes, newEmployeesRes]) => {
           if (cancelled) return;
           setPendingDisputes(disputesRes.data);
           setPendingLeave(leaveRes.data);
@@ -327,6 +330,7 @@ export default function AdminLayout() {
           setPendingWfh(wfhRes.data);
           setPendingMarketVisits(marketVisitsRes.data);
           setPendingLoans(loansRes.data);
+          setPendingNewEmployees(newEmployeesRes.data);
           // careers rows carry SQLite UTC timestamps ("YYYY-MM-DD HH:MM:SS");
           // normalise to ISO so the dashboard's "since last seen" compare works.
           setPendingCareers((careersRes.data || []).map((a) => ({ ...a, created_at: String(a.created_at).replace(" ", "T") + "Z" })));
@@ -337,7 +341,7 @@ export default function AdminLayout() {
     poll();
     const interval = setInterval(poll, POLL_MS);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [canDisputes, canLeave, canPayslipApprovals, canOnboarding, canWorkAbsence, canWfh, canMarketVisits, canLoans, canCareers]);
+  }, [canDisputes, canLeave, canPayslipApprovals, canOnboarding, canWorkAbsence, canWfh, canMarketVisits, canLoans, canCareers, canNewEmployees]);
 
   return (
     <div className="h-screen flex bg-manila overflow-hidden">

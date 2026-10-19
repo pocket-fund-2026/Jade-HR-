@@ -14,7 +14,8 @@ Run as a cron job on this VPS (/etc/cron.d/jade-hr-sync). Salary fields
 them, they stay whatever an admin has set via the UI.
 
 Manual usage:
-  python employee_roster_sync.py
+  python employee_roster_sync.py             # full nightly reconcile
+  python employee_roster_sync.py --new-only  # fast: create new joiners + heal placeholder names only
 """
 
 import csv
@@ -183,7 +184,7 @@ def _auto_resolve_onboarding(token: str, submission_id: str, employee_code: str)
     return status == 200
 
 
-def reconcile(csv_text: str, token: str):
+def reconcile(csv_text: str, token: str, new_only: bool = False):
     rows = list(csv.DictReader(io.StringIO(csv_text)))
     # employee_code -> (master row, location, password_prefix), across all known departments
     tracked = {}
@@ -208,6 +209,11 @@ def reconcile(csv_text: str, token: str):
         if code == JADE_HR_USER:
             continue
         entry = tracked.get(code)
+        # new_only (frequent daytime run): only heal first-punch placeholder
+        # names. Never touch deactivation or the missing-streak counter here —
+        # that streak is meant to count *nightly* runs, not 30-min ones.
+        if new_only and emp.get("last_name") != AUTO_PROVISIONED_LAST_NAME:
+            continue
         if not entry:
             unmatched += 1
             # Only rank-and-file employees who've been confirmed present in a
@@ -311,7 +317,7 @@ def main():
         sys.exit(1)
 
     try:
-        result = reconcile(csv_text, token)
+        result = reconcile(csv_text, token, new_only="--new-only" in sys.argv)
     except urllib.error.HTTPError as e:
         print(f"ERROR reconciling: {e.code} {e.read().decode()[:300]}", file=sys.stderr)
         sys.exit(1)

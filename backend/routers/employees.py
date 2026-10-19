@@ -51,6 +51,35 @@ def list_employees(lite: bool = False, user: dict = Depends(require_permission("
     return attach_avatar_urls([_sanitize(e, can_view_salary) for e in resp.data])
 
 
+@router.get("/recent-additions")
+def recent_additions(days: int = 3, user: dict = Depends(require_permission("employees.view"))):
+    """Employees added in the last `days` days (biometric first-punch stub,
+    roster sync, onboarding approval or manual add) — feeds the console's
+    "new employee added, please create his ID" pop-up. Narrow select + a
+    created_at filter keeps this cheap enough for the 25 s sidebar poll."""
+    from datetime import datetime, timedelta, timezone
+
+    since = (datetime.now(timezone.utc) - timedelta(days=max(1, min(days, 14)))).isoformat()
+    rows = (
+        supabase.table("hr_employees")
+        .select("id,employee_code,first_name,last_name,location,created_at")
+        .eq("role", "employee")
+        .gte("created_at", since)
+        .order("created_at", desc=True)
+        .execute()
+        .data
+    )
+    out = []
+    for e in rows:
+        placeholder = (e.get("last_name") or "").startswith("(auto-added")
+        out.append({
+            "id": e["id"], "employee_code": e["employee_code"], "location": e.get("location", ""),
+            "created_at": e["created_at"], "name_pending": placeholder,
+            "name": e["employee_code"] if placeholder else f"{e['first_name']} {e.get('last_name') or ''}".strip(),
+        })
+    return out
+
+
 @router.get("/birthdays")
 def list_birthdays(user: dict = Depends(require_permission("employees.view"))):
     """Bulk join, not one profile fetch per employee — date_of_birth lives

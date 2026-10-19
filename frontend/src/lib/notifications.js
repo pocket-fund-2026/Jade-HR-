@@ -13,6 +13,7 @@ export const NOTIFICATION_TYPES = [
   { key: "wfh", singular: "WFH request", plural: "WFH requests", to: "/admin/wfh-requests", cta: "Review WFH", icon: Home, tone: "jade" },
   { key: "marketVisits", singular: "market visit", plural: "market visits", to: "/admin/market-visits", cta: "Review visits", icon: MapPin, tone: "jade" },
   { key: "loans", singular: "loan request", plural: "loan requests", to: "/admin/loans", cta: "Review loans", icon: Wallet, tone: "ochre" },
+  { key: "newEmployees", singular: "new employee", plural: "new employees", to: "/admin/employees", cta: "Open employees and create ID", icon: UserPlus, tone: "ochre" },
   { key: "careers", singular: "job application", plural: "job applications", to: "/admin/careers/applicants?status=New", cta: "Review applicants", icon: Users2, tone: "jade" },
 ];
 

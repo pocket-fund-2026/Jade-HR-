@@ -95,9 +95,11 @@ export function NotificationToasts({ pending, loaded }) {
         const added = (pending[t.key] || []).filter((i) => !knownIds.current[t.key]?.has(i.id));
         if (added.length === 1) {
           const who = itemWho(added[0]);
-          next.push({ id: `${t.key}-${added[0].id}`, type: t.key, title: `New ${t.singular}`, body: who ? `From ${who}` : "Just arrived." });
+          next.push(t.key === "newEmployees"
+            ? { id: `${t.key}-${added[0].id}`, type: t.key, title: "New employee added to the console", body: `${who || "A new employee"} (ID ${added[0].employee_code}). Please create his ID.` }
+            : { id: `${t.key}-${added[0].id}`, type: t.key, title: `New ${t.singular}`, body: who ? `From ${who}` : "Just arrived." });
         } else if (added.length > 1) {
-          next.push({ id: `${t.key}-${Date.now()}`, type: t.key, title: `${countLabel(t, added.length)} just arrived`, body: "Waiting for review." });
+          next.push({ id: `${t.key}-${Date.now()}`, type: t.key, title: `${countLabel(t, added.length)} just arrived`, body: t.key === "newEmployees" ? "Added to the console. Please create their IDs." : "Waiting for review." });
         }
       }
     }
