@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 
@@ -12,6 +13,7 @@ from models import CompOffGrant, LeaveRequestCreate, LeaveResolve
 from payroll import WEEKOFF_LOOKBACK_DAYS, _holidays_for_employee, apply_late_coming_policy, compute_daily_attendance, pay_period_bounds
 
 router = APIRouter(prefix="/api", tags=["leave"])
+logger = logging.getLogger(__name__)
 
 # Jul 2026 policy: Casual/Sick/Earned are discontinued as separate leave
 # types, replaced company-wide (corporate and factory/retail alike) by one
@@ -445,31 +447,37 @@ def create_leave_request(body: LeaveRequestCreate, user: dict = Depends(get_curr
         return dup  # double-submit: already filed (and approvers already emailed)
     inserted = supabase.table("hr_leave_requests").insert(row).execute()
 
-    approver_ids = set()
-    if target.get("leave_approver_id"):
-        approver_ids.add(target["leave_approver_id"])
-    # Walk the whole reporting chain (manager, their manager, ...) so every
-    # level above the employee is notified. Cycle-guarded and depth-capped.
-    seen = {target["id"]}
-    current_id = target["id"]
-    for _ in range(6):
-        profile_resp = supabase.table("hr_employee_profile").select("reporting_to_id").eq("employee_id", current_id).maybe_single().execute()
-        profile = maybe_single_data(profile_resp)
-        next_id = profile.get("reporting_to_id") if profile else None
-        if not next_id or next_id in seen:
-            break
-        approver_ids.add(next_id)
-        seen.add(next_id)
-        current_id = next_id
-    approver_emails = set()
-    if approver_ids:
-        approvers_resp = supabase.table("hr_employees").select("email").in_("id", list(approver_ids)).execute()
-        approver_emails = {a["email"] for a in approvers_resp.data if a.get("email")}
-    employee_name = f"{target['first_name']} {target.get('last_name', '')}".strip()
-    email_service.notify_leave_submitted(
-        employee_name, body.leave_type, body.start_date.isoformat(), body.end_date.isoformat(), reason,
-        approver_emails, email_service.HR_NOTIFY_EMAIL,
-    )
+    # Notification is best-effort: the request is already saved, so a failure
+    # walking the chain or sending mail must never surface as an error to the
+    # employee (they would retry or think it was not filed).
+    try:
+        approver_ids = set()
+        if target.get("leave_approver_id"):
+            approver_ids.add(target["leave_approver_id"])
+        # Walk the whole reporting chain (manager, their manager, ...) so every
+        # level above the employee is notified. Cycle-guarded and depth-capped.
+        seen = {target["id"]}
+        current_id = target["id"]
+        for _ in range(6):
+            profile_resp = supabase.table("hr_employee_profile").select("reporting_to_id").eq("employee_id", current_id).maybe_single().execute()
+            profile = maybe_single_data(profile_resp)
+            next_id = profile.get("reporting_to_id") if profile else None
+            if not next_id or next_id in seen:
+                break
+            approver_ids.add(next_id)
+            seen.add(next_id)
+            current_id = next_id
+        approver_emails = set()
+        if approver_ids:
+            approvers_resp = supabase.table("hr_employees").select("email").in_("id", list(approver_ids)).execute()
+            approver_emails = {a["email"] for a in approvers_resp.data if a.get("email")}
+        employee_name = f"{target['first_name']} {target.get('last_name', '')}".strip()
+        email_service.notify_leave_submitted(
+            employee_name, body.leave_type, body.start_date.isoformat(), body.end_date.isoformat(), reason,
+            approver_emails, email_service.HR_NOTIFY_EMAIL,
+        )
+    except Exception:
+        logger.exception("leave request notification failed (request %s)", inserted.data[0].get("id"))
 
     return inserted.data[0]
 
