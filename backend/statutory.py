@@ -22,6 +22,7 @@ contribution is rounded UP to the next whole rupee per the ESIC Act.
 """
 
 import math
+from datetime import date
 
 PF_EMPLOYEE_RATE = 0.12
 PF_EMPLOYER_RATE = 0.12
@@ -30,6 +31,11 @@ EPS_WAGE_CEILING = 15000
 EDLI_RATE = 0.005
 EDLI_WAGE_CEILING = 15000
 PF_ADMIN_RATE = 0.005
+# From 17 Sep 2026 the employee PF deduction is capped at ₹3,000/month (12% of
+# Basic, but never more). Pay periods starting before this date keep the
+# uncapped 12%.
+PF_DEDUCTION_CAP = 3000.0
+PF_DEDUCTION_CAP_FROM = date(2026, 9, 17)
 
 ESIC_EMPLOYEE_RATE = 0.0075
 ESIC_EMPLOYER_RATE = 0.0325
@@ -51,7 +57,7 @@ def _round_rupee(amount: float) -> float:
     return float(math.floor(amount + 0.5))
 
 
-def compute_pf(wage_base: float, pf_gross_limit: float, eps_applicable: bool) -> dict:
+def compute_pf(wage_base: float, pf_gross_limit: float, eps_applicable: bool, period_start: date | None = None) -> dict:
     capped_wage = min(wage_base, pf_gross_limit) if pf_gross_limit else wage_base
     eps_wage = min(capped_wage, EPS_WAGE_CEILING)
     edli_wage = min(capped_wage, EDLI_WAGE_CEILING)
@@ -61,8 +67,11 @@ def compute_pf(wage_base: float, pf_gross_limit: float, eps_applicable: bool) ->
     # employer_pf_total minus an un-rounded EPS.
     eps = _round_rupee(eps_wage * EPS_RATE) if eps_applicable else 0.0
     employer_pf_total = _round_rupee(capped_wage * PF_EMPLOYER_RATE)
+    ded_pf = _round_rupee(capped_wage * PF_EMPLOYEE_RATE)
+    if period_start is not None and period_start >= PF_DEDUCTION_CAP_FROM:
+        ded_pf = min(ded_pf, PF_DEDUCTION_CAP)
     return {
-        "ded_pf": _round_rupee(capped_wage * PF_EMPLOYEE_RATE),
+        "ded_pf": ded_pf,
         "oth_pf_wages": round(capped_wage, 2),
         "oth_eps_wages": round(eps_wage, 2),
         "oth_eps": eps,

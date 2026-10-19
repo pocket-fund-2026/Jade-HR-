@@ -53,7 +53,7 @@ def _get_compliance_profile(employee_id: str) -> dict:
     return maybe_single_data(resp) or {}
 
 
-def _apply_statutory(row: dict, profile: dict, state: str | None, month: int) -> dict:
+def _apply_statutory(row: dict, profile: dict, state: str | None, month: int, as_of: date | None = None) -> dict:
     """PF/ESIC/PT are auto-calculated from the employee's Compliances flags
     and can't be hand-edited — a non-applicable employee is forced to 0 so a
     stale manual entry can never survive an unrelated save. LWF is left as a
@@ -63,7 +63,7 @@ def _apply_statutory(row: dict, profile: dict, state: str | None, month: int) ->
     updates = {}
     if profile.get("pf_applicable"):
         pf_gross_limit = float(profile.get("pf_gross_limit") or 0)
-        updates.update(compute_pf(row["earn_basic"], pf_gross_limit, bool(profile.get("eps_applicable"))))
+        updates.update(compute_pf(row["earn_basic"], pf_gross_limit, bool(profile.get("eps_applicable")), as_of))
     else:
         updates.update(ZERO_PF)
 
@@ -166,7 +166,7 @@ def create_salary_structure(
     row["employee_id"] = employee_id
     row["created_by"] = user["id"]
     state = location_to_state(employee.get("location"))
-    row.update(_apply_statutory(row, _get_compliance_profile(employee_id), state, body.effective_date.month))
+    row.update(_apply_statutory(row, _get_compliance_profile(employee_id), state, body.effective_date.month, body.effective_date))
     row.update(_compute_summary(row))
 
     inserted = supabase.table("hr_salary_structure").insert(row).execute()
@@ -191,7 +191,7 @@ def update_salary_structure(
     updates["effective_date"] = updates["effective_date"].isoformat()
     updates["updated_at"] = datetime.now(timezone.utc).isoformat()
     state = location_to_state(employee.get("location"))
-    updates.update(_apply_statutory(updates, _get_compliance_profile(employee_id), state, body.effective_date.month))
+    updates.update(_apply_statutory(updates, _get_compliance_profile(employee_id), state, body.effective_date.month, body.effective_date))
     updates.update(_compute_summary(updates))
 
     resp = (
@@ -268,7 +268,7 @@ def save_lumpsum(
     row.pop("updated_at", None)
 
     state = location_to_state(employee.get("location"))
-    row.update(_apply_statutory(row, _get_compliance_profile(employee_id), state, body.period_month))
+    row.update(_apply_statutory(row, _get_compliance_profile(employee_id), state, body.period_month, start))
     row.update(_compute_summary(row))
     row["updated_at"] = datetime.now(timezone.utc).isoformat()
 

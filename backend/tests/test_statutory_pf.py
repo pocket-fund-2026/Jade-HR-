@@ -19,3 +19,18 @@ def test_pf_eps_epf_sum_to_employer_total():
     # rounding each independently must not let them drift apart.
     r = compute_pf(15250, 15000, eps_applicable=True)
     assert r["oth_eps"] + r["oth_epf"] == 1800.0
+
+
+def test_pf_deduction_capped_at_3000_from_17_sep_2026():
+    from datetime import date
+    # 12% of 30,000 = 3,600 -> capped to 3,000 for periods starting on/after 17 Sep 2026
+    assert compute_pf(30000, 0, True, date(2026, 9, 23))["ded_pf"] == 3000.0
+    assert compute_pf(30000, 0, True, date(2026, 9, 17))["ded_pf"] == 3000.0
+    # below the cap stays at plain 12%
+    assert compute_pf(20000, 0, True, date(2026, 9, 23))["ded_pf"] == 2400.0
+
+
+def test_pf_deduction_uncapped_before_17_sep_2026():
+    from datetime import date
+    assert compute_pf(30000, 0, True, date(2026, 8, 23))["ded_pf"] == 3600.0
+    assert compute_pf(30000, 0, True)["ded_pf"] == 3600.0  # no period given = old behaviour

@@ -1061,7 +1061,7 @@ def compute_monthly_summary(
 
     if employee.get("pf_applicable"):
         pf_gross_limit = float(employee.get("pf_gross_limit") or 0)
-        pf = compute_pf(basic, pf_gross_limit, bool(employee.get("eps_applicable")))
+        pf = compute_pf(basic, pf_gross_limit, bool(employee.get("eps_applicable")), pay_period_bounds(year, month, calendar_month)[0])
     else:
         pf = ZERO_PF
 
