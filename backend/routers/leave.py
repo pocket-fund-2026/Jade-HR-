@@ -448,10 +448,19 @@ def create_leave_request(body: LeaveRequestCreate, user: dict = Depends(get_curr
     approver_ids = set()
     if target.get("leave_approver_id"):
         approver_ids.add(target["leave_approver_id"])
-    profile_resp = supabase.table("hr_employee_profile").select("reporting_to_id").eq("employee_id", target["id"]).maybe_single().execute()
-    profile = maybe_single_data(profile_resp)
-    if profile and profile.get("reporting_to_id"):
-        approver_ids.add(profile["reporting_to_id"])
+    # Walk the whole reporting chain (manager, their manager, ...) so every
+    # level above the employee is notified. Cycle-guarded and depth-capped.
+    seen = {target["id"]}
+    current_id = target["id"]
+    for _ in range(6):
+        profile_resp = supabase.table("hr_employee_profile").select("reporting_to_id").eq("employee_id", current_id).maybe_single().execute()
+        profile = maybe_single_data(profile_resp)
+        next_id = profile.get("reporting_to_id") if profile else None
+        if not next_id or next_id in seen:
+            break
+        approver_ids.add(next_id)
+        seen.add(next_id)
+        current_id = next_id
     approver_emails = set()
     if approver_ids:
         approvers_resp = supabase.table("hr_employees").select("email").in_("id", list(approver_ids)).execute()
