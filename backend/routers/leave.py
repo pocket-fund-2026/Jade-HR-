@@ -752,9 +752,20 @@ def _attach_reporting_manager(requests: list[dict]) -> list[dict]:
             if manager_ids else []
         ) or []
     }
+    # A free-text name that is exactly one active person's full name ("Valery
+    # massey") resolves to that person, so their requests group under one
+    # team. First names alone ("akshay") stay as written: they can be ambiguous.
+    by_full_name: dict[str, list[dict]] = {}
+    if any(not p.get("reporting_to_id") and p.get("reporting_to") for p in profiles.values()):
+        for m in supabase.table("hr_employees").select("id,first_name,last_name,email").eq("is_active", True).execute().data or []:
+            key = " ".join(f"{m['first_name']} {m.get('last_name') or ''}".lower().split())
+            by_full_name.setdefault(key, []).append(m)
     for r in requests:
         p = profiles.get(r.get("employee_id"), {})
         m = managers.get(p.get("reporting_to_id"))
+        if not m and p.get("reporting_to"):
+            hits = by_full_name.get(" ".join(p["reporting_to"].lower().split()), [])
+            m = hits[0] if len(hits) == 1 else None
         name = (f"{m['first_name']} {m.get('last_name') or ''}".strip() if m else None) or (p.get("reporting_to") or "").strip() or None
         email = (m.get("email") if m else None) or p.get("reporting_to_email") or None
         if isinstance(r.get("hr_employees"), dict):

@@ -14,6 +14,28 @@ const NO_DEPT = "No department";
 
 const dayCount = (r) => (new Date(r.end_date) - new Date(r.start_date)) / 86400000 + 1;
 const fullName = (r) => `${r.hr_employees?.first_name || ""} ${r.hr_employees?.last_name || ""}`.trim();
+const OVERDUE_DAYS = 3; // keep in step with routers/leave_reminders.py
+const todayIso = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+const waitingDays = (r) => (r.created_at ? Math.floor((Date.parse(todayIso()) - Date.parse(r.created_at.slice(0, 10))) / 86400000) : 0);
+const isOverdue = (r) => r.status === "pending" && waitingDays(r) > OVERDUE_DAYS;
+const isPastDate = (r) => r.status === "pending" && r.end_date < todayIso();
+
+function AgeFlags({ request }) {
+  const waited = waitingDays(request);
+  if (request.status !== "pending") return null;
+  return (
+    <div className="flex flex-wrap gap-1 mt-1">
+      {isPastDate(request) && (
+        <span className="rounded-full bg-rust-500/15 text-rust-500 px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap">Dates passed</span>
+      )}
+      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap ${
+        waited > 7 ? "bg-rust-500/15 text-rust-500" : waited > OVERDUE_DAYS ? "bg-ochre-500/15 text-ochre-700" : "bg-ink/[0.06] text-ink/60"}`}>
+        {waited <= 0 ? "Requested today" : `Waiting ${waited} day${waited === 1 ? "" : "s"}`}
+      </span>
+    </div>
+  );
+}
+
 const managerOf = (r) => r.hr_employees?.reporting_manager || NO_MANAGER;
 const deptOf = (r) => r.hr_employees?.department || NO_DEPT;
 
@@ -37,8 +59,10 @@ function TeamSummary({ requests, groupBy, setGroupBy, active, onPick }) {
     const byTeam = new Map();
     requests.forEach((r) => {
       const key = groupBy === "manager" ? managerOf(r) : deptOf(r);
-      const t = byTeam.get(key) || { key, email: groupBy === "manager" ? r.hr_employees?.reporting_manager_email : null, requests: 0, days: 0, people: new Set(), onLeaveToday: new Set(), types: {} };
+      const t = byTeam.get(key) || { key, email: groupBy === "manager" ? r.hr_employees?.reporting_manager_email : null, overdue: 0, past: 0, requests: 0, days: 0, people: new Set(), onLeaveToday: new Set(), types: {} };
       t.requests += 1;
+      if (isOverdue(r)) t.overdue += 1;
+      if (isPastDate(r)) t.past += 1;
       t.days += dayCount(r);
       t.people.add(r.employee_id);
       if (r.start_date <= today && r.end_date >= today) t.onLeaveToday.add(r.employee_id);
@@ -82,6 +106,11 @@ function TeamSummary({ requests, groupBy, setGroupBy, active, onPick }) {
               <p className="text-[11px] text-ink/55 mt-0.5 truncate">
                 {Object.entries(t.types).map(([k, n]) => `${n} ${k}`).join(" · ")}
               </p>
+              {(t.overdue > 0 || t.past > 0) && (
+                <p className="text-[11px] text-rust-500 mt-0.5">
+                  {[t.overdue && `${t.overdue} waiting >${OVERDUE_DAYS}d`, t.past && `${t.past} dates passed`].filter(Boolean).join(" · ")}
+                </p>
+              )}
               {t.onLeaveToday.size > 0 && (
                 <p className="text-[11px] text-ochre-700 mt-0.5">{t.onLeaveToday.size} on leave today</p>
               )}
@@ -139,6 +168,7 @@ function ResolveRow({ request, onResolved }) {
       <td className="px-5 py-3.5 font-nums text-ink/70">
         {formatDate(request.start_date)}–{formatDate(request.end_date)}
         <div className="text-xs text-ink/70">{days} day{days > 1 ? "s" : ""}</div>
+        <AgeFlags request={request} />
       </td>
       <td className="px-5 py-3.5 max-w-xs text-ink/70">
         {request.reason}
@@ -238,6 +268,7 @@ export default function Leave() {
   const [groupBy, setGroupBy] = useState("manager");
   const [team, setTeam] = useState("");
   const [q, setQ] = useState("");
+  const [attention, setAttention] = useState("");
   const skipNextLoad = useRef(hasLayoutData);
 
   const load = (silent) => {
@@ -268,6 +299,7 @@ export default function Leave() {
     const words = q.toLowerCase().split(/\s+/).filter(Boolean);
     return byLocation
       .filter((r) => !team || (groupBy === "manager" ? managerOf(r) : deptOf(r)) === team)
+      .filter((r) => !attention || (attention === "overdue" ? isOverdue(r) : isPastDate(r)))
       .filter((r) => {
         if (!words.length) return true;
         const hay = `${fullName(r)} ${r.hr_employees?.employee_code || ""} ${managerOf(r)} ${deptOf(r)} ${LEAVE_LABELS[r.leave_type] || ""} ${r.reason || ""}`.toLowerCase();
@@ -275,7 +307,9 @@ export default function Leave() {
       })
       .slice()
       .sort(SORTS[sort].cmp);
-  }, [byLocation, team, groupBy, q, sort]);
+  }, [byLocation, team, groupBy, q, sort, attention]);
+  const overdueCount = byLocation.filter(isOverdue).length;
+  const pastCount = byLocation.filter(isPastDate).length;
   const changeGroupBy = (v) => { setGroupBy(v); setTeam(""); };
 
   return (
@@ -301,7 +335,22 @@ export default function Leave() {
         </div>
       </div>
 
-      <SlidingTabs tabs={TABS} value={tab} onChange={(t) => { setTab(t); setTeam(""); }} className="flex gap-1 mb-4" />
+      <SlidingTabs tabs={TABS} value={tab} onChange={(t) => { setTab(t); setTeam(""); setAttention(""); }} className="flex gap-1 mb-4" />
+
+      {tab === "pending" && (overdueCount > 0 || pastCount > 0) && (
+        <div className="flex flex-wrap items-center gap-2 mb-4 rounded-sm border border-rust-500/30 bg-rust-500/[0.05] px-4 py-3 text-sm">
+          <span className="text-ink mr-1">Needs attention:</span>
+          {[["overdue", `${overdueCount} waiting more than ${OVERDUE_DAYS} days`, overdueCount], ["past", `${pastCount} with dates already passed`, pastCount]]
+            .filter(([, , n]) => n > 0)
+            .map(([key, label]) => (
+              <button key={key} onClick={() => setAttention(attention === key ? "" : key)}
+                className={`rounded-sm px-3 py-1.5 text-xs font-semibold border transition-colors ${attention === key ? "bg-rust-500 text-white border-rust-500" : "bg-paper text-rust-500 border-rust-500/40 hover:bg-rust-500/10"}`}>
+                {label}
+              </button>
+            ))}
+          <span className="text-xs text-ink/60">Managers get a reminder email each morning; HR gets the summary.</span>
+        </div>
+      )}
 
       <TeamSummary requests={byLocation} groupBy={groupBy} setGroupBy={changeGroupBy} active={team} onPick={setTeam} />
 
@@ -322,7 +371,7 @@ export default function Leave() {
             <button onClick={() => setTeam("")} aria-label="Clear team filter"><X size={14} /></button>
           </span>
         )}
-        {(team || q) && <span className="text-xs text-ink/60">Showing {filtered.length} of {byLocation.length}</span>}
+        {(team || q || attention) && <span className="text-xs text-ink/60">Showing {filtered.length} of {byLocation.length}</span>}
       </div>
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
