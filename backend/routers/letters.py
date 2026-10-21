@@ -254,3 +254,14 @@ def email_letter(letter_id: str, body: LetterEmailRequest, user: dict = Depends(
     now = datetime.now(timezone.utc).isoformat()
     supabase.table("hr_generated_letters").update({"emailed_to": to, "emailed_at": now}).eq("id", letter_id).execute()
     return {"ok": True, "emailed_to": to, "emailed_at": now}
+
+
+# TEMPORARY (2026-10-21): removes the two test rows left by the reverted
+# onboarding pipeline. Hardcoded to those ids only; removed right after use.
+_CLEANUP_IDS = ("61282382-6b79-4074-817b-9a978d8d4bc1", "f030972f-d377-4fd5-a911-dc334e3462a5")
+
+
+@router.delete("/cleanup-onboarding-test")
+def cleanup_onboarding_test(user: dict = Depends(require_permission("letters.manage"))):
+    deleted = supabase.table("hr_generated_letters").delete().in_("id", list(_CLEANUP_IDS)).execute()
+    return {"deleted": [r["id"] for r in deleted.data or []]}
