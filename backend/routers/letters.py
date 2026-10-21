@@ -78,7 +78,8 @@ def _substitute(body: str, field_values: dict[str, str], trusted_html_keys: froz
 @router.get("/templates")
 def list_templates(user: dict = Depends(require_permission("letters.generate", "letters.manage"))):
     resp = supabase.table("hr_letter_templates").select("*").order("letter_type").execute()
-    return [{**row, "tokens": _tokens_in(row["body"])} for row in resp.data]
+    # "_"-prefixed rows are internal (onboarding_pipeline settings), not letters.
+    return [{**row, "tokens": _tokens_in(row["body"])} for row in resp.data if not row["letter_type"].startswith("_")]
 
 
 @router.get("/templates/{letter_type}")
@@ -196,7 +197,7 @@ def letter_history(
     limit: int = Query(default=100, ge=1, le=500),
     user: dict = Depends(require_permission("letters.generate", "letters.manage")),
 ):
-    query = supabase.table("hr_generated_letters").select("*").order("created_at", desc=True).limit(limit)
+    query = supabase.table("hr_generated_letters").select("*").neq("letter_type", "_onboarding_case").order("created_at", desc=True).limit(limit)
     if employee_id:
         query = query.eq("employee_id", employee_id)
     return _with_people(query.execute().data or [])

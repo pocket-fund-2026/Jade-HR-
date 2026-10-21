@@ -675,6 +675,7 @@ const APPROVAL_LABELS = {
   awaiting_approval: "Waiting for approver",
   awaiting_candidate: "Approved, waiting for candidate to sign",
   accepted: "Signed and accepted",
+  awaiting_countersign: "Signed by the employee, waiting for the company signature",
 };
 
 function ApprovalPanel({ letter, onChange }) {

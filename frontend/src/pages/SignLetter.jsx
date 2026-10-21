@@ -23,12 +23,15 @@ export default function SignLetter() {
   if (error) return <p className="p-8 text-center text-rust-500">{error}</p>;
   if (!data) return <p className="p-8 text-center text-ink/70"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>;
 
+  const isNda = data.kind === "nda";
   const isApprover = data.role === "approver";
+  // NDA: both sides type their full name (the approver is the company signatory).
+  const usesInitials = isApprover && !isNda;
   const submit = async () => {
     setBusy(true);
     setError("");
     try {
-      await api.post(`/api/offers/sign/${token}`, isApprover ? { initials: value, confirm } : { signature: value, confirm });
+      await api.post(`/api/offers/sign/${token}`, usesInitials ? { initials: value, confirm } : { signature: value, confirm });
       setDone(true);
     } catch (e) {
       setError(e.response?.data?.detail || "Could not submit");
@@ -51,27 +54,31 @@ export default function SignLetter() {
 
         <div className="bg-paper rounded-sm shadow-card p-5 mt-5 space-y-3">
           {done ? (
-            <p className="flex items-center gap-2 text-jade-700"><CheckCircle2 size={18} /> {isApprover ? "Approved. The offer has been sent to the candidate to sign." : "Thank you. Your acceptance is recorded and a signed copy is on its way to your email."}</p>
+            <p className="flex items-center gap-2 text-jade-700"><CheckCircle2 size={18} /> {isNda
+              ? (isApprover ? "Signed. The joiner and HR will get the fully signed copy." : "Thank you. Your signature is recorded. Check your email for the new-joiner details form.")
+              : (isApprover ? "Approved. The offer has been sent to the candidate to sign." : "Thank you. Your acceptance is recorded and a signed copy is on its way to your email.")}</p>
           ) : !data.can_act ? (
-            <p className="text-ink/70 text-sm">{data.status === "accepted" ? "This offer has been signed." : isApprover ? "This offer has already been approved." : "This offer is not ready to sign yet."}</p>
+            <p className="text-ink/70 text-sm">{isNda
+              ? (data.status === "accepted" ? "This NDA is fully signed." : isApprover ? (data.status === "awaiting_candidate" ? "The joiner has not signed this NDA yet." : "This NDA has already been signed.") : "You have already signed this NDA.")
+              : (data.status === "accepted" ? "This offer has been signed." : isApprover ? "This offer has already been approved." : "This offer is not ready to sign yet.")}</p>
           ) : (
             <>
-              <p className="font-display text-lg text-ink">{isApprover ? `Approve offer for ${data.candidate_name}` : "Accept this offer"}</p>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70">{isApprover ? "Your initials" : "Type your full name to sign"}</label>
+              <p className="font-display text-lg text-ink">{isNda ? (isApprover ? `Sign the NDA for ${data.candidate_name} on behalf of JADE` : "Sign this Non-Disclosure Agreement") : isApprover ? `Approve offer for ${data.candidate_name}` : "Accept this offer"}</p>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70">{usesInitials ? "Your initials" : "Type your full name to sign"}</label>
               <input
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
-                maxLength={isApprover ? 6 : 80}
-                className={`w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 ${isApprover ? "uppercase tracking-widest" : ""}`}
+                maxLength={usesInitials ? 6 : 80}
+                className={`w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 ${usesInitials ? "uppercase tracking-widest" : ""}`}
                 style={{ fontFamily: "Georgia, serif", fontStyle: "italic", fontSize: 20 }}
               />
               <label className="flex items-start gap-2 text-sm text-ink">
                 <input type="checkbox" className="mt-1" checked={confirm} onChange={(e) => setConfirm(e.target.checked)} />
-                {isApprover ? "I approve this offer letter." : "I have read and understood the terms of this offer and accept them."}
+                {isNda ? (isApprover ? "I sign this agreement on behalf of JADE Lifestyles India." : "I have read and understood this agreement and agree to its terms.") : isApprover ? "I approve this offer letter." : "I have read and understood the terms of this offer and accept them."}
               </label>
               {error && <p className="text-sm text-rust-500">{error}</p>}
               <button onClick={submit} disabled={busy || !value.trim() || !confirm} className="w-full bg-jade-600 text-white rounded-sm px-4 py-2.5 text-sm font-semibold disabled:opacity-50">
-                {busy ? "Submitting…" : isApprover ? "Approve offer" : "Sign and accept"}
+                {busy ? "Submitting…" : isNda ? "Sign agreement" : isApprover ? "Approve offer" : "Sign and accept"}
               </button>
             </>
           )}

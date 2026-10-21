@@ -9,7 +9,7 @@ from routers import (
     absence, arrears, auth, biometric, careers, clocks, comp_off, confirmations, disputes, email_log, employee_profile, help_media, org_chart,
     employees,
     exit_procedure, hr_tasks_report,
-    holidays, hr_tasks, late_policy, leave, leave_ledger, letters, offers, loans, market_visits, new_joiner_email, onboarding,
+    holidays, hr_tasks, late_policy, leave, leave_ledger, letters, offers, loans, market_visits, new_joiner_email, onboarding, onboarding_cases,
     payroll,
     payslip_approvals, permissions, personal_info, policy_ack, policy_notices, reports, salary_paid, salary_structure,
     selfie, store_timings, tax_declaration, wfh,
@@ -63,6 +63,7 @@ app.include_router(offers.router)
 app.include_router(leave_ledger.router)
 app.include_router(payslip_approvals.router)
 app.include_router(onboarding.router)
+app.include_router(onboarding_cases.router)
 app.include_router(absence.router)
 app.include_router(late_policy.router)
 app.include_router(policy_ack.router)
