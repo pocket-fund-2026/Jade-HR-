@@ -722,7 +722,7 @@ def my_leave_balance(user: dict = Depends(get_current_user)):
 @router.get("/leave-requests")
 def list_leave_requests(status: str | None = Query(None), admin: dict = Depends(require_permission("leave.manage"))):
     query = supabase.table("hr_leave_requests").select(
-        "*, hr_employees!hr_leave_requests_employee_id_fkey(first_name,last_name,employee_code,location)"
+        "*, hr_employees!hr_leave_requests_employee_id_fkey(first_name,last_name,employee_code,location,department)"
     )
     if status:
         query = query.eq("status", status)
@@ -733,7 +733,7 @@ def list_leave_requests(status: str | None = Query(None), admin: dict = Depends(
 def _attach_reporting_manager(requests: list[dict]) -> list[dict]:
     """Adds hr_employees.reporting_manager (a display name) to each request so
     the admin Leave page can show who the employee reports to under their
-    name. The linked manager (reporting_to_id) wins; the free-text
+    name, with their email. The linked manager (reporting_to_id) wins; the free-text
     reporting_to name on file is the fallback. Two batched reads, not one
     per row."""
     emp_ids = list({r["employee_id"] for r in requests if r.get("employee_id")})
@@ -741,22 +741,25 @@ def _attach_reporting_manager(requests: list[dict]) -> list[dict]:
         return requests
     profiles = {
         p["employee_id"]: p for p in (
-            supabase.table("hr_employee_profile").select("employee_id,reporting_to,reporting_to_id")
+            supabase.table("hr_employee_profile").select("employee_id,reporting_to,reporting_to_id,reporting_to_email")
             .in_("employee_id", emp_ids).execute().data
         ) or []
     }
     manager_ids = list({p["reporting_to_id"] for p in profiles.values() if p.get("reporting_to_id")})
-    manager_names = {
-        m["id"]: f"{m['first_name']} {m.get('last_name') or ''}".strip() for m in (
-            supabase.table("hr_employees").select("id,first_name,last_name").in_("id", manager_ids).execute().data
+    managers = {
+        m["id"]: m for m in (
+            supabase.table("hr_employees").select("id,first_name,last_name,email").in_("id", manager_ids).execute().data
             if manager_ids else []
         ) or []
     }
     for r in requests:
         p = profiles.get(r.get("employee_id"), {})
-        name = manager_names.get(p.get("reporting_to_id")) or (p.get("reporting_to") or "").strip() or None
+        m = managers.get(p.get("reporting_to_id"))
+        name = (f"{m['first_name']} {m.get('last_name') or ''}".strip() if m else None) or (p.get("reporting_to") or "").strip() or None
+        email = (m.get("email") if m else None) or p.get("reporting_to_email") or None
         if isinstance(r.get("hr_employees"), dict):
             r["hr_employees"]["reporting_manager"] = name
+            r["hr_employees"]["reporting_manager_email"] = email
     return requests
 
 
