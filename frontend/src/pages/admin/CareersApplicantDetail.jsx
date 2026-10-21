@@ -7,7 +7,8 @@ import api from "../../lib/api.js";
 import { CAREERS_SITE_URL } from "../../lib/careers.js";
 import { formatFullDate } from "../../lib/format.js";
 
-const STATUS_OPTIONS = ["New", "Assignment Submitted", "Shortlisted", "Interviewing", "Offered", "Hired", "Rejected"];
+const STATUS_OPTIONS = ["New", "Assignment Submitted", "Shortlisted", "Interviewing", "Offered", "Hired", "Rejected", "Auto-Rejected"];
+const VERDICT_LABEL = { shortlist: "Strong fit", review: "Review", reject: "Fails brief" };
 
 function Field({ label, value }) {
   if (!value) return null;
@@ -65,6 +66,26 @@ export default function CareersApplicantDetail() {
           {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
       </div>
+
+      {a.screen_verdict && (
+        <div className="bg-paper rounded-sm shadow-card p-6 mb-5">
+          <div className="flex items-center gap-2.5 mb-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/50">Auto-Screening</p>
+            <StampBadge status={a.screen_verdict}>{VERDICT_LABEL[a.screen_verdict] || a.screen_verdict}</StampBadge>
+          </div>
+          <p className="text-sm text-ink">{a.screen_reasons}</p>
+          {a.status === "Auto-Rejected" && (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => setStatus("New")}
+              className="mt-3 px-3 py-1.5 rounded-sm text-xs font-semibold border border-ink/20 text-ink hover:bg-manila/40 disabled:opacity-50"
+            >
+              Restore to New
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="bg-paper rounded-sm shadow-card p-6 mb-5">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/50 mb-1">Interview Decision</p>

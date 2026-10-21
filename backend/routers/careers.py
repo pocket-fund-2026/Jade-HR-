@@ -93,8 +93,13 @@ def delete_question(question_id: int, user: dict = _gate):
 
 # ---------- Applicants ----------
 @router.get("/applications")
-def list_applications(job_id: str | None = Query(None), status: str | None = Query(None), user: dict = _gate):
-    params = {k: v for k, v in {"job_id": job_id, "status": status}.items() if v}
+def list_applications(
+    job_id: str | None = Query(None),
+    status: str | None = Query(None),
+    include_auto_rejected: str | None = Query(None),
+    user: dict = _gate,
+):
+    params = {k: v for k, v in {"job_id": job_id, "status": status, "include_auto_rejected": include_auto_rejected}.items() if v}
     return _proxy("GET", "/api/admin/applications", params=params)
 
 
