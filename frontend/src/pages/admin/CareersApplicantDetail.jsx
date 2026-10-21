@@ -2,13 +2,14 @@ import { Check, FileText, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
+import { HistoryCard, InterviewsCard, NotesCard } from "../../components/CareersApplicantActivity.jsx";
+import CareersNav from "../../components/CareersNav.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
-import { CAREERS_SITE_URL } from "../../lib/careers.js";
+import { APPLICANT_STATUSES, CAREERS_SITE_URL, VERDICT_LABEL } from "../../lib/careers.js";
 import { formatFullDate } from "../../lib/format.js";
 
-const STATUS_OPTIONS = ["New", "Assignment Submitted", "Shortlisted", "Interviewing", "Offered", "Hired", "Rejected", "Auto-Rejected"];
-const VERDICT_LABEL = { shortlist: "Strong fit", review: "Review", reject: "Fails brief" };
+const STATUS_OPTIONS = APPLICANT_STATUSES;
 
 function Field({ label, value }) {
   if (!value) return null;
@@ -41,13 +42,16 @@ export default function CareersApplicantDetail() {
   };
 
   if (!data) return <p className="text-ink/70 text-sm"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>;
-  const { application: a, job, submission, answers } = data;
+  const { application: a, job, submission, answers, notes = [], interviews = [], events = [] } = data;
 
   const isAccepted = a.status === "Offered" || a.status === "Hired";
   const isRejected = a.status === "Rejected";
 
   return (
-    <div className="max-w-3xl">
+    <div>
+      <CareersNav />
+      <div className="grid xl:grid-cols-[minmax(0,48rem)_minmax(0,24rem)] gap-6 items-start">
+      <div>
       <button onClick={() => navigate(-1)} className="text-xs text-ink/60 hover:text-ink mb-4">&larr; Back</button>
       <div className="mb-6 flex items-start justify-between">
         <div>
@@ -233,6 +237,14 @@ export default function CareersApplicantDetail() {
             <p className="text-xs text-ink/50 font-nums mt-3">Submitted {formatFullDate(submission.submitted_at)}</p>
           </>
         )}
+      </div>
+      </div>
+
+      <aside>
+        <InterviewsCard applicationId={a.id} interviews={interviews} onChange={load} />
+        <NotesCard applicationId={a.id} notes={notes} onChange={load} />
+        <HistoryCard events={events} />
+      </aside>
       </div>
     </div>
   );

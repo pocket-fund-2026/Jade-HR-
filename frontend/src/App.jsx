@@ -131,6 +131,9 @@ const Careers = lazyWithReload(() => import("./pages/admin/Careers.jsx"));
 const CareersJobForm = lazyWithReload(() => import("./pages/admin/CareersJobForm.jsx"));
 const CareersApplicants = lazyWithReload(() => import("./pages/admin/CareersApplicants.jsx"));
 const CareersApplicantDetail = lazyWithReload(() => import("./pages/admin/CareersApplicantDetail.jsx"));
+const CareersDashboard = lazyWithReload(() => import("./pages/admin/CareersDashboard.jsx"));
+const CareersPipeline = lazyWithReload(() => import("./pages/admin/CareersPipeline.jsx"));
+const CareersScreening = lazyWithReload(() => import("./pages/admin/CareersScreening.jsx"));
 const PunctualityReport = lazyWithReload(() => import("./pages/admin/reports/PunctualityReport.jsx"));
 const LateNightSafetyReport = lazyWithReload(() => import("./pages/admin/reports/LateNightSafetyReport.jsx"));
 const EmployeeLayout = lazyWithReload(() => import("./pages/employee/EmployeeLayout.jsx"));
@@ -295,6 +298,9 @@ export default function App() {
             <Route path="careers" element={<RequirePermission anyOf={["careers.manage"]}><Careers /></RequirePermission>} />
             <Route path="careers/new" element={<RequirePermission anyOf={["careers.manage"]}><CareersJobForm /></RequirePermission>} />
             <Route path="careers/:id/edit" element={<RequirePermission anyOf={["careers.manage"]}><CareersJobForm /></RequirePermission>} />
+            <Route path="careers/dashboard" element={<RequirePermission anyOf={["careers.manage"]}><CareersDashboard /></RequirePermission>} />
+            <Route path="careers/pipeline" element={<RequirePermission anyOf={["careers.manage"]}><CareersPipeline /></RequirePermission>} />
+            <Route path="careers/screening" element={<RequirePermission anyOf={["careers.manage"]}><CareersScreening /></RequirePermission>} />
             <Route path="careers/applicants" element={<RequirePermission anyOf={["careers.manage"]}><CareersApplicants /></RequirePermission>} />
             <Route path="careers/applicants/:id" element={<RequirePermission anyOf={["careers.manage"]}><CareersApplicantDetail /></RequirePermission>} />
             <Route path="help" element={<Help scope="admin" />} />

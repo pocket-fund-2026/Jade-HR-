@@ -24,17 +24,28 @@ router = APIRouter(prefix="/api/careers", tags=["careers"])
 _gate = Depends(require_permission("careers.manage"))
 
 
-def _careers_token() -> str:
-    return jwt.encode({"id": 1, "email": "careers@jadecouture.com"}, CAREERS_JWT_SECRET, algorithm="HS256")
+def _actor(user: dict | None) -> str | None:
+    if not user:
+        return None
+    name = user.get("name") or f"{user.get('first_name', '')} {user.get('last_name') or ''}".strip()
+    return name or user.get("employee_code")
 
 
-def _proxy(method: str, path: str, **kwargs) -> dict | list:
+def _careers_token(user: dict | None = None) -> str:
+    # "name" is who jade-careers records against notes, interviews and status changes.
+    payload = {"id": 1, "email": "careers@jadecouture.com"}
+    if _actor(user):
+        payload["name"] = _actor(user)
+    return jwt.encode(payload, CAREERS_JWT_SECRET, algorithm="HS256")
+
+
+def _proxy(method: str, path: str, user: dict | None = None, timeout: float = 15, **kwargs) -> dict | list:
     try:
         resp = httpx.request(
             method,
             f"{CAREERS_API_BASE}{path}",
-            headers={"Authorization": f"Bearer {_careers_token()}"},
-            timeout=15,
+            headers={"Authorization": f"Bearer {_careers_token(user)}"},
+            timeout=timeout,
             **kwargs,
         )
     except httpx.RequestError as exc:
@@ -96,11 +107,28 @@ def delete_question(question_id: int, user: dict = _gate):
 def list_applications(
     job_id: str | None = Query(None),
     status: str | None = Query(None),
+    verdict: str | None = Query(None),
+    search: str | None = Query(None),
     include_auto_rejected: str | None = Query(None),
     user: dict = _gate,
 ):
-    params = {k: v for k, v in {"job_id": job_id, "status": status, "include_auto_rejected": include_auto_rejected}.items() if v}
+    params = {
+        k: v
+        for k, v in {
+            "job_id": job_id,
+            "status": status,
+            "verdict": verdict,
+            "search": search,
+            "include_auto_rejected": include_auto_rejected,
+        }.items()
+        if v
+    }
     return _proxy("GET", "/api/admin/applications", params=params)
+
+
+@router.post("/applications/bulk-status")
+def bulk_status(body: dict = Body(...), user: dict = _gate):
+    return _proxy("POST", "/api/admin/applications/bulk-status", user=user, json=body)
 
 
 @router.get("/applications/{application_id}")
@@ -110,4 +138,58 @@ def get_application(application_id: int, user: dict = _gate):
 
 @router.patch("/applications/{application_id}")
 def update_application(application_id: int, body: dict = Body(...), user: dict = _gate):
-    return _proxy("PATCH", f"/api/admin/applications/{application_id}", json=body)
+    return _proxy("PATCH", f"/api/admin/applications/{application_id}", user=user, json=body)
+
+
+# ---------- Notes, interviews, history ----------
+@router.post("/applications/{application_id}/notes")
+def add_note(application_id: int, body: dict = Body(...), user: dict = _gate):
+    return _proxy("POST", f"/api/admin/applications/{application_id}/notes", user=user, json=body)
+
+
+@router.delete("/notes/{note_id}")
+def delete_note(note_id: int, user: dict = _gate):
+    return _proxy("DELETE", f"/api/admin/notes/{note_id}", user=user)
+
+
+@router.post("/applications/{application_id}/interviews")
+def add_interview(application_id: int, body: dict = Body(...), user: dict = _gate):
+    return _proxy("POST", f"/api/admin/applications/{application_id}/interviews", user=user, json=body)
+
+
+@router.put("/interviews/{interview_id}")
+def update_interview(interview_id: int, body: dict = Body(...), user: dict = _gate):
+    return _proxy("PUT", f"/api/admin/interviews/{interview_id}", user=user, json=body)
+
+
+@router.delete("/interviews/{interview_id}")
+def delete_interview(interview_id: int, user: dict = _gate):
+    return _proxy("DELETE", f"/api/admin/interviews/{interview_id}", user=user)
+
+
+@router.get("/interviews")
+def list_interviews(days: int = Query(14), user: dict = _gate):
+    return _proxy("GET", "/api/admin/interviews", params={"days": days})
+
+
+# ---------- Dashboard ----------
+@router.get("/stats")
+def stats(days: int = Query(0), user: dict = _gate):
+    return _proxy("GET", "/api/admin/stats", params={"days": days})
+
+
+# ---------- Screening rules ----------
+@router.get("/screening/config")
+def get_screening_config(user: dict = _gate):
+    return _proxy("GET", "/api/admin/screening/config")
+
+
+@router.put("/screening/config")
+def save_screening_config(body: dict = Body(...), user: dict = _gate):
+    return _proxy("PUT", "/api/admin/screening/config", user=user, json=body)
+
+
+@router.post("/screening/run")
+def run_screening(body: dict = Body(...), user: dict = _gate):
+    # Reads every resume PDF, so give it longer than the default.
+    return _proxy("POST", "/api/admin/screening/run", user=user, timeout=55, json=body)

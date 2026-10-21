@@ -2,6 +2,7 @@ import { Bell, GripVertical, Pencil, Plus, Trash2, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
+import CareersNav from "../../components/CareersNav.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
 
@@ -60,7 +61,7 @@ export default function Careers() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between">
         <div>
           <h2 className="font-display text-2xl text-ink">Careers — Job Postings</h2>
           <p className="text-xs text-ink/70 font-nums mt-0.5">Live on the JADE Careers site — jobs and applicants managed here</p>
@@ -73,6 +74,7 @@ export default function Careers() {
           <Plus size={15} /> New Job
         </Link>
       </div>
+      <CareersNav />
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm tabular-nums">
