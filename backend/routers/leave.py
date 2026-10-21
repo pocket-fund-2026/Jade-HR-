@@ -727,7 +727,37 @@ def list_leave_requests(status: str | None = Query(None), admin: dict = Depends(
     if status:
         query = query.eq("status", status)
     resp = query.order("created_at", desc=True).execute()
-    return resp.data
+    return _attach_reporting_manager(resp.data or [])
+
+
+def _attach_reporting_manager(requests: list[dict]) -> list[dict]:
+    """Adds hr_employees.reporting_manager (a display name) to each request so
+    the admin Leave page can show who the employee reports to under their
+    name. The linked manager (reporting_to_id) wins; the free-text
+    reporting_to name on file is the fallback. Two batched reads, not one
+    per row."""
+    emp_ids = list({r["employee_id"] for r in requests if r.get("employee_id")})
+    if not emp_ids:
+        return requests
+    profiles = {
+        p["employee_id"]: p for p in (
+            supabase.table("hr_employee_profile").select("employee_id,reporting_to,reporting_to_id")
+            .in_("employee_id", emp_ids).execute().data
+        ) or []
+    }
+    manager_ids = list({p["reporting_to_id"] for p in profiles.values() if p.get("reporting_to_id")})
+    manager_names = {
+        m["id"]: f"{m['first_name']} {m.get('last_name') or ''}".strip() for m in (
+            supabase.table("hr_employees").select("id,first_name,last_name").in_("id", manager_ids).execute().data
+            if manager_ids else []
+        ) or []
+    }
+    for r in requests:
+        p = profiles.get(r.get("employee_id"), {})
+        name = manager_names.get(p.get("reporting_to_id")) or (p.get("reporting_to") or "").strip() or None
+        if isinstance(r.get("hr_employees"), dict):
+            r["hr_employees"]["reporting_manager"] = name
+    return requests
 
 
 @router.get("/me/team-leave-requests")

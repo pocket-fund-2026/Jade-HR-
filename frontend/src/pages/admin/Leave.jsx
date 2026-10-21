@@ -15,6 +15,14 @@ const TABS = [
   { key: "rejected", label: "Rejected" },
 ];
 
+function ReportsTo({ name }) {
+  return (
+    <div className={`text-xs mt-0.5 ${name ? "text-ink/70" : "text-ink/40 italic"}`}>
+      {name ? <>Reports to <span className="text-ink/90">{name}</span></> : "No reporting manager"}
+    </div>
+  );
+}
+
 function ResolveRow({ request, onResolved }) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -37,6 +45,7 @@ function ResolveRow({ request, onResolved }) {
       <td className="px-5 py-3.5">
         <span className="text-ink font-medium">{employee?.first_name} {employee?.last_name}</span>
         <div className="text-xs text-ink/70 font-nums">{employee?.employee_code}</div>
+        <ReportsTo name={employee?.reporting_manager} />
       </td>
       <td className="px-5 py-3.5 text-ink/70">{employee?.location || "—"}</td>
       <td className="px-5 py-3.5 text-ink/70">{LEAVE_LABELS[request.leave_type]}</td>
@@ -214,6 +223,7 @@ export default function Leave() {
                   <td className="px-5 py-3.5">
                     <span className="text-ink font-medium">{r.hr_employees?.first_name} {r.hr_employees?.last_name}</span>
                     <div className="text-xs text-ink/70 font-nums">{r.hr_employees?.employee_code}</div>
+                    <ReportsTo name={r.hr_employees?.reporting_manager} />
                   </td>
                   <td className="px-5 py-3.5 text-ink/70">{r.hr_employees?.location || "—"}</td>
                   <td className="px-5 py-3.5 text-ink/70">{LEAVE_LABELS[r.leave_type]}</td>
