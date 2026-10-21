@@ -1,5 +1,6 @@
 import re
 import secrets
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -8,12 +9,14 @@ from avatars import attach_avatar_urls
 from database import maybe_single_data, supabase
 from email_service import notify_new_joiner
 from models import (
-    EmployeeCreate, EmployeeUpdate, PasswordReset, ReportingManagerImportRequest, SalaryImportRequest,
+    EmployeeCreate, EmployeeUpdate, PasswordReset, ReportingManagerImportRequest, ReportingManagerSaveRequest,
+    SalaryImportRequest,
     StatutoryFlagsImportRequest,
 )
 from routers.employee_profile import SENSITIVE_PROFILE_FIELDS
 from routers.new_joiner_email import recipient_emails
 from routers.onboarding import _next_employee_code
+from routers.org_chart import CHAIRMAN_NAMES
 
 router = APIRouter(prefix="/api/employees", tags=["employees"])
 
@@ -194,6 +197,32 @@ def _strip_honorific_words(part: str) -> str:
     return " ".join(kept) if kept else part
 
 
+def _active_name_index(active: list[dict]) -> dict[str, list[dict]]:
+    name_index: dict[str, list[dict]] = {}
+    for e in active:
+        full = f"{e['first_name']} {e.get('last_name') or ''}".strip()
+        for key in {_clean_name_token(e["first_name"]), _clean_name_token(full)}:
+            if key:
+                name_index.setdefault(key, []).append(e)
+    return name_index
+
+
+def _resolve_reporting_to(reporting_to: str, name_index: dict[str, list[dict]]) -> tuple[str, list[dict]]:
+    """(status, candidates) for a free-text reporting_to — see
+    reporting_manager_suggestions for what matched/ambiguous/unresolved mean."""
+    parts = _split_reporting_to(reporting_to)
+    candidates_by_code: dict[str, dict] = {}
+    for part in parts:
+        for c in name_index.get(_clean_name_token(_strip_honorific_words(part)), []):
+            candidates_by_code[c["employee_code"]] = c
+    candidates = list(candidates_by_code.values())
+    if not parts or not candidates:
+        return "unresolved", candidates
+    if len(parts) == 1 and len(candidates) == 1:
+        return "matched", candidates
+    return "ambiguous", candidates
+
+
 @router.get("/reporting-manager-suggestions")
 def reporting_manager_suggestions(user: dict = Depends(require_permission("employees.manage"))):
     """Best-guess resolution of hr_employee_profile.reporting_to (a free-text
@@ -222,15 +251,7 @@ def reporting_manager_suggestions(user: dict = Depends(require_permission("emplo
     by_id = {e["id"]: e for e in employees}
     active = [e for e in employees if e.get("is_active")]
 
-    name_index: dict[str, list[dict]] = {}
-    for e in active:
-        full = f"{e['first_name']} {e.get('last_name') or ''}".strip()
-        for key in {_clean_name_token(e["first_name"]), _clean_name_token(full)}:
-            if key:
-                name_index.setdefault(key, []).append(e)
-
-    def _candidates_for(part: str) -> list[dict]:
-        return name_index.get(_clean_name_token(part), [])
+    name_index = _active_name_index(active)
 
     profiles = (
         supabase.table("hr_employee_profile")
@@ -248,21 +269,8 @@ def reporting_manager_suggestions(user: dict = Depends(require_permission("emplo
         if p.get("reporting_to_id") or not reporting_to:
             continue  # already resolved, or genuinely nothing on file
 
-        parts = _split_reporting_to(reporting_to)
-        candidates_by_code: dict[str, dict] = {}
-        for part in parts:
-            for c in _candidates_for(_strip_honorific_words(part)):
-                candidates_by_code[c["employee_code"]] = c
-        candidates = list(candidates_by_code.values())
-
-        if not parts:
-            status, suggested = "unresolved", None
-        elif len(parts) == 1 and len(candidates) == 1:
-            status, suggested = "matched", candidates[0]
-        elif not candidates:
-            status, suggested = "unresolved", None
-        else:
-            status, suggested = "ambiguous", None
+        status, candidates = _resolve_reporting_to(reporting_to, name_index)
+        suggested = candidates[0] if status == "matched" else None
 
         rows.append({
             "employee_code": emp["employee_code"],
@@ -320,6 +328,144 @@ def bulk_import_reporting_manager(
         supabase.table("hr_employee_profile").upsert(rows_to_upsert, on_conflict="employee_id").execute()
 
     return {"updated": len(updated), "not_found": not_found, "no_manager_email": no_manager_email}
+
+
+def _person(e: dict) -> dict:
+    return {
+        "id": e["id"],
+        "employee_code": e["employee_code"],
+        "name": f"{e['first_name']} {e.get('last_name') or ''}".strip(),
+        "designation": e.get("designation"),
+        "department": e.get("department"),
+        "location": e.get("location"),
+    }
+
+
+@router.get("/reporting-managers")
+def list_reporting_managers(user: dict = Depends(require_permission("employees.manage"))):
+    """Everything the Reporting Managers page needs in one call: every active
+    employee with their current reporting manager (the real reporting_to_id
+    link), the free-text name on file when there's no link yet, and — for
+    those — the same best-guess resolution reporting_manager_suggestions
+    gives the CSV template, so HR can accept or pick a candidate on screen.
+    Never writes anything; save_reporting_managers below does."""
+    employees = (
+        supabase.table("hr_employees")
+        .select("id,employee_code,first_name,last_name,designation,department,location,email,is_active,avatar_path")
+        .execute()
+        .data
+    ) or []
+    attach_avatar_urls(employees)
+    by_id = {e["id"]: e for e in employees}
+    active = [e for e in employees if e.get("is_active")]
+    name_index = _active_name_index(active)
+    profiles = {
+        p["employee_id"]: p for p in (
+            supabase.table("hr_employee_profile")
+            .select("employee_id,reporting_to,reporting_to_id,reporting_to_email")
+            .execute()
+            .data
+        ) or []
+    }
+
+    rows = []
+    for e in active:
+        p = profiles.get(e["id"], {})
+        manager = by_id.get(p.get("reporting_to_id")) if p.get("reporting_to_id") else None
+        note = (p.get("reporting_to") or "").strip()
+        if manager:
+            status, candidates = "assigned", []
+        elif note and " ".join(note.lower().split()) in CHAIRMAN_NAMES:
+            status, candidates = "top", []  # reports to the Chairman, who has no employee record
+        elif note:
+            status, candidates = _resolve_reporting_to(note, name_index)
+            candidates = [c for c in candidates if c["id"] != e["id"]]
+            if status == "matched" and not candidates:
+                status = "unresolved"
+            status = {"matched": "suggested", "ambiguous": "ambiguous"}.get(status, "missing")
+        else:
+            status, candidates = "missing", []
+        rows.append({
+            **_person(e),
+            "avatar_url": e.get("avatar_url"),
+            "manager_id": manager["id"] if manager else None,
+            "manager_active": bool(manager and manager.get("is_active")),
+            "reporting_to_text": note or None,
+            "status": status,
+            "candidate_ids": [c["id"] for c in candidates],
+        })
+
+    # Pickable managers: every active employee, plus any inactive person
+    # still linked as someone's manager so their row can render the name.
+    linked_ids = {r["manager_id"] for r in rows if r["manager_id"]}
+    managers = [
+        {**_person(e), "email": e.get("email"), "is_active": bool(e.get("is_active")), "avatar_url": e.get("avatar_url")}
+        for e in employees if e.get("is_active") or e["id"] in linked_ids
+    ]
+    managers.sort(key=lambda m: m["name"].lower())
+    return {"rows": rows, "managers": managers}
+
+
+@router.post("/reporting-managers")
+def save_reporting_managers(
+    body: ReportingManagerSaveRequest, user: dict = Depends(require_permission("employees.manage")),
+):
+    """Set or clear the reporting manager for several employees at once (the
+    Reporting Managers page's Save). Same three columns
+    bulk_import_reporting_manager writes, but by id, allowing clears, and
+    allowing a manager with no email on file — they're reported back in
+    no_manager_email (the late digest can't reach them) rather than refused,
+    since leave/WFH approval and My Team still work without an email. Rejects
+    the whole batch if it would make anyone their own manager, directly or
+    through a loop (A -> B -> A), since approval-chain walks follow it."""
+    if not body.changes:
+        return {"updated": 0, "no_manager_email": []}
+    employees = supabase.table("hr_employees").select("id,first_name,last_name,email,is_active").execute().data or []
+    by_id = {e["id"]: e for e in employees}
+    name = lambda e: f"{e['first_name']} {e.get('last_name') or ''}".strip()
+
+    changes = {c.employee_id: c.manager_id or None for c in body.changes}
+    for emp_id, mgr_id in changes.items():
+        if emp_id not in by_id:
+            raise HTTPException(status_code=404, detail="Employee not found")
+        if mgr_id and mgr_id not in by_id:
+            raise HTTPException(status_code=404, detail="Manager not found")
+        if mgr_id and not by_id[mgr_id].get("is_active"):
+            raise HTTPException(status_code=400, detail=f"{name(by_id[mgr_id])} is no longer active — pick someone else")
+        if mgr_id == emp_id:
+            raise HTTPException(status_code=400, detail=f"{name(by_id[emp_id])} can't report to themselves")
+
+    current = {
+        p["employee_id"]: p.get("reporting_to_id")
+        for p in supabase.table("hr_employee_profile").select("employee_id,reporting_to_id").execute().data or []
+    }
+    graph = {**current, **changes}
+    for emp_id in changes:
+        seen, cur = {emp_id}, graph.get(emp_id)
+        while cur:
+            if cur in seen:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"That would create a reporting loop involving {name(by_id[emp_id])} — someone would end up managing their own manager",
+                )
+            seen.add(cur)
+            cur = graph.get(cur)
+
+    now = datetime.now(timezone.utc).isoformat()
+    rows, no_email = [], []
+    for emp_id, mgr_id in changes.items():
+        mgr = by_id.get(mgr_id) if mgr_id else None
+        if mgr and not mgr.get("email"):
+            no_email.append(name(mgr))
+        rows.append({
+            "employee_id": emp_id,
+            "reporting_to_id": mgr_id,
+            "reporting_to_email": mgr.get("email") if mgr else None,
+            "reporting_to": name(mgr) if mgr else None,
+            "updated_at": now,
+        })
+    supabase.table("hr_employee_profile").upsert(rows, on_conflict="employee_id").execute()
+    return {"updated": len(rows), "no_manager_email": sorted(set(no_email))}
 
 
 @router.get("/statutory-flags")

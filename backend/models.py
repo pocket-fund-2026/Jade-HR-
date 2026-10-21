@@ -169,6 +169,15 @@ class ReportingManagerImportRequest(BaseModel):
     rows: list[ReportingManagerImportRow]
 
 
+class ReportingManagerChange(BaseModel):
+    employee_id: str
+    manager_id: Optional[str] = None  # None clears the reporting manager
+
+
+class ReportingManagerSaveRequest(BaseModel):
+    changes: list[ReportingManagerChange]
+
+
 class StatutoryFlagsImportRow(BaseModel):
     employee_code: str
     pf_applicable: bool = False

@@ -1,9 +1,8 @@
-import { ChevronLeft, ChevronRight, FileSpreadsheet, Plus, Search, Upload } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileSpreadsheet, GitBranch, Plus, Search, Upload } from "lucide-react";
 import PersonAvatar from "../../components/PersonAvatar.jsx";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
-import ReportingManagerImportModal from "../../components/ReportingManagerImportModal.jsx";
 import SalaryImportModal from "../../components/SalaryImportModal.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
@@ -159,7 +158,6 @@ export default function Employees() {
   const [page, setPage] = useState(1);
   const [showImport, setShowImport] = useState(false);
   const canManage = can("employees.manage");
-  const [showManagerImport, setShowManagerImport] = useState(false);
   const [exportingFull, setExportingFull] = useState(false);
 
   const downloadCompleteDetails = async () => {
@@ -246,13 +244,13 @@ export default function Employees() {
             </button>
           )}
           {canManage && (
-            <button
-              onClick={() => setShowManagerImport(true)}
+            <Link
+              to="/admin/reporting-managers"
               className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-4 py-2.5 rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
             >
-              <Upload size={16} />
-              Import Reporting Managers
-            </button>
+              <GitBranch size={16} />
+              Reporting Managers
+            </Link>
           )}
           <Link
             to="/admin/employees/new"
@@ -268,13 +266,6 @@ export default function Employees() {
         <SalaryImportModal
           onClose={() => setShowImport(false)}
           onImported={() => { setShowImport(false); load(); }}
-        />
-      )}
-
-      {showManagerImport && (
-        <ReportingManagerImportModal
-          onClose={() => setShowManagerImport(false)}
-          onImported={() => { setShowManagerImport(false); load(); }}
         />
       )}
 
