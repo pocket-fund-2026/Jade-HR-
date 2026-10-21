@@ -601,9 +601,6 @@ class OnboardingSubmissionCreate(BaseModel):
     approver_email: str = ""
     signature_confirmed: bool = False
 
-    # Token from the emailed onboarding-pipeline link, if the form came from one.
-    case_token: str = ""
-
 
 class OnboardingResolve(BaseModel):
     action: str  # approve | reject

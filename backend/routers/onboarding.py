@@ -1,17 +1,14 @@
 import base64
-import logging
 import secrets
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 
 import email_service
-import onboarding_pipeline
 from auth import get_current_user, hash_password, require_permission, user_can
 from database import maybe_single_data, supabase
 from models import OnboardingResolve, OnboardingSubmissionCreate, OnboardingUpload
 
-logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/onboarding", tags=["onboarding"])
 
 BUCKET = "onboarding-documents"
@@ -60,7 +57,6 @@ def submit_onboarding(body: OnboardingSubmissionCreate):
     form). Lands in the review queue below; never writes to hr_employees/
     hr_employee_profile directly — see resolve_submission for that."""
     row = body.model_dump()
-    case_token = row.pop("case_token", "") or ""
     for date_field in DATE_FIELDS:
         if row[date_field] is not None:
             row[date_field] = row[date_field].isoformat()
@@ -68,11 +64,6 @@ def submit_onboarding(body: OnboardingSubmissionCreate):
     row["submitted_at"] = datetime.now(timezone.utc).isoformat()
     inserted = supabase.table("hr_onboarding_submissions").insert(row).execute()
     email_service.notify_onboarding_submitted(row, email_service.HR_NOTIFY_EMAIL)
-    if case_token:
-        try:
-            onboarding_pipeline.on_form_submitted(case_token, inserted.data[0]["id"])
-        except Exception:
-            logger.exception("Could not link onboarding submission to its pipeline case")
     return {"id": inserted.data[0]["id"]}
 
 
@@ -297,11 +288,5 @@ def resolve_submission(
         "resolved_at": datetime.now(timezone.utc).isoformat(),
         "created_employee_id": created_employee_id,
     }).eq("id", submission_id).execute()
-
-    if created_employee_id:
-        try:
-            onboarding_pipeline.on_form_approved(submission, created_employee_id)
-        except Exception:
-            logger.exception("Could not advance the onboarding pipeline for submission %s", submission_id)
 
     return {"ok": True, "created_employee_id": created_employee_id, "issued": issued}

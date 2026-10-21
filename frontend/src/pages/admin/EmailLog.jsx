@@ -16,10 +16,6 @@ const KIND_LABELS = {
   absence_resolved: "Work absence decision", onboarding_submitted: "Onboarding form", loan_submitted: "Loan request",
   loan_resolved: "Loan decision", salary_hold: "Salary hold", exit_initiated: "Exit started", letter: "Letter",
   test: "Test email", general: "Other",
-  onboarding_nda: "Onboarding: NDA to sign", onboarding_nda_countersign: "Onboarding: NDA for Dev", onboarding_nda_signed: "Onboarding: signed NDA",
-  onboarding_form_link: "Onboarding: details form", onboarding_biometric: "Onboarding: biometric form", onboarding_welcome: "Onboarding: welcome + Slack",
-  onboarding_analyst_doc: "Onboarding: analyst document", onboarding_complete_manager: "Onboarding complete", onboarding_escalation: "Onboarding escalation",
-  new_joiner_login: "New joiner login", offer_approval: "Offer approval", offer_candidate: "Offer to sign", offer_approved: "Offer approved", offer_signed: "Signed offer",
 };
 
 const STATUS_STYLES = {

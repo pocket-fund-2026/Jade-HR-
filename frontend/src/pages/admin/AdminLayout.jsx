@@ -1,4 +1,4 @@
-import { Briefcase, BookOpen, CalendarCheck, CalendarClock, CalendarDays, CalendarPlus, CheckSquare, ClipboardList, DoorOpen, FileBarChart, FileText, Flag, HelpCircle, Home, KeyRound, LayoutDashboard, ListChecks, LogOut, Mail, MapPin, Menu, Network, Plane, Receipt, Search, Shield, ShieldAlert, ShieldCheck, Stamp, UserPlus, Users, Users2, Wallet, X } from "lucide-react";
+import { Briefcase, BookOpen, CalendarCheck, CalendarClock, CalendarDays, CalendarPlus, CheckSquare, ClipboardList, DoorOpen, FileBarChart, FileText, Flag, HelpCircle, Home, KeyRound, LayoutDashboard, LogOut, Mail, MapPin, Menu, Network, Plane, Receipt, Search, Shield, ShieldAlert, ShieldCheck, Stamp, UserPlus, Users, Users2, Wallet, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 
@@ -20,8 +20,7 @@ const navItems = [
   // People — headcount, hiring, absence
   { to: "/admin/employees", label: "Employees", icon: Users, permission: "employees.view" },
   { to: "/admin/org-chart", label: "Org Chart", icon: Network, permission: "employees.view" },
-  { to: "/admin/onboarding/pipeline", label: "Onboarding Pipeline", icon: ListChecks, permission: "onboarding.manage" },
-  { to: "/admin/onboarding", label: "Onboarding Forms", icon: UserPlus, badgeKey: "onboarding", permission: "onboarding.manage", end: true },
+  { to: "/admin/onboarding", label: "Onboarding", icon: UserPlus, badgeKey: "onboarding", permission: "onboarding.manage" },
   { to: "/admin/careers", label: "Careers", icon: Users2, badgeKey: "careers", permission: "careers.manage" },
   { to: "/admin/work-absence", label: "Work Absence", icon: Briefcase, badgeKey: "workAbsence", permission: "absence.manage" },
   { to: "/admin/confirmations", label: "Confirmations", icon: CalendarCheck, permission: "employees.manage" },

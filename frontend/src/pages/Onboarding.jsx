@@ -1,6 +1,5 @@
 import { ChevronDown, HelpCircle } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState } from "react";
 
 import api from "../lib/api.js";
 
@@ -227,25 +226,6 @@ export default function Onboarding() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
 
-  // Opened from the emailed onboarding-pipeline link (?c=token): prefill
-  // what HR already knows and tie the submission back to that joiner.
-  const [params] = useSearchParams();
-  const caseToken = params.get("c") || "";
-  useEffect(() => {
-    if (!caseToken) return;
-    api.get(`/api/onboarding-cases/form/${caseToken}`).then(({ data }) => {
-      setForm((f) => ({
-        ...f,
-        full_name: f.full_name || data.candidate_name,
-        email: f.email || data.candidate_email,
-        mobile: f.mobile || data.mobile,
-        designation: f.designation || data.designation,
-        department: f.department || data.department,
-        date_of_joining: f.date_of_joining || data.date_of_joining,
-      }));
-    }).catch(() => {});
-  }, [caseToken]);
-
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
   const setChecked = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.checked }));
   const setFile = (key) => (value) => setForm((f) => ({ ...f, [key]: value }));
@@ -265,7 +245,6 @@ export default function Onboarding() {
         date_of_birth: form.date_of_birth || null,
         date_of_joining: form.date_of_joining || null,
         date_of_offer_letter: form.date_of_offer_letter || null,
-        case_token: caseToken,
       };
       await api.post("/api/onboarding/submit", payload);
       setDone(true);
@@ -290,9 +269,9 @@ export default function Onboarding() {
           <div className="text-left bg-manila/40 rounded-sm p-4 space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wider text-ink/70">What happens next</p>
             <ol className="list-decimal pl-5 text-sm text-ink/80 space-y-1.5">
-              <li>JADE HR reviews your details and creates your employee record.</li>
-              <li>On your first day, HR sets up your work email, enrols you on the biometric attendance device and sends your Slack invite.</li>
-              <li>You get your Employee Code and HR console login by email.</li>
+              <li>HR will enroll you on the biometric attendance device at your work location.</li>
+              <li>Your first punch (or the next nightly sync) assigns you an Employee Code and links it back to this submission automatically.</li>
+              <li>HR will share your Employee Code and an initial password with you so you can log in.</li>
               <li>Once logged in, you'll find everything you submitted here under "My Onboarding" in your dashboard.</li>
             </ol>
           </div>

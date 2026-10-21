@@ -146,8 +146,6 @@ const TaxDeclaration = lazyWithReload(() => import("./pages/employee/TaxDeclarat
 const EmployeeMyPayslip = lazyWithReload(() => import("./pages/employee/MyPayslip.jsx"));
 const EmployeeMyOnboarding = lazyWithReload(() => import("./pages/employee/MyOnboarding.jsx"));
 const SignLetter = lazyWithReload(() => import("./pages/SignLetter.jsx"));
-const BiometricForm = lazyWithReload(() => import("./pages/BiometricForm.jsx"));
-const OnboardingPipeline = lazyWithReload(() => import("./pages/admin/OnboardingPipeline.jsx"));
 const TeamDisputes = lazyWithReload(() => import("./pages/employee/TeamDisputes.jsx"));
 const Help = lazyWithReload(() => import("./pages/Help.jsx"));
 
@@ -229,7 +227,6 @@ export default function App() {
           <Route path="/setup" element={<Setup />} />
           <Route path="/onboarding/new" element={<Onboarding />} />
           <Route path="/sign/:token" element={<SignLetter />} />
-          <Route path="/biometric-form/:token" element={<BiometricForm />} />
 
           <Route
             path="/admin"
@@ -296,7 +293,6 @@ export default function App() {
             <Route path="policy-acknowledgements" element={<RequirePermission anyOf={["policy.acknowledgements.view"]}><PolicyAcknowledgements /></RequirePermission>} />
             <Route path="team-access" element={<RequirePermission anyOf={["permissions.manage", "roles.manage"]}><TeamAccess /></RequirePermission>} />
             <Route path="onboarding" element={<RequirePermission anyOf={["onboarding.manage"]}><OnboardingReview /></RequirePermission>} />
-            <Route path="onboarding/pipeline" element={<RequirePermission anyOf={["onboarding.manage"]}><OnboardingPipeline /></RequirePermission>} />
             <Route path="hr-tasks" element={<RequireHrRole><HrTasks /></RequireHrRole>} />
             <Route path="hr-tasks/report" element={<RequireHrRole><HrTasksReport /></RequireHrRole>} />
             <Route path="careers" element={<RequirePermission anyOf={["careers.manage"]}><Careers /></RequirePermission>} />

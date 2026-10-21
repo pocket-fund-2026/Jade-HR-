@@ -17,7 +17,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 import email_service
-import onboarding_pipeline
 from auth import get_current_user, require_permission
 from database import maybe_single_data, supabase
 from letter_email import HR_CONTACT, build_letter_email_html
@@ -129,12 +128,10 @@ def send_for_approval(letter_id: str, body: SendForApproval, user: dict = Depend
 @router.get("/sign/{token}")
 def view_for_signing(token: str):
     row, role = _letter_by_token(token)
-    if row["letter_type"] == onboarding_pipeline.NDA_TYPE:
-        return onboarding_pipeline.nda_view(row, role)
     status = row.get("approval_status")
     can_act = (role == "approver" and status == "awaiting_approval") or (role == "candidate" and status == "awaiting_candidate")
     return {
-        "kind": "offer", "role": role, "status": status, "can_act": can_act, "title": row.get("title") or "Offer letter",
+        "role": role, "status": status, "can_act": can_act, "title": row.get("title") or "Offer letter",
         "candidate_name": _candidate_name(row), "rendered_body": row["rendered_body"],
         "approver_initials": row.get("approver_initials"), "signed_at": row.get("candidate_signed_at"),
     }
@@ -162,13 +159,6 @@ def _send_final_copies(row: dict) -> None:
 @router.post("/sign/{token}")
 def sign(token: str, body: SignBody):
     row, role = _letter_by_token(token)
-    if row["letter_type"] == onboarding_pipeline.NDA_TYPE:
-        try:
-            return onboarding_pipeline.nda_sign(row, role, body.signature, body.confirm)
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
-        except PermissionError as e:
-            raise HTTPException(status_code=409, detail=str(e))
     status = row.get("approval_status")
     title, name = row.get("title") or "Offer letter", _candidate_name(row)
     if role == "approver":
@@ -210,13 +200,6 @@ def sign(token: str, body: SignBody):
         "rendered_body": stamped, "candidate_signature": signature, "candidate_signed_at": now, "approval_status": "accepted",
     }).eq("id", row["id"]).execute().data[0]
     _send_final_copies(updated)
-    # Signing the offer starts the onboarding pipeline (NDA next). Never let
-    # a pipeline problem fail the candidate's signature.
-    try:
-        onboarding_pipeline.start_from_offer(updated)
-    except Exception:
-        import logging
-        logging.getLogger(__name__).exception("Could not start onboarding for offer %s", updated["id"])
     return {"ok": True, "status": "accepted"}
 
 
