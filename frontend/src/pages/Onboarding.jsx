@@ -2,6 +2,7 @@ import { ChevronDown, HelpCircle } from "lucide-react";
 import { useState } from "react";
 
 import api from "../lib/api.js";
+import { prepareUpload } from "../lib/upload.js";
 
 const LOCATIONS = [
   "Madhu Estate, Mumbai",
@@ -32,15 +33,6 @@ const EMPTY_FORM = {
   place_of_work: LOCATIONS[0], timings_and_days: "",
   signature_confirmed: false,
 };
-
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
 
 function Section({ title, step, children }) {
   return (
@@ -133,19 +125,14 @@ function FileField({ label, hint, multiple, count, onUploaded }) {
     try {
       const paths = await Promise.all(
         files.map(async (file) => {
-          const content_base64 = await fileToBase64(file);
-          const { data } = await api.post("/api/onboarding/upload", {
-            filename: file.name,
-            content_base64,
-            content_type: file.type || "application/octet-stream",
-          });
+          const { data } = await api.post("/api/onboarding/upload", await prepareUpload(file));
           return data.path;
         }),
       );
       onUploaded(multiple ? paths : paths[0]);
       setStatus(multiple ? `${paths.length} file(s) added` : "Uploaded");
     } catch (err) {
-      setError(err.response?.data?.detail || "Upload failed — please try again");
+      setError(err.response?.data?.detail || err.message || "Upload failed — please try again");
       setStatus("");
     } finally {
       setBusy(false);

@@ -2,6 +2,7 @@ import { Paperclip, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import api from "../lib/api.js";
+import { prepareUpload } from "../lib/upload.js";
 import { useAuth } from "../lib/auth.jsx";
 
 function daysBetween(start, end) {
@@ -20,15 +21,6 @@ function currentCycleBounds() {
   const start = d >= 23 ? new Date(y, m, 23) : new Date(y, m - 1, 23);
   const iso = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
   return { min: iso(start), max: iso(now) };
-}
-
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 }
 
 function Field({ label, required, children }) {
@@ -90,12 +82,7 @@ export default function AbsenceRequestModal({ onClose, onSubmitted }) {
       let attachment_path = null;
       let attachment_filename = null;
       if (file) {
-        const content_base64 = await fileToBase64(file);
-        const { data } = await api.post("/api/absence-requests/upload", {
-          filename: file.name,
-          content_base64,
-          content_type: file.type || "application/octet-stream",
-        });
+        const { data } = await api.post("/api/absence-requests/upload", await prepareUpload(file));
         attachment_path = data.path;
         attachment_filename = data.filename;
       }
@@ -113,7 +100,7 @@ export default function AbsenceRequestModal({ onClose, onSubmitted }) {
       });
       onSubmitted();
     } catch (err) {
-      setError(err.response?.data?.detail || "Could not submit — try again");
+      setError(err.response?.data?.detail || err.message || "Could not submit — try again");
     } finally {
       setBusy(false);
     }

@@ -2,6 +2,7 @@ import { Paperclip, X } from "lucide-react";
 import { useState } from "react";
 
 import api from "../lib/api.js";
+import { prepareUpload } from "../lib/upload.js";
 import { formatDate } from "../lib/format.js";
 
 const ISSUE_LABELS = {
@@ -10,15 +11,6 @@ const ISSUE_LABELS = {
   both: "Forgot to clock in and out",
   other: "Something else",
 };
-
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
 
 export default function DisputeModal({ date, onClose, onSubmitted }) {
   const [issueType, setIssueType] = useState("missed_clock_out");
@@ -41,12 +33,8 @@ export default function DisputeModal({ date, onClose, onSubmitted }) {
     }
     setBusy(true);
     try {
-      const content_base64 = await fileToBase64(photo);
-      const { data: uploaded } = await api.post("/api/disputes/upload", {
-        filename: photo.name,
-        content_base64,
-        content_type: photo.type || "application/octet-stream",
-      });
+      const prepared = await prepareUpload(photo);
+      const { data: uploaded } = await api.post("/api/disputes/upload", prepared);
       await api.post("/api/me/disputes", {
         date,
         issue_type: issueType,
@@ -58,7 +46,7 @@ export default function DisputeModal({ date, onClose, onSubmitted }) {
       });
       onSubmitted();
     } catch (err) {
-      setError(err.response?.data?.detail || "Could not submit — try again");
+      setError(err.response?.data?.detail || err.message || "Could not submit — try again");
     } finally {
       setBusy(false);
     }
