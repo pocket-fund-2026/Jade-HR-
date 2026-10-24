@@ -58,6 +58,17 @@ def login(body: LoginRequest, response: Response, request: Request):
             updates["failed_login_count"] = 0
             updates["locked_until"] = (datetime.now(timezone.utc) + timedelta(minutes=LOCKOUT_MINUTES)).isoformat()
         supabase.table("hr_employees").update(updates).eq("id", employee["id"]).execute()
+        left = MAX_FAILED_ATTEMPTS - new_count
+        if new_count >= MAX_FAILED_ATTEMPTS:
+            raise HTTPException(
+                status_code=423,
+                detail=f"Too many failed attempts. Try again in {LOCKOUT_MINUTES} minutes, or ask HR to reset your password.",
+            )
+        if left <= 2:
+            raise HTTPException(
+                status_code=401,
+                detail=f"Invalid employee code or password. {left} attempt(s) left before a {LOCKOUT_MINUTES}-minute lock.",
+            )
         raise HTTPException(status_code=401, detail="Invalid employee code or password")
 
     if employee.get("failed_login_count", 0) > 0 or employee.get("locked_until"):

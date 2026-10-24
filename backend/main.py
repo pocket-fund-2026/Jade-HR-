@@ -1,6 +1,10 @@
-from fastapi import FastAPI
+import logging
+
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.exception_handlers import http_exception_handler
+from postgrest.exceptions import APIError
 
 from config import ALLOWED_ORIGINS
 from ratelimit import RateLimitMiddleware
@@ -42,6 +46,33 @@ async def _circuit_open(request, exc: CircuitOpenError):
         status_code=503,
         headers={"Retry-After": str(exc.retry_after)},
     )
+
+
+logger = logging.getLogger("jade_hr.rejections")
+
+
+@app.exception_handler(HTTPException)
+async def _log_rejections(request, exc: HTTPException):
+    # Vercel logs only show "400"; record why a submission was refused so
+    # "I can't submit" reports can be diagnosed from the logs.
+    if request.method != "GET" and exc.status_code in (400, 403, 404, 409, 422, 423):
+        logger.warning("%s %s -> %s: %s", request.method, request.url.path, exc.status_code, exc.detail)
+    return await http_exception_handler(request, exc)
+
+
+@app.exception_handler(APIError)
+async def _db_write_refused(request, exc: APIError):
+    # 55000 = the fenced primary's write lease lapsed during failover. The
+    # database rejected the write, so nothing was saved and resubmitting is safe.
+    if getattr(exc, "code", None) == "55000":
+        logger.warning("%s %s refused during DB failover: %s", request.method, request.url.path, exc.message)
+        return JSONResponse(
+            {"detail": "The system is switching databases for a few seconds. Nothing was saved. Please try again."},
+            status_code=503,
+            headers={"Retry-After": "5"},
+        )
+    logger.error("Unhandled database error on %s %s: %s", request.method, request.url.path, exc)
+    return JSONResponse({"detail": "Something went wrong saving that. Please try again."}, status_code=500)
 
 
 app.include_router(auth.router)

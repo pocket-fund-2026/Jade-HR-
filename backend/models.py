@@ -1,12 +1,18 @@
 from datetime import date, datetime, time
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class LoginRequest(BaseModel):
     employee_code: str
     password: str
+
+    @field_validator("employee_code")
+    @classmethod
+    def _strip_code(cls, v: str) -> str:
+        # Pasted/autofilled codes often carry stray spaces, which used to count as a failed attempt.
+        return v.strip()
 
 
 class BootstrapAdminRequest(BaseModel):

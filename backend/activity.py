@@ -91,5 +91,6 @@ def touch_seen(employee: dict) -> None:
         if not last_dt or ist_day(last_dt) != ist_day(now):
             _mark_day(employee["id"], now)
         employee["last_seen_at"] = now.isoformat()
-    except Exception:
-        logger.exception("Could not update last_seen_at for %s", employee.get("id"))
+    except Exception as exc:
+        # Best-effort bookkeeping; a DB blip here must not look like an app error.
+        logger.warning("Could not update last_seen_at for %s: %s", employee.get("id"), exc)
