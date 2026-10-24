@@ -897,15 +897,36 @@ def resolve_leave_request(request_id: str, body: LeaveResolve, user: dict = Depe
     )
     employee = maybe_single_data(employee_resp) or {}
     employee_name = f"{employee.get('first_name', '')} {employee.get('last_name', '')}".strip()
+    # Work email first, then the personal email from their profile. 100+ people have no work mailbox.
+    recipient = (employee.get("email") or "").strip()
+    if not recipient:
+        try:
+            prof = maybe_single_data(
+                supabase.table("hr_employee_profile").select("personal_email_id").eq("employee_id", leave_request["employee_id"]).maybe_single().execute()
+            ) or {}
+            recipient = (prof.get("personal_email_id") or "").strip()
+        except Exception:
+            logger.exception("personal email lookup failed for %s", leave_request["employee_id"])
+    outcome = "approved" if body.action == "approve" else "not approved"
     if body.action == "approve":
         email_service.notify_leave_approved(
-            employee.get("email", ""), employee_name, leave_request["leave_type"],
+            recipient, employee_name, leave_request["leave_type"],
             leave_request["start_date"], leave_request["end_date"],
         )
     else:
         email_service.notify_leave_rejected(
-            employee.get("email", ""), employee_name, leave_request["leave_type"],
+            recipient, employee_name, leave_request["leave_type"],
             leave_request["start_date"], leave_request["end_date"], body.admin_note or "",
+        )
+    if not recipient:
+        # Nobody to mail: tell HR so the employee still hears the outcome from a person.
+        email_service.send_email(
+            email_service.HR_NOTIFY_EMAIL,
+            f"Please tell {employee_name}: leave {outcome}",
+            f"{employee_name}'s {leave_request['leave_type']} leave for {leave_request['start_date']} to "
+            f"{leave_request['end_date']} was {outcome}, but they have no email address on file, so they could not be "
+            f"notified. Please let them know." + (f"\n\nApprover's note: {body.admin_note}" if body.admin_note else ""),
+            kind="leave_resolved_no_email",
         )
 
     return {"ok": True}
