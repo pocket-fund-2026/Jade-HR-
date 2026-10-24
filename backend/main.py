@@ -7,7 +7,6 @@ from fastapi.exception_handlers import http_exception_handler
 from postgrest.exceptions import APIError
 
 from config import ALLOWED_ORIGINS
-from ratelimit import RateLimitMiddleware
 from resilience import CircuitOpenError
 from routers import (
     absence, arrears, auth, biometric, careers, clocks, comp_off, confirmations, disputes, email_log, employee_profile, help_media, org_chart,
@@ -26,11 +25,7 @@ from database import supabase as _database
 if hasattr(_database, "middleware"):
     app.middleware("http")(_database.middleware)
 
-# Layering (innermost first): database pin -> rate limit -> CORS. Rate limiting
-# sits outside the pin so a flood is rejected before any database routing work,
-# and CORS wraps it so a 429 still carries CORS headers (otherwise the browser
-# reports an opaque network error).
-app.add_middleware(RateLimitMiddleware)
+# No request rate limiting: a whole office shares one IP and must never be throttled.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,

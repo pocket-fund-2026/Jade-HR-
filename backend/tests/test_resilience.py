@@ -2,7 +2,6 @@ import asyncio
 
 import pytest
 
-from ratelimit import RateLimitMiddleware, SlidingWindowLimiter
 from resilience import CircuitBreaker, CircuitOpenError, backoff_delay
 
 
@@ -57,43 +56,6 @@ def test_success_resets_failure_count():
     for _ in range(2):
         b.before_call(); b.record_failure()
     assert b.state == "closed"
-
-
-def test_sliding_window_limiter():
-    c = Clock()
-    lim = SlidingWindowLimiter(clock=c)
-    assert all(lim.check("ip", 3) == 0 for _ in range(3))
-    assert lim.check("ip", 3) > 0
-    assert lim.check("other", 3) == 0
-    c.t = 61
-    assert lim.check("ip", 3) == 0
-
-
-def _call(mw, path, ip="1.2.3.4", method="GET"):
-    sent = []
-
-    async def app(scope, receive, send):
-        await send({"type": "http.response.start", "status": 200, "headers": []})
-        await send({"type": "http.response.body", "body": b"ok"})
-
-    async def send(m):
-        sent.append(m)
-
-    scope = {"type": "http", "method": method, "path": path, "headers": [(b"x-forwarded-for", ip.encode())]}
-    mw.app = app
-    asyncio.run(mw(scope, None, send))
-    return sent[0]["status"]
-
-
-def test_middleware_429_on_login_flood_but_not_other_ip_or_health():
-    mw = RateLimitMiddleware(None, SlidingWindowLimiter())
-    import ratelimit
-    ratelimit.LOGIN_LIMIT = 2
-    statuses = [_call(mw, "/api/login", method="POST") for _ in range(3)]
-    assert statuses == [200, 200, 429]
-    assert _call(mw, "/api/login", ip="9.9.9.9", method="POST") == 200
-    for _ in range(5):
-        assert _call(mw, "/api/health") == 200
 
 
 def test_transport_breaker_is_per_instance_and_writes_not_retried():
