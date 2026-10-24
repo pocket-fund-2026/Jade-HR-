@@ -85,6 +85,12 @@ export default function Login() {
               </div>
             </div>
 
+            <div className="text-right -mt-2">
+              <Link to="/forgot-password" className="text-xs text-jade-600 hover:text-jade-500 underline underline-offset-2">
+                Forgot password?
+              </Link>
+            </div>
+
             {error && (
               <p key={error} className="t-error-in text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>
             )}

@@ -6,6 +6,7 @@ import { canSeeHrTasks } from "./lib/hrTasksAccess.js";
 import api from "./lib/api.js";
 import MatrixLoader from "./components/MatrixLoader.jsx";
 import Login from "./pages/Login.jsx";
+import { ForgotPassword, ResetPassword } from "./pages/PasswordRecovery.jsx";
 import Onboarding from "./pages/Onboarding.jsx";
 import Setup from "./pages/Setup.jsx";
 
@@ -225,6 +226,8 @@ export default function App() {
       <Suspense fallback={<PageFallback />}>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/setup" element={<Setup />} />
           <Route path="/onboarding/new" element={<Onboarding />} />
           <Route path="/sign/:token" element={<SignLetter />} />

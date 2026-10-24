@@ -5,15 +5,25 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from activity import record_login
-from auth import COOKIE_NAME, create_access_token, get_current_user, hash_password, verify_password
-from config import COOKIE_SECURE, JWT_EXPIRE_MINUTES
+from jose import JWTError, jwt
+
+import email_service
+from auth import COOKIE_NAME, _password_fingerprint, create_access_token, get_current_user, hash_password, verify_password
+from config import COOKIE_SECURE, JWT_ALGORITHM, JWT_EXPIRE_MINUTES, JWT_SECRET
 from database import maybe_single_data, supabase
-from models import AvatarUpload, BootstrapAdminRequest, LoginRequest, PasswordChange
+from models import AvatarUpload, BootstrapAdminRequest, ForgotPasswordRequest, LoginRequest, PasswordChange, ResetPasswordRequest
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
+RESET_LINK_MINUTES = 30
+RESET_URL = "https://jade-hr.vercel.app/reset-password"
+FORGOT_REPLY = {
+    "ok": True,
+    "message": "If that employee code has an email address on file, a reset link has been sent to it. "
+               "No email on file? Ask HR to reset your password.",
+}
 
 
 def _set_session_cookie(response: Response, token: str) -> None:
@@ -85,6 +95,73 @@ def login(body: LoginRequest, response: Response, request: Request):
         "role": employee["role"],
         "name": f"{employee['first_name']} {employee.get('last_name', '')}".strip(),
     }
+
+
+@router.post("/forgot-password")
+def forgot_password(body: ForgotPasswordRequest):
+    """Self-service recovery. Always returns the same reply so it cannot be used
+    to discover which employee codes exist. The link is a short-lived signed
+    token tied to the current password hash, so it works once."""
+    resp = supabase.table("hr_employees").select("*").eq("employee_code", body.employee_code).maybe_single().execute()
+    employee = maybe_single_data(resp)
+    if not employee or not employee.get("is_active"):
+        return FORGOT_REPLY
+    recipient = (employee.get("email") or "").strip()
+    if not recipient:
+        prof = maybe_single_data(
+            supabase.table("hr_employee_profile").select("personal_email_id").eq("employee_id", employee["id"]).maybe_single().execute()
+        ) or {}
+        recipient = (prof.get("personal_email_id") or "").strip()
+    name = f"{employee['first_name']} {employee.get('last_name') or ''}".strip()
+    if not recipient:
+        email_service.send_email(
+            email_service.HR_NOTIFY_EMAIL,
+            f"Password reset needed for {name} ({employee['employee_code']})",
+            f"{name} ({employee['employee_code']}) tried to reset their password but has no email address on file. "
+            "Please reset it from their employee record and tell them.",
+            kind="password_reset_no_email",
+        )
+        return FORGOT_REPLY
+    token = jwt.encode(
+        {
+            "purpose": "pwreset", "id": employee["id"], "pv": _password_fingerprint(employee["password_hash"]),
+            "exp": datetime.now(timezone.utc) + timedelta(minutes=RESET_LINK_MINUTES),
+        },
+        JWT_SECRET, algorithm=JWT_ALGORITHM,
+    )
+    email_service.send_email(
+        recipient,
+        "Reset your JADE HR password",
+        f"Hi {name},\n\nUse this link to choose a new password (valid for {RESET_LINK_MINUTES} minutes, one use):\n"
+        f"{RESET_URL}?token={token}\n\nIf you didn't ask for this, ignore this email; your password is unchanged.\n",
+        kind="password_reset",
+    )
+    return FORGOT_REPLY
+
+
+@router.post("/reset-password")
+def reset_password(body: ResetPasswordRequest):
+    bad = HTTPException(status_code=400, detail="This reset link is invalid or has expired. Request a new one.")
+    try:
+        payload = jwt.decode(body.token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except JWTError:
+        raise bad
+    if payload.get("purpose") != "pwreset":
+        raise bad
+    if len(body.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    employee = maybe_single_data(supabase.table("hr_employees").select("*").eq("id", payload.get("id")).maybe_single().execute())
+    if not employee or not employee.get("is_active") or _password_fingerprint(employee["password_hash"]) != payload.get("pv"):
+        raise bad  # already used (password changed since) or account gone
+    supabase.table("hr_employees").update(
+        {
+            "password_hash": hash_password(body.password),
+            "failed_login_count": 0,
+            "locked_until": None,
+            "password_changed_by_employee": True,
+        }
+    ).eq("id", employee["id"]).execute()
+    return {"ok": True}
 
 
 @router.post("/logout")

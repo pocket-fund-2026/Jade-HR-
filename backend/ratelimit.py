@@ -63,7 +63,7 @@ class RateLimitMiddleware:
             return await self.app(scope, receive, send)
         ip = client_ip(scope)
         checks = [(f"api:{ip}", API_LIMIT)]
-        if path == "/api/login" or path.endswith("/login"):
+        if path == "/api/login" or path.endswith("/login") or path.endswith("/forgot-password"):
             checks.append((f"login:{ip}", LOGIN_LIMIT))
         for key, limit in checks:
             wait = self.limiter.check(key, limit)

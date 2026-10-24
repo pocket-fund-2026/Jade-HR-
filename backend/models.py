@@ -260,6 +260,20 @@ class HolidayCreate(BaseModel):
     close_time: Optional[time] = None
 
 
+class ForgotPasswordRequest(BaseModel):
+    employee_code: str
+
+    @field_validator("employee_code")
+    @classmethod
+    def _strip_code(cls, v: str) -> str:
+        return v.strip()
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str
+
+
 class PasswordReset(BaseModel):
     password: str
 
