@@ -40,8 +40,8 @@ const managerOf = (r) => r.hr_employees?.reporting_manager || NO_MANAGER;
 const deptOf = (r) => r.hr_employees?.department || NO_DEPT;
 
 const SORTS = {
-  newest: { label: "Newest request first", cmp: (a, b) => (b.created_at || "").localeCompare(a.created_at || "") },
-  oldest: { label: "Oldest request first (waiting longest)", cmp: (a, b) => (a.created_at || "").localeCompare(b.created_at || "") },
+  newest: { label: "Most recent first", cmp: (a, b) => (b.created_at || "").localeCompare(a.created_at || "") },
+  oldest: { label: "Oldest first (waiting longest)", cmp: (a, b) => (a.created_at || "").localeCompare(b.created_at || "") },
   starts: { label: "Leave starts soonest", cmp: (a, b) => a.start_date.localeCompare(b.start_date) },
   longest: { label: "Most days first", cmp: (a, b) => dayCount(b) - dayCount(a) },
   employee: { label: "Employee A–Z", cmp: (a, b) => fullName(a).localeCompare(fullName(b)) },
@@ -264,7 +264,7 @@ export default function Leave() {
   const [requests, setRequests] = useState(() => (hasLayoutData ? layoutPendingLeave : []));
   const [loading, setLoading] = useState(!hasLayoutData);
   const [location, setLocation] = useState("all");
-  const [sort, setSort] = useState("oldest");
+  const [sort, setSort] = useState("newest");
   const [groupBy, setGroupBy] = useState("manager");
   const [team, setTeam] = useState("");
   const [q, setQ] = useState("");
