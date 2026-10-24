@@ -371,6 +371,24 @@ def _is_red_carded_current_cycle(employee: dict) -> bool:
     return red_card
 
 
+def _resolve_manager_id(name: str | None, email: str | None) -> str | None:
+    """Best-effort link from a free-text manager (email, else an exact unique full name) to an active employee."""
+    q = supabase.table("hr_employees").select("id,first_name,last_name,email").eq("is_active", True)
+    if email:
+        hits = q.ilike("email", email.strip()).execute().data or []
+        if len(hits) == 1:
+            return hits[0]["id"]
+    if name:
+        want = " ".join(name.lower().split())
+        hits = [
+            m for m in (supabase.table("hr_employees").select("id,first_name,last_name").eq("is_active", True).execute().data or [])
+            if " ".join(f"{m['first_name']} {m.get('last_name') or ''}".lower().split()) == want
+        ]
+        if len(hits) == 1:
+            return hits[0]["id"]
+    return None
+
+
 @router.post("/me/leave-requests")
 def create_leave_request(body: LeaveRequestCreate, user: dict = Depends(get_current_user)):
     if body.end_date < body.start_date:
@@ -458,19 +476,26 @@ def create_leave_request(body: LeaveRequestCreate, user: dict = Depends(get_curr
         # level above the employee is notified. Cycle-guarded and depth-capped.
         seen = {target["id"]}
         current_id = target["id"]
+        approver_emails = set()
         for _ in range(6):
-            profile_resp = supabase.table("hr_employee_profile").select("reporting_to_id").eq("employee_id", current_id).maybe_single().execute()
-            profile = maybe_single_data(profile_resp)
-            next_id = profile.get("reporting_to_id") if profile else None
+            profile_resp = supabase.table("hr_employee_profile").select("reporting_to_id,reporting_to,reporting_to_email").eq("employee_id", current_id).maybe_single().execute()
+            profile = maybe_single_data(profile_resp) or {}
+            next_id = profile.get("reporting_to_id")
+            if not next_id:
+                # No linked manager: many people only have a free-text name and/or email on file.
+                # Use the email directly, and follow the name to a person when it is unambiguous so
+                # the chain above them is still notified.
+                if profile.get("reporting_to_email"):
+                    approver_emails.add(profile["reporting_to_email"].strip())
+                next_id = _resolve_manager_id(profile.get("reporting_to"), profile.get("reporting_to_email"))
             if not next_id or next_id in seen:
                 break
             approver_ids.add(next_id)
             seen.add(next_id)
             current_id = next_id
-        approver_emails = set()
         if approver_ids:
             approvers_resp = supabase.table("hr_employees").select("email").in_("id", list(approver_ids)).execute()
-            approver_emails = {a["email"] for a in approvers_resp.data if a.get("email")}
+            approver_emails |= {a["email"] for a in approvers_resp.data if a.get("email")}
         employee_name = f"{target['first_name']} {target.get('last_name', '')}".strip()
         email_service.notify_leave_submitted(
             employee_name, body.leave_type, body.start_date.isoformat(), body.end_date.isoformat(), reason,
