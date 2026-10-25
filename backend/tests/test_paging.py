@@ -46,12 +46,14 @@ class FakeQuery:
             if a >= total and total:
                 raise APIError({"message": "Requested range not satisfiable", "code": "PGRST103"})
             rows = rows[a:b + 1]
+            if self.db.max_rows:  # a server-side cap below what the client asked for
+                rows = rows[:self.db.max_rows]
         return SimpleNamespace(data=rows, count=None if self.db.hide_count else total)
 
 
 class FakeDB:
     def __init__(self, **tables):
-        self.tables, self.calls, self.hide_count = tables, [], False
+        self.tables, self.calls, self.hide_count, self.max_rows = tables, [], False, None
         self.fail_after, self.fail_with = None, None
 
     def table(self, name):
@@ -89,6 +91,26 @@ def test_exact_multiple_of_page_size_makes_no_empty_extra_call(db):
     fake = db(t=rows(2000))
     assert paging.fetch_all_paged("t", "id", ("id",)) == rows(2000)
     assert len(fake.calls) == 2
+
+
+@pytest.mark.parametrize("cap", [500, 250, 999])
+def test_a_server_cap_below_1000_still_returns_every_row(db, cap):
+    fake = db(t=list(reversed(rows(2300))))
+    fake.max_rows = cap
+    assert paging.fetch_all_paged("t", "id", ("id",)) == rows(2300)
+
+
+def test_a_server_cap_with_a_table_smaller_than_the_cap_is_one_call(db):
+    fake = db(t=rows(300))
+    fake.max_rows = 500
+    assert paging.fetch_all_paged("t", "id", ("id",)) == rows(300)
+    assert len(fake.calls) == 1
+
+
+def test_empty_table_is_one_call_and_empty(db):
+    fake = db(t=[])
+    assert paging.fetch_all_paged("t", "id", ("id",)) == []
+    assert len(fake.calls) == 1
 
 
 def test_without_a_count_it_falls_back_to_serial_paging(db):

@@ -62,7 +62,14 @@ def fetch_all_paged(table: str, columns: str, order: tuple[str, ...], apply=lamb
     first = build().range(0, page_size - 1).execute()
     rows = list(first.data or [])
     total = first.count
-    if len(rows) < page_size or (total is not None and total <= len(rows)):
+    # The server may cap a response below page_size (PostgREST's max-rows is a
+    # server setting). The exact count, when present, is the authority on whether
+    # more rows exist, and the rows actually returned are the real page size.
+    if total is not None:
+        if total <= len(rows) or not rows:
+            return rows
+        page_size = len(rows)
+    elif len(rows) < page_size:
         return rows
     if total is None:  # count unavailable: fall back to one page at a time
         offset = len(rows)
