@@ -151,3 +151,20 @@ from hr_exit_checklist_items i join hr_exit_records e on e.id = i.exit_id
 where i.status = 'completed' and i.signed_at is not null
   and not exists (select 1 from hr_workflow_events w where w.workflow = 'exit' and w.subject_id = i.exit_id::text
                   and w.action = 'step_completed' and w.basis->>'item_id' = i.id::text);
+
+-- Direct attendance corrections (Attendance Report grid). Dispute approvals are
+-- excluded (already logged as 'dispute' above) and so are default-noted bulk
+-- imports, which the live log does not record either. One row per override as
+-- it stands now (a later correction to the same day replaces the earlier one in
+-- hr_attendance_overrides, so only the latest writer is on record). A bulk
+-- import saved with a custom note cannot be told apart from a direct correction
+-- and will appear here.
+insert into hr_workflow_events (workflow, subject_id, employee_id, action, actor_id, actor_role, basis, note, created_at)
+select 'attendance_override', o.employee_id::text || ':' || o.date::text, o.employee_id, 'corrected', o.created_by,
+       coalesce(a.role, 'system'),
+       jsonb_build_object('date', o.date, 'status_override', o.status_override, 'source', o.verification_source, 'backfilled', true),
+       left(coalesce(o.note, ''), 500), o.created_at
+from hr_attendance_overrides o left join hr_employees a on a.id = o.created_by
+where coalesce(o.note, '') not like 'Approved dispute%' and coalesce(o.note, '') not like 'Bulk import%'
+  and not exists (select 1 from hr_workflow_events w where w.workflow = 'attendance_override'
+                  and w.subject_id = o.employee_id::text || ':' || o.date::text);
