@@ -12,7 +12,6 @@ adjusts the ledger by hand rather than having a nightly job silently take
 back leave someone may already have booked against.
 """
 
-from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -20,6 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from auth import get_current_user, require_accounts, require_console
 from config import IST
 from database import supabase
+from paging import ContextThreadPoolExecutor
 from routers.leave import COMP_OFF_VALIDITY_DAYS, _comp_off_available
 from routers.payroll import (
     _all_summaries_for_month, _fetch_all_compliance_profiles, _fetch_holidays, _pay_period_label_for,
@@ -108,7 +108,7 @@ def comp_off_accrual_scan(
     if year is None or month is None:
         year, month = _pay_period_label_for(today)
 
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ContextThreadPoolExecutor(max_workers=3) as pool:
         employees_future = pool.submit(
             lambda: supabase.table("hr_employees").select("*").eq("is_active", True).execute().data
         )

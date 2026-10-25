@@ -1,10 +1,10 @@
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from auth import get_current_user, require_permission
 from database import maybe_single_data, supabase
+from paging import ContextThreadPoolExecutor
 from workflow_log import record_step
 from models import PayslipApprovalCreate, PayslipApprovalResolve
 from payroll import compute_monthly_summary
@@ -96,7 +96,7 @@ def list_payslip_approvals(
         # Supabase reads for an unrelated employee/period, so run rows
         # concurrently instead of one after another.
         holidays = _fetch_holidays()
-        with ThreadPoolExecutor(max_workers=min(8, len(rows))) as pool:
+        with ContextThreadPoolExecutor(max_workers=min(8, len(rows))) as pool:
             net_salaries = list(pool.map(
                 lambda r: _net_salary_for(r["employee_id"], r["period_year"], r["period_month"], holidays), rows,
             ))

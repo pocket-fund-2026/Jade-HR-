@@ -1,5 +1,4 @@
 import logging
-from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, time, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -8,6 +7,7 @@ import email_service
 from auth import CONSOLE_ROLES, get_current_user, my_report_ids, require_console, require_permission, user_can
 from config import IST
 from database import maybe_single_data, supabase
+from paging import ContextThreadPoolExecutor, fetch_all_paged
 from models import SalaryHoldUpdate
 from payroll import (
     FLEXIBLE_TIME_SLOT, WEEKOFF_LOOKBACK_DAYS, compute_attendance_for_range, compute_monthly_summary,
@@ -115,27 +115,21 @@ def _fetch_punch_times_range(employee_code: str, start: date, end: date) -> list
     return [datetime.fromisoformat(r["punch_time"]) for r in resp.data]
 
 
+def _fetch_punch_rows(from_dt: str, to_dt: str) -> list[dict]:
+    """Every punch in [from_dt, to_dt] for the whole roster. (employee_code,
+    punch_time) is unique, so it is a total order for the pages."""
+    return fetch_all_paged(
+        "hr_biometric_punches", "employee_code,punch_time", ("employee_code", "punch_time"),
+        lambda q: q.gte("punch_time", from_dt).lte("punch_time", to_dt),
+    )
+
+
 def _fetch_all_punches_by_employee(year: int, month: int, calendar_month: bool = False) -> dict[str, list[datetime]]:
     """One (paginated) query for the whole month instead of one query per employee."""
     from_dt, to_dt = _month_bounds(year, month, calendar_month)
     by_employee: dict[str, list[datetime]] = {}
-    page_size = 1000
-    start = 0
-    while True:
-        resp = (
-            supabase.table("hr_biometric_punches")
-            .select("employee_code,punch_time")
-            .gte("punch_time", from_dt)
-            .lte("punch_time", to_dt)
-            .range(start, start + page_size - 1)
-            .execute()
-        )
-        rows = resp.data
-        for r in rows:
-            by_employee.setdefault(r["employee_code"], []).append(datetime.fromisoformat(r["punch_time"]))
-        if len(rows) < page_size:
-            break
-        start += page_size
+    for r in _fetch_punch_rows(from_dt, to_dt):
+        by_employee.setdefault(r["employee_code"], []).append(datetime.fromisoformat(r["punch_time"]))
     return by_employee
 
 
@@ -148,23 +142,8 @@ def _fetch_all_punches_by_employee_range(start: date, end: date) -> dict[str, li
     from_dt = datetime.combine(start, datetime.min.time(), tzinfo=IST).isoformat()
     to_dt = datetime.combine(end + timedelta(days=1), datetime.min.time(), tzinfo=IST).isoformat()
     by_employee: dict[str, list[datetime]] = {}
-    page_size = 1000
-    offset = 0
-    while True:
-        resp = (
-            supabase.table("hr_biometric_punches")
-            .select("employee_code,punch_time")
-            .gte("punch_time", from_dt)
-            .lte("punch_time", to_dt)
-            .range(offset, offset + page_size - 1)
-            .execute()
-        )
-        rows = resp.data
-        for r in rows:
-            by_employee.setdefault(r["employee_code"], []).append(datetime.fromisoformat(r["punch_time"]))
-        if len(rows) < page_size:
-            break
-        offset += page_size
+    for r in _fetch_punch_rows(from_dt, to_dt):
+        by_employee.setdefault(r["employee_code"], []).append(datetime.fromisoformat(r["punch_time"]))
     return by_employee
 
 
@@ -187,36 +166,28 @@ def _register_override(r: dict) -> dict:
 def _fetch_register_rows(start: date, end: date, employee_id: str | None = None) -> list[dict]:
     """Paged: Supabase caps a single response at 1000 rows, and a full
     register is ~89 employees x 31 days = 2759 rows."""
-    rows: list[dict] = []
-    page, offset = 1000, 0
-    while True:
-        query = (
-            supabase.table("hr_attendance_register").select("*")
-            .gte("date", start.isoformat()).lte("date", end.isoformat())
-            .order("employee_id").order("date")
-        )
-        if employee_id:
-            query = query.eq("employee_id", employee_id)
-        batch = query.range(offset, offset + page - 1).execute().data or []
-        rows.extend(batch)
-        if len(batch) < page:
-            return rows
-        offset += page
+    def window(q):
+        q = q.gte("date", start.isoformat()).lte("date", end.isoformat())
+        return q.eq("employee_id", employee_id) if employee_id else q
+
+    return fetch_all_paged("hr_attendance_register", "*", ("employee_id", "date"), window)
+
+
+def _fetch_override_rows(start: date, end: date) -> list[dict]:
+    """Every manual attendance override in [start, end] for the whole roster
+    ((employee_id, date) is unique, so it is a total order for the pages)."""
+    return fetch_all_paged(
+        "hr_attendance_overrides", "*", ("employee_id", "date"),
+        lambda q: q.gte("date", start.isoformat()).lte("date", end.isoformat()),
+    )
 
 
 def _fetch_all_overrides_by_employee_range(start: date, end: date) -> dict[str, dict[date, dict]]:
     """`start` widened by WEEKOFF_LOOKBACK_DAYS at the front for the same
     reason as _fetch_punch_times_range."""
     start -= timedelta(days=WEEKOFF_LOOKBACK_DAYS)
-    resp = (
-        supabase.table("hr_attendance_overrides")
-        .select("*")
-        .gte("date", start.isoformat())
-        .lte("date", end.isoformat())
-        .execute()
-    )
     by_employee: dict[str, dict[date, dict]] = {}
-    for r in resp.data:
+    for r in _fetch_override_rows(start, end):
         by_employee.setdefault(r["employee_id"], {})[date.fromisoformat(r["date"])] = {
             "status_override": r["status_override"],
             "first_in": _parse_time(r["first_in"]),
@@ -280,16 +251,8 @@ def _fetch_overrides_range(employee_id: str, start: date, end: date) -> dict[dat
 def _fetch_all_overrides_by_employee(year: int, month: int, calendar_month: bool = False) -> dict[str, dict[date, dict]]:
     start, end = pay_period_bounds(year, month, calendar_month)
     start -= timedelta(days=WEEKOFF_LOOKBACK_DAYS)
-    from_d, to_d = start.isoformat(), end.isoformat()
-    resp = (
-        supabase.table("hr_attendance_overrides")
-        .select("*")
-        .gte("date", from_d)
-        .lte("date", to_d)
-        .execute()
-    )
     by_employee: dict[str, dict[date, dict]] = {}
-    for r in resp.data:
+    for r in _fetch_override_rows(start, end):
         by_employee.setdefault(r["employee_id"], {})[date.fromisoformat(r["date"])] = {
             "status_override": r["status_override"],
             "first_in": _parse_time(r["first_in"]),
@@ -333,8 +296,8 @@ def _fetch_compliance_profile(employee_id: str) -> dict:
 
 
 def _fetch_all_compliance_profiles() -> dict[str, dict]:
-    resp = supabase.table("hr_employee_profile").select(COMPLIANCE_COLUMNS).execute()
-    return {r["employee_id"]: r for r in resp.data}
+    rows = fetch_all_paged("hr_employee_profile", COMPLIANCE_COLUMNS, ("employee_id",))
+    return {r["employee_id"]: r for r in rows}
 
 
 def _fetch_holidays() -> list[dict]:
@@ -389,8 +352,8 @@ def _fetch_all_arrears_by_employee(year: int, month: int) -> dict[str, dict]:
 
 
 def _fetch_all_tax_declarations(financial_year: str) -> dict[str, dict]:
-    resp = supabase.table("hr_tax_declarations").select("*").eq("financial_year", financial_year).execute()
-    return {r["employee_id"]: r for r in resp.data}
+    rows = fetch_all_paged("hr_tax_declarations", "*", ("id",), lambda q: q.eq("financial_year", financial_year))
+    return {r["employee_id"]: r for r in rows}
 
 
 def _monthly_tds(employee: dict, year: int, month: int, declaration: dict | None = None) -> float:
@@ -429,7 +392,7 @@ def _all_summaries_for_month(
     data dependency on each other) — running them concurrently instead of
     one after another cuts this function's network-wait time roughly 4x,
     since each one is pure I/O wait on the same shared httpx client."""
-    with ThreadPoolExecutor(max_workers=5) as pool:
+    with ContextThreadPoolExecutor(max_workers=5) as pool:
         punches_future = pool.submit(_fetch_all_punches_by_employee, year, month, calendar_month)
         overrides_future = pool.submit(_fetch_all_overrides_by_employee, year, month, calendar_month)
         leaves_future = pool.submit(fetch_all_approved_leaves_by_employee, year, month, calendar_month)
@@ -469,7 +432,7 @@ def payroll_for_month(
     month: int = Query(..., ge=1, le=12),
     user: dict = Depends(require_permission("payroll.view")),
 ):
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ContextThreadPoolExecutor(max_workers=3) as pool:
         employees_future = pool.submit(
             lambda: supabase.table("hr_employees").select("*").eq("is_active", True).execute().data
         )
@@ -482,7 +445,7 @@ def payroll_for_month(
     merged_employees = [{**employee, **profiles_by_employee.get(employee["id"], {})} for employee in employees]
     # summaries/ledgers/arrears are independent of each other — only the
     # zip() below needs all three, so compute them concurrently too.
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ContextThreadPoolExecutor(max_workers=3) as pool:
         summaries_future = pool.submit(_all_summaries_for_month, employees, profiles_by_employee, holidays, year, month)
         ledgers_future = pool.submit(pl_ledger_for_period_bulk, merged_employees, year, month)
         arrears_future = pool.submit(_fetch_all_arrears_by_employee, year, month)
@@ -510,7 +473,7 @@ def esic_report(
     Returns only ESIC-applicable employees who accrued wages in the month
     (esic_wages > 0). ESIC contributions come already rounded up to whole
     rupees from statutory.compute_esic; the report layer adds no rounding."""
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ContextThreadPoolExecutor(max_workers=3) as pool:
         employees_future = pool.submit(
             lambda: supabase.table("hr_employees").select("*").eq("is_active", True).execute().data
         )
@@ -545,7 +508,7 @@ def _late_arrivals(target: date) -> list[dict]:
     target_iso = target.isoformat()
     year, month = _pay_period_label_for(target)
 
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ContextThreadPoolExecutor(max_workers=3) as pool:
         employees_future = pool.submit(
             lambda: supabase.table("hr_employees").select("*").eq("is_active", True).execute().data
         )
@@ -760,7 +723,7 @@ def absence_hold_scan(
     today_iso = today.isoformat()
     year, month = _pay_period_label_for(today)
 
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ContextThreadPoolExecutor(max_workers=3) as pool:
         employees_future = pool.submit(
             lambda: supabase.table("hr_employees").select("*").eq("is_active", True).execute().data
         )
@@ -935,7 +898,7 @@ def payroll_for_range(
     if len(months) > MAX_RANGE_MONTHS:
         raise HTTPException(status_code=400, detail=f"Range too large — max {MAX_RANGE_MONTHS} months")
 
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ContextThreadPoolExecutor(max_workers=3) as pool:
         employees_future = pool.submit(
             lambda: supabase.table("hr_employees").select("*").eq("is_active", True).execute().data
         )
@@ -951,7 +914,7 @@ def payroll_for_range(
     # sequential wait. max_workers is capped below MAX_RANGE_MONTHS because
     # _all_summaries_for_month already opens its own 4-way pool per month;
     # running all 12 at once would mean up to 48 concurrent Supabase requests.
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ContextThreadPoolExecutor(max_workers=4) as pool:
         month_summaries = list(
             pool.map(
                 lambda ym: _all_summaries_for_month(employees, profiles_by_employee, holidays, ym[0], ym[1]),
@@ -988,7 +951,7 @@ def payroll_for_employee(
         if user["role"] not in CONSOLE_ROLES or not user_can(user, "payroll.view"):
             raise HTTPException(status_code=403, detail="Not authorized")
     employee = _get_active_employee(employee_id)
-    with ThreadPoolExecutor(max_workers=7) as pool:
+    with ContextThreadPoolExecutor(max_workers=7) as pool:
         punches_future = pool.submit(_fetch_punch_times, employee["employee_code"], year, month)
         overrides_future = pool.submit(_fetch_overrides, employee_id, year, month)
         leaves_future = pool.submit(fetch_approved_leaves, employee_id, year, month)
@@ -1018,7 +981,7 @@ def _attendance_for_range(employee: dict, from_date: date, to_date: date) -> lis
         raise HTTPException(status_code=400, detail="'to' must be on or after 'from'")
     if (to_date - from_date).days + 1 > MAX_ATTENDANCE_RANGE_DAYS:
         raise HTTPException(status_code=400, detail=f"Range cannot exceed {MAX_ATTENDANCE_RANGE_DAYS} days")
-    with ThreadPoolExecutor(max_workers=5) as pool:
+    with ContextThreadPoolExecutor(max_workers=5) as pool:
         punches_future = pool.submit(_fetch_punch_times_range, employee["employee_code"], from_date, to_date)
         overrides_future = pool.submit(_fetch_overrides_range, employee["id"], from_date, to_date)
         leaves_future = pool.submit(fetch_approved_leaves, employee["id"], from_date.year, from_date.month, (from_date, to_date))
@@ -1063,7 +1026,7 @@ def my_payroll(
     user: dict = Depends(get_current_user),
 ):
     employee = {**user, **_fetch_compliance_profile(user["id"])}
-    with ThreadPoolExecutor(max_workers=7) as pool:
+    with ContextThreadPoolExecutor(max_workers=7) as pool:
         punches_future = pool.submit(_fetch_punch_times, employee["employee_code"], year, month)
         overrides_future = pool.submit(_fetch_overrides, employee["id"], year, month)
         leaves_future = pool.submit(fetch_approved_leaves, employee["id"], year, month)

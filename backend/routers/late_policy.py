@@ -9,7 +9,6 @@ month of a financial-year quarter, whose consequence is a Final Warning letter
 plus automatic forfeiture of 2 Paid Leave days (hr_late_policy_actions).
 """
 
-from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -17,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from auth import get_current_user, require_permission
 from config import IST
 from database import supabase
+from paging import ContextThreadPoolExecutor
 from workflow_log import record_step
 from models import AIPClose, AIPCreate
 from payroll import (
@@ -93,7 +93,7 @@ def _corporate_roster() -> tuple[list[dict], dict, dict]:
     """Active corporate-roster employees only — the late-coming policy has
     never applied to the factory/karigar roster (payroll.py gates the whole
     late/LOP machinery on employee_category == 'corporate')."""
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ContextThreadPoolExecutor(max_workers=3) as pool:
         employees_future = pool.submit(
             lambda: supabase.table("hr_employees").select("*").eq("is_active", True).execute().data
         )
@@ -135,7 +135,7 @@ def _quarter_status(financial_year: str, quarter: int) -> list[dict]:
     # The three months are independent full-roster computes; run them
     # concurrently so this stays close to one month's wall time (each one
     # already parallelizes its own bulk fetches internally).
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ContextThreadPoolExecutor(max_workers=3) as pool:
         futures = {
             (y, m): pool.submit(
                 _all_summaries_for_month, employees, profiles_by_employee, holidays, y, m
@@ -571,7 +571,7 @@ def punctuality_calculator(
             raise HTTPException(status_code=400, detail="financial_year is required for scope=year")
         labels = fy_month_labels(financial_year)
 
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ContextThreadPoolExecutor(max_workers=3) as pool:
         employees_future = pool.submit(
             lambda: supabase.table("hr_employees").select("*").eq("is_active", True).execute().data
         )
@@ -613,7 +613,7 @@ def punctuality_calculator(
     # full bulk fetch of punches/overrides/leaves for a 1-employee "roster"),
     # which is O(employees x periods) round trips and timed out in prod for
     # scope=month over the full corporate roster. This is O(periods).
-    with ThreadPoolExecutor(max_workers=min(len(labels), 6) or 1) as pool:
+    with ContextThreadPoolExecutor(max_workers=min(len(labels), 6) or 1) as pool:
         futures = {
             (y, m): pool.submit(_all_summaries_for_month, corporate, profiles_by_employee, holidays, y, m, True)
             for (y, m) in labels

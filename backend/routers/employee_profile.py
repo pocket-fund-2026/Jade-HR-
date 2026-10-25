@@ -1,11 +1,11 @@
 import base64
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from auth import CONSOLE_ROLES, get_current_user, require_permission, user_can
 from database import maybe_single_data, supabase
+from paging import ContextThreadPoolExecutor
 from models import EmployeeDocumentUpload, EmployeeProfileUpdate
 
 router = APIRouter(prefix="/api/employees", tags=["employee-profile"])
@@ -61,7 +61,7 @@ def get_employee_profile(employee_id: str, user: dict = Depends(get_current_user
     _require_view_access(employee_id, user)
     # 3 independent reads — fires on every Employee Details page view, so
     # run them concurrently instead of one after another.
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ContextThreadPoolExecutor(max_workers=3) as pool:
         exists_future = pool.submit(_employee_exists, employee_id)
         profile_future = pool.submit(
             lambda: supabase.table("hr_employee_profile")

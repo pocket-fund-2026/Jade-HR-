@@ -35,6 +35,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from idempotency import find_recent_duplicate
 from auth import get_current_user, my_report_ids, require_permission, user_can
 from database import supabase
+from paging import fetch_all_paged
 from workflow_log import record_step
 from models import WFHCompletionConfirm, WFHRequestCreate, WFHResolve
 from payroll import pay_period_bounds
@@ -201,17 +202,13 @@ def fetch_all_confirmed_wfh_by_employee(
     period instead of one per employee, mirroring
     fetch_all_approved_leaves_by_employee in routers/leave.py."""
     from_d, to_d = date_range if date_range else pay_period_bounds(year, month, calendar_month)
-    resp = (
-        supabase.table("hr_wfh_requests")
-        .select("employee_id,start_date,end_date,pay_treatment_percent")
-        .eq("status", "approved")
-        .eq("work_completed", True)
-        .lte("start_date", to_d.isoformat())
-        .gte("end_date", from_d.isoformat())
-        .execute()
+    rows = fetch_all_paged(
+        "hr_wfh_requests", "employee_id,start_date,end_date,pay_treatment_percent", ("id",),
+        lambda q: q.eq("status", "approved").eq("work_completed", True)
+        .lte("start_date", to_d.isoformat()).gte("end_date", from_d.isoformat()),
     )
     by_employee: dict[str, dict[date, dict]] = {}
-    for r in resp.data:
+    for r in rows:
         d = max(date.fromisoformat(r["start_date"]), from_d)
         end = min(date.fromisoformat(r["end_date"]), to_d)
         bucket = by_employee.setdefault(r["employee_id"], {})

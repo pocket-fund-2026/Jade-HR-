@@ -8,6 +8,7 @@ import email_service
 from idempotency import find_recent_duplicate
 from auth import get_current_user, my_report_ids, require_permission, user_can
 from database import maybe_single_data, supabase
+from paging import fetch_all_paged
 from workflow_log import record_step
 from config import IST
 from models import CompOffGrant, LeaveRequestCreate, LeaveResolve
@@ -1046,16 +1047,12 @@ def fetch_all_approved_leaves_by_employee(
     from_d, to_d = date_range if date_range else pay_period_bounds(year, month, calendar_month)
     from_d -= timedelta(days=WEEKOFF_LOOKBACK_DAYS)
 
-    resp = (
-        supabase.table("hr_leave_requests")
-        .select("employee_id,leave_type,start_date,end_date")
-        .eq("status", "approved")
-        .lte("start_date", to_d.isoformat())
-        .gte("end_date", from_d.isoformat())
-        .execute()
+    rows = fetch_all_paged(
+        "hr_leave_requests", "employee_id,leave_type,start_date,end_date", ("id",),
+        lambda q: q.eq("status", "approved").lte("start_date", to_d.isoformat()).gte("end_date", from_d.isoformat()),
     )
     by_employee: dict[str, dict[date, str]] = defaultdict(dict)
-    for r in resp.data:
+    for r in rows:
         d = max(date.fromisoformat(r["start_date"]), from_d)
         end = min(date.fromisoformat(r["end_date"]), to_d)
         while d <= end:

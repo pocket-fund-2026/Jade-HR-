@@ -1,5 +1,4 @@
 import base64
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -11,6 +10,7 @@ import email_service
 from auth import COOKIE_NAME, _password_fingerprint, create_access_token, get_current_user, hash_password, verify_password
 from config import COOKIE_SECURE, JWT_ALGORITHM, JWT_EXPIRE_MINUTES, JWT_SECRET
 from database import maybe_single_data, supabase
+from paging import ContextThreadPoolExecutor
 from models import AvatarUpload, BootstrapAdminRequest, ForgotPasswordRequest, LoginRequest, PasswordChange, ResetPasswordRequest
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -207,7 +207,7 @@ def me(user: dict = Depends(get_current_user)):
     # HOD-based reporting-manager lookup it was meant for was abandoned in
     # favor of reporting_to_id/reporting_to_email, see payroll.py's
     # _reporting_manager_emails — so it was a dead extra query on every call.)
-    with ThreadPoolExecutor(max_workers=2) as pool:
+    with ContextThreadPoolExecutor(max_workers=2) as pool:
         direct_future = pool.submit(
             lambda: supabase.table("hr_employees").select("id").eq("leave_approver_id", user["id"]).limit(1).execute()
         )

@@ -1,5 +1,4 @@
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -7,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from auth import require_permission
 from bonus import BONUS_MIN_RATE, compute_bonus
 from database import maybe_single_data, supabase
+from paging import ContextThreadPoolExecutor
 from gratuity import compute_gratuity
 from payroll import compute_attendance_for_range, compute_monthly_summary, fy_month_labels, pay_period_bounds
 from routers.leave import fetch_all_approved_leaves_by_employee, fetch_approved_leaves, paid_leave_balance_as_of
@@ -33,7 +33,7 @@ def ctc_as_per_salary(
     plus employer PF/ESIC/LWF) that the "CTC As Per Payslip" report derives
     from actual monthly figures via /api/payroll/range."""
     as_of = as_of or date.today()
-    with ThreadPoolExecutor(max_workers=2) as pool:
+    with ContextThreadPoolExecutor(max_workers=2) as pool:
         employees_future = pool.submit(
             lambda: supabase.table("hr_employees")
             .select("id,employee_code,first_name,last_name,location").eq("is_active", True).execute().data
@@ -154,7 +154,7 @@ def full_and_final_employees(user: dict = Depends(require_permission("payroll.vi
     """Every employee — active or exited — so a settlement can be previewed
     for anyone, not just those already marked as leaving. Exit-related
     fields are included so the picker can show status at a glance."""
-    with ThreadPoolExecutor(max_workers=2) as pool:
+    with ContextThreadPoolExecutor(max_workers=2) as pool:
         employees_future = pool.submit(
             lambda: supabase.table("hr_employees")
             .select("id,employee_code,first_name,last_name,location,is_active").execute().data
@@ -204,7 +204,7 @@ def full_and_final(employee_id: str, user: dict = Depends(require_permission("pa
     400 — mirrors how /api/reports/gratuity already treats active
     employees, and lets this be previewed before anyone has actually
     resigned."""
-    with ThreadPoolExecutor(max_workers=2) as pool:
+    with ContextThreadPoolExecutor(max_workers=2) as pool:
         employee_future = pool.submit(
             lambda: supabase.table("hr_employees").select("*").eq("id", employee_id).maybe_single().execute()
         )
@@ -223,7 +223,7 @@ def full_and_final(employee_id: str, user: dict = Depends(require_permission("pa
     reference_date = date.fromisoformat(exit_date_str) if exit_date_str else date.today()
     period_year, period_month = _pay_period_for_date(reference_date)
 
-    with ThreadPoolExecutor(max_workers=5) as pool:
+    with ContextThreadPoolExecutor(max_workers=5) as pool:
         punches_future = pool.submit(_fetch_punch_times, employee["employee_code"], period_year, period_month)
         overrides_future = pool.submit(_fetch_overrides, employee_id, period_year, period_month)
         leaves_future = pool.submit(fetch_approved_leaves, employee_id, period_year, period_month)
@@ -276,7 +276,7 @@ def full_and_final(employee_id: str, user: dict = Depends(require_permission("pa
 
 @router.get("/tds-projection")
 def tds_projection_report(financial_year: str = Query(...), user: dict = Depends(require_permission("payroll.view"))):
-    with ThreadPoolExecutor(max_workers=2) as pool:
+    with ContextThreadPoolExecutor(max_workers=2) as pool:
         employees_future = pool.submit(
             lambda: supabase.table("hr_employees").select("*").eq("is_active", True).execute().data
         )
@@ -304,7 +304,7 @@ def _month_bonus_contributions(y: int, m: int, employees: list[dict], holidays: 
     """One FY month's (paid_days, basic_wage) contribution per eligible
     employee — the 3 bulk fetches below are independent (different tables),
     same pattern as _all_summaries_for_month."""
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ContextThreadPoolExecutor(max_workers=4) as pool:
         punches_future = pool.submit(_fetch_all_punches_by_employee, y, m)
         overrides_future = pool.submit(_fetch_all_overrides_by_employee, y, m)
         leaves_future = pool.submit(fetch_all_approved_leaves_by_employee, y, m)
@@ -358,7 +358,7 @@ def bonus_report(
     # month at a time, so a full-year report paid ~12x a single month's wait.
     # Capped at 4 concurrent months since each month itself opens its own
     # 3-way pool above, mirroring payroll_for_range's identical tradeoff.
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ContextThreadPoolExecutor(max_workers=4) as pool:
         month_contributions = list(
             pool.map(lambda ym: _month_bonus_contributions(ym[0], ym[1], employees, holidays), month_labels)
         )
@@ -405,7 +405,7 @@ def attendance_report(
     same per-day rows the payslip's own daily breakdown uses (see
     payroll.py's compute_daily_attendance), just not dropped before return
     the way the bulk /api/payroll response is (keep_daily=True)."""
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ContextThreadPoolExecutor(max_workers=3) as pool:
         employees_future = pool.submit(
             lambda: supabase.table("hr_employees").select("*").eq("is_active", True).execute().data
         )
@@ -454,7 +454,7 @@ def attendance_report_range(
         raise HTTPException(status_code=400, detail="'to' must be on or after 'from'")
     if (to_date - from_date).days + 1 > MAX_ATTENDANCE_RANGE_DAYS:
         raise HTTPException(status_code=400, detail=f"Range cannot exceed {MAX_ATTENDANCE_RANGE_DAYS} days")
-    with ThreadPoolExecutor(max_workers=7) as pool:
+    with ContextThreadPoolExecutor(max_workers=7) as pool:
         employees_future = pool.submit(
             lambda: supabase.table("hr_employees").select("*").eq("is_active", True).execute().data
         )
@@ -505,7 +505,7 @@ def gratuity_report(as_of: date | None = Query(None), user: dict = Depends(requi
     it's evaluated as of that date instead. Death/Disablement in
     reason_of_leaving waives the 5-year rule per Sec 4(1)'s proviso."""
     as_of = as_of or date.today()
-    with ThreadPoolExecutor(max_workers=2) as pool:
+    with ContextThreadPoolExecutor(max_workers=2) as pool:
         employees_future = pool.submit(lambda: supabase.table("hr_employees").select("*").execute().data)
         profile_future = pool.submit(
             lambda: supabase.table("hr_employee_profile")
