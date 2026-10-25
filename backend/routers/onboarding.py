@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 import email_service
 from auth import get_current_user, hash_password, require_permission, user_can
 from database import maybe_single_data, supabase
+from workflow_log import record_step
 from models import OnboardingResolve, OnboardingSubmissionCreate, OnboardingUpload
 
 router = APIRouter(prefix="/api/onboarding", tags=["onboarding"])
@@ -288,5 +289,9 @@ def resolve_submission(
         "resolved_at": datetime.now(timezone.utc).isoformat(),
         "created_employee_id": created_employee_id,
     }).eq("id", submission_id).execute()
+    record_step(
+        "onboarding", submission_id, body.action, user, employee_id=created_employee_id,
+        basis={"created_employee": bool(created_employee_id)}, note=body.admin_note or "",
+    )
 
     return {"ok": True, "created_employee_id": created_employee_id, "issued": issued}

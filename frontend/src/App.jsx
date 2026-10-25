@@ -86,6 +86,7 @@ const MyPayslip = lazyWithReload(() => import("./pages/admin/MyPayslip.jsx"));
 const PayslipApprovals = lazyWithReload(() => import("./pages/admin/PayslipApprovals.jsx"));
 const Letters = lazyWithReload(() => import("./pages/admin/Letters.jsx"));
 const EmailLog = lazyWithReload(() => import("./pages/admin/EmailLog.jsx"));
+const DataReadiness = lazyWithReload(() => import("./pages/admin/DataReadiness.jsx"));
 const Payroll = lazyWithReload(() => import("./pages/admin/Payroll.jsx"));
 const PayrollDetail = lazyWithReload(() => import("./pages/admin/PayrollDetail.jsx"));
 const Policy = lazyWithReload(() => import("./pages/admin/Policy.jsx"));
@@ -292,6 +293,7 @@ export default function App() {
             <Route path="my-payslip" element={<MyPayslip />} />
             <Route path="payslip-approvals" element={<RequirePermission anyOf={["payslip_approvals.manage"]}><PayslipApprovals /></RequirePermission>} />
             <Route path="letters" element={<RequirePermission anyOf={["letters.generate", "letters.manage"]}><Letters /></RequirePermission>} />
+            <Route path="data-readiness" element={<RequirePermission anyOf={["data_readiness.view"]}><DataReadiness /></RequirePermission>} />
             <Route path="email-log" element={<RequirePermission anyOf={["email_log.view"]}><EmailLog /></RequirePermission>} />
             <Route path="policy" element={<RequirePermission anyOf={["employees.manage", "policy.manage"]}><Policy /></RequirePermission>} />
             <Route path="policy-document" element={<PolicyDocument />} />

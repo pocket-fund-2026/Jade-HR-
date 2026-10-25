@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from idempotency import find_recent_duplicate
 from auth import get_current_user, my_report_ids, require_permission
 from database import maybe_single_data, supabase
+from workflow_log import record_step
 from models import AttendanceImportRequest, AttendanceOverrideUpsert, DisputeCreate, DisputePhotoUpload, DisputeResolve
 
 router = APIRouter(prefix="/api", tags=["disputes"])
@@ -160,6 +161,12 @@ def _settle(dispute_id: str, body: DisputeResolve, actor: dict, role: str, allow
             {"status": "pending", "resolved_by": None, "resolved_by_role": None, "resolved_at": None}
         ).eq("id", dispute_id).execute()
         raise
+    record_step(
+        "dispute", dispute_id, body.action, {"id": actor["id"], "role": role}, employee_id=dispute["employee_id"],
+        basis={"date": dispute["date"], "issue_type": dispute.get("issue_type"),
+               "status_override": body.status_override if body.action == "approve" else None},
+        note=body.admin_note or "",
+    )
     return {"ok": True}
 
 
@@ -214,6 +221,12 @@ def upsert_attendance_override(
         "created_by": admin["id"],
     }
     supabase.table("hr_attendance_overrides").upsert(override_row, on_conflict="employee_id,date").execute()
+    record_step(
+        "attendance_override", f"{employee_id}:{override_row['date']}", "corrected", admin, employee_id=employee_id,
+        basis={"date": override_row["date"], "status_override": body.status_override,
+               "source": body.verification_source},
+        note=body.note or "",
+    )
     return {"ok": True}
 
 

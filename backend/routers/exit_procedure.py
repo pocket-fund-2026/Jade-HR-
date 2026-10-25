@@ -28,6 +28,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 import email_service
 from auth import get_current_user, require_permission
 from database import maybe_single_data, supabase
+from workflow_log import record_step
 from models import ExitAssetUpdate, ExitChecklistItemUpdate, ExitInitiate, ExitInterviewSubmit
 
 router = APIRouter(prefix="/api/exit-records", tags=["exit-procedure"])
@@ -204,6 +205,10 @@ def update_checklist_item(
     )
     if not resp.data:
         raise HTTPException(status_code=404, detail="Checklist item not found")
+    record_step(
+        "exit", exit_id, "step_completed" if body.status == "completed" else "step_reopened", user,
+        basis={"item_id": item_id, "signed_by": body.signed_by},
+    )
     record = maybe_single_data(supabase.table("hr_exit_records").select("*").eq("id", exit_id).maybe_single().execute())
     return _hydrate(record)
 
@@ -227,6 +232,8 @@ def finalize_exit(exit_id: str, user: dict = Depends(require_permission("exit.ma
         {"employee_id": record["employee_id"], "employee_status": "Exited", "exit_date": record["last_working_day"], "updated_at": now},
         on_conflict="employee_id",
     ).execute()
+    record_step("exit", exit_id, "finalized", user, employee_id=record["employee_id"],
+                basis={"last_working_day": record["last_working_day"], "checklist_items": len(items)})
 
     updated = maybe_single_data(supabase.table("hr_exit_records").select("*").eq("id", exit_id).maybe_single().execute())
     return _hydrate(updated)

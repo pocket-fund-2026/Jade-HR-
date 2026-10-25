@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from auth import get_current_user, require_permission
 from config import IST
 from database import supabase
+from workflow_log import record_step
 from models import AIPClose, AIPCreate
 from payroll import (
     LATE_FREE_COUNT_V2,
@@ -298,6 +299,12 @@ def _forfeit_paid_leave(row: dict, financial_year: str, quarter: int, entry_date
         supabase.table("hr_late_policy_actions").delete().eq("id", action["id"]).execute()
         raise
 
+    record_step(
+        "quarter_red_card", action["id"], "applied", user, employee_id=row["employee_id"],
+        basis={"quarter": _quarter_label(financial_year, quarter), "pl_forfeited": QUARTER_RED_CARD_PL_FORFEIT,
+               "late_marks": late_marks, "letter_issued": bool(letter_id)},
+    )
+
     return {"employee_id": row["employee_id"], "status": "applied", "action": applied}
 
 
@@ -429,6 +436,8 @@ def start_aip(body: AIPCreate, user: dict = Depends(require_permission("leave.ma
         "created_by": user["id"],
     }
     inserted = supabase.table("hr_aip_records").insert(row).execute()
+    record_step("aip", inserted.data[0].get("id"), "started", user, employee_id=body.employee_id,
+                basis={"duration_days": body.duration_days, "start_date": row["start_date"]}, note=body.notes or "")
     return inserted.data[0]
 
 
@@ -445,6 +454,8 @@ def close_aip(aip_id: str, body: AIPClose, user: dict = Depends(require_permissi
     )
     if not updated.data:
         raise HTTPException(status_code=404, detail="No active AIP with that id")
+    record_step("aip", aip_id, f"closed_{body.status}", user, employee_id=updated.data[0].get("employee_id"),
+                note=body.notes or "")
     return updated.data[0]
 
 

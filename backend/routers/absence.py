@@ -8,6 +8,7 @@ from idempotency import find_recent_duplicate
 from auth import get_current_user, require_permission
 from config import IST
 from database import maybe_single_data, supabase
+from workflow_log import record_step
 from models import AbsenceRequestCreate, AbsenceResolve, AbsenceUpload
 
 
@@ -167,6 +168,10 @@ def resolve_absence_request(
         "resolved_by": user["id"],
         "resolved_at": datetime.now(timezone.utc).isoformat(),
     }).eq("id", request_id).execute()
+    record_step(
+        "absence", request_id, body.action, user, employee_id=absence_request.get("employee_id"),
+        basis={"start": absence_request["start_date"], "end": absence_request["end_date"]}, note=body.admin_note or "",
+    )
 
     employee_name = f"{absence_request.get('first_name', '')} {absence_request.get('last_name', '')}".strip()
     email_service.notify_absence_resolved(

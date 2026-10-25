@@ -35,6 +35,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from idempotency import find_recent_duplicate
 from auth import get_current_user, my_report_ids, require_permission, user_can
 from database import supabase
+from workflow_log import record_step
 from models import WFHCompletionConfirm, WFHRequestCreate, WFHResolve
 from payroll import pay_period_bounds
 
@@ -128,6 +129,9 @@ def resolve_wfh_request(request_id: str, body: WFHResolve, user: dict = Depends(
         "resolution_note": body.note,
         "pay_treatment_percent": PAY_TREATMENT_PERCENT if body.action == "approve" else None,
     }).eq("id", request_id).execute()
+    record_step("wfh", request_id, body.action, user, employee_id=existing.data.get("employee_id"),
+                basis={"pay_treatment_percent": PAY_TREATMENT_PERCENT if body.action == "approve" else None},
+                note=body.note or "")
     return updated.data[0]
 
 

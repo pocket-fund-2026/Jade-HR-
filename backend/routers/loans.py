@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 import email_service
 from auth import get_current_user, require_permission
 from database import maybe_single_data, supabase
+from workflow_log import record_step
 from models import LoanRequestCreate, LoanResolve
 
 router = APIRouter(tags=["loans"])
@@ -82,6 +83,10 @@ def resolve_loan_request(request_id: str, body: LoanResolve, user: dict = Depend
         "resolved_by": user["id"],
         "resolved_at": datetime.now(timezone.utc).isoformat(),
     }).eq("id", request_id).execute()
+    record_step(
+        "loan", request_id, body.action, user, employee_id=loan_request.get("employee_id"),
+        basis={"amount": loan_request.get("amount")}, note=body.admin_note or "",
+    )
 
     employee_name = f"{loan_request.get('first_name', '')} {loan_request.get('last_name', '')}".strip()
     email_service.notify_loan_resolved(

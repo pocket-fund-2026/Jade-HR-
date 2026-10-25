@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from auth import get_current_user, require_permission
 from database import maybe_single_data, supabase
+from workflow_log import record_step
 from models import PayslipApprovalCreate, PayslipApprovalResolve
 from payroll import compute_monthly_summary
 from routers.leave import fetch_approved_leaves
@@ -124,5 +125,10 @@ def resolve_payslip_approval(
         "resolved_at": datetime.now(timezone.utc).isoformat(),
         "seen_by_employee": False,
     }).eq("id", approval_id).execute()
+    record_step(
+        "payslip_approval", approval_id, body.action, admin, employee_id=approval.get("employee_id"),
+        basis={"period_year": approval.get("period_year"), "period_month": approval.get("period_month")},
+        note=body.admin_note or "",
+    )
 
     return {"ok": True}

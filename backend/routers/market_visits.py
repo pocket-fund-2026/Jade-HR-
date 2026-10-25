@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from auth import get_current_user, my_report_ids, require_permission, user_can
 from database import supabase
+from workflow_log import record_step
 from models import MarketVisitCreate, MarketVisitResolve
 
 router = APIRouter(prefix="/api/market-visits", tags=["market-visits"])
@@ -141,4 +142,6 @@ def resolve_market_visit(visit_id: str, body: MarketVisitResolve, user: dict = D
         "reviewed_at": datetime.now().isoformat(),
         "review_note": body.note,
     }).eq("id", visit_id).execute()
+    record_step("market_visit", visit_id, body.action, user, employee_id=existing.data["employee_id"],
+                note=body.note or "")
     return updated.data[0]

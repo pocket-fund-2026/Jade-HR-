@@ -8,6 +8,7 @@ import email_service
 from idempotency import find_recent_duplicate
 from auth import get_current_user, my_report_ids, require_permission, user_can
 from database import maybe_single_data, supabase
+from workflow_log import record_step
 from config import IST
 from models import CompOffGrant, LeaveRequestCreate, LeaveResolve
 from payroll import WEEKOFF_LOOKBACK_DAYS, _holidays_for_employee, apply_late_coming_policy, compute_daily_attendance, pay_period_bounds
@@ -889,6 +890,11 @@ def resolve_leave_request(request_id: str, body: LeaveResolve, user: dict = Depe
         "resolved_by": user["id"],
         "resolved_at": datetime.now(timezone.utc).isoformat(),
     }).eq("id", request_id).execute()
+    record_step(
+        "leave", request_id, body.action, user, employee_id=leave_request["employee_id"],
+        basis={"leave_type": leave_request["leave_type"], "start": leave_request["start_date"], "end": leave_request["end_date"]},
+        note=body.admin_note or "",
+    )
 
     # Both outcomes are mailed — a rejection used to send nothing at all, so
     # the employee only found out by checking the console.
@@ -992,6 +998,10 @@ def grant_comp_off(body: CompOffGrant, user: dict = Depends(require_permission("
     if existing.data:
         raise HTTPException(status_code=409, detail="A Comp-Off has already been granted for that date")
     inserted = supabase.table("hr_comp_off_ledger").insert(row).execute()
+    record_step(
+        "comp_off", inserted.data[0].get("id"), "granted_by_hand", user, employee_id=body.employee_id,
+        basis={"earned_date": row["earned_date"], "units": body.units, "hours_worked": body.hours_worked},
+    )
     return inserted.data[0]
 
 
