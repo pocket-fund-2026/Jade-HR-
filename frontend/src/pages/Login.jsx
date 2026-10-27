@@ -14,6 +14,7 @@ export default function Login() {
   const [mode, setMode] = useState("password"); // password | link
   const [linkId, setLinkId] = useState("");
   const [linkMsg, setLinkMsg] = useState("");
+  const [showLinkPopup, setShowLinkPopup] = useState(false);
   const navigate = useNavigate();
   const [employeeCode, setEmployeeCode] = useState("");
   const [password, setPassword] = useState("");
@@ -46,6 +47,7 @@ export default function Login() {
     try {
       const { data } = await api.post("/api/auth/magic-link", { identifier: linkId });
       setLinkMsg(data.message);
+      setShowLinkPopup(true);
     } catch (err) {
       setError(err.response?.data?.detail || "Could not send the link. Try again in a minute.");
     } finally {
@@ -184,6 +186,21 @@ export default function Login() {
           </>
           )}
         </div>
+
+        {showLinkPopup && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" role="dialog" aria-modal="true" aria-labelledby="link-popup-title">
+            <div className="w-full max-w-sm bg-paper rounded-sm shadow-stamp border-t-4 border-jade-500 p-6 space-y-3">
+              <p id="link-popup-title" className="font-display text-ink text-lg">Check your email to log in</p>
+              <p className="text-sm text-ink/80">
+                You need to open the sign-in link we emailed you to log in. It works once and expires in 15 minutes.
+              </p>
+              <p className="text-xs text-ink/70 bg-manila/60 border-l-2 border-jade-500 pl-2.5 py-1.5">
+                The link only works if your email is registered with HR against your employee code. Nothing arrived? Check spam, or ask HR to add or correct your email.
+              </p>
+              <button type="button" autoFocus onClick={() => setShowLinkPopup(false)} className={btnCls}>Got it</button>
+            </div>
+          </div>
+        )}
 
         <p className="text-center text-xs text-manila/75 mt-6">
           First time setting up?{" "}
