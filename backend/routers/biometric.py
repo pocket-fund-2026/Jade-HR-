@@ -140,9 +140,17 @@ def present_today(admin: dict = Depends(require_permission("attendance.view"))):
     )
     punched = {p["employee_code"] for p in punches}
 
+    # Department spelling differs only by case in the data ("Production" vs
+    # "PRODUCTION"), so group case-insensitively and show the non-all-caps
+    # spelling when there is one.
+    names: dict[str, str] = {}
     by_dept: dict[str, dict] = {}
     for e in employees:
-        d = by_dept.setdefault((e.get("department") or "").strip() or "Unassigned", {"total": 0, "present": 0})
+        raw = (e.get("department") or "").strip() or "Unassigned"
+        key = raw.casefold()
+        if key not in names or (names[key].isupper() and not raw.isupper()):
+            names[key] = raw
+        d = by_dept.setdefault(key, {"total": 0, "present": 0})
         d["total"] += 1
         if e["employee_code"] in punched:
             d["present"] += 1
@@ -156,7 +164,7 @@ def present_today(admin: dict = Depends(require_permission("attendance.view"))):
         "date": today.isoformat(),
         "total": total, "present": present, "percent": pct(present, total),
         "departments": sorted(
-            ({"department": k, **v, "percent": pct(v["present"], v["total"])} for k, v in by_dept.items()),
+            ({"department": names[k], **v, "percent": pct(v["present"], v["total"])} for k, v in by_dept.items()),
             key=lambda x: x["department"],
         ),
     }
