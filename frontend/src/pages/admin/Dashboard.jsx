@@ -5,6 +5,7 @@ import { Link, useOutletContext } from "react-router-dom";
 import MonthPicker from "../../components/MonthPicker.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import LateTodayPanel from "../../components/LateTodayPanel.jsx";
+import PresentTodayPanel from "../../components/PresentTodayPanel.jsx";
 import StatCard from "../../components/StatCard.jsx";
 import api from "../../lib/api.js";
 import { exportAttendanceExcel, exportAttendanceTimingsExcel } from "../../lib/attendanceExport.js";
@@ -402,6 +403,7 @@ export default function Dashboard() {
         </aside>
       )}
       <div className="order-2 xl:order-1 min-w-0">
+      {showLateRail && <PresentTodayPanel />}
       {upcomingBirthdays.length > 0 && (
         <div className="bg-paper rounded-sm shadow-card px-5 py-4 mb-6">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70 mb-3 flex items-center gap-1.5">

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, time
 
 from fastapi import APIRouter, Depends
 
@@ -7,6 +7,7 @@ from config import EXCLUDED_SERIALS, IST, SERIAL_TO_LOCATION
 from database import supabase
 from initial_passwords import initial_employee_password
 from models import BiometricPunch
+from paging import fetch_all_paged
 
 router = APIRouter(prefix="/api/biometric", tags=["biometric"])
 
@@ -120,3 +121,42 @@ def sync_log(admin: dict = Depends(require_permission("biometric.view"))):
         .execute()
     )
     return resp.data
+
+
+@router.get("/present-today")
+def present_today(admin: dict = Depends(require_permission("attendance.view"))):
+    """Share of active employees with at least one biometric punch today
+    (IST), overall and per department."""
+    today = datetime.now(IST).date()
+    start = datetime.combine(today, time.min, tzinfo=IST).isoformat()
+    end = datetime.combine(today, time.max, tzinfo=IST).isoformat()
+    employees = fetch_all_paged(
+        "hr_employees", "employee_code,department,is_active", ("employee_code",),
+        apply=lambda q: q.eq("is_active", True),
+    )
+    punches = fetch_all_paged(
+        "hr_biometric_punches", "employee_code,punch_time", ("employee_code", "punch_time"),
+        apply=lambda q: q.gte("punch_time", start).lte("punch_time", end),
+    )
+    punched = {p["employee_code"] for p in punches}
+
+    by_dept: dict[str, dict] = {}
+    for e in employees:
+        d = by_dept.setdefault((e.get("department") or "").strip() or "Unassigned", {"total": 0, "present": 0})
+        d["total"] += 1
+        if e["employee_code"] in punched:
+            d["present"] += 1
+
+    def pct(present: int, total: int) -> float:
+        return round(100 * present / total, 1) if total else 0.0
+
+    total = sum(d["total"] for d in by_dept.values())
+    present = sum(d["present"] for d in by_dept.values())
+    return {
+        "date": today.isoformat(),
+        "total": total, "present": present, "percent": pct(present, total),
+        "departments": sorted(
+            ({"department": k, **v, "percent": pct(v["present"], v["total"])} for k, v in by_dept.items()),
+            key=lambda x: x["department"],
+        ),
+    }
