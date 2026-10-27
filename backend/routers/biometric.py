@@ -131,7 +131,7 @@ def present_today(admin: dict = Depends(require_permission("attendance.view"))):
     start = datetime.combine(today, time.min, tzinfo=IST).isoformat()
     end = datetime.combine(today, time.max, tzinfo=IST).isoformat()
     employees = fetch_all_paged(
-        "hr_employees", "employee_code,department,is_active", ("employee_code",),
+        "hr_employees", "employee_code,first_name,last_name,department,is_active", ("employee_code",),
         apply=lambda q: q.eq("is_active", True),
     )
     punches = fetch_all_paged(
@@ -150,10 +150,18 @@ def present_today(admin: dict = Depends(require_permission("attendance.view"))):
         key = raw.casefold()
         if key not in names or (names[key].isupper() and not raw.isupper()):
             names[key] = raw
-        d = by_dept.setdefault(key, {"total": 0, "present": 0})
+        d = by_dept.setdefault(key, {"total": 0, "present": 0, "employees": []})
         d["total"] += 1
-        if e["employee_code"] in punched:
+        here = e["employee_code"] in punched
+        if here:
             d["present"] += 1
+        d["employees"].append({
+            "employee_code": e["employee_code"], "present": here,
+            "name": f"{e.get('first_name') or ''} {e.get('last_name') or ''}".strip() or e["employee_code"],
+        })
+
+    for d in by_dept.values():
+        d["employees"].sort(key=lambda x: (x["present"], x["name"].casefold()))
 
     def pct(present: int, total: int) -> float:
         return round(100 * present / total, 1) if total else 0.0

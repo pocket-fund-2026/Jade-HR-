@@ -96,10 +96,10 @@ export function NotificationToasts({ pending, loaded }) {
         if (added.length === 1) {
           const who = itemWho(added[0]);
           next.push(t.key === "newEmployees"
-            ? { id: `${t.key}-${added[0].id}`, type: t.key, title: "New employee added to the console", body: `${who || "A new employee"} (ID ${added[0].employee_code}). Please create his ID.` }
+            ? { id: `${t.key}-${added[0].id}`, type: t.key, title: "New employee added to the console", body: `${newEmployeeLine(added[0])} Please create their ID.` }
             : { id: `${t.key}-${added[0].id}`, type: t.key, title: `New ${t.singular}`, body: who ? `From ${who}` : "Just arrived." });
         } else if (added.length > 1) {
-          next.push({ id: `${t.key}-${Date.now()}`, type: t.key, title: `${countLabel(t, added.length)} just arrived`, body: t.key === "newEmployees" ? "Added to the console. Please create their IDs." : "Waiting for review." });
+          next.push({ id: `${t.key}-${Date.now()}`, type: t.key, title: `${countLabel(t, added.length)} just arrived`, body: t.key === "newEmployees" ? `${added.map(newEmployeeLine).join(" ")} Please create their IDs.` : "Waiting for review." });
         }
       }
     }
@@ -126,6 +126,14 @@ export function NotificationToasts({ pending, loaded }) {
 
 // The bell + "Waiting for you" dropdown. Rendered in the desktop top bar and
 // the mobile header.
+// One line per new employee: the code, what SmartOffice has stored for it, and
+// where it first punched — the details needed to create the matching ID.
+function newEmployeeLine(e) {
+  const stored = e.smartoffice_stored_as ? `stored in SmartOffice as "${e.smartoffice_stored_as}" (no name yet)` : `named ${e.name}`;
+  const where = e.first_punch_device ? `, first punch at ${e.first_punch_device}` : "";
+  return `ID ${e.employee_code} ${stored}${where}.`;
+}
+
 export default function NotificationBell({ pending, variant = "desktop" }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);

@@ -72,13 +72,32 @@ def recent_additions(days: int = 3, user: dict = Depends(require_permission("emp
         .execute()
         .data
     )
+    # What SmartOffice holds for an auto-added code: only the number itself, as
+    # seen on the device that read the punch — so whoever creates the ID knows
+    # which code to look for and where it was punched.
+    codes = [e["employee_code"] for e in rows]
+    first_punch: dict[str, dict] = {}
+    if codes:
+        punches = (
+            supabase.table("hr_biometric_punches")
+            .select("employee_code,punch_time,device_location")
+            .in_("employee_code", codes)
+            .order("punch_time")
+            .execute()
+            .data
+        )
+        for p in punches:
+            first_punch.setdefault(p["employee_code"], p)
     out = []
     for e in rows:
         placeholder = (e.get("last_name") or "").startswith("(auto-added")
+        punch = first_punch.get(e["employee_code"], {})
         out.append({
             "id": e["id"], "employee_code": e["employee_code"], "location": e.get("location", ""),
             "created_at": e["created_at"], "name_pending": placeholder,
             "name": e["employee_code"] if placeholder else f"{e['first_name']} {e.get('last_name') or ''}".strip(),
+            "smartoffice_stored_as": e["employee_code"] if placeholder else None,
+            "first_punch_at": punch.get("punch_time"), "first_punch_device": punch.get("device_location"),
         })
     return out
 
