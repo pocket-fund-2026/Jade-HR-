@@ -33,7 +33,7 @@ def _password_fingerprint(password_hash: str) -> str:
     return hashlib.sha256(password_hash.encode("utf-8")).hexdigest()[:16]
 
 
-def create_access_token(employee: dict) -> str:
+def create_access_token(employee: dict, via_magic_link: bool = False) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=JWT_EXPIRE_MINUTES)
     payload = {
         "sub": employee["employee_code"],
@@ -43,6 +43,8 @@ def create_access_token(employee: dict) -> str:
         "pv": _password_fingerprint(employee["password_hash"]),
         "exp": expire,
     }
+    if via_magic_link:
+        payload["ml"] = True
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 

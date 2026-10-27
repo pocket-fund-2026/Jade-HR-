@@ -29,7 +29,7 @@ FORGOT_REPLY = {
 
 MAGIC_LINK_MINUTES = 15
 MAGIC_URL = "https://jade-hr.vercel.app/login"
-MAGIC_RESEND_SECONDS = 60
+MAGIC_RESEND_SECONDS = 20
 MAGIC_REPLY = {
     "ok": True,
     "message": "If we have an email address on file for you, a sign-in link has been sent to it. "
@@ -128,8 +128,15 @@ def _find_for_magic_link(identifier: str) -> dict | None:
         return emp
     if "@" not in identifier:
         return None
-    rows = supabase.table("hr_employees").select("*").ilike("email", identifier).eq("is_active", True).limit(2).execute().data
-    return rows[0] if len(rows) == 1 else None
+    escaped = identifier.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    found = {r["id"]: r for r in supabase.table("hr_employees").select("*").ilike("email", escaped).eq("is_active", True).limit(3).execute().data}
+    prof_rows = supabase.table("hr_employee_profile").select("employee_id").ilike("personal_email_id", escaped).limit(3).execute().data
+    for pr in prof_rows:
+        if pr["employee_id"] not in found:
+            emp = maybe_single_data(supabase.table("hr_employees").select("*").eq("id", pr["employee_id"]).eq("is_active", True).maybe_single().execute())
+            if emp:
+                found[emp["id"]] = emp
+    return next(iter(found.values())) if len(found) == 1 else None
 
 
 @router.post("/magic-link")
@@ -145,11 +152,19 @@ def request_magic_link(body: MagicLinkRequest):
     now = time.monotonic()
     if now - _magic_last_sent.get(employee["id"], -1e9) < MAGIC_RESEND_SECONDS:
         return MAGIC_REPLY
+    name = f"{employee['first_name']} {employee.get('last_name') or ''}".strip()
     recipient = _email_for(employee)
     if not recipient:
+        email_service.send_email(
+            email_service.HR_NOTIFY_EMAIL,
+            f"Sign-in link requested but no email on file: {name} ({employee['employee_code']})",
+            f"{name} ({employee['employee_code']}) asked for an emailed sign-in link but has no email address on file. "
+            "Please add their email to their employee record.",
+            kind="magic_link_no_email",
+        )
+        _magic_last_sent[employee["id"]] = now
         return MAGIC_REPLY
     _magic_last_sent[employee["id"]] = now
-    name = f"{employee['first_name']} {employee.get('last_name') or ''}".strip()
     token = jwt.encode(
         {
             "purpose": "magic", "id": employee["id"], "lc": employee.get("login_count") or 0,
@@ -158,13 +173,15 @@ def request_magic_link(body: MagicLinkRequest):
         },
         JWT_SECRET, algorithm=JWT_ALGORITHM,
     )
-    email_service.send_email(
+    sent = email_service.send_email(
         recipient,
         "Your JADE HR sign-in link",
         f"Hi {name},\n\nClick to sign in to JADE HR (valid for {MAGIC_LINK_MINUTES} minutes, one use):\n"
         f"{MAGIC_URL}?magic={token}\n\nIf you didn't ask for this, ignore this email; nobody can sign in without it.\n",
         kind="magic_link",
     )
+    if not sent:
+        _magic_last_sent.pop(employee["id"], None)  # let them retry straight away
     return MAGIC_REPLY
 
 
@@ -203,7 +220,7 @@ def verify_magic_link(body: MagicLinkVerify, response: Response, request: Reques
             _mark_day(employee["id"], datetime.now(timezone.utc))
     except Exception:
         pass
-    token = create_access_token(employee)
+    token = create_access_token(employee, via_magic_link=True)
     _set_session_cookie(response, token)
     return {
         "access_token": token, "token_type": "bearer", "role": employee["role"],
@@ -290,7 +307,10 @@ def change_password(body: PasswordChange, response: Response, user: dict = Depen
     (employees and console users alike), for their own account only. Requires
     the current password; distinct from the admin-only reset at
     PUT /api/employees/{id}/password which sets another person's password."""
-    if not verify_password(body.current_password, user["password_hash"]):
+    # Someone who signed in via an emailed link has proven they own the inbox
+    # (the same trust as a reset link), and may never have known their password.
+    via_link = bool((user.get("_claims") or {}).get("ml"))
+    if not via_link and not verify_password(body.current_password, user["password_hash"]):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
     if len(body.new_password) < 6:
         raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
@@ -313,7 +333,7 @@ def change_password(body: PasswordChange, response: Response, user: dict = Depen
 @router.get("/me")
 def me(user: dict = Depends(get_current_user)):
     user.pop("password_hash", None)
-    user.pop("_claims", None)
+    user["via_magic_link"] = bool((user.pop("_claims", None) or {}).get("ml"))
     # Two independent tables — fires on ~every page load across the whole
     # console, so it's worth collapsing to one round-trip's wait instead of two.
     # (A third, hr_employee_profile.head_of_department, used to be resolved

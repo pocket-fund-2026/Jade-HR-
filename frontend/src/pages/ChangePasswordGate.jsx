@@ -25,7 +25,8 @@ export default function ChangePasswordGate() {
 
   const tooShort = newPassword.length > 0 && newPassword.length < 6;
   const mismatched = confirmPassword.length > 0 && newPassword !== confirmPassword;
-  const canSubmit = currentPassword && newPassword.length >= 6 && newPassword === confirmPassword;
+  const viaLink = !!user?.via_magic_link;
+  const canSubmit = (viaLink || currentPassword) && newPassword.length >= 6 && newPassword === confirmPassword;
 
   const submit = async (e) => {
     e.preventDefault();
@@ -63,7 +64,7 @@ export default function ChangePasswordGate() {
 
       <div className="flex-1 max-w-md w-full mx-auto px-5 sm:px-8 py-6">
         <form onSubmit={submit} className="bg-paper rounded-sm shadow-card p-5 space-y-5">
-          <label className="block">
+          {!viaLink && <label className="block">
             <span className="text-sm font-medium text-ink">Current Password</span>
             <input
               type="text"
@@ -75,7 +76,7 @@ export default function ChangePasswordGate() {
               required
               className="mt-1 w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500"
             />
-          </label>
+          </label>}
 
           <label className="block">
             <span className="text-sm font-medium text-ink">New Password</span>

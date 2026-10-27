@@ -67,3 +67,26 @@ def test_password_change_invalidates_link(client):
     c.post("/api/auth/magic-link", json={"identifier": "14001"})
     db.rows["14001"]["password_hash"] = auth.hash_password("changed99")
     assert c.post("/api/auth/magic-link/verify", json={"token": _token(sent)}).status_code == 400
+
+
+def test_link_session_can_set_password_without_current(client, monkeypatch):
+    c, db, sent = client
+    monkeypatch.setattr(auth, "supabase", db)
+    monkeypatch.setattr(auth, "touch_seen", lambda *_: None)
+    c.post("/api/auth/magic-link", json={"identifier": "14001"})
+    session = c.post("/api/auth/magic-link/verify", json={"token": _token(sent)}).json()["access_token"]
+    r = c.post("/api/auth/change-password", json={"new_password": "brandnew1"}, headers={"Authorization": f"Bearer {session}"})
+    assert r.status_code == 200
+    assert auth.verify_password("brandnew1", db.rows["14001"]["password_hash"])
+    # a normal password session still must supply the current password
+    normal = auth.create_access_token(db.rows["14001"])
+    r = c.post("/api/auth/change-password", json={"new_password": "another99"}, headers={"Authorization": f"Bearer {normal}"})
+    assert r.status_code == 400
+
+
+def test_no_email_notifies_hr(client, monkeypatch):
+    c, db, sent = client
+    db.rows["14001"]["email"] = ""
+    monkeypatch.setattr(auth_routes, "_email_for", lambda e: "")
+    c.post("/api/auth/magic-link", json={"identifier": "14001"})
+    assert sent and "no email" in sent[-1][1].lower()
