@@ -98,6 +98,7 @@ export default function Login() {
             linkMsg ? (
               <div className="space-y-4">
                 <p className="text-sm text-ink/80">{linkMsg}</p>
+                <p className="text-xs text-ink/70">The link only works if your email is registered with HR against your employee code. Nothing arrived? Check spam, or ask HR to add or correct your email.</p>
                 <button type="button" onClick={() => { setLinkMsg(""); setMode("password"); }} className="text-xs text-jade-600 underline underline-offset-2">Back to sign in</button>
               </div>
             ) : (
@@ -106,6 +107,9 @@ export default function Login() {
                   <label htmlFor="link_id" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Employee code or email</label>
                   <input id="link_id" className={inputCls} value={linkId} onChange={(e) => setLinkId(e.target.value)} autoFocus required />
                 </div>
+                <p className="text-xs text-ink/70 bg-manila/60 border-l-2 border-jade-500 pl-2.5 py-1.5">
+                  Note: the sign-in link only works if your email address is registered with HR and linked to your employee code. If you don't receive it, ask HR to add or correct your email.
+                </p>
                 {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
                 <button type="submit" disabled={busy} className={btnCls}>{busy ? "Sending…" : "Email me a sign-in link"}</button>
                 <p className="text-center">
