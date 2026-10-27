@@ -269,6 +269,19 @@ class ForgotPasswordRequest(BaseModel):
         return v.strip()
 
 
+class MagicLinkRequest(BaseModel):
+    identifier: str  # employee code or email address
+
+    @field_validator("identifier")
+    @classmethod
+    def _strip_identifier(cls, v: str) -> str:
+        return v.strip()
+
+
+class MagicLinkVerify(BaseModel):
+    token: str
+
+
 class ResetPasswordRequest(BaseModel):
     token: str
     password: str

@@ -1,4 +1,5 @@
 import base64
+import time
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -11,7 +12,7 @@ from auth import COOKIE_NAME, _password_fingerprint, create_access_token, get_cu
 from config import COOKIE_SECURE, JWT_ALGORITHM, JWT_EXPIRE_MINUTES, JWT_SECRET
 from database import maybe_single_data, supabase
 from paging import ContextThreadPoolExecutor
-from models import AvatarUpload, BootstrapAdminRequest, ForgotPasswordRequest, LoginRequest, PasswordChange, ResetPasswordRequest
+from models import AvatarUpload, BootstrapAdminRequest, ForgotPasswordRequest, LoginRequest, MagicLinkRequest, MagicLinkVerify, PasswordChange, ResetPasswordRequest
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -24,6 +25,18 @@ FORGOT_REPLY = {
     "message": "If that employee code has an email address on file, a reset link has been sent to it. "
                "No email on file? Ask HR to reset your password.",
 }
+
+
+MAGIC_LINK_MINUTES = 15
+MAGIC_URL = "https://jade-hr.vercel.app/login"
+MAGIC_RESEND_SECONDS = 60
+MAGIC_REPLY = {
+    "ok": True,
+    "message": "If we have an email address on file for you, a sign-in link has been sent to it. "
+               "It works once and expires in 15 minutes.",
+}
+# employee id -> monotonic time of last send; stops the form being used to spam someone's inbox.
+_magic_last_sent: dict[str, float] = {}
 
 
 def _set_session_cookie(response: Response, token: str) -> None:
@@ -93,6 +106,107 @@ def login(body: LoginRequest, response: Response, request: Request):
         "access_token": token,
         "token_type": "bearer",
         "role": employee["role"],
+        "name": f"{employee['first_name']} {employee.get('last_name', '')}".strip(),
+    }
+
+
+def _email_for(employee: dict) -> str:
+    recipient = (employee.get("email") or "").strip()
+    if recipient:
+        return recipient
+    prof = maybe_single_data(
+        supabase.table("hr_employee_profile").select("personal_email_id").eq("employee_id", employee["id"]).maybe_single().execute()
+    ) or {}
+    return (prof.get("personal_email_id") or "").strip()
+
+
+def _find_for_magic_link(identifier: str) -> dict | None:
+    """Employee code first; otherwise an email that matches exactly one active
+    person (a shared address could otherwise sign someone into the wrong account)."""
+    emp = maybe_single_data(supabase.table("hr_employees").select("*").eq("employee_code", identifier).maybe_single().execute())
+    if emp:
+        return emp
+    if "@" not in identifier:
+        return None
+    rows = supabase.table("hr_employees").select("*").ilike("email", identifier).eq("is_active", True).limit(2).execute().data
+    return rows[0] if len(rows) == 1 else None
+
+
+@router.post("/magic-link")
+def request_magic_link(body: MagicLinkRequest):
+    """Emails a one-click sign-in link. Same reply whether or not the person
+    exists so it can't be used to discover codes/emails. Single use is enforced
+    by embedding login_count in the token: verifying bumps it atomically."""
+    if not body.identifier:
+        return MAGIC_REPLY
+    employee = _find_for_magic_link(body.identifier)
+    if not employee or not employee.get("is_active"):
+        return MAGIC_REPLY
+    now = time.monotonic()
+    if now - _magic_last_sent.get(employee["id"], -1e9) < MAGIC_RESEND_SECONDS:
+        return MAGIC_REPLY
+    recipient = _email_for(employee)
+    if not recipient:
+        return MAGIC_REPLY
+    _magic_last_sent[employee["id"]] = now
+    name = f"{employee['first_name']} {employee.get('last_name') or ''}".strip()
+    token = jwt.encode(
+        {
+            "purpose": "magic", "id": employee["id"], "lc": employee.get("login_count") or 0,
+            "pv": _password_fingerprint(employee["password_hash"]),
+            "exp": datetime.now(timezone.utc) + timedelta(minutes=MAGIC_LINK_MINUTES),
+        },
+        JWT_SECRET, algorithm=JWT_ALGORITHM,
+    )
+    email_service.send_email(
+        recipient,
+        "Your JADE HR sign-in link",
+        f"Hi {name},\n\nClick to sign in to JADE HR (valid for {MAGIC_LINK_MINUTES} minutes, one use):\n"
+        f"{MAGIC_URL}?magic={token}\n\nIf you didn't ask for this, ignore this email; nobody can sign in without it.\n",
+        kind="magic_link",
+    )
+    return MAGIC_REPLY
+
+
+@router.post("/magic-link/verify")
+def verify_magic_link(body: MagicLinkVerify, response: Response, request: Request):
+    bad = HTTPException(status_code=400, detail="This sign-in link is invalid, expired or already used. Request a new one.")
+    try:
+        payload = jwt.decode(body.token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except JWTError:
+        raise bad
+    if payload.get("purpose") != "magic":
+        raise bad
+    employee = maybe_single_data(supabase.table("hr_employees").select("*").eq("id", payload.get("id")).maybe_single().execute())
+    if not employee or not employee.get("is_active") or _password_fingerprint(employee["password_hash"]) != payload.get("pv"):
+        raise bad
+    used = employee.get("login_count") or 0
+    if used != payload.get("lc"):
+        raise bad
+    # Compare-and-swap on login_count: of two simultaneous clicks only one row updates.
+    now = datetime.now(timezone.utc).isoformat()
+    updated = (
+        supabase.table("hr_employees")
+        .update({"login_count": used + 1, "last_login_at": now, "last_seen_at": now, "failed_login_count": 0, "locked_until": None})
+        .eq("id", employee["id"]).eq("login_count", used)
+        .execute()
+    )
+    if not updated.data:
+        raise bad
+    try:
+        from activity import DISABLED, _mark_day, device_label
+        if not DISABLED:
+            ua = request.headers.get("user-agent", "")
+            supabase.table("hr_login_events").insert(
+                {"employee_id": employee["id"], "device": device_label(ua), "user_agent": ua[:400]}
+            ).execute()
+            _mark_day(employee["id"], datetime.now(timezone.utc))
+    except Exception:
+        pass
+    token = create_access_token(employee)
+    _set_session_cookie(response, token)
+    return {
+        "access_token": token, "token_type": "bearer", "role": employee["role"],
         "name": f"{employee['first_name']} {employee.get('last_name', '')}".strip(),
     }
 

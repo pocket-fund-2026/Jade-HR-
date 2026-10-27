@@ -1,12 +1,19 @@
 import { Eye, EyeOff } from "lucide-react";
 import { useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+
+import api from "../lib/api.js";
 
 import IconSwap from "../components/IconSwap.jsx";
 import { useAuth } from "../lib/auth.jsx";
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, reloadUser } = useAuth();
+  const [params] = useSearchParams();
+  const magicToken = params.get("magic") || "";
+  const [mode, setMode] = useState("password"); // password | link
+  const [linkId, setLinkId] = useState("");
+  const [linkMsg, setLinkMsg] = useState("");
   const navigate = useNavigate();
   const [employeeCode, setEmployeeCode] = useState("");
   const [password, setPassword] = useState("");
@@ -32,6 +39,38 @@ export default function Login() {
     }
   };
 
+  const sendLink = async (e) => {
+    e.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      const { data } = await api.post("/api/auth/magic-link", { identifier: linkId });
+      setLinkMsg(data.message);
+    } catch (err) {
+      setError(err.response?.data?.detail || "Could not send the link. Try again in a minute.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Deliberately a click, not automatic on load: mail scanners pre-fetch links
+  // and would otherwise use up the one-time token before the person arrives.
+  const confirmMagic = async () => {
+    setError("");
+    setBusy(true);
+    try {
+      const { data } = await api.post("/api/auth/magic-link/verify", { token: magicToken }, { skipAuthRedirect: true });
+      await reloadUser();
+      navigate(data.role === "accounts" || data.role === "hr" ? "/admin" : "/employee", { replace: true });
+    } catch (err) {
+      setError(err.response?.data?.detail || "This sign-in link could not be used. Request a new one.");
+      setBusy(false);
+    }
+  };
+
+  const inputCls = "w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-3 min-h-[44px] text-base text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500";
+  const btnCls = "w-full rounded-sm bg-ledger-800 text-manila py-3 min-h-[44px] font-semibold tracking-wide hover:bg-ledger-700 active:bg-ledger-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-ledger-900 px-4 py-12 relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
@@ -46,6 +85,36 @@ export default function Login() {
         <div className="bg-paper rounded-sm shadow-stamp px-6 sm:px-8 pt-8 pb-7 border-t-4 border-jade-500 rise-in">
           <p className="font-display text-ink text-lg mb-6">Clock in to your account</p>
 
+          {magicToken ? (
+            <div className="space-y-5">
+              <p className="text-sm text-ink/80">Your sign-in link is ready. Continue to open JADE HR.</p>
+              {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
+              <button type="button" onClick={confirmMagic} disabled={busy} className={btnCls}>{busy ? "Signing in…" : "Continue to JADE HR"}</button>
+              <p className="text-center text-xs text-ink/60">
+                <Link to="/login" className="underline underline-offset-2">Use a different way to sign in</Link>
+              </p>
+            </div>
+          ) : mode === "link" ? (
+            linkMsg ? (
+              <div className="space-y-4">
+                <p className="text-sm text-ink/80">{linkMsg}</p>
+                <button type="button" onClick={() => { setLinkMsg(""); setMode("password"); }} className="text-xs text-jade-600 underline underline-offset-2">Back to sign in</button>
+              </div>
+            ) : (
+              <form onSubmit={sendLink} className="space-y-5">
+                <div>
+                  <label htmlFor="link_id" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Employee code or email</label>
+                  <input id="link_id" className={inputCls} value={linkId} onChange={(e) => setLinkId(e.target.value)} autoFocus required />
+                </div>
+                {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
+                <button type="submit" disabled={busy} className={btnCls}>{busy ? "Sending…" : "Email me a sign-in link"}</button>
+                <p className="text-center">
+                  <button type="button" onClick={() => { setError(""); setMode("password"); }} className="text-xs text-jade-600 underline underline-offset-2">Sign in with password instead</button>
+                </p>
+              </form>
+            )
+          ) : (
+          <>
           <form ref={formRef} onSubmit={submit} onAnimationEnd={(e) => e.currentTarget.classList.remove("is-shaking")} className="t-input space-y-5">
             <div>
               <label htmlFor="employee_code" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">
@@ -103,6 +172,13 @@ export default function Login() {
               {busy ? "Checking…" : "Sign in"}
             </button>
           </form>
+          <div className="mt-5 pt-4 border-t border-ink/10 text-center">
+            <button type="button" onClick={() => { setError(""); setMode("link"); }} className="text-sm text-jade-600 hover:text-jade-500 underline underline-offset-2">
+              Email me a sign-in link instead
+            </button>
+          </div>
+          </>
+          )}
         </div>
 
         <p className="text-center text-xs text-manila/75 mt-6">
