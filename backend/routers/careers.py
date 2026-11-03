@@ -182,6 +182,26 @@ def inbox_sync(user: dict = _gate):
     return _proxy("POST", "/api/admin/inbox/sync", user=user, json={}, timeout=60)
 
 
+@router.get("/availability")
+def availability_list(user: dict = _gate):
+    return _proxy("GET", "/api/admin/availability", user=user)
+
+
+@router.post("/availability")
+def availability_save(body: dict = Body(...), user: dict = _gate):
+    return _proxy("POST", "/api/admin/availability", user=user, json=body)
+
+
+@router.delete("/availability/{avail_id}")
+def availability_delete(avail_id: int, user: dict = _gate):
+    return _proxy("DELETE", f"/api/admin/availability/{avail_id}", user=user)
+
+
+@router.post("/availability/suggest")
+def availability_suggest(body: dict = Body(...), user: dict = _gate):
+    return _proxy("POST", "/api/admin/availability/suggest", user=user, json=body, timeout=30)
+
+
 @router.get("/agents")
 def agents_list(user: dict = _gate):
     return _proxy("GET", "/api/admin/agents", user=user)

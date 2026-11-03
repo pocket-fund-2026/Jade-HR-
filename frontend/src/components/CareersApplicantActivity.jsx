@@ -94,6 +94,8 @@ function InterviewForm({ initial = EMPTY, submitLabel, onSubmit, onCancel, full 
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const [avail, setAvail] = useState(null);
   const [checking, setChecking] = useState(false);
+  const interviewers = useInterviewers();
+  const nextFree = async () => { try { const [first] = await suggestTimes(f.interviewer_email, f.duration_min, 1); setF({ ...f, scheduled_at: first }); setAvail(null); } catch (e) { setAvail({ bad: true, text: e?.response?.data?.detail || "Could not find a free time" }); } };
   const checkAvail = async () => {
     setChecking(true);
     try {
@@ -129,8 +131,9 @@ function InterviewForm({ initial = EMPTY, submitLabel, onSubmit, onCancel, full 
             <option value="Final – Founders" />
           </datalist>
         </label>
+        <InterviewerSelect list={interviewers} email={f.interviewer_email} onPick={(r) => setF({ ...f, interviewer: r.name, interviewer_email: r.email || "", duration_min: r.slot_min })} />
         <label className="block">
-          <span className={LABEL}>Date & time</span>
+          <span className={LABEL}>Date & time <button type="button" onClick={nextFree} className="ml-1 normal-case tracking-normal font-semibold text-jade-700 hover:underline">Next free time</button></span>
           <input type="datetime-local" value={f.scheduled_at || ""} onChange={set("scheduled_at")} className={`${INPUT} mt-1`} />
         </label>
         <label className="block">
@@ -217,6 +220,8 @@ export function EmailsCard({ emails = [], onChange }) {
   const [slAvail, setSlAvail] = useState(null);
   const openShortlist = (id) => { setSlErr(""); setSlAvail(null); setSl({ id, f: { round: "Round 1 – HR", mode: "Video call", duration_min: 30, interviewer: "", interviewer_email: "", note: "", slots: ["", ""] } }); };
   const slSet = (k) => (e) => setSl({ ...sl, f: { ...sl.f, [k]: e.target.value } });
+  const interviewers = useInterviewers();
+  const slSuggest = async () => { setSlErr(""); try { setSl({ ...sl, f: { ...sl.f, slots: await suggestTimes(sl.f.interviewer_email, sl.f.duration_min, 3) } }); setSlAvail(null); } catch (e) { setSlErr(e?.response?.data?.detail || "Could not suggest times"); } };
   const slFilled = sl ? sl.f.slots.filter(Boolean) : [];
   const slCheck = async () => {
     setSlAvail({ text: "Checking…" });
@@ -272,6 +277,7 @@ export function EmailsCard({ emails = [], onChange }) {
               <label className="block col-span-2"><span className={LABEL}>Round</span><input value={sl.f.round} onChange={slSet("round")} className={`${INPUT} mt-1`} list="careers-rounds" /></label>
               <label className="block"><span className={LABEL}>Mode</span><select value={sl.f.mode} onChange={slSet("mode")} className={`${INPUT} mt-1`}>{INTERVIEW_MODES.map((m) => <option key={m}>{m}</option>)}</select></label>
               <label className="block"><span className={LABEL}>Duration (min)</span><input type="number" min="10" max="480" step="5" value={sl.f.duration_min} onChange={slSet("duration_min")} className={`${INPUT} mt-1`} /></label>
+              <InterviewerSelect list={interviewers} email={sl.f.interviewer_email} onPick={(r) => setSl({ ...sl, f: { ...sl.f, interviewer: r.name, interviewer_email: r.email || "", duration_min: r.slot_min } })} />
               <label className="block"><span className={LABEL}>Interviewer</span><input value={sl.f.interviewer} onChange={slSet("interviewer")} className={`${INPUT} mt-1`} /></label>
               <label className="block"><span className={LABEL}>Interviewer email (gets invite + brief)</span><input type="email" value={sl.f.interviewer_email} onChange={slSet("interviewer_email")} className={`${INPUT} mt-1`} /></label>
             </div>
@@ -284,6 +290,7 @@ export function EmailsCard({ emails = [], onChange }) {
                 </div>
               ))}
               <div className="flex gap-4 mt-2 text-xs">
+                <button type="button" onClick={slSuggest} className="text-jade-700 font-semibold hover:underline">Suggest times</button>
                 {sl.f.slots.length < 6 && <button type="button" onClick={() => setSl({ ...sl, f: { ...sl.f, slots: [...sl.f.slots, ""] } })} className="text-jade-700 font-semibold hover:underline">+ Add another time</button>}
                 <button type="button" disabled={!slFilled.length} onClick={slCheck} className="text-jade-700 font-semibold hover:underline disabled:opacity-40">Check interviewer availability</button>
               </div>
@@ -393,6 +400,29 @@ export function InterviewsCard({ applicationId, interviews, onChange }) {
   );
 }
 
+// Interviewers configured under Careers -> Interview Slots (active ones), for dropdowns and "Suggest times".
+function useInterviewers() {
+  const [list, setList] = useState([]);
+  useEffect(() => { api.get("/api/careers/availability").then(({ data }) => setList(data.filter((x) => x.active))).catch(() => {}); }, []);
+  return list;
+}
+function InterviewerSelect({ list, email, onPick }) {
+  if (!list.length) return null;
+  const cur = list.find((x) => x.email && x.email.toLowerCase() === (email || "").toLowerCase());
+  return (
+    <label className="block col-span-2">
+      <span className={LABEL}>Interviewer (from Interview Slots)</span>
+      <select value={cur ? cur.id : ""} onChange={(e) => { const r = list.find((x) => String(x.id) === e.target.value); if (r) onPick(r); }} className={`${INPUT} mt-1`}>
+        <option value="">Choose, or type below…</option>
+        {list.map((x) => <option key={x.id} value={x.id}>{x.name}{x.email ? ` (${x.email})` : " (shared default)"}</option>)}
+      </select>
+    </label>
+  );
+}
+async function suggestTimes(email, duration, count) {
+  const { data } = await api.post("/api/careers/availability/suggest", { interviewer_email: email || null, duration_min: duration, count });
+  return data.slots;
+}
 const OFFER_TONE = { open: "text-ochre-700", booked: "text-jade-700", expired: "text-ink/50", cancelled: "text-ink/50" };
 const fmtSlot = (s) => (s ? formatDateTime(s) : "");
 
@@ -404,6 +434,8 @@ export function OffersCard({ applicationId, onChange }) {
   const [err, setErr] = useState("");
   const [saving, setSaving] = useState(false);
   const [avail, setAvail] = useState(null);
+  const interviewers = useInterviewers();
+  const suggest = async () => { setErr(""); try { setF({ ...f, slots: await suggestTimes(f.interviewer_email, f.duration_min, 3) }); setAvail(null); } catch (e) { setErr(e?.response?.data?.detail || "Could not suggest times"); } };
   const load = () => api.get(`/api/careers/applications/${applicationId}/offers`).then(({ data }) => setOffers(data)).catch(() => {});
   useEffect(() => { load(); }, [applicationId]);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
@@ -449,6 +481,7 @@ export function OffersCard({ applicationId, onChange }) {
             <label className="block col-span-2"><span className={LABEL}>Round</span><input required value={f.round} onChange={set("round")} className={`${INPUT} mt-1`} list="careers-rounds" placeholder="e.g. Round 1 – HR" /></label>
             <label className="block"><span className={LABEL}>Mode</span><select value={f.mode} onChange={set("mode")} className={`${INPUT} mt-1`}>{INTERVIEW_MODES.map((m) => <option key={m}>{m}</option>)}</select></label>
             <label className="block"><span className={LABEL}>Duration (min)</span><input type="number" min="10" max="480" step="5" value={f.duration_min} onChange={set("duration_min")} className={`${INPUT} mt-1`} /></label>
+            <InterviewerSelect list={interviewers} email={f.interviewer_email} onPick={(r) => setF({ ...f, interviewer: r.name, interviewer_email: r.email || "", duration_min: r.slot_min })} />
             <label className="block"><span className={LABEL}>Interviewer</span><input value={f.interviewer} onChange={set("interviewer")} className={`${INPUT} mt-1`} /></label>
             <label className="block"><span className={LABEL}>Interviewer email (gets the invite + brief)</span><input type="email" value={f.interviewer_email} onChange={set("interviewer_email")} className={`${INPUT} mt-1`} /></label>
           </div>
@@ -461,6 +494,7 @@ export function OffersCard({ applicationId, onChange }) {
               </div>
             ))}
             <div className="flex gap-4 mt-2 text-xs">
+              <button type="button" onClick={suggest} className="text-jade-700 font-semibold hover:underline">Suggest times</button>
               {f.slots.length < 6 && <button type="button" onClick={() => setF({ ...f, slots: [...f.slots, ""] })} className="text-jade-700 font-semibold hover:underline">+ Add another time</button>}
               <button type="button" disabled={!filled.length} onClick={check} className="text-jade-700 font-semibold hover:underline disabled:opacity-40">Check interviewer availability</button>
             </div>
