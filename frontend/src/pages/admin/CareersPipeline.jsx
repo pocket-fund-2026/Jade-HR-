@@ -124,6 +124,11 @@ export default function CareersPipeline() {
                         {a.screen_verdict && <StampBadge status={a.screen_verdict}>{VERDICT_LABEL[a.screen_verdict]}</StampBadge>}
                         {a.avg_rating != null && <span className="text-[11px] font-nums text-jade-700">★ {a.avg_rating}</span>}
                       </div>
+                      {a.suggested_status && (
+                        <button type="button" onClick={() => move(a.id, a.suggested_status)} title={a.suggested_why} className="mt-1.5 w-full text-left text-[11px] rounded-sm border border-jade-500/40 bg-jade-500/10 text-jade-700 px-1.5 py-1 hover:bg-jade-500/20">
+                          Suggested: move to {a.suggested_status} ({a.suggested_why})
+                        </button>
+                      )}
                       {a.next_interview_at && <p className="text-[11px] font-nums text-ink/60 mt-1.5">Interview {formatDateTime(a.next_interview_at)}</p>}
                       <div className="flex items-center gap-1.5 mt-2.5">
                         <select

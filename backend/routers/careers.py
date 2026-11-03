@@ -182,6 +182,36 @@ def inbox_sync(user: dict = _gate):
     return _proxy("POST", "/api/admin/inbox/sync", user=user, json={}, timeout=60)
 
 
+@router.get("/agents")
+def agents_list(user: dict = _gate):
+    return _proxy("GET", "/api/admin/agents", user=user)
+
+
+@router.post("/agents/{agent_id}")
+def agents_toggle(agent_id: str, body: dict = Body(...), user: dict = _gate):
+    return _proxy("POST", f"/api/admin/agents/{agent_id}", user=user, json=body)
+
+
+@router.get("/applications/{application_id}/offers")
+def offers_list(application_id: int, user: dict = _gate):
+    return _proxy("GET", f"/api/admin/applications/{application_id}/offers", user=user)
+
+
+@router.post("/applications/{application_id}/offers")
+def offers_create(application_id: int, body: dict = Body(...), user: dict = _gate):
+    return _proxy("POST", f"/api/admin/applications/{application_id}/offers", user=user, json=body)
+
+
+@router.post("/offers/{offer_id}/cancel")
+def offers_cancel(offer_id: int, user: dict = _gate):
+    return _proxy("POST", f"/api/admin/offers/{offer_id}/cancel", user=user, json={})
+
+
+@router.post("/offers/{offer_id}/resend")
+def offers_resend(offer_id: int, user: dict = _gate):
+    return _proxy("POST", f"/api/admin/offers/{offer_id}/resend", user=user, json={})
+
+
 @router.get("/agent/status")
 def agent_status(user: dict = _gate):
     return _proxy("GET", "/api/admin/agent/status", user=user)

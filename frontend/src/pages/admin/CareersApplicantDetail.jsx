@@ -2,7 +2,7 @@ import { Check, FileText, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { EmailsCard, HistoryCard, InterviewsCard, NotesCard } from "../../components/CareersApplicantActivity.jsx";
+import { EmailsCard, HistoryCard, InterviewsCard, NotesCard, OffersCard } from "../../components/CareersApplicantActivity.jsx";
 import CareersNav from "../../components/CareersNav.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
@@ -42,7 +42,7 @@ export default function CareersApplicantDetail() {
   };
 
   if (!data) return <p className="text-ink/70 text-sm"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>;
-  const { application: a, job, submission, answers, notes = [], interviews = [], events = [], emails = [], inbox = [] } = data;
+  const { application: a, job, submission, answers, notes = [], interviews = [], events = [], emails = [], inbox = [], suggestion = null } = data;
 
   const isAccepted = a.status === "Offered" || a.status === "Hired";
   const isRejected = a.status === "Rejected";
@@ -70,6 +70,13 @@ export default function CareersApplicantDetail() {
           {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
       </div>
+
+      {suggestion && (
+        <div className="mb-5 border border-jade-500/40 bg-jade-500/10 rounded-sm px-4 py-3 text-sm text-ink flex items-center justify-between gap-3 flex-wrap">
+          <span><strong>Suggested next step:</strong> move to {suggestion.to} <span className="text-ink/60">({suggestion.why})</span>. A draft email is prepared for you to review; nothing is sent automatically.</span>
+          <button type="button" disabled={saving} onClick={() => setStatus(suggestion.to)} className="px-3 py-1.5 rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40">Move to {suggestion.to}</button>
+        </div>
+      )}
 
       {a.screen_verdict && (
         <div className="bg-paper rounded-sm shadow-card p-6 mb-5">
@@ -242,6 +249,7 @@ export default function CareersApplicantDetail() {
 
       <aside>
         <InterviewsCard applicationId={a.id} interviews={interviews} onChange={load} />
+        <OffersCard applicationId={a.id} onChange={load} />
         <EmailsCard emails={emails} onChange={load} />
         {inbox.length > 0 && (
           <section className="mb-4 border border-ink/10 rounded-sm p-3">

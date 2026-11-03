@@ -5,6 +5,7 @@ const TABS = [
   { to: "/admin/careers/applicants", label: "Applicants" },
   { to: "/admin/careers/pipeline", label: "Pipeline" },
   { to: "/admin/careers/inbox", label: "Inbox" },
+  { to: "/admin/careers/agents", label: "Agents" },
   { to: "/admin/careers", label: "Job Postings", end: true },
   { to: "/admin/careers/screening", label: "Screening Rules" },
 ];
