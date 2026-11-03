@@ -42,7 +42,7 @@ export default function CareersApplicantDetail() {
   };
 
   if (!data) return <p className="text-ink/70 text-sm"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>;
-  const { application: a, job, submission, answers, notes = [], interviews = [], events = [], emails = [] } = data;
+  const { application: a, job, submission, answers, notes = [], interviews = [], events = [], emails = [], inbox = [] } = data;
 
   const isAccepted = a.status === "Offered" || a.status === "Hired";
   const isRejected = a.status === "Rejected";
@@ -243,6 +243,14 @@ export default function CareersApplicantDetail() {
       <aside>
         <InterviewsCard applicationId={a.id} interviews={interviews} onChange={load} />
         <EmailsCard emails={emails} onChange={load} />
+        {inbox.length > 0 && (
+          <section className="mb-4 border border-ink/10 rounded-sm p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/50 mb-2">Replies from candidate ({inbox.length})</p>
+            {inbox.map((m) => (
+              <div key={m.id} className="mb-2 text-xs"><p className="text-ink font-medium">{m.subject}</p><p className="text-ink/50">{new Date(m.date).toLocaleString()}</p><p className="text-ink/80 whitespace-pre-wrap line-clamp-4">{m.body_text}</p></div>
+            ))}
+          </section>
+        )}
         <NotesCard applicationId={a.id} notes={notes} onChange={load} />
         <HistoryCard events={events} />
       </aside>

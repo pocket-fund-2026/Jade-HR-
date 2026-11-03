@@ -167,6 +167,31 @@ def resend_interview(interview_id: int, user: dict = _gate):
     return _proxy("POST", f"/api/admin/interviews/{interview_id}/resend", user=user, json={})
 
 
+@router.get("/inbox")
+def inbox_list(q: str = "", matched: str = "", user: dict = _gate):
+    return _proxy("GET", "/api/admin/inbox", user=user, params={"q": q, "matched": matched})
+
+
+@router.get("/inbox/status")
+def inbox_status(user: dict = _gate):
+    return _proxy("GET", "/api/admin/inbox/status", user=user)
+
+
+@router.post("/inbox/sync")
+def inbox_sync(user: dict = _gate):
+    return _proxy("POST", "/api/admin/inbox/sync", user=user, json={}, timeout=60)
+
+
+@router.get("/inbox/{msg_id}")
+def inbox_get(msg_id: int, user: dict = _gate):
+    return _proxy("GET", f"/api/admin/inbox/{msg_id}", user=user)
+
+
+@router.post("/mail/send")
+def mail_send(body: dict = Body(...), user: dict = _gate):
+    return _proxy("POST", "/api/admin/mail/send", user=user, json=body)
+
+
 @router.get("/mail/status")
 def mail_status(user: dict = _gate):
     return _proxy("GET", "/api/admin/mail/status", user=user)
