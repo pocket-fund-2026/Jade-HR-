@@ -188,7 +188,7 @@ function InterviewForm({ initial = EMPTY, submitLabel, onSubmit, onCancel, full 
 }
 
 const MAIL_TONE = { sent: "text-jade-700", pending: "text-ochre-700", failed: "text-rust-500", skipped: "text-ink/50" };
-const KIND = { invite: "Invitation", reschedule: "Reschedule notice", cancel: "Cancellation", reminder24: "24h reminder", reminder2: "2h reminder" };
+const KIND = { ack: "Thank-you for applying", reply: "Reply", invite: "Invitation", reschedule: "Reschedule notice", cancel: "Cancellation", reminder24: "24h reminder", reminder2: "2h reminder" };
 
 export function EmailsCard({ emails = [], onChange }) {
   const [status, setStatus] = useState(null);

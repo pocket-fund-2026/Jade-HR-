@@ -56,11 +56,14 @@ export default function CareersPipeline() {
     }
   };
 
+  const FLOW = ["New", "Assignment Submitted", "Shortlisted", "Interviewing", "Offered", "Hired"];
+  const nextOf = (st) => { const i = FLOW.indexOf(st); return i >= 0 && i < FLOW.length - 1 ? FLOW[i + 1] : null; };
+
   return (
     <div>
       <div className="mb-4">
         <h2 className="font-display text-2xl text-ink">Careers — Pipeline</h2>
-        <p className="text-xs text-ink/70 mt-0.5">Drag a card to move the applicant to another stage. Candidates are not emailed.</p>
+        <p className="text-xs text-ink/70 mt-0.5">Drag a card, use its stage menu, or press Next → to move the applicant ahead. Candidates are not emailed.</p>
       </div>
       <CareersNav />
 
@@ -114,6 +117,26 @@ export default function CareersPipeline() {
                         {a.avg_rating != null && <span className="text-[11px] font-nums text-jade-700">★ {a.avg_rating}</span>}
                       </div>
                       {a.next_interview_at && <p className="text-[11px] font-nums text-ink/60 mt-1.5">Interview {formatDateTime(a.next_interview_at)}</p>}
+                      <div className="flex items-center gap-1.5 mt-2.5">
+                        <select
+                          aria-label={`Move ${a.full_name} to stage`}
+                          value={a.status}
+                          onChange={(e) => move(a.id, e.target.value)}
+                          className="min-w-0 flex-1 rounded-sm border border-ink/15 bg-paper px-1.5 py-1 text-[11px] focus:outline-none focus:ring-2 focus:ring-jade-500"
+                        >
+                          {APPLICANT_STATUSES.map((st) => <option key={st} value={st}>{st}</option>)}
+                        </select>
+                        {nextOf(a.status) && (
+                          <button
+                            type="button"
+                            onClick={() => move(a.id, nextOf(a.status))}
+                            title={`Move to ${nextOf(a.status)}`}
+                            className="flex-shrink-0 rounded-sm bg-jade-600 hover:bg-jade-700 text-paper text-[11px] px-2 py-1"
+                          >
+                            Next →
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
