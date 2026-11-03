@@ -92,6 +92,16 @@ function InterviewForm({ initial = EMPTY, submitLabel, onSubmit, onCancel, full 
   const [f, setF] = useState(initial);
   const [saving, setSaving] = useState(false);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const [avail, setAvail] = useState(null);
+  const [checking, setChecking] = useState(false);
+  const checkAvail = async () => {
+    setChecking(true);
+    try {
+      const { data } = await api.post("/api/careers/calendar/check", { emails: f.interviewer_email ? [f.interviewer_email] : [], start: f.scheduled_at, duration_min: f.duration_min, exclude_id: initial.id });
+      const clash = [...(data.internal || []).map((x) => `${x.email} already has "${x.round}" at ${formatDateTime(x.scheduled_at)}`), ...(data.calendar || []).filter((c) => c.busy).map((c) => `${c.email} is busy on their calendar then`)];
+      setAvail(clash.length ? { bad: true, text: clash.join(" · ") } : { text: !f.interviewer_email ? "No interviewer email entered, nothing to check." : data.unknown?.length ? "No clash with other interviews. Their Google Calendar is not shared with careers@, so it could not be checked." : data.configured ? "Interviewer is free at that time." : "No clash with other interviews (calendar not connected yet)." });
+    } catch (e) { setAvail({ bad: true, text: e?.response?.data?.detail || "Could not check" }); } finally { setChecking(false); }
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -145,6 +155,11 @@ function InterviewForm({ initial = EMPTY, submitLabel, onSubmit, onCancel, full 
           <span className={LABEL}>Interviewer email (cc'd)</span>
           <input type="email" value={f.interviewer_email || ""} onChange={set("interviewer_email")} className={`${INPUT} mt-1`} />
         </label>
+        <div className="col-span-2 text-[11px] text-ink/60 -mt-1">
+          The candidate and the interviewer both get the invite and reminders from careers@. Video calls get a Google Meet link automatically when the location is left blank.
+          <button type="button" disabled={!f.scheduled_at || checking} onClick={checkAvail} className="ml-2 font-semibold text-jade-700 hover:underline disabled:opacity-40">{checking ? "Checking…" : "Check interviewer availability"}</button>
+          {avail && <p className={`mt-1 ${avail.bad ? "text-rust-500" : "text-jade-700"}`}>{avail.text}</p>}
+        </div>
         <label className="col-span-2 flex items-center gap-2 text-xs text-ink/80">
           <input type="checkbox" checked={f.send_emails !== 0} onChange={(e) => setF({ ...f, send_emails: e.target.checked ? 1 : 0 })} />
           Email the candidate from careers@jadecouture.com (invite, reminders at 24h and 2h, reschedule/cancel notices)

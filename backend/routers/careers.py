@@ -182,6 +182,36 @@ def inbox_sync(user: dict = _gate):
     return _proxy("POST", "/api/admin/inbox/sync", user=user, json={}, timeout=60)
 
 
+@router.get("/agent/status")
+def agent_status(user: dict = _gate):
+    return _proxy("GET", "/api/admin/agent/status", user=user)
+
+
+@router.post("/agent/run")
+def agent_run(user: dict = _gate):
+    return _proxy("POST", "/api/admin/agent/run", user=user, json={}, timeout=120)
+
+
+@router.post("/agent/requeue")
+def agent_requeue(user: dict = _gate):
+    return _proxy("POST", "/api/admin/agent/requeue", user=user, json={})
+
+
+@router.post("/inbox/{msg_id}/create-applicant")
+def inbox_create_applicant(msg_id: int, body: dict = Body(...), user: dict = _gate):
+    return _proxy("POST", f"/api/admin/inbox/{msg_id}/create-applicant", user=user, json=body)
+
+
+@router.post("/inbox/{msg_id}/dismiss")
+def inbox_dismiss(msg_id: int, body: dict = Body(default={}), user: dict = _gate):
+    return _proxy("POST", f"/api/admin/inbox/{msg_id}/dismiss", user=user, json=body)
+
+
+@router.post("/calendar/check")
+def calendar_check(body: dict = Body(...), user: dict = _gate):
+    return _proxy("POST", "/api/admin/calendar/check", user=user, json=body, timeout=30)
+
+
 @router.get("/inbox/{msg_id}")
 def inbox_get(msg_id: int, user: dict = _gate):
     return _proxy("GET", f"/api/admin/inbox/{msg_id}", user=user)
