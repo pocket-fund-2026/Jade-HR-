@@ -2,7 +2,7 @@ import { Check, FileText, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { HistoryCard, InterviewsCard, NotesCard } from "../../components/CareersApplicantActivity.jsx";
+import { EmailsCard, HistoryCard, InterviewsCard, NotesCard } from "../../components/CareersApplicantActivity.jsx";
 import CareersNav from "../../components/CareersNav.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
@@ -42,7 +42,7 @@ export default function CareersApplicantDetail() {
   };
 
   if (!data) return <p className="text-ink/70 text-sm"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>;
-  const { application: a, job, submission, answers, notes = [], interviews = [], events = [] } = data;
+  const { application: a, job, submission, answers, notes = [], interviews = [], events = [], emails = [] } = data;
 
   const isAccepted = a.status === "Offered" || a.status === "Hired";
   const isRejected = a.status === "Rejected";
@@ -242,6 +242,7 @@ export default function CareersApplicantDetail() {
 
       <aside>
         <InterviewsCard applicationId={a.id} interviews={interviews} onChange={load} />
+        <EmailsCard emails={emails} onChange={load} />
         <NotesCard applicationId={a.id} notes={notes} onChange={load} />
         <HistoryCard events={events} />
       </aside>

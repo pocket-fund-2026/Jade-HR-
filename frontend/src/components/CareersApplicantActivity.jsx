@@ -1,5 +1,5 @@
 import { Star, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import api from "../lib/api.js";
 import { INTERVIEW_MODES, INTERVIEW_STATUSES, RECOMMENDATIONS, formatDateTime, utcToDate } from "../lib/careers.js";
@@ -86,7 +86,7 @@ function Stars({ value, onChange }) {
   );
 }
 
-const EMPTY = { round: "", scheduled_at: "", interviewer: "", mode: "In person", location: "" };
+const EMPTY = { round: "", scheduled_at: "", interviewer: "", mode: "In person", location: "", duration_min: 30, interviewer_email: "", send_emails: 1 };
 
 function InterviewForm({ initial = EMPTY, submitLabel, onSubmit, onCancel, full = false }) {
   const [f, setF] = useState(initial);
@@ -135,7 +135,19 @@ function InterviewForm({ initial = EMPTY, submitLabel, onSubmit, onCancel, full 
         </label>
         <label className="block">
           <span className={LABEL}>Location / link</span>
-          <input value={f.location || ""} onChange={set("location")} className={`${INPUT} mt-1`} />
+          <input value={f.location || ""} onChange={set("location")} placeholder="Meet link or venue" className={`${INPUT} mt-1`} />
+        </label>
+        <label className="block">
+          <span className={LABEL}>Duration (min)</span>
+          <input type="number" min="10" max="480" step="5" value={f.duration_min || 30} onChange={set("duration_min")} className={`${INPUT} mt-1`} />
+        </label>
+        <label className="block">
+          <span className={LABEL}>Interviewer email (cc'd)</span>
+          <input type="email" value={f.interviewer_email || ""} onChange={set("interviewer_email")} className={`${INPUT} mt-1`} />
+        </label>
+        <label className="col-span-2 flex items-center gap-2 text-xs text-ink/80">
+          <input type="checkbox" checked={f.send_emails !== 0} onChange={(e) => setF({ ...f, send_emails: e.target.checked ? 1 : 0 })} />
+          Email the candidate from careers@jadecouture.com (invite, reminders at 24h and 2h, reschedule/cancel notices)
         </label>
       </div>
       {full && (
@@ -175,6 +187,32 @@ function InterviewForm({ initial = EMPTY, submitLabel, onSubmit, onCancel, full 
   );
 }
 
+const MAIL_TONE = { sent: "text-jade-700", pending: "text-ochre-700", failed: "text-rust-500", skipped: "text-ink/50" };
+const KIND = { invite: "Invitation", reschedule: "Reschedule notice", cancel: "Cancellation", reminder24: "24h reminder", reminder2: "2h reminder" };
+
+export function EmailsCard({ emails = [], onChange }) {
+  const [status, setStatus] = useState(null);
+  useEffect(() => { api.get("/api/careers/mail/status").then(({ data }) => setStatus(data)).catch(() => {}); }, [emails.length]);
+  const retry = async (id) => { await api.post(`/api/careers/mail/${id}/retry`, {}); await onChange(); };
+  if (!emails.length && status?.configured !== false) return null;
+  return (
+    <Card title={`Emails (${emails.length})`}>
+      {status && !status.configured && (
+        <p className="text-xs text-ochre-700 mb-2">Sending from {status.sender} is not connected yet. Emails are queued and go out automatically once the mailbox credentials are added.</p>
+      )}
+      <ul className="space-y-2">
+        {emails.map((m) => (
+          <li key={m.id} className="text-xs">
+            <p className="text-ink">{KIND[m.kind] || m.kind} <span className={`font-semibold ${MAIL_TONE[m.status] || ""}`}>· {m.status}</span></p>
+            <p className="text-ink/50 font-nums">{m.sent_at || m.created_at}{m.error ? ` · ${m.error}` : ""}</p>
+            {(m.status === "failed" || m.status === "skipped") && <button type="button" onClick={() => retry(m.id)} className="text-jade-700 font-semibold hover:underline">Retry</button>}
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
 export function InterviewsCard({ applicationId, interviews, onChange }) {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -210,6 +248,7 @@ export function InterviewsCard({ applicationId, interviews, onChange }) {
                   <p className="text-sm font-medium text-ink">{i.round}</p>
                   <p className="text-xs text-ink/60 font-nums">
                     {i.scheduled_at ? formatDateTime(i.scheduled_at) : "Time not set"}
+                    {i.duration_min ? ` · ${i.duration_min} min` : ""}
                     {i.mode ? ` · ${i.mode}` : ""}
                     {i.interviewer ? ` · ${i.interviewer}` : ""}
                   </p>
@@ -237,7 +276,7 @@ export function InterviewsCard({ applicationId, interviews, onChange }) {
       {adding ? (
         <div className="mt-3 border border-ink/10 rounded-sm p-3">
           <InterviewForm submitLabel="Schedule" onSubmit={create} onCancel={() => setAdding(false)} />
-          <p className="text-[11px] text-ink/50 mt-2">Scheduling moves a New / Shortlisted / Auto-Rejected applicant to Interviewing. The candidate is not emailed.</p>
+          <p className="text-[11px] text-ink/50 mt-2">Scheduling moves a New / Shortlisted / Auto-Rejected applicant to Interviewing. The candidate is emailed the invite automatically unless unticked.</p>
         </div>
       ) : (
         <button type="button" onClick={() => setAdding(true)} className="mt-3 px-3 py-1.5 rounded-sm text-xs font-semibold border border-jade-500/40 text-jade-700 hover:bg-jade-500/10">

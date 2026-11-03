@@ -162,6 +162,21 @@ def update_interview(interview_id: int, body: dict = Body(...), user: dict = _ga
     return _proxy("PUT", f"/api/admin/interviews/{interview_id}", user=user, json=body)
 
 
+@router.post("/interviews/{interview_id}/resend")
+def resend_interview(interview_id: int, user: dict = _gate):
+    return _proxy("POST", f"/api/admin/interviews/{interview_id}/resend", user=user, json={})
+
+
+@router.get("/mail/status")
+def mail_status(user: dict = _gate):
+    return _proxy("GET", "/api/admin/mail/status", user=user)
+
+
+@router.post("/mail/{mail_id}/retry")
+def mail_retry(mail_id: int, user: dict = _gate):
+    return _proxy("POST", f"/api/admin/mail/{mail_id}/retry", user=user, json={})
+
+
 @router.delete("/interviews/{interview_id}")
 def delete_interview(interview_id: int, user: dict = _gate):
     return _proxy("DELETE", f"/api/admin/interviews/{interview_id}", user=user)
