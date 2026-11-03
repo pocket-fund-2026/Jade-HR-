@@ -257,6 +257,11 @@ def mail_status(user: dict = _gate):
     return _proxy("GET", "/api/admin/mail/status", user=user)
 
 
+@router.post("/mail/{mail_id}/send-shortlist")
+def mail_send_shortlist(mail_id: int, body: dict = Body(...), user: dict = _gate):
+    return _proxy("POST", f"/api/admin/mail/{mail_id}/send-shortlist", user=user, json=body)
+
+
 @router.get("/mail/{mail_id}")
 def mail_get(mail_id: int, user: dict = _gate):
     return _proxy("GET", f"/api/admin/mail/{mail_id}", user=user)

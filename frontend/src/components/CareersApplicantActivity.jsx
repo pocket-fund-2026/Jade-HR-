@@ -203,7 +203,7 @@ function InterviewForm({ initial = EMPTY, submitLabel, onSubmit, onCancel, full 
 }
 
 const MAIL_TONE = { sent: "text-jade-700", pending: "text-ochre-700", draft: "text-ochre-700", failed: "text-rust-500", skipped: "text-ink/50", discarded: "text-ink/50" };
-const KIND = { offer: "Interview times offered", offer_nudge: "Reminder to pick a time", prep: "Interviewer brief", assign_reminder: "Assignment reminder", assign_closed: "Assignment window closed", digest: "Weekly digest", ack: "Thank-you for applying", received: "Assignment received", offered: "Offer", hired: "Welcome to JADE", rejected: "Application update (decline)", reply: "Reply", invite: "Invitation", reschedule: "Reschedule notice", cancel: "Cancellation", reminder24: "24h reminder", reminder2: "2h reminder" };
+const KIND = { shortlisted: "Shortlisted: interview times (second mail)", offer: "Interview times offered", offer_nudge: "Reminder to pick a time", prep: "Interviewer brief", assign_reminder: "Assignment reminder", assign_closed: "Assignment window closed", digest: "Weekly digest", ack: "Thank-you for applying", received: "Assignment received", offered: "Offer", hired: "Welcome to JADE", rejected: "Application update (decline)", reply: "Reply", invite: "Invitation", reschedule: "Reschedule notice", cancel: "Cancellation", reminder24: "24h reminder", reminder2: "2h reminder" };
 
 export function EmailsCard({ emails = [], onChange }) {
   const [status, setStatus] = useState(null);
@@ -211,6 +211,27 @@ export function EmailsCard({ emails = [], onChange }) {
   const retry = async (id) => { await api.post(`/api/careers/mail/${id}/retry`, {}); await onChange(); };
   const [draft, setDraft] = useState(null); // { id, subject, note, html, to }
   const [busy, setBusy] = useState(false);
+  const [sl, setSl] = useState(null); // shortlist form: { id, f }
+  const [slErr, setSlErr] = useState("");
+  const [slBusy, setSlBusy] = useState(false);
+  const [slAvail, setSlAvail] = useState(null);
+  const openShortlist = (id) => { setSlErr(""); setSlAvail(null); setSl({ id, f: { round: "Round 1 – HR", mode: "Video call", duration_min: 30, interviewer: "", interviewer_email: "", note: "", slots: ["", ""] } }); };
+  const slSet = (k) => (e) => setSl({ ...sl, f: { ...sl.f, [k]: e.target.value } });
+  const slFilled = sl ? sl.f.slots.filter(Boolean) : [];
+  const slCheck = async () => {
+    setSlAvail({ text: "Checking…" });
+    try {
+      const res = await Promise.all(slFilled.map((start) => api.post("/api/careers/calendar/check", { emails: sl.f.interviewer_email ? [sl.f.interviewer_email] : [], start, duration_min: sl.f.duration_min }).then((r) => ({ start, ...r.data }))));
+      const bad = res.flatMap((r) => [...(r.internal || []).map((x) => `${formatDateTime(r.start)}: ${x.email} already has "${x.round}"`), ...(r.calendar || []).filter((c) => c.busy).map((c) => `${formatDateTime(r.start)}: ${c.email} is busy on their calendar`)]);
+      setSlAvail(bad.length ? { bad: true, text: bad.join(" · ") } : { text: !sl.f.interviewer_email ? "No interviewer email entered, nothing to check." : "Interviewer looks free at all of these times." });
+    } catch (e) { setSlAvail({ bad: true, text: e?.response?.data?.detail || "Could not check" }); }
+  };
+  const slSend = async () => {
+    if (!confirm("Send the interview-times email to the candidate from careers@jadecouture.com now?")) return;
+    setSlBusy(true); setSlErr("");
+    try { await api.post(`/api/careers/mail/${sl.id}/send-shortlist`, { ...sl.f, slots: slFilled }); setSl(null); await onChange(); }
+    catch (e) { setSlErr(e?.response?.data?.detail || "Could not send"); } finally { setSlBusy(false); }
+  };
   const openDraft = async (id) => { const { data } = await api.get(`/api/careers/mail/${id}`); setDraft({ id, subject: data.subject, note: data.payload?.note || "", html: data.body_html, to: data.to_email }); };
   const refreshPreview = async () => { setBusy(true); try { await api.put(`/api/careers/mail/${draft.id}/draft`, { subject: draft.subject, note: draft.note }); await openDraft(draft.id); } finally { setBusy(false); } };
   const sendDraft = async () => {
@@ -235,13 +256,49 @@ export function EmailsCard({ emails = [], onChange }) {
             {m.status === "draft" && (
               <p className="mt-0.5">
                 <span className="text-ink/60">Not sent yet. </span>
-                <button type="button" onClick={() => openDraft(m.id)} className="text-jade-700 font-semibold hover:underline">Review &amp; send</button>
+                <button type="button" onClick={() => (m.kind === "shortlisted" ? openShortlist(m.id) : openDraft(m.id))} className="text-jade-700 font-semibold hover:underline">{m.kind === "shortlisted" ? "Add interview times & send" : "Review & send"}</button>
                 <button type="button" onClick={() => discard(m.id)} className="ml-3 text-rust-500 hover:underline">Discard</button>
               </p>
             )}
           </li>
         ))}
       </ul>
+      {sl && (
+        <div className="fixed inset-0 z-50 bg-ink/50 flex items-center justify-center p-3" onClick={() => !slBusy && setSl(null)}>
+          <div className="bg-paper rounded-sm shadow-card w-full max-w-xl max-h-[92vh] overflow-y-auto p-4" onClick={(e) => e.stopPropagation()}>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/50 mb-1">Second mail: interview times</p>
+            <p className="text-xs text-ink/70 mb-3">The candidate gets one email with a button for each time. They tap one, confirm, and the interview is booked (Meet link for video calls). The interviewer receives the invite and a brief.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block col-span-2"><span className={LABEL}>Round</span><input value={sl.f.round} onChange={slSet("round")} className={`${INPUT} mt-1`} list="careers-rounds" /></label>
+              <label className="block"><span className={LABEL}>Mode</span><select value={sl.f.mode} onChange={slSet("mode")} className={`${INPUT} mt-1`}>{INTERVIEW_MODES.map((m) => <option key={m}>{m}</option>)}</select></label>
+              <label className="block"><span className={LABEL}>Duration (min)</span><input type="number" min="10" max="480" step="5" value={sl.f.duration_min} onChange={slSet("duration_min")} className={`${INPUT} mt-1`} /></label>
+              <label className="block"><span className={LABEL}>Interviewer</span><input value={sl.f.interviewer} onChange={slSet("interviewer")} className={`${INPUT} mt-1`} /></label>
+              <label className="block"><span className={LABEL}>Interviewer email (gets invite + brief)</span><input type="email" value={sl.f.interviewer_email} onChange={slSet("interviewer_email")} className={`${INPUT} mt-1`} /></label>
+            </div>
+            <div className="mt-3">
+              <span className={LABEL}>Times to offer (1–6, IST)</span>
+              {sl.f.slots.map((v, i) => (
+                <div key={i} className="flex gap-2 mt-1.5">
+                  <input type="datetime-local" value={v} onChange={(e) => setSl({ ...sl, f: { ...sl.f, slots: sl.f.slots.map((x, j) => (j === i ? e.target.value : x)) } })} className={INPUT} />
+                  {sl.f.slots.length > 1 && <button type="button" onClick={() => setSl({ ...sl, f: { ...sl.f, slots: sl.f.slots.filter((_, j) => j !== i) } })} className="text-xs text-rust-500 px-1">✕</button>}
+                </div>
+              ))}
+              <div className="flex gap-4 mt-2 text-xs">
+                {sl.f.slots.length < 6 && <button type="button" onClick={() => setSl({ ...sl, f: { ...sl.f, slots: [...sl.f.slots, ""] } })} className="text-jade-700 font-semibold hover:underline">+ Add another time</button>}
+                <button type="button" disabled={!slFilled.length} onClick={slCheck} className="text-jade-700 font-semibold hover:underline disabled:opacity-40">Check interviewer availability</button>
+              </div>
+              {slAvail && <p className={`text-[11px] mt-1 ${slAvail.bad ? "text-rust-500" : "text-jade-700"}`}>{slAvail.text}</p>}
+            </div>
+            <label className="block mt-3"><span className={LABEL}>Personal note (optional)</span><textarea rows={2} value={sl.f.note} onChange={slSet("note")} className={`${INPUT} mt-1`} /></label>
+            {slErr && <p className="text-xs text-rust-500 mt-2">{slErr}</p>}
+            <div className="flex gap-2 mt-3">
+              <button type="button" disabled={slBusy || !slFilled.length || !sl.f.round.trim()} onClick={slSend} className="px-3 py-1.5 rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40">{slBusy ? "Sending…" : "Send interview times"}</button>
+              <button type="button" disabled={slBusy} onClick={() => setSl(null)} className="px-3 py-1.5 rounded-sm text-xs text-ink/70 hover:text-ink">Close</button>
+              <button type="button" disabled={slBusy} onClick={() => discard(sl.id).then(() => setSl(null))} className="ml-auto px-3 py-1.5 rounded-sm text-xs text-rust-500 hover:underline">Discard draft</button>
+            </div>
+          </div>
+        </div>
+      )}
       {draft && (
         <div className="fixed inset-0 z-50 bg-ink/50 flex items-center justify-center p-3" onClick={() => !busy && setDraft(null)}>
           <div className="bg-paper rounded-sm shadow-card w-full max-w-3xl max-h-[92vh] overflow-y-auto p-4" onClick={(e) => e.stopPropagation()}>
@@ -415,7 +472,7 @@ export function OffersCard({ applicationId, onChange }) {
             <button type="submit" disabled={saving || !filled.length || !f.round.trim()} className="px-3 py-1.5 rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40">{saving ? "Saving…" : "Send times to candidate"}</button>
             <button type="button" onClick={() => setAdding(false)} className="px-3 py-1.5 rounded-sm text-xs text-ink/70 hover:text-ink">Cancel</button>
           </div>
-          <p className="text-[11px] text-ink/50">The candidate picks one time on a private page; the interview is then booked automatically (Meet link for video calls), and the interviewer gets a brief. If interview emails are switched off, copy the link and share it yourself.</p>
+          <p className="text-[11px] text-ink/50">The candidate gets an email with a button for each time; tapping one and confirming books the interview automatically (Meet link for video calls), and the interviewer gets a brief. If interview emails are switched off, copy the link and share it yourself.</p>
         </form>
       ) : (
         <button type="button" onClick={() => setAdding(true)} className="mt-3 px-3 py-1.5 rounded-sm text-xs font-semibold border border-jade-500/40 text-jade-700 hover:bg-jade-500/10">+ Offer times</button>

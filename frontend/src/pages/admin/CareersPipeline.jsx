@@ -51,7 +51,7 @@ export default function CareersPipeline() {
     setError("");
     try {
       await api.patch(`/api/careers/applications/${id}`, { status });
-      if (["Offered", "Hired", "Rejected"].includes(status)) setNotice({ id, name: app.full_name, status });
+      if (["Shortlisted", "Offered", "Hired", "Rejected"].includes(status)) setNotice({ id, name: app.full_name, status });
     } catch {
       setApplications(prev);
       setError(`Could not move ${app.full_name}. Please try again.`);
@@ -86,7 +86,7 @@ export default function CareersPipeline() {
       {error && <p className="text-sm text-rust-500 mb-3">{error}</p>}
       {notice && (
         <p className="text-sm text-ink mb-3 border border-jade-500/40 bg-jade-500/10 rounded-sm px-3 py-2">
-          {notice.name} moved to {notice.status}. A draft email is ready — <Link className="font-semibold text-jade-700 hover:underline" to={`/admin/careers/applicants/${notice.id}`}>review and send it</Link>. Nothing is sent until you do.
+          {notice.name} moved to {notice.status}. {notice.status === "Shortlisted" ? "The second mail (interview times) is ready for you to complete" : "A draft email is ready"} — <Link className="font-semibold text-jade-700 hover:underline" to={`/admin/careers/applicants/${notice.id}`}>open the applicant</Link>. Nothing is sent until you do.
           <button type="button" onClick={() => setNotice(null)} className="ml-3 text-ink/50 hover:text-ink">Dismiss</button>
         </p>
       )}
