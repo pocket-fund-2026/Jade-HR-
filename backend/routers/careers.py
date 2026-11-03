@@ -227,6 +227,26 @@ def mail_status(user: dict = _gate):
     return _proxy("GET", "/api/admin/mail/status", user=user)
 
 
+@router.get("/mail/{mail_id}")
+def mail_get(mail_id: int, user: dict = _gate):
+    return _proxy("GET", f"/api/admin/mail/{mail_id}", user=user)
+
+
+@router.put("/mail/{mail_id}/draft")
+def mail_draft_update(mail_id: int, body: dict = Body(...), user: dict = _gate):
+    return _proxy("PUT", f"/api/admin/mail/{mail_id}/draft", user=user, json=body)
+
+
+@router.post("/mail/{mail_id}/send")
+def mail_draft_send(mail_id: int, user: dict = _gate):
+    return _proxy("POST", f"/api/admin/mail/{mail_id}/send", user=user, json={})
+
+
+@router.delete("/mail/{mail_id}/draft")
+def mail_draft_discard(mail_id: int, user: dict = _gate):
+    return _proxy("DELETE", f"/api/admin/mail/{mail_id}/draft", user=user)
+
+
 @router.post("/mail/{mail_id}/retry")
 def mail_retry(mail_id: int, user: dict = _gate):
     return _proxy("POST", f"/api/admin/mail/{mail_id}/retry", user=user, json={})

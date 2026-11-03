@@ -202,13 +202,24 @@ function InterviewForm({ initial = EMPTY, submitLabel, onSubmit, onCancel, full 
   );
 }
 
-const MAIL_TONE = { sent: "text-jade-700", pending: "text-ochre-700", failed: "text-rust-500", skipped: "text-ink/50" };
-const KIND = { ack: "Thank-you for applying", reply: "Reply", invite: "Invitation", reschedule: "Reschedule notice", cancel: "Cancellation", reminder24: "24h reminder", reminder2: "2h reminder" };
+const MAIL_TONE = { sent: "text-jade-700", pending: "text-ochre-700", draft: "text-ochre-700", failed: "text-rust-500", skipped: "text-ink/50", discarded: "text-ink/50" };
+const KIND = { ack: "Thank-you for applying", received: "Assignment received", offered: "Offer", hired: "Welcome to JADE", rejected: "Application update (decline)", reply: "Reply", invite: "Invitation", reschedule: "Reschedule notice", cancel: "Cancellation", reminder24: "24h reminder", reminder2: "2h reminder" };
 
 export function EmailsCard({ emails = [], onChange }) {
   const [status, setStatus] = useState(null);
   useEffect(() => { api.get("/api/careers/mail/status").then(({ data }) => setStatus(data)).catch(() => {}); }, [emails.length]);
   const retry = async (id) => { await api.post(`/api/careers/mail/${id}/retry`, {}); await onChange(); };
+  const [draft, setDraft] = useState(null); // { id, subject, note, html, to }
+  const [busy, setBusy] = useState(false);
+  const openDraft = async (id) => { const { data } = await api.get(`/api/careers/mail/${id}`); setDraft({ id, subject: data.subject, note: data.payload?.note || "", html: data.body_html, to: data.to_email }); };
+  const refreshPreview = async () => { setBusy(true); try { await api.put(`/api/careers/mail/${draft.id}/draft`, { subject: draft.subject, note: draft.note }); await openDraft(draft.id); } finally { setBusy(false); } };
+  const sendDraft = async () => {
+    if (!confirm(`Send this email to ${draft.to} from careers@jadecouture.com now?`)) return;
+    setBusy(true);
+    try { await api.put(`/api/careers/mail/${draft.id}/draft`, { subject: draft.subject, note: draft.note }); await api.post(`/api/careers/mail/${draft.id}/send`, {}); setDraft(null); await onChange(); }
+    catch (e) { alert(e?.response?.data?.detail || "Could not send"); } finally { setBusy(false); }
+  };
+  const discard = async (id) => { if (!confirm("Discard this draft? Nothing will be sent.")) return; await api.delete(`/api/careers/mail/${id}/draft`); setDraft(null); await onChange(); };
   if (!emails.length && status?.configured !== false) return null;
   return (
     <Card title={`Emails (${emails.length})`}>
@@ -221,9 +232,32 @@ export function EmailsCard({ emails = [], onChange }) {
             <p className="text-ink">{KIND[m.kind] || m.kind} <span className={`font-semibold ${MAIL_TONE[m.status] || ""}`}>· {m.status}</span></p>
             <p className="text-ink/50 font-nums">{m.sent_at || m.created_at}{m.error ? ` · ${m.error}` : ""}</p>
             {(m.status === "failed" || m.status === "skipped") && <button type="button" onClick={() => retry(m.id)} className="text-jade-700 font-semibold hover:underline">Retry</button>}
+            {m.status === "draft" && (
+              <p className="mt-0.5">
+                <span className="text-ink/60">Not sent yet. </span>
+                <button type="button" onClick={() => openDraft(m.id)} className="text-jade-700 font-semibold hover:underline">Review &amp; send</button>
+                <button type="button" onClick={() => discard(m.id)} className="ml-3 text-rust-500 hover:underline">Discard</button>
+              </p>
+            )}
           </li>
         ))}
       </ul>
+      {draft && (
+        <div className="fixed inset-0 z-50 bg-ink/50 flex items-center justify-center p-3" onClick={() => !busy && setDraft(null)}>
+          <div className="bg-paper rounded-sm shadow-card w-full max-w-3xl max-h-[92vh] overflow-y-auto p-4" onClick={(e) => e.stopPropagation()}>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/50 mb-2">Review email to {draft.to}</p>
+            <label className="block mb-2"><span className={LABEL}>Subject</span><input value={draft.subject} onChange={(e) => setDraft({ ...draft, subject: e.target.value })} className={`${INPUT} mt-1`} /></label>
+            <label className="block mb-2"><span className={LABEL}>Personal note (optional, shown inside the email)</span><textarea rows={3} value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} className={`${INPUT} mt-1`} placeholder="e.g. We loved your portfolio." /></label>
+            <button type="button" disabled={busy} onClick={refreshPreview} className="mb-2 text-xs font-semibold text-jade-700 hover:underline">Update preview</button>
+            <iframe title="Email preview" sandbox="" srcDoc={draft.html} className="w-full h-[52vh] border border-ink/10 rounded-sm bg-white" />
+            <div className="flex gap-2 mt-3">
+              <button type="button" disabled={busy} onClick={sendDraft} className="px-3 py-1.5 rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40">{busy ? "Working…" : "Send from careers@"}</button>
+              <button type="button" disabled={busy} onClick={() => setDraft(null)} className="px-3 py-1.5 rounded-sm text-xs text-ink/70 hover:text-ink">Close</button>
+              <button type="button" disabled={busy} onClick={() => discard(draft.id)} className="ml-auto px-3 py-1.5 rounded-sm text-xs text-rust-500 hover:underline">Discard draft</button>
+            </div>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }
