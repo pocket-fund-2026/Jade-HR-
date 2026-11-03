@@ -2,6 +2,8 @@ import { Check, FileText, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
+import { Link } from "react-router-dom";
+import { useAuth } from "../../lib/auth.jsx";
 import { EmailsCard, HistoryCard, InterviewsCard, NotesCard, OffersCard } from "../../components/CareersApplicantActivity.jsx";
 import CareersNav from "../../components/CareersNav.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
@@ -26,6 +28,7 @@ export default function CareersApplicantDetail() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [saving, setSaving] = useState(false);
+  const { can } = useAuth();
 
   const load = () => api.get(`/api/careers/applications/${id}`).then(({ data }) => setData(data));
 
@@ -70,6 +73,13 @@ export default function CareersApplicantDetail() {
           {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
       </div>
+
+      {(a.status === "Offered" || a.status === "Hired") && can("letters.generate") && (
+        <div className="mb-5 bg-paper rounded-sm shadow-card px-4 py-3 text-sm text-ink flex items-center justify-between gap-3 flex-wrap">
+          <span><strong>Offer letter:</strong> create it in Letters with this candidate's name, role, department and email already filled in. You add the pay and joining details, then send it for approval as usual.</span>
+          <Link to={`/admin/letters?type=${job?.employment_type === "Internship" ? "offer_internship" : "offer_employment"}&candidate=${a.id}`} className="px-3 py-1.5 rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 whitespace-nowrap">Create offer letter</Link>
+        </div>
+      )}
 
       {suggestion && (
         <div className="mb-5 border border-jade-500/40 bg-jade-500/10 rounded-sm px-4 py-3 text-sm text-ink flex items-center justify-between gap-3 flex-wrap">

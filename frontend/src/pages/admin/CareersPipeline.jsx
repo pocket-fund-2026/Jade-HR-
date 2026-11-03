@@ -87,6 +87,7 @@ export default function CareersPipeline() {
       {notice && (
         <p className="text-sm text-ink mb-3 border border-jade-500/40 bg-jade-500/10 rounded-sm px-3 py-2">
           {notice.name} moved to {notice.status}. {notice.status === "Shortlisted" ? "The second mail (interview times) is ready for you to complete" : "A draft email is ready"} — <Link className="font-semibold text-jade-700 hover:underline" to={`/admin/careers/applicants/${notice.id}`}>open the applicant</Link>. Nothing is sent until you do.
+          {notice.status === "Offered" && <> <Link className="ml-2 font-semibold text-jade-700 hover:underline" to={`/admin/letters?type=offer_employment&candidate=${notice.id}`}>Create the offer letter</Link></>}
           <button type="button" onClick={() => setNotice(null)} className="ml-3 text-ink/50 hover:text-ink">Dismiss</button>
         </p>
       )}

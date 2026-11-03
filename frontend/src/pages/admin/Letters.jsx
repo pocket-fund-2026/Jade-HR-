@@ -3,6 +3,7 @@ import {
   Mail, Pencil, Plus, Printer, Save, Send, ShieldAlert, UserCheck, UserMinus,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { useConfirm } from "../../components/ConfirmDialog.jsx";
 import api from "../../lib/api.js";
@@ -421,10 +422,10 @@ function FieldInput({ token, value, onChange }) {
   return <input value={value} onChange={(e) => onChange(e.target.value)} className={inputCls} />;
 }
 
-function LetterGenerator({ template, onClose, onIssued }) {
+function LetterGenerator({ template, onClose, onIssued, candidateId = null }) {
   const { user } = useAuth();
   const todayLabel = formatOrdinalDate(new Date().toISOString());
-  const [mode, setMode] = useState("existing"); // existing | new
+  const [mode, setMode] = useState(candidateId ? "new" : "existing"); // existing | new
   const [employees, setEmployees] = useState([]);
   const [employeeId, setEmployeeId] = useState("");
   const [fieldValues, setFieldValues] = useState(() => defaultsFor(template.letter_type, todayLabel, user?.name));
@@ -442,6 +443,15 @@ function LetterGenerator({ template, onClose, onIssued }) {
       setEmployees(sorted);
     });
   }, []);
+
+  // Arrived from a Careers applicant ("Create offer letter"): prefill the candidate's details. HR still enters pay, joining date and the rest.
+  useEffect(() => {
+    if (!candidateId) return;
+    api.get(`/api/careers/applications/${candidateId}`).then(({ data }) => {
+      const a = data.application || {}, job = data.job || {};
+      setFieldValues((prev) => ({ ...prev, employee_name: a.full_name || "", designation: job.title || "", department: job.department || "", email: a.email || "", address: prev.address || "" }));
+    }).catch(() => {});
+  }, [candidateId]);
 
   const applyEmployee = async (id) => {
     setEmployeeId(id);
@@ -872,6 +882,9 @@ export default function Letters() {
   const [view, setView] = useState("hub"); // hub | edit | new | generate | issued
   const [activeType, setActiveType] = useState(null);
   const [issuedId, setIssuedId] = useState(null);
+  const [params] = useSearchParams();
+  const wantType = params.get("type"), candidateId = params.get("candidate");
+  const [autoOpened, setAutoOpened] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -879,6 +892,10 @@ export default function Letters() {
   };
 
   useEffect(load, []);
+
+  useEffect(() => {
+    if (!autoOpened && wantType && templates.some((t) => t.letter_type === wantType)) { setActiveType(wantType); setView("generate"); setAutoOpened(true); }
+  }, [templates, wantType, autoOpened]);
 
   const active = templates.find((t) => t.letter_type === activeType);
 
@@ -924,7 +941,10 @@ export default function Letters() {
   }
 
   if (view === "generate" && active) {
-    return <LetterGenerator template={active} onClose={() => setView("hub")} onIssued={openIssued} />;
+    return <LetterGenerator template={active} candidateId={candidateId} onClose={() => setView("hub")} onIssued={(id) => {
+      if (candidateId) api.post(`/api/careers/applications/${candidateId}/notes`, { body: `Offer letter created in Letters (${active.title}). Review it there and send it for approval.` }).catch(() => {});
+      openIssued(id);
+    }} />;
   }
 
   if (view === "issued" && issuedId) {
