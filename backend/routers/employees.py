@@ -162,63 +162,61 @@ def bulk_import_salary(body: SalaryImportRequest, user: dict = Depends(require_p
     """Set Basic/HRA/Conveyance/Other/Incentive for many employees at once,
     matched by employee_code. Also writes each employee's Salary Structure
     (hr_salary_structure) for the effective date, so payslips, PF/ESIC/PT and
-    the salary reports all pick the new figures up — not just hr_employees."""
+    the salary reports all pick the new figures up — not just hr_employees.
+
+    Round trips are the cost here (office DB is behind a slow tunnel), so the
+    profiles and existing structures are read once for the whole batch and new
+    structures are inserted in one call."""
     from datetime import date as _date, datetime as _dt, timezone as _tz
-    from routers.salary_structure import _apply_statutory, _compute_summary, _get_compliance_profile
+    from models import SalaryStructureSave
+    from routers.salary_structure import _apply_statutory, _compute_summary
     from statutory import location_to_state
 
-    existing = supabase.table("hr_employees").select("id,employee_code,date_of_joining,location").execute().data
+    codes = [r.employee_code for r in body.rows]
+    existing = (
+        supabase.table("hr_employees").select("id,employee_code,date_of_joining,location")
+        .in_("employee_code", codes).execute().data
+    )
     by_code = {e["employee_code"]: e for e in existing}
+    ids = [e["id"] for e in existing]
 
-    updated, not_found, rows_to_upsert, structures = [], [], [], []
+    profiles, structs = {}, {}
+    if ids:
+        for p in (
+            supabase.table("hr_employee_profile")
+            .select("employee_id,pf_applicable,eps_applicable,pf_gross_limit,esic_applicable,pt_applicable,gender")
+            .in_("employee_id", ids).execute().data
+        ):
+            profiles[p["employee_id"]] = p
+        for st in supabase.table("hr_salary_structure").select("*").in_("employee_id", ids).execute().data:
+            structs.setdefault(st["employee_id"], []).append(st)
+
+    updated, not_found, to_insert = [], [], []
     today = _date.today()
     for row in body.rows:
         emp = by_code.get(row.employee_code)
         if not emp:
             not_found.append(row.employee_code)
             continue
-        rows_to_upsert.append({
-            "id": emp["id"],
-            "basic": row.basic,
-            "hra": row.hra,
-            "conveyance": row.conveyance,
-            "other_allowance": row.other_allowance,
-            "incentive": row.incentive,
-        })
+        # Plain UPDATE per row: a partial-row UPSERT trips NOT NULL checks on
+        # the insert path of ON CONFLICT (500 on the office-server Postgres).
+        supabase.table("hr_employees").update({
+            "basic": row.basic, "hra": row.hra, "conveyance": row.conveyance,
+            "other_allowance": row.other_allowance, "incentive": row.incentive,
+        }).eq("id", emp["id"]).execute()
         updated.append(row.employee_code)
 
         eff = body.effective_date or today.replace(day=1)
         doj = emp.get("date_of_joining")
         if doj and eff < _date.fromisoformat(doj):
             eff = _date.fromisoformat(doj)
-        structures.append((emp, row, eff))
-
-    # One batched upsert (matches on the primary key, always an UPDATE here
-    # since every id came from an existing row) instead of one round-trip
-    # per imported row.
-    for r in rows_to_upsert:
-        # Plain UPDATE per row: a partial-row UPSERT trips NOT NULL checks on
-        # the insert path of ON CONFLICT (500 on the office-server Postgres).
-        rid = r.pop("id")
-        supabase.table("hr_employees").update(r).eq("id", rid).execute()
-
-    for emp, row, eff in structures:
-        cur = (
-            supabase.table("hr_salary_structure").select("*").eq("employee_id", emp["id"])
-            .eq("effective_date", eff.isoformat()).execute().data
-        )
-        from models import SalaryStructureSave
-        defaults = SalaryStructureSave(effective_date=eff).model_dump()  # every numeric column present, 0
-        if cur:
-            base = {**defaults, **{k: v for k, v in cur[0].items() if v is not None}}
-        else:
-            prev = (
-                supabase.table("hr_salary_structure").select("*").eq("employee_id", emp["id"])
-                .lte("effective_date", eff.isoformat()).order("effective_date", desc=True).limit(1).execute().data
-            )
-            base = {**defaults, **{k: v for k, v in (prev[0] if prev else {}).items() if v is not None}}
-            for k in ("id", "created_at", "updated_at", "created_by"):
-                base.pop(k, None)
+        mine = sorted(structs.get(emp["id"], []), key=lambda x: x["effective_date"])
+        cur = next((x for x in mine if x["effective_date"] == eff.isoformat()), None)
+        prev = [x for x in mine if x["effective_date"] <= eff.isoformat()]
+        src = cur or (prev[-1] if prev else {})
+        base = {**SalaryStructureSave(effective_date=eff).model_dump(), **{k: v for k, v in src.items() if v is not None}}
+        for k in ("id", "created_at", "updated_at", "created_by"):
+            base.pop(k, None)
         base.update({
             "employee_id": emp["id"], "effective_date": eff.isoformat(),
             "me_basic": row.basic, "me_hra": row.hra, "me_conv": row.conveyance,
@@ -226,19 +224,19 @@ def bulk_import_salary(body: SalaryImportRequest, user: dict = Depends(require_p
             "earn_basic": row.basic, "earn_hra": row.hra, "earn_conv": row.conveyance,
             "earn_other_allow": row.other_allowance, "earn_incentive": row.incentive,
         })
-        for k in list(base):
-            if base[k] is None and (k.startswith(("me_", "earn_", "ded_", "oth_"))):
-                base[k] = 0
-        base.update(_apply_statutory(base, _get_compliance_profile(emp["id"]), location_to_state(emp.get("location")), eff.month, eff))
+        base.update(_apply_statutory(base, profiles.get(emp["id"], {}), location_to_state(emp.get("location")), eff.month, eff))
         base.update(_compute_summary(base))
         if cur:
             base["updated_at"] = _dt.now(_tz.utc).isoformat()
-            supabase.table("hr_salary_structure").update(base).eq("id", cur[0]["id"]).execute()
+            supabase.table("hr_salary_structure").update(base).eq("id", cur["id"]).execute()
         else:
             base["created_by"] = user["id"]
-            supabase.table("hr_salary_structure").insert(base).execute()
+            to_insert.append(base)
 
-    return {"updated": len(updated), "not_found": not_found, "structures_written": len(structures)}
+    if to_insert:
+        supabase.table("hr_salary_structure").insert(to_insert).execute()
+
+    return {"updated": len(updated), "not_found": not_found, "structures_written": len(updated)}
 
 
 _HONORIFIC_TOKENS = {"maam", "ma'am", "madam", "mam", "sir", "ma'amsir"}
