@@ -267,5 +267,106 @@ class OrgSnapshot(unittest.TestCase):
         self.assertFalse(keys & {"date_of_joining", "confirmation_date", "resignation_date", "leaving_date", "salary", "basic"})
 
 
+class HandOffs(unittest.TestCase):
+    """Jobs are connected: results travel, downstream jobs wait for / react to upstream hand-offs."""
+    T0 = dt.datetime(2026, 11, 4, 6, 20, tzinfo=UTC)
+
+    def setUp(self):
+        SENT.clear()
+
+    def two(self, rs, **kw):
+        sync = job(gate=None, idempotent=True, slots=["06:00"], emits="attendance_synced", success_re=None,
+                   parse=[r"inserted=(?P<inserted>\d+)\s+skipped=(?P<skipped>\d+)"])
+        digest = job(gate=None, slots=["06:15"], after={"topic": "attendance_synced", "within_min": 120}, parse=[r"(?P<late>\d+) late on"])
+        f = Fake(rs)
+        db, e = make({"sync": {**sync, **kw}, "digest": digest}, feeds(), self.T0, f)
+        return db, e, f
+
+    def test_digest_waits_when_sync_failed_then_runs_in_same_tick_once_sync_lands(self):
+        db, e, f = self.two([("failed", 1, "boom"), ("ok", 0, "Done inserted=5 skipped=497"), ("ok", 0, "6 late on 2026-11-04")])
+        e.tick()                                      # sync fails -> digest must NOT run on stale data
+        self.assertEqual(len(f.calls), 1)
+        self.assertEqual(db.execute("select status from runs where job='digest'").fetchone()[0], "held")
+        e.now_fn = lambda: self.T0 + dt.timedelta(minutes=6); e._readiness_loaded = False
+        e.tick()                                      # sync retried OK -> hand-off -> digest runs right after, same tick
+        self.assertEqual(len(f.calls), 3)
+        self.assertEqual(ledger.succeeded(db, "digest", "2026-11-04T06:15"), True)
+
+    def test_results_are_parsed_recorded_and_passed_downstream(self):
+        import json
+        db, e, f = self.two([("ok", 0, "Done inserted=5 skipped=497"), ("ok", 0, "6 late on 2026-11-04")])
+        envs = []
+        orig = f.__call__
+        e.runner = lambda cmd, env, *a: (envs.append(env), orig(cmd, env, *a))[1]
+        e.tick()
+        r = json.loads(db.execute("select result from runs where job='sync' and status='ok'").fetchone()[0])
+        self.assertEqual(r["found"], {"inserted": 5, "skipped": 497})
+        up = json.loads(envs[1]["HRPIPE_UPSTREAM"])
+        self.assertEqual((up["from"], up["topic"], up["payload"]["inserted"]), ("sync", "attendance_synced", 5))
+        d = json.loads(db.execute("select result from runs where job='digest'").fetchone()[0])
+        self.assertEqual(d["found"], {"late": 6}); self.assertEqual(d["after"]["from"], "sync")
+
+    def test_handoff_emitted_once_per_slot(self):
+        db, e, f = self.two([("ok", 0, "Done inserted=1 skipped=1"), ("ok", 0, "")])
+        e.tick(); e.tick()
+        self.assertEqual(db.execute("select count(*) from handoffs").fetchone()[0], 1)
+
+    def test_stale_handoff_does_not_release_digest(self):
+        db, e, f = self.two([("ok", 0, "")])
+        ledger.emit(db, "sync", "attendance_synced", "old", None, "2026-11-04T01:00:00Z", "x")   # 5h20m old > 120 min
+        ledger.record(db, "sync", "2026-11-04T06:00", "skipped", reason="t")                      # sync slot itself already handled
+        e.tick()
+        self.assertEqual(f.calls, [])
+
+    def test_triggered_job_runs_once_per_handoff_any_time(self):
+        org = job(gate=None, idempotent=True, slots=["06:40"], window_min=1, triggers=["roster_synced"], trigger_window_min=180, alert_missed=False)
+        f = Fake([("ok", 0, ""), ("ok", 0, "")])
+        db, e = make({"org": org}, feeds(), self.T0, f)
+        ledger.record(db, "org", "2026-11-04T06:40", "skipped", reason="t")
+        ledger.emit(db, "roster", "roster_synced", "s", {"updated": 0}, "2026-11-04T06:10:00Z", "r1")
+        e.tick(); e.tick()
+        self.assertEqual(len(f.calls), 1)                                                          # consumed: not run twice
+        ledger.emit(db, "roster", "roster_synced", "s2", {"updated": 1}, "2026-11-04T06:21:00Z", "r2")
+        e.now_fn = lambda: self.T0 + dt.timedelta(minutes=2); e.tick()
+        self.assertEqual(len(f.calls), 2)                                                          # a new hand-off triggers a new run
+
+    def test_emit_if_only_when_found(self):
+        j = job(gate=None, idempotent=True, slots=["06:00"], emits="employees_added", emit_if="created", parse=[r"Created: (?P<created>\d+)"])
+        db, e = make({"nj": j}, feeds(), self.T0, Fake([("ok", 0, "Created: 0")]))
+        e.tick()
+        self.assertEqual(db.execute("select count(*) from handoffs").fetchone()[0], 0)
+        db, e = make({"nj": j}, feeds(), self.T0, Fake([("ok", 0, "Created: 2")]))
+        e.tick()
+        self.assertEqual(db.execute("select count(*) from handoffs").fetchone()[0], 1)
+
+
+class RealOutputs(unittest.TestCase):
+    """The parse patterns against lines copied from the production logs."""
+    def run_parse(self, name, text):
+        from hrpipe import config, results
+        return results.parse(config.JOBS[name], text)
+
+    def test_attendance(self):
+        self.assertEqual(self.run_parse("attendance_sync", "  Done — inserted=5  skipped=497  total=502  auto_provisioned=0\n[x] Sync complete"),
+                         {"inserted": 5, "skipped": 497, "total": 502, "auto_provisioned": 0})
+    def test_roster(self):
+        self.assertEqual(self.run_parse("roster_new_joiners", "  Updated: 0 (of which deactivated: 0)\n  Created: 3\n  Unmatched: 64"), {"updated": 0, "deactivated": 0, "created": 3})
+    def test_late_digest(self):
+        self.assertEqual(self.run_parse("late_digest", "late-digest run finished: 6 late on 2026-11-04, emailed=True"), {"late": 6, "date": "2026-11-04", "emailed": True})
+    def test_comp_off(self):
+        self.assertEqual(self.run_parse("comp_off_accrual", "comp-off accrual: 3 credited, 1 already on file"), {"credited": 3, "already_on_file": 1})
+    def test_clocks(self):
+        self.assertEqual(self.run_parse("clocks_digest", "clocks-digest: {'aip': 0, 'probation': 1, 'notice': 0} on 2026-11-03, emailed=False, managers_emailed=0"),
+                         {"aip": 0, "probation": 1, "notice": 0, "emailed": False})
+    def test_leave(self):
+        self.assertEqual(self.run_parse("leave_reminders", "leave-reminder run finished: 28 pending, 6/6 manager reminders sent, hr_emailed=True"),
+                         {"pending": 28, "sent": 6, "managers": 6, "hr_emailed": True})
+    def test_quarter(self):
+        self.assertEqual(self.run_parse("quarter_red_card", "quarter-red-cards: Q2 FY 2026-27 (Jul–Sep) — 0 qualifying, 0 actioned, dry_run=False"),
+                         {"quarter": "Q2 FY 2026-27 (Jul–Sep)", "qualifying": 0, "applied": 0})
+    def test_org(self):
+        self.assertEqual(self.run_parse("org_snapshot", "org snapshot written: 246 people, 29 departments, 18 heads low-confidence"), {"people": 246, "departments": 29})
+
+
 if __name__ == "__main__":
     unittest.main()

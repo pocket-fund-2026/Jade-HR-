@@ -8,3 +8,4 @@
 | Date | Change | Target | Reason |
 | --- | --- | --- | --- |
 | 2026-11-04 | Built pipeline (engine, gates, ledger, alerts, tests, cutover/rollback). Not yet cut over: old cron still live. | pipeline/ | Duplicate watchdogs; penalties and digests ran without checking data freshness |
+| 2026-11-04 | Connected the jobs: typed hand-offs (attendance_synced, roster_synced, employees_added, org_updated), `after` gating, trigger-driven org_snapshot, parsed results passed downstream, per-job agent specs in pipeline/agents/. Baseline no longer skips a failed idempotent slot. | pipeline/hrpipe, pipeline/agents | Agents must be connected, not just scheduled |

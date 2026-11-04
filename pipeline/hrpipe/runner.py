@@ -33,4 +33,4 @@ def execute(cmd, env, timeout_s, success_re, log_path):
             f.write(f"[{stamp}] [pipeline] {' '.join(os.path.basename(c) for c in cmd[1:])} -> {status}\n{out}\n")
     except OSError:
         pass
-    return status, rc, out.strip()[-600:]
+    return status, rc, out.strip()[-4000:]   # ledger keeps the last 600; the engine parses all of this

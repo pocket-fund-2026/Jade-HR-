@@ -9,9 +9,14 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS runs (
   id INTEGER PRIMARY KEY AUTOINCREMENT, job TEXT NOT NULL, slot TEXT NOT NULL,
   started_at TEXT NOT NULL, finished_at TEXT, status TEXT NOT NULL,   -- ok | failed | timeout | held | skipped
-  exit_code INTEGER, reason TEXT, tail TEXT
+  exit_code INTEGER, reason TEXT, tail TEXT, result TEXT   -- result: JSON of what the job reported (parsed from its output) + upstream context
 );
 CREATE INDEX IF NOT EXISTS idx_runs_job_slot ON runs(job, slot, id);
+CREATE TABLE IF NOT EXISTS handoffs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, from_job TEXT NOT NULL, topic TEXT NOT NULL, slot TEXT, payload TEXT,
+  created_at TEXT NOT NULL, dedupe TEXT UNIQUE
+);
+CREATE INDEX IF NOT EXISTS idx_handoffs_topic ON handoffs(topic, id);
 CREATE TABLE IF NOT EXISTS problems (key TEXT PRIMARY KEY, first_seen REAL NOT NULL, detail TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS alerts (key TEXT PRIMARY KEY, last_sent REAL NOT NULL, open INTEGER NOT NULL DEFAULT 1);
 """
@@ -23,6 +28,8 @@ def connect(path=None):
     db = sqlite3.connect(path, timeout=30)
     db.row_factory = sqlite3.Row
     db.executescript(SCHEMA)
+    if 'result' not in [r[1] for r in db.execute('PRAGMA table_info(runs)')]:
+        db.execute('ALTER TABLE runs ADD COLUMN result TEXT')   # ledger created before hand-offs existed
     return db
 
 
@@ -30,9 +37,9 @@ def now_iso():
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
-def record(db, job, slot, status, started_at=None, exit_code=None, reason=None, tail=None, at=None):
-    db.execute("INSERT INTO runs (job, slot, started_at, finished_at, status, exit_code, reason, tail) VALUES (?,?,?,?,?,?,?,?)",
-               (job, slot, started_at or at or now_iso(), at or now_iso(), status, exit_code, (reason or "")[:300] or None, (tail or "")[-600:] or None))
+def record(db, job, slot, status, started_at=None, exit_code=None, reason=None, tail=None, at=None, result=None):
+    db.execute("INSERT INTO runs (job, slot, started_at, finished_at, status, exit_code, reason, tail, result) VALUES (?,?,?,?,?,?,?,?,?)",
+               (job, slot, started_at or at or now_iso(), at or now_iso(), status, exit_code, (reason or "")[:300] or None, (tail or "")[-600:] or None, result))
     db.commit()
 
 
@@ -73,3 +80,33 @@ def incident_open(db):
 def incident_set(db, is_open):
     db.execute("INSERT INTO alerts (key,last_sent,open) VALUES ('incident',?,?) ON CONFLICT(key) DO UPDATE SET last_sent=excluded.last_sent, open=excluded.open", (time.time(), 1 if is_open else 0))
     db.commit()
+
+
+# --- hand-offs between jobs -------------------------------------------------------------------------
+def emit(db, from_job, topic, slot, payload, at, dedupe):
+    """Record that `from_job` finished a stage and what it found. Idempotent per dedupe key. Returns the new id or None."""
+    import json
+    cur = db.execute("INSERT OR IGNORE INTO handoffs (from_job, topic, slot, payload, created_at, dedupe) VALUES (?,?,?,?,?,?)",
+                     (from_job, topic, slot, json.dumps(payload) if payload is not None else None, at, dedupe))
+    db.commit()
+    return cur.lastrowid if cur.rowcount else None
+
+
+def latest_handoff(db, topic, since_iso):
+    return db.execute("SELECT * FROM handoffs WHERE topic=? AND created_at>=? ORDER BY id DESC LIMIT 1", (topic, since_iso)).fetchone()
+
+
+def unconsumed(db, topic, consumer, since_iso):
+    """Hand-offs of `topic` that `consumer` has not yet acted on (a run recorded for slot 'h<id>' as ok/skipped = consumed)."""
+    return db.execute("""SELECT h.* FROM handoffs h WHERE h.topic=? AND h.created_at>=? AND NOT EXISTS
+                         (SELECT 1 FROM runs r WHERE r.job=? AND r.slot='h'||h.id AND r.status IN ('ok','skipped')) ORDER BY h.id""", (topic, since_iso, consumer)).fetchall()
+
+
+def backfill_handoffs(db, jobs):
+    """Create the hand-off for the latest successful run of each emitting job that has none yet (migration from before hand-offs existed)."""
+    for name, job in jobs.items():
+        if not job.get("emits") or job.get("emit_if"):
+            continue
+        r = db.execute("SELECT * FROM runs WHERE job=? AND status='ok' ORDER BY id DESC LIMIT 1", (name,)).fetchone()
+        if r:
+            emit(db, name, job["emits"], r["slot"], None, r["finished_at"], f"{job['emits']}:{name}:{r['slot']}")

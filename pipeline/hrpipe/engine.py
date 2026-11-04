@@ -4,7 +4,7 @@ import datetime as dt
 import json
 import os
 
-from . import alerts, config, gates, ledger, runner
+from . import alerts, config, gates, ledger, results, runner
 
 UTC = dt.timezone.utc
 
@@ -79,6 +79,7 @@ class Engine:
         for name, job in self.jobs.items():
             if job.get("enabled", True):
                 self._job(name, job, now)
+                self._triggered(name, job, now)
         self._feed_health()
         self._incident(now)
         self._write_status(now)
@@ -105,17 +106,27 @@ class Engine:
         alerts.send(f"JADE HR down for {config.DOWN_ALERT_AFTER_MIN}+ min: {len(old)} issue{'s' if len(old) != 1 else ''}", body)
         ledger.incident_set(self.db, True)
 
-    def _job(self, name, job, now):
-        ls = latest_slot(job, now)
+    def _triggered(self, name, job, now):
+        """Hand-off driven runs: a job that lists `triggers` runs once for every unconsumed hand-off of those topics (no fixed clock time)."""
+        window = job.get("trigger_window_min", 180)
+        since = _iso(now - dt.timedelta(minutes=window))
+        for topic in job.get("triggers") or []:
+            for h in ledger.unconsumed(self.db, topic, name, since)[:1]:
+                self._job(name, job, now, forced=(_parse(h["created_at"]), f"h{h['id']}", window, h))
+
+    def _job(self, name, job, now, forced=None):
+        ls = latest_slot(job, now) if not forced else (forced[0], forced[1])
         if not ls:
             return
         start, slot = ls
+        window_min = forced[2] if forced else job["window_min"]
+        upstream = dict(forced[3]) if forced else None
         age_min = (now - start).total_seconds() / 60
         if ledger.succeeded(self.db, name, slot):
             return
-        if age_min >= job["window_min"]:
+        if age_min >= window_min:
             if job.get("alert_missed", True) and age_min < 24 * 60:
-                self._problem(f"missed:{name}", f"{name} (slot {slot} UTC) did not complete within its {job['window_min']} minute window")
+                self._problem(f"missed:{name}", f"{name} (slot {slot} UTC) did not complete within its {window_min} minute window")
             return
         n = ledger.attempts(self.db, name, slot)
         last = ledger.last_real_attempt(self.db, name, slot)
@@ -128,7 +139,16 @@ class Engine:
             return
         if last is not None and last["status"] in ("failed", "timeout") and (now - _parse(last["finished_at"])).total_seconds() < job["retry_min"] * 60:
             return  # backoff
-        ok, why = gates.evaluate(self.readiness(), job.get("gate"))
+        ok, why = True, ""
+        if job.get("after") and not forced:
+            a = job["after"]
+            up = ledger.latest_handoff(self.db, a["topic"], _iso(now - dt.timedelta(minutes=a["within_min"])))
+            if up is None:
+                ok, why = False, f"waiting for '{a['topic']}' (no successful run of its upstream job in the last {a['within_min']} min)"
+            else:
+                upstream = dict(up)
+        if ok:
+            ok, why = gates.evaluate(self.readiness(), job.get("gate"))
         if not ok:
             prev = ledger.last_any(self.db, name, slot)
             if not self.dry and (prev is None or prev["status"] != "held" or prev["reason"] != why):
@@ -140,15 +160,39 @@ class Engine:
             self._note(name, slot, "WOULD RUN " + " ".join(os.path.basename(c) for c in job["cmd"][1:]))
             return
         started = _iso(now)
+        env = self.env
+        if upstream:  # result passing: the upstream job's findings travel with this run
+            env = {**self.env, "HRPIPE_UPSTREAM": json.dumps({"topic": upstream.get("topic"), "from": upstream.get("from_job"), "at": upstream.get("created_at"),
+                                                               "payload": json.loads(upstream["payload"]) if upstream.get("payload") else None})}
         if job.get("preview"):
-            st, rc, tail = self.runner(job["preview"], self.env, job["timeout_s"], job.get("success_re"), job["log"])
+            st, rc, tail = self.runner(job["preview"], env, job["timeout_s"], job.get("success_re"), job["log"])
             if st != "ok":
                 ledger.record(self.db, name, slot, "failed", started, rc, "preview failed - real run not attempted", tail, at=_iso(now))
                 self._note(name, slot, "preview failed; nothing applied")
                 return
-        st, rc, tail = self.runner(job["cmd"], self.env, job["timeout_s"], job.get("success_re"), job["log"])
-        ledger.record(self.db, name, slot, st, started, rc, None if st == "ok" else "see tail", tail, at=_iso(now))
-        self._note(name, slot, st.upper())
+        st, rc, tail = self.runner(job["cmd"], env, job["timeout_s"], job.get("success_re"), job["log"])
+        found = results.parse(job, tail) if st == "ok" else {}
+        res = {"found": found}
+        if upstream:
+            res["after"] = {"topic": upstream.get("topic"), "from": upstream.get("from_job"), "at": upstream.get("created_at")}
+        ledger.record(self.db, name, slot, st, started, rc, None if st == "ok" else "see tail", tail, at=_iso(now), result=json.dumps(res))
+        self._note(name, slot, st.upper() + (f" {found}" if found else ""))
+        if st == "ok":
+            self._emit(name, job, slot, found, now)
+
+    def _emit(self, name, job, slot, found, now):
+        """Hand the result to whoever depends on it. `emit_if` names a field that must be > 0 for the hand-off to be worth sending."""
+        topic = job.get("emits")
+        if not topic or (job.get("emit_if") and not (found.get(job["emit_if"]) or 0) > 0):
+            return
+        if ledger.emit(self.db, name, topic, slot, found or None, _iso(now), f"{topic}:{name}:{slot}"):
+            self._note(name, slot, f"HAND-OFF '{topic}' {found or ''}".strip())
+            try:  # cross-system feed other tools (e.g. the careers agents) can tail
+                os.makedirs(config.STATE_DIR, exist_ok=True)
+                with open(f"{config.STATE_DIR}/handoffs.jsonl", "a") as f:
+                    f.write(json.dumps({"at": _iso(now), "from": name, "topic": topic, "slot": slot, "payload": found or None}) + "\n")
+            except OSError:
+                pass
 
     def _feed_health(self):
         r = self.readiness()
@@ -167,7 +211,8 @@ class Engine:
             ls = latest_slot(job, now)
             last = ledger.last_any(self.db, name, ls[1]) if ls else None
             rows[name] = {"enabled": job.get("enabled", True), "slot": ls[1] if ls else None, "last_status": last["status"] if last else None,
-                          "last_at": last["finished_at"] if last else None, "reason": last["reason"] if last else None}
+                          "last_at": last["finished_at"] if last else None, "reason": last["reason"] if last else None,
+                          "result": json.loads(last["result"]) if last and last["result"] else None}
         try:
             os.makedirs(config.STATE_DIR, exist_ok=True)
             with open(f"{config.STATE_DIR}/status.json", "w") as f:

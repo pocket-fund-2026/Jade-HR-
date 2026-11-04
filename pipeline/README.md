@@ -12,6 +12,11 @@ One scheduler tick (every 5 min) instead of ~10 independent cron lines and two d
 
 Job logic is unchanged: every job still runs the same script with the same args on the same schedule, appending to the same log file.
 
+## Connected jobs (hand-offs)
+Jobs are agents that hand work to each other; specs in `agents/`. A successful job sends a typed hand-off with what it found; dependents wait for it (`after`) or react to it (`triggers`):
+`attendance_sync` -> `late_digest`, `comp_off_accrual`, `absence_hold`, `quarter_red_card`; `roster_sync` / `roster_new_joiners` -> `org_snapshot` -> careers agents.
+So a digest never runs on stale data, and runs right after the sync lands (not before its usual start time). Each run's parsed result is stored in the ledger and passed to the next job as `HRPIPE_UPSTREAM`. Inspect: `hr-pipeline handoffs`, `hr-pipeline status`; feed: `/var/lib/jade-hr-pipeline/handoffs.jsonl`.
+
 ## Alert policy (the user's rule)
 ONE email per outage, sent only once something has been down 15+ minutes (a held job, a failing job, a stale data feed, or an unreachable console). Further problems join the open incident silently; there are no reminders, no "recovered" mails and no success mails. The incident closes silently when everything is healthy. A flaky attendance sync alone does not email: freshness is judged by the data feed, not each failed run.
 
