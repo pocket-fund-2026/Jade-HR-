@@ -9,6 +9,7 @@ month of a financial-year quarter, whose consequence is a Final Warning letter
 plus automatic forfeiture of 2 Paid Leave days (hr_late_policy_actions).
 """
 
+from paging import fetch_all_paged
 from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -596,16 +597,15 @@ def punctuality_calculator(
     _, scope_end = pay_period_bounds(*labels[-1])
     aip_counts: dict[str, int] = {}
     if corporate:
-        aip_resp = (
-            supabase.table("hr_aip_records")
-            .select("employee_id")
-            .in_("employee_id", [e["id"] for e in corporate])
-            .gte("start_date", scope_start.isoformat())
-            .lte("start_date", scope_end.isoformat())
-            .execute()
+        # No employee_id IN (...): a roster-sized URL is rejected by the DB proxy.
+        corporate_ids = {e["id"] for e in corporate}
+        aip_rows = fetch_all_paged(
+            "hr_aip_records", "employee_id", ("id",),
+            lambda q: q.gte("start_date", scope_start.isoformat()).lte("start_date", scope_end.isoformat()),
         )
-        for r in aip_resp.data:
-            aip_counts[r["employee_id"]] = aip_counts.get(r["employee_id"], 0) + 1
+        for r in aip_rows:
+            if r["employee_id"] in corporate_ids:
+                aip_counts[r["employee_id"]] = aip_counts.get(r["employee_id"], 0) + 1
 
     # One bulk summary compute PER PERIOD (all employees at once), run
     # concurrently — mirrors _quarter_status. The previous version called
