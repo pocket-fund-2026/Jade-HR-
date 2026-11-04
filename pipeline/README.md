@@ -12,6 +12,12 @@ One scheduler tick (every 5 min) instead of ~10 independent cron lines and two d
 
 Job logic is unchanged: every job still runs the same script with the same args on the same schedule, appending to the same log file.
 
+## Alert policy (the user's rule)
+ONE email per outage, sent only once something has been down 15+ minutes (a held job, a failing job, a stale data feed, or an unreachable console). Further problems join the open incident silently; there are no reminders, no "recovered" mails and no success mails. The incident closes silently when everything is healthy. A flaky attendance sync alone does not email: freshness is judged by the data feed, not each failed run.
+
+## Org chart for the agents
+`org_snapshot.py` (code only, daily 06:40 UTC job) writes `/var/lib/jade-hr-pipeline/org.json` from the console's own org chart (name, designation, department, reporting line; no salary, DOB, contact or exit data). The careers agents read it through `agents/core/org.js`.
+
 ## Use
     hr-pipeline status            # latest slot and outcome per job
     hr-pipeline tick --dry-run    # what would happen now; executes and records nothing
