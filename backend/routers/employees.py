@@ -191,7 +191,7 @@ def bulk_import_salary(body: SalaryImportRequest, user: dict = Depends(require_p
         for st in supabase.table("hr_salary_structure").select("*").in_("employee_id", ids).execute().data:
             structs.setdefault(st["employee_id"], []).append(st)
 
-    updated, not_found, to_insert = [], [], []
+    updated, not_found, to_insert, writes = [], [], [], []
     today = _date.today()
     for row in body.rows:
         emp = by_code.get(row.employee_code)
@@ -200,10 +200,10 @@ def bulk_import_salary(body: SalaryImportRequest, user: dict = Depends(require_p
             continue
         # Plain UPDATE per row: a partial-row UPSERT trips NOT NULL checks on
         # the insert path of ON CONFLICT (500 on the office-server Postgres).
-        supabase.table("hr_employees").update({
+        writes.append(lambda emp=emp, row=row: supabase.table("hr_employees").update({
             "basic": row.basic, "hra": row.hra, "conveyance": row.conveyance,
             "other_allowance": row.other_allowance, "incentive": row.incentive,
-        }).eq("id", emp["id"]).execute()
+        }).eq("id", emp["id"]).execute())
         updated.append(row.employee_code)
 
         eff = body.effective_date or today.replace(day=1)
@@ -228,13 +228,18 @@ def bulk_import_salary(body: SalaryImportRequest, user: dict = Depends(require_p
         base.update(_compute_summary(base))
         if cur:
             base["updated_at"] = _dt.now(_tz.utc).isoformat()
-            supabase.table("hr_salary_structure").update(base).eq("id", cur["id"]).execute()
+            writes.append(lambda base=base, cid=cur["id"]: supabase.table("hr_salary_structure").update(base).eq("id", cid).execute())
         else:
             base["created_by"] = user["id"]
             to_insert.append(base)
 
     if to_insert:
-        supabase.table("hr_salary_structure").insert(to_insert).execute()
+        writes.append(lambda: supabase.table("hr_salary_structure").insert(to_insert).execute())
+    # Independent writes, each a slow round trip: run them side by side.
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        for fut in [pool.submit(w) for w in writes]:
+            fut.result()
 
     return {"updated": len(updated), "not_found": not_found, "structures_written": len(updated)}
 
