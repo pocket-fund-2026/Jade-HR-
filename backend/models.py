@@ -164,6 +164,9 @@ class SalaryImportRow(BaseModel):
 
 class SalaryImportRequest(BaseModel):
     rows: list[SalaryImportRow]
+    # Effective date of the salary structure written for each employee.
+    # Defaults to the 1st of the current month (or the date of joining, if later).
+    effective_date: Optional[date] = None
 
 
 class ReportingManagerImportRow(BaseModel):

@@ -787,3 +787,42 @@ def test_register_mode_uses_sheet_credits_exactly():
     assert s["without_pay_days"] == 1.2
     assert s["late_mark_count"] == 1
     assert s["basic"] == round(31000 * 29.75 / 31, 2) == 29750.0
+
+
+# ── 2026-11-04: shift-based OT cutoff + OT-day full-day rule ──────────────
+def _punch(d, hh, mm):
+    from datetime import datetime
+    from config import IST
+    return datetime(d.year, d.month, d.day, hh, mm, tzinfo=IST)
+
+
+def test_ot_starts_after_assigned_shift_end_not_8h():
+    from datetime import date
+    import payroll
+    d = date(2026, 10, 14)  # Wednesday
+    # 10:00-19:00 on a 10-7 slot (9h shift) = no OT, even though standard_hours=8
+    assert payroll._ot_hours(d, _punch(d, 10, 0), _punch(d, 19, 0), 8.0, "10:00 AM – 7:00 PM") == 0.0
+    # stays till 8pm -> exactly 1h OT
+    assert payroll._ot_hours(d, _punch(d, 10, 0), _punch(d, 20, 0), 8.0, "10:00 AM – 7:00 PM") == 1.0
+    assert payroll._standard_hours_for_day(d, 8.0, "10:00 AM – 7:00 PM") == 9.0
+
+
+def test_flexible_and_blank_slot_keep_hours_rule():
+    from datetime import date
+    import payroll
+    d = date(2026, 10, 14)
+    assert payroll._ot_hours(d, _punch(d, 10, 0), _punch(d, 19, 0), 8.0, None) == 1.0
+    assert payroll._ot_hours(d, _punch(d, 10, 0), _punch(d, 19, 0), 8.0, "Flexible") == 1.0
+
+
+def test_ot_day_is_never_half_day_or_lop():
+    rows = [
+        {"date": "2026-10-14", "status": "half_day", "ot_hours": 1.0},
+        {"date": "2026-10-15", "status": "present", "ot_hours": 0.5, "lop_days": 0.5, "register_credit": 0.5},
+        {"date": "2026-10-16", "status": "half_day", "ot_hours": 0.0},
+    ]
+    import payroll
+    payroll.enforce_ot_full_day(rows)
+    assert rows[0]["status"] == "present"
+    assert "lop_days" not in rows[1] and rows[1]["register_credit"] == 1.0
+    assert rows[2]["status"] == "half_day"

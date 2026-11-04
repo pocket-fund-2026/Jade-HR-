@@ -15,6 +15,7 @@ Formula (as specified by JADE HR ops), example — Sarita:
 
 import calendar
 from collections import defaultdict
+import re
 from datetime import date, datetime, time, timedelta
 
 from config import IST
@@ -162,9 +163,42 @@ def _is_ot_eligible(employee: dict) -> bool:
     return gross <= OT_ELIGIBLE_GROSS_CEILING
 
 
+_SLOT_RANGE_RE = re.compile(
+    r"(\d{1,2}):(\d{2})\s*([AP]M)\s*[\u2013\u2014-]\s*(\d{1,2}):(\d{2})\s*([AP]M)", re.IGNORECASE
+)
+
+
+def _slot_times(time_slot: str | None) -> tuple[time, time] | None:
+    """(start, end) parsed from a label like "10:00 AM – 7:00 PM" (also
+    "Intern (10:00 AM – 6:00 PM)"). None for "Flexible"/blank/unparseable."""
+    m = _SLOT_RANGE_RE.search(time_slot or "")
+    if not m:
+        return None
+
+    def _t(h: str, mi: str, ap: str) -> time:
+        hh = int(h) % 12 + (12 if ap.upper() == "PM" else 0)
+        return time(hh, int(mi))
+
+    return _t(*m.group(1, 2, 3)), _t(*m.group(4, 5, 6))
+
+
+def _slot_shift_hours(time_slot: str | None) -> float | None:
+    """Assigned shift length (end - start) for the employee's time_slot."""
+    t = _slot_times(time_slot)
+    if not t:
+        return None
+    return (datetime.combine(date(2000, 1, 1), t[1]) - datetime.combine(date(2000, 1, 1), t[0])).total_seconds() / 3600.0
+
+
 def _standard_hours_for_day(d: date, standard_hours_per_day: float, time_slot: str | None) -> float:
     if d.weekday() == 5 and time_slot in SATURDAY_SHIFT_HOURS:
         return SATURDAY_SHIFT_HOURS[time_slot]
+    # The employee's assigned shift IS their standard day: a 10-7 employee
+    # (9h) must not be graded against the generic 8h default, or every day
+    # shows an hour of phantom overtime.
+    slot_hours = _slot_shift_hours(time_slot)
+    if slot_hours and d.weekday() != 5 and time_slot != FLEXIBLE_TIME_SLOT:
+        return slot_hours
     return standard_hours_per_day
 
 
@@ -179,6 +213,10 @@ def _ot_hours(d: date, start: datetime, end: datetime, day_standard: float, time
         cutoff = datetime.combine(d, SATURDAY_OT_CUTOFF, tzinfo=IST)
         return max(0.0, (end - max(start, cutoff)).total_seconds() / 3600.0)
     weekday_cutoff = WEEKDAY_OT_CUTOFF_BY_TIME_SLOT.get(time_slot)
+    if weekday_cutoff is None and time_slot != FLEXIBLE_TIME_SLOT:
+        # Any other assigned shift: OT starts only after the shift's own end.
+        slot = _slot_times(time_slot)
+        weekday_cutoff = slot[1] if slot else None
     if weekday_cutoff is not None:
         cutoff = datetime.combine(d, weekday_cutoff, tzinfo=IST)
         return max(0.0, (end - max(start, cutoff)).total_seconds() / 3600.0)
@@ -685,6 +723,19 @@ def late_card_status(late_mark_count: int, period_end: date) -> str:
     return "none"
 
 
+def enforce_ot_full_day(daily: list[dict]) -> None:
+    """Company norm: anyone who worked overtime that day completed their full
+    assigned shift — never a half day, never a late-coming/LOP deduction."""
+    for r in daily:
+        if (r.get("ot_hours") or 0) <= 0:
+            continue
+        if r.get("status") == "half_day":
+            r["status"] = "present"
+        if r.get("register_credit") is not None and float(r["register_credit"]) < 1:
+            r["register_credit"] = 1.0
+        r.pop("lop_days", None)
+
+
 def apply_late_coming_policy(
     daily: list[dict], standard_hours_per_day: float, time_slot: str | None = None
 ) -> tuple[int, bool]:
@@ -990,6 +1041,7 @@ def compute_monthly_summary(
     _, period_end_for_v3 = pay_period_bounds(year, month, calendar_month)
     # Register mode: every day of the period came from an imported register,
     # so the sheet's credits ARE the attendance (no policy engine on top).
+    enforce_ot_full_day(daily)
     register_mode = bool(daily) and all(r.get("register_credit") is not None for r in daily)
     v3_active = is_corporate and late_policy_v3_active(period_end_for_v3) and not register_mode
     v3_summary = apply_late_coming_policy_v3(daily, time_slot) if v3_active else None
@@ -1002,6 +1054,7 @@ def compute_monthly_summary(
             apply_late_coming_policy(daily, standard_hours, time_slot) if is_corporate else (0, False)
         )
 
+    enforce_ot_full_day(daily)  # again: late policies above tag lop_days
     present_days = sum(1 for r in daily if r["status"] == "present")
     absent_days = sum(1 for r in daily if r["status"] == "absent")
     holiday_days = sum(1 for r in daily if r["status"] == "holiday")
