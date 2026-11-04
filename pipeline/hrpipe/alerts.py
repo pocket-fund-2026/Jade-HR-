@@ -30,7 +30,7 @@ def _env():
 
 
 def send(subject, text, dry_run=False):
-    log(f"ALERT {subject} :: {text[:300]}")
+    log(f"{'DRY-RUN (not sent) ' if dry_run else ''}ALERT {subject} :: {text[:300]}")
     if dry_run:
         return False
     env = _env()

@@ -73,6 +73,36 @@ def cmd_handoffs(args):
     return 0
 
 
+def cmd_review(args):
+    """Evidence for improving the system: what went wrong in the last N days and what keeps going wrong. Code only, read-only."""
+    db = ledger.connect()
+    d = f"-{args.days} days"
+    print(f"== runs in the last {args.days} day(s)")
+    for r in db.execute("SELECT job, SUM(status='ok') ok, SUM(status='failed') failed, SUM(status='timeout') timeout, SUM(status='held') held FROM runs WHERE started_at >= datetime('now', ?) AND status!='skipped' GROUP BY job ORDER BY failed+timeout DESC, held DESC", (d,)):
+        print(f"  {r['job']:20} ok={r['ok']} failed={r['failed']} timeout={r['timeout']} held={r['held']}")
+    print("== repeat offenders (3+ failures/timeouts)")
+    rows = db.execute("SELECT job, COUNT(*) n, MAX(substr(coalesce(tail,''),-100)) last FROM runs WHERE status IN ('failed','timeout') AND started_at >= datetime('now', ?) GROUP BY job HAVING n>=3", (d,)).fetchall()
+    for r in rows:
+        print(f"  {r['job']:20} {r['n']}x  last output: {r['last'].strip()!r}")
+    if not rows:
+        print("  none")
+    print("== hand-offs nobody consumed (check the consumer's `after`/`triggers`)")
+    n = 0
+    for h in db.execute("SELECT * FROM handoffs WHERE created_at >= datetime('now', ?) ORDER BY id", (d,)):
+        used = db.execute("SELECT 1 FROM runs WHERE slot='h'||? AND status IN ('ok','skipped') LIMIT 1", (h["id"],)).fetchone()
+        consumers = [j for j, jb in config.JOBS.items() if (jb.get("after") or {}).get("topic") == h["topic"] or h["topic"] in (jb.get("triggers") or [])]
+        if consumers and not used and not any(jb for jb in consumers if db.execute("SELECT 1 FROM runs WHERE job=? AND status='ok' AND finished_at>=? LIMIT 1", (jb, h["created_at"])).fetchone()):
+            n += 1; print(f"  {h['created_at']} '{h['topic']}' from {h['from_job']} not yet used by {', '.join(consumers)}")
+    if not n:
+        print("  none")
+    print("== currently open problems")
+    for r in db.execute("SELECT key, detail FROM problems"):
+        print(f"  {r['key']}: {r['detail']}")
+    if not db.execute("SELECT 1 FROM problems").fetchone():
+        print("  none")
+    return 0
+
+
 def cmd_status(args):
     db = ledger.connect()
     now = dt.datetime.now(dt.timezone.utc)
@@ -91,6 +121,7 @@ def main(argv=None):
     sub = ap.add_subparsers(dest="cmd", required=True)
     t = sub.add_parser("tick"); t.add_argument("--dry-run", action="store_true"); t.set_defaults(fn=cmd_tick)
     sub.add_parser("status").set_defaults(fn=cmd_status)
+    rv = sub.add_parser("review"); rv.add_argument("--days", type=int, default=3); rv.set_defaults(fn=cmd_review)
     h = sub.add_parser("handoffs"); h.add_argument("-n", type=int, default=15); h.set_defaults(fn=cmd_handoffs)
     sub.add_parser("baseline").set_defaults(fn=cmd_baseline)
     a = ap.parse_args(argv)
