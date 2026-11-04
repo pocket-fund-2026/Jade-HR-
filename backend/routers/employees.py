@@ -196,8 +196,11 @@ def bulk_import_salary(body: SalaryImportRequest, user: dict = Depends(require_p
     # One batched upsert (matches on the primary key, always an UPDATE here
     # since every id came from an existing row) instead of one round-trip
     # per imported row.
-    if rows_to_upsert:
-        supabase.table("hr_employees").upsert(rows_to_upsert).execute()
+    for r in rows_to_upsert:
+        # Plain UPDATE per row: a partial-row UPSERT trips NOT NULL checks on
+        # the insert path of ON CONFLICT (500 on the office-server Postgres).
+        rid = r.pop("id")
+        supabase.table("hr_employees").update(r).eq("id", rid).execute()
 
     for emp, row, eff in structures:
         cur = (
