@@ -207,14 +207,16 @@ def bulk_import_salary(body: SalaryImportRequest, user: dict = Depends(require_p
             supabase.table("hr_salary_structure").select("*").eq("employee_id", emp["id"])
             .eq("effective_date", eff.isoformat()).execute().data
         )
+        from models import SalaryStructureSave
+        defaults = SalaryStructureSave(effective_date=eff).model_dump()  # every numeric column present, 0
         if cur:
-            base = dict(cur[0])
+            base = {**defaults, **{k: v for k, v in cur[0].items() if v is not None}}
         else:
             prev = (
                 supabase.table("hr_salary_structure").select("*").eq("employee_id", emp["id"])
                 .lte("effective_date", eff.isoformat()).order("effective_date", desc=True).limit(1).execute().data
             )
-            base = dict(prev[0]) if prev else {}
+            base = {**defaults, **{k: v for k, v in (prev[0] if prev else {}).items() if v is not None}}
             for k in ("id", "created_at", "updated_at", "created_by"):
                 base.pop(k, None)
         base.update({
