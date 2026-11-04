@@ -70,57 +70,6 @@ def ctc_as_per_salary(
     return rows
 
 
-@router.get("/salary-components")
-def salary_components(
-    as_of: date | None = Query(default=None),
-    user: dict = Depends(require_permission("payroll.view")),
-):
-    """Each active employee's latest Salary Structure earnings components as
-    of a date, in the flat "EmployeeSalary" layout (Basic/HRA/Conv/Other
-    Allow/Monthly Bonus/Retention/Incentive). Read-only snapshot of
-    hr_salary_structure — same 'latest row on or before as_of' rule as
-    ctc-as-per-salary."""
-    as_of = as_of or date.today()
-    with ContextThreadPoolExecutor(max_workers=2) as pool:
-        employees_future = pool.submit(
-            lambda: supabase.table("hr_employees")
-            .select("id,employee_code,first_name,last_name").eq("is_active", True).execute().data
-        )
-        structures_future = pool.submit(
-            lambda: supabase.table("hr_salary_structure")
-            .select("employee_id,effective_date,earn_basic,earn_hra,earn_conv,earn_other_allow,"
-                    "earn_monthly_bonus,earn_retention,earn_incentive")
-            .lte("effective_date", as_of.isoformat())
-            .order("effective_date", desc=True)
-            .execute()
-            .data
-        )
-        employees = employees_future.result()
-        structures = structures_future.result()
-    latest_by_employee = {}
-    for s in structures:
-        latest_by_employee.setdefault(s["employee_id"], s)
-
-    rows = []
-    for e in employees:
-        latest = latest_by_employee.get(e["id"]) or {}
-        rows.append({
-            "employee_code": e["employee_code"],
-            "name": f"{e['first_name']} {e.get('last_name') or ''}".strip(),
-            "effective_date": latest.get("effective_date"),
-            "basic": latest.get("earn_basic") or 0,
-            "hra": latest.get("earn_hra") or 0,
-            "conv": latest.get("earn_conv") or 0,
-            "other_allow": latest.get("earn_other_allow") or 0,
-            "monthly_bonus": latest.get("earn_monthly_bonus") or 0,
-            "retention": latest.get("earn_retention") or 0,
-            "incentive": latest.get("earn_incentive") or 0,
-            "has_structure": bool(latest),
-        })
-    rows.sort(key=lambda r: r["name"].lower())
-    return rows
-
-
 @router.get("/arrears")
 def arrear_details(
     from_date: date | None = Query(default=None),
