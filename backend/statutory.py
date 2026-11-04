@@ -30,6 +30,12 @@ EPS_RATE = 0.0833
 EPS_WAGE_CEILING = 15000
 EDLI_RATE = 0.005
 EDLI_WAGE_CEILING = 15000
+# From 17 Sep 2026 (same date the employee-PF cap below starts) the EPS and
+# EDLI wage ceiling is ₹25,000 — as in the company's actual PF return (EPS
+# wages / EDLI wages 25,000, EDLI charges 125). Earlier periods, and calls
+# with no period given, keep the old ₹15,000 so issued payslips don't move.
+EPS_WAGE_CEILING_NEW = 25000
+EDLI_WAGE_CEILING_NEW = 25000
 PF_ADMIN_RATE = 0.005
 # From 17 Sep 2026 the employee PF deduction is capped at ₹3,000/month (12% of
 # Basic, but never more). Pay periods starting before this date keep the
@@ -59,13 +65,16 @@ def _round_rupee(amount: float) -> float:
 
 def compute_pf(wage_base: float, pf_gross_limit: float, eps_applicable: bool, period_start: date | None = None) -> dict:
     capped_wage = min(wage_base, pf_gross_limit) if pf_gross_limit else wage_base
-    eps_wage = min(capped_wage, EPS_WAGE_CEILING)
-    edli_wage = min(capped_wage, EDLI_WAGE_CEILING)
+    new_rules = period_start is not None and period_start >= PF_DEDUCTION_CAP_FROM
+    eps_wage = min(capped_wage, EPS_WAGE_CEILING_NEW if new_rules else EPS_WAGE_CEILING)
+    edli_wage = min(capped_wage, EDLI_WAGE_CEILING_NEW if new_rules else EDLI_WAGE_CEILING)
     # EPS is rounded to a whole rupee first (its own statutory contribution),
     # and EPF is the remainder of the (separately rounded) total PF employer
     # contribution — matching the reference payroll register, not
     # employer_pf_total minus an un-rounded EPS.
-    eps = _round_rupee(eps_wage * EPS_RATE) if eps_applicable else 0.0
+    # EPS, EDLI and admin charges round half-to-even: 15,000 -> 1249.5 -> 1250 and 25,000 -> 2082.5 -> 2082,
+    # which is what both reference registers show (half-up would give 2083).
+    eps = float(round(eps_wage * EPS_RATE)) if eps_applicable else 0.0
     employer_pf_total = _round_rupee(capped_wage * PF_EMPLOYER_RATE)
     ded_pf = _round_rupee(capped_wage * PF_EMPLOYEE_RATE)
     if period_start is not None and period_start >= PF_DEDUCTION_CAP_FROM:
@@ -77,8 +86,8 @@ def compute_pf(wage_base: float, pf_gross_limit: float, eps_applicable: bool, pe
         "oth_eps": eps,
         "oth_epf": employer_pf_total - eps,
         "oth_edli_wages": round(edli_wage, 2),
-        "oth_edli_charges": _round_rupee(edli_wage * EDLI_RATE),
-        "oth_pf_admin_charges": _round_rupee(capped_wage * PF_ADMIN_RATE),
+        "oth_edli_charges": float(round(edli_wage * EDLI_RATE)),
+        "oth_pf_admin_charges": float(round(capped_wage * PF_ADMIN_RATE)),
     }
 
 
