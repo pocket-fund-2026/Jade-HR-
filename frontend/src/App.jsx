@@ -99,6 +99,7 @@ const Reports = lazyWithReload(() => import("./pages/admin/Reports.jsx"));
 const SalarySheetReport = lazyWithReload(() => import("./pages/admin/reports/SalarySheetReport.jsx"));
 const YearlySalaryReport = lazyWithReload(() => import("./pages/admin/reports/YearlySalaryReport.jsx"));
 const CtcAsPerSalaryReport = lazyWithReload(() => import("./pages/admin/reports/CtcAsPerSalaryReport.jsx"));
+const SalaryComponentsReport = lazyWithReload(() => import("./pages/admin/reports/SalaryComponentsReport.jsx"));
 const CtcAsPerPayslipReport = lazyWithReload(() => import("./pages/admin/reports/CtcAsPerPayslipReport.jsx"));
 const ArrearDetailsReport = lazyWithReload(() => import("./pages/admin/reports/ArrearDetailsReport.jsx"));
 const SalaryPaidReport = lazyWithReload(() => import("./pages/admin/reports/SalaryPaidReport.jsx"));
@@ -254,6 +255,7 @@ export default function App() {
             <Route path="reports/salary-sheet" element={<RequirePermission anyOf={["payroll.view"]}><SalarySheetReport /></RequirePermission>} />
             <Route path="reports/yearly-salary" element={<RequirePermission anyOf={["payroll.view"]}><YearlySalaryReport /></RequirePermission>} />
             <Route path="reports/ctc-as-per-salary" element={<RequirePermission anyOf={["payroll.view"]}><CtcAsPerSalaryReport /></RequirePermission>} />
+            <Route path="reports/salary-components" element={<RequirePermission anyOf={["payroll.view"]}><SalaryComponentsReport /></RequirePermission>} />
             <Route path="reports/ctc-as-per-payslip" element={<RequirePermission anyOf={["payroll.view"]}><CtcAsPerPayslipReport /></RequirePermission>} />
             <Route path="reports/arrears" element={<RequirePermission anyOf={["payroll.view"]}><ArrearDetailsReport /></RequirePermission>} />
             <Route path="reports/salary-paid" element={<RequirePermission anyOf={["payroll.view"]}><SalaryPaidReport /></RequirePermission>} />

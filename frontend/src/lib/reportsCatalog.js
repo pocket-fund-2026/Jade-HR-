@@ -11,6 +11,7 @@ export const REPORT_CATEGORIES = [
     title: "Salary",
     items: [
       { to: "/admin/reports/salary-sheet", label: "Salary Sheet", desc: "Full monthly earnings/deductions breakdown, all employees", icon: FileSpreadsheet, permission: "payroll.view" },
+      { to: "/admin/reports/salary-components", label: "Employee Salary Components", desc: "Basic/HRA/Conv/Other Allow/Monthly Bonus/Retention/Incentive per employee — Excel in the EmployeeSalary layout", icon: FileSpreadsheet, permission: "payroll.view" },
       { to: "/admin/reports/yearly-salary", label: "Yearly / Cumulative Salary Details", desc: "Salary Sheet summed across a From–To range of pay periods", icon: TrendingUp, permission: "payroll.view" },
       { to: "/admin/reports/arrears", label: "Arrear Details", desc: "Every one-off arrear payment on file, quick-entry or via Salary Structure", icon: ScrollText, permission: "payroll.view" },
       { to: "/admin/reports/salary-paid", label: "Salary Paid Report", desc: "Monthly checklist — mark each employee paid, add an arrear if a past month was missed", icon: CheckSquare, permission: "payroll.view" },
