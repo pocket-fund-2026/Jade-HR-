@@ -150,18 +150,18 @@ def _manual_ledger_net_bulk_between(employee_ids: list[str], start: date, end: d
     whole roster instead of one per employee."""
     if not employee_ids:
         return {}
-    resp = (
-        supabase.table("hr_leave_ledger")
-        .select("employee_id,amount")
-        .in_("employee_id", employee_ids)
-        .eq("leave_type", "paid")
+    # No employee_id IN (...): the long URL 414s at the DB proxy.
+    rows = fetch_all_paged(
+        "hr_leave_ledger", "employee_id,amount", ("id",),
+        lambda q: q.eq("leave_type", "paid")
         .gte("entry_date", start.isoformat())
-        .lte("entry_date", end.isoformat())
-        .execute()
+        .lte("entry_date", end.isoformat()),
     )
+    wanted = set(employee_ids)
     result: dict[str, float] = defaultdict(float)
-    for r in resp.data:
-        result[r["employee_id"]] += float(r["amount"])
+    for r in rows:
+        if r["employee_id"] in wanted:
+            result[r["employee_id"]] += float(r["amount"])
     return dict(result)
 
 
@@ -535,14 +535,12 @@ def _carried_forward_bulk(employees: list[dict], year: int) -> dict[str, float]:
         return {e["id"]: 0.0 for e in employees}
 
     employee_ids = [e["id"] for e in employees]
-    resp = (
-        supabase.table("hr_leave_balances")
-        .select("employee_id,carried_forward")
-        .in_("employee_id", employee_ids)
-        .eq("leave_year", year)
-        .execute()
+    rows = fetch_all_paged(
+        "hr_leave_balances", "employee_id,carried_forward", ("employee_id", "leave_year"),
+        lambda q: q.eq("leave_year", year),
     )
-    result = {r["employee_id"]: float(r["carried_forward"]) for r in resp.data}
+    wanted = set(employee_ids)
+    result = {r["employee_id"]: float(r["carried_forward"]) for r in rows if r["employee_id"] in wanted}
     for e in employees:
         if e["id"] not in result:
             result[e["id"]] = get_carried_forward(e, year)
@@ -654,19 +652,21 @@ def pl_ledger_for_period_bulk(employees: list[dict], year: int, month: int) -> d
     period_start, period_end = pay_period_bounds(year, month)
     day_before_start = period_start - timedelta(days=1)
     employee_ids = [e["id"] for e in employees]
-    resp = (
-        supabase.table("hr_leave_requests")
-        .select("employee_id,start_date,end_date")
-        .in_("employee_id", employee_ids)
-        .in_("leave_type", list(MERGED_PAID_LEAVE_TYPES))
+    # No employee_id IN (...) filter: with ~230 UUIDs the URL exceeded the office
+    # DB proxy's limit (414) and broke /api/payroll. Rows are bucketed by
+    # employee below anyway, so filter by lookup, and page to avoid the row cap.
+    rows = fetch_all_paged(
+        "hr_leave_requests", "employee_id,start_date,end_date", ("id",),
+        lambda q: q.in_("leave_type", list(MERGED_PAID_LEAVE_TYPES))
         .eq("status", "approved")
         .gte("start_date", f"{day_before_start.year}-01-01")
-        .lte("start_date", period_end.isoformat())
-        .execute()
+        .lte("start_date", period_end.isoformat()),
     )
+    wanted = set(employee_ids)
     rows_by_employee: dict[str, list[dict]] = defaultdict(list)
-    for r in resp.data:
-        rows_by_employee[r["employee_id"]].append(r)
+    for r in rows:
+        if r["employee_id"] in wanted:
+            rows_by_employee[r["employee_id"]].append(r)
 
     day_before_start = period_start - timedelta(days=1)
     carry_at_start_by_year = _carried_forward_bulk(employees, day_before_start.year)
