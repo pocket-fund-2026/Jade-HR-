@@ -72,6 +72,33 @@ function ClockColumn({ icon: Icon, title, rows, empty, renderMeta, linkTo }) {
   );
 }
 
+function AccessRevokePanel({ items }) {
+  if (!items.length) return null;
+  return (
+    <div className="bg-paper rounded-sm shadow-card px-5 py-4 mb-6 border-l-2 border-rust-500">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-rust-600 mb-1 flex items-center gap-1.5">
+        <LogOut size={13} /> Revoke system access
+      </p>
+      <p className="text-sm text-ink/70 mb-3">
+        These people are leaving or have left. Their logins to email, OMS, TDS, the PR dashboard and other systems must be removed.
+        This stays here until the access items on their exit checklist are marked Completed.
+      </p>
+      <ul className="divide-y divide-ink/10">
+        {items.map((i) => (
+          <li key={i.id} className="py-2 flex items-center gap-3 text-sm">
+            <span className="font-medium">{i.employee_name}</span>
+            <span className="text-ink/50">{i.employee_code}</span>
+            <span className={i.overdue ? "text-rust-600 font-semibold" : "text-ink/70"}>
+              {i.overdue ? "Last day passed: " : "Last day: "}{formatDate(i.last_working_day)}
+            </span>
+            <Link to="/admin/exit" className="ml-auto text-jade-700 hover:underline">Open exit checklist</Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function ClocksPanel({ clocks }) {
   const { aip, probation, notice } = clocks;
   if (aip.length === 0 && probation.length === 0 && notice.length === 0) return null;
@@ -146,7 +173,7 @@ export default function Dashboard() {
   // before rendering counts from them.
   const {
     pendingDisputes = [], pendingLeave = [], pendingPayslipApprovals = [], pendingOnboarding = [],
-    pendingWorkAbsence = [], pendingWfh = [], pendingMarketVisits = [], pendingCareers = [],
+    pendingWorkAbsence = [], pendingWfh = [], pendingMarketVisits = [], pendingCareers = [], pendingAccessRevoke = [],
   } = useOutletContext() || {};
 
   useEffect(() => {
@@ -233,7 +260,7 @@ export default function Dashboard() {
     leave: pendingLeave, disputes: pendingDisputes, payslipApprovals: pendingPayslipApprovals,
     onboarding: pendingOnboarding, workAbsence: pendingWorkAbsence, wfh: pendingWfh,
     marketVisits: pendingMarketVisits, careers: pendingCareers,
-  };
+  };  // accessRevoke is shown by its own persistent panel below, not this dismissible list
   const NOTIFICATION_GROUPS = NOTIFICATION_TYPES
     .map((t) => ({ ...t, items: (pendingByType[t.key] || []).filter((i) => itemTime(i) > seenAt) }))
     .filter((g) => g.items.length > 0);
@@ -475,6 +502,8 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      <AccessRevokePanel items={pendingAccessRevoke} />
 
       {canEmployees && <ClocksPanel clocks={clocks} />}
 

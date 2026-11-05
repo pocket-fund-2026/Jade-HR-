@@ -8,6 +8,10 @@ from database import maybe_single_data, supabase
 from paging import ContextThreadPoolExecutor
 from models import EmployeeDocumentUpload, EmployeeProfileUpdate
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/employees", tags=["employee-profile"])
 
 DOCS_BUCKET = "employee-documents"
@@ -156,6 +160,14 @@ def update_employee_profile(
         updates["employee_id"] = employee_id
         updates["updated_at"] = datetime.now(timezone.utc).isoformat()
         supabase.table("hr_employee_profile").upsert(updates, on_conflict="employee_id").execute()
+
+    # Marked as Exited by hand (no Initiate Exit): still tell HR to revoke access.
+    if updates.get("employee_status") == "Exited":
+        try:
+            from routers.exit_procedure import send_access_revocation_if_new
+            send_access_revocation_if_new(employee_id, str(updates.get("exit_date") or datetime.now(timezone.utc).date()), "left")
+        except Exception:
+            logger.exception("Could not send leaver access email for %s", employee_id)
 
     if body.udfs is not None:
         supabase.table("hr_employee_udf").delete().eq("employee_id", employee_id).execute()

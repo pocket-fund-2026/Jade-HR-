@@ -25,7 +25,7 @@ const navItems = [
   { to: "/admin/careers", label: "Careers", icon: Users2, badgeKey: "careers", permission: "careers.manage" },
   { to: "/admin/work-absence", label: "Work Absence", icon: Briefcase, badgeKey: "workAbsence", permission: "absence.manage" },
   { to: "/admin/confirmations", label: "Confirmations", icon: CalendarCheck, permission: "employees.manage" },
-  { to: "/admin/exit", label: "Exit Procedure", icon: DoorOpen, permission: "exit.manage" },
+  { to: "/admin/exit", label: "Exit Procedure", icon: DoorOpen, badgeKey: "accessRevoke", permission: "exit.manage" },
 
   // Time & Leave — requests, tracking, policy
   { to: "/admin/leave", label: "Leave", icon: Plane, badgeKey: "leave", permission: "leave.manage", sectionBreak: true },
@@ -278,6 +278,7 @@ export default function AdminLayout() {
   const [pendingMarketVisits, setPendingMarketVisits] = useState([]);
   const [pendingLoans, setPendingLoans] = useState([]);
   const [pendingNewEmployees, setPendingNewEmployees] = useState([]);
+  const [pendingAccessRevoke, setPendingAccessRevoke] = useState([]);
   // True once the first poll below has resolved — lets pages seed their own
   // "pending" tab from this data instead of re-fetching it themselves on
   // mount (an empty pending* array is ambiguous with "not fetched yet"
@@ -289,13 +290,13 @@ export default function AdminLayout() {
     payslipApprovals: pendingPayslipApprovals.length, onboarding: pendingOnboarding.length,
     workAbsence: pendingWorkAbsence.length, wfh: pendingWfh.length,
     marketVisits: pendingMarketVisits.length, loans: pendingLoans.length,
-    careers: pendingCareers.length,
+    careers: pendingCareers.length, accessRevoke: pendingAccessRevoke.length,
   };
   const pendingByType = useMemo(() => ({
     leave: pendingLeave, disputes: pendingDisputes, payslipApprovals: pendingPayslipApprovals,
     onboarding: pendingOnboarding, workAbsence: pendingWorkAbsence, wfh: pendingWfh,
-    marketVisits: pendingMarketVisits, loans: pendingLoans, careers: pendingCareers, newEmployees: pendingNewEmployees,
-  }), [pendingLeave, pendingDisputes, pendingPayslipApprovals, pendingOnboarding, pendingWorkAbsence, pendingWfh, pendingMarketVisits, pendingLoans, pendingCareers, pendingNewEmployees]);
+    marketVisits: pendingMarketVisits, loans: pendingLoans, careers: pendingCareers, newEmployees: pendingNewEmployees, accessRevoke: pendingAccessRevoke,
+  }), [pendingAccessRevoke, pendingLeave, pendingDisputes, pendingPayslipApprovals, pendingOnboarding, pendingWorkAbsence, pendingWfh, pendingMarketVisits, pendingLoans, pendingCareers, pendingNewEmployees]);
   const canDisputes = can("disputes.manage");
   const canLeave = can("leave.manage");
   const canPayslipApprovals = can("payslip_approvals.manage");
@@ -306,6 +307,7 @@ export default function AdminLayout() {
   const canLoans = can("loans.manage");
   const canCareers = can("careers.manage");
   const canNewEmployees = can("employees.view");
+  const canExit = can("exit.manage");
 
   useEffect(() => {
     let cancelled = false;
@@ -321,8 +323,9 @@ export default function AdminLayout() {
         canLoans ? api.get("/api/loan-requests", { params: { status: "pending" } }) : Promise.resolve({ data: [] }),
         canCareers ? api.get("/api/careers/applications", { params: { status: "New" } }) : Promise.resolve({ data: [] }),
         canNewEmployees ? api.get("/api/employees/recent-additions") : Promise.resolve({ data: [] }),
+        canExit ? api.get("/api/exit-records/access-pending") : Promise.resolve({ data: [] }),
       ])
-        .then(([disputesRes, leaveRes, payslipApprovalsRes, onboardingRes, workAbsenceRes, wfhRes, marketVisitsRes, loansRes, careersRes, newEmployeesRes]) => {
+        .then(([disputesRes, leaveRes, payslipApprovalsRes, onboardingRes, workAbsenceRes, wfhRes, marketVisitsRes, loansRes, careersRes, newEmployeesRes, accessRevokeRes]) => {
           if (cancelled) return;
           setPendingDisputes(disputesRes.data);
           setPendingLeave(leaveRes.data);
@@ -333,6 +336,7 @@ export default function AdminLayout() {
           setPendingMarketVisits(marketVisitsRes.data);
           setPendingLoans(loansRes.data);
           setPendingNewEmployees(newEmployeesRes.data);
+          setPendingAccessRevoke(accessRevokeRes.data);
           // careers rows carry SQLite UTC timestamps ("YYYY-MM-DD HH:MM:SS");
           // normalise to ISO so the dashboard's "since last seen" compare works.
           setPendingCareers((careersRes.data || []).map((a) => ({ ...a, created_at: String(a.created_at).replace(" ", "T") + "Z" })));
@@ -400,7 +404,7 @@ export default function AdminLayout() {
           <Outlet
             context={{
               pendingDisputes, pendingLeave, pendingPayslipApprovals, pendingOnboarding, pendingWorkAbsence,
-              pendingWfh, pendingMarketVisits, pendingCareers, pendingLoaded,
+              pendingWfh, pendingMarketVisits, pendingCareers, pendingAccessRevoke, pendingLoaded,
             }}
           />
           </div>

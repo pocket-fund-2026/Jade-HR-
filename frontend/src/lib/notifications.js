@@ -1,4 +1,4 @@
-import { Briefcase, Flag, Home, MapPin, Plane, Stamp, UserPlus, Users2, Wallet } from "lucide-react";
+import { Briefcase, DoorOpen, Flag, Home, MapPin, Plane, Stamp, UserPlus, Users2, Wallet } from "lucide-react";
 
 // One definition of every console notification type, shared by the
 // sidebar-wide NotificationCenter (bell + pop-up toasts) and the
@@ -14,6 +14,7 @@ export const NOTIFICATION_TYPES = [
   { key: "marketVisits", singular: "market visit", plural: "market visits", to: "/admin/market-visits", cta: "Review visits", icon: MapPin, tone: "jade" },
   { key: "loans", singular: "loan request", plural: "loan requests", to: "/admin/loans", cta: "Review loans", icon: Wallet, tone: "ochre" },
   { key: "newEmployees", singular: "new employee", plural: "new employees", to: "/admin/employees", cta: "Open employees and create ID", icon: UserPlus, tone: "ochre" },
+  { key: "accessRevoke", singular: "leaver whose system access must be revoked", plural: "leavers whose system access must be revoked", to: "/admin/exit", cta: "Revoke access", icon: DoorOpen, tone: "rust" },
   { key: "careers", singular: "job application", plural: "job applications", to: "/admin/careers/applicants?status=New", cta: "Review applicants", icon: Users2, tone: "jade" },
 ];
 

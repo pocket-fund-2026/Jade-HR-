@@ -37,6 +37,8 @@ EMAIL_FROM = os.environ.get("EMAIL_FROM", "tina@jadecouture.com")
 # no one currently holds the hr console role in production; override via env
 # once/if that changes.
 HR_NOTIFY_EMAIL = os.environ.get("HR_NOTIFY_EMAIL", "nimit.b@jadecouture.com")
+# Optional: outsourced IT contact copied on leaver emails. Unset = HR only.
+IT_NOTIFY_EMAIL = os.environ.get("IT_NOTIFY_EMAIL", "")
 # Accounts-side recipient for salary-hold alerts — Rushikesh Chande
 # (rushikesh@jadecouture.com, Accounts Executive), named directly by HR as
 # the person who acts on a hold alongside the HR team.
@@ -556,6 +558,74 @@ def notify_salary_hold(holds: list[dict], recipients: list[str]) -> tuple[bool, 
     return sent_ok, (None if sent_ok else last_error)
 
 
+# Systems a leaver may still have a login to. HR works through this list and
+# ticks the "Email / OMS / TDS Login Deactivation" item on the exit checklist.
+# Edit here when a system is added or retired.
+ACCESS_SYSTEMS = [
+    "Company email and shared Drive folders",
+    "JADE HR console (employee and admin logins)",
+    "OMS and TDS",
+    "TTS (time tracking)",
+    "PR & Marketing dashboard (Team and Accounts, Remove account)",
+    "JADE Intelligence dashboard",
+    "Careers console",
+    "Zoho (CRM and Analytics)",
+    "SmartOffice biometric enrolment",
+    "Shopify staff account",
+    "Social and ad accounts (Instagram, Meta Ads, Pinterest)",
+]
+
+
+def access_revocation_text(stage: str, employee_name: str, employee_code: str, last_working_day: str) -> tuple[str, str]:
+    """Subject and body for the leaver access-revocation notice. stage is
+    "notice" (exit started, access ends on the last working day) or "left"
+    (marked as exited, revoke now). Pure function so it is easy to test."""
+    systems = "\n".join(f"  [ ] {x}" for x in ACCESS_SYSTEMS)
+    who = f"{employee_name} ({employee_code})"
+    if stage == "left":
+        subject = f"Action needed: revoke system access for {who}, who has left JADE"
+        lead = f"{who} has left JADE (last working day {last_working_day}). Their access to other systems must be revoked now."
+    else:
+        subject = f"Action needed: revoke system access for {who} on {last_working_day}"
+        lead = f"{who} is leaving JADE. Their last working day is {last_working_day}. Access to other systems must be revoked by then."
+    body = (
+        f"{lead}\n\n"
+        f"Check each system and remove or disable their login where they have one:\n{systems}\n\n"
+        f"When done, tick \"Email / OMS / TDS Login Deactivation\" and the IT sign-off on their exit checklist: "
+        f"https://jade-hr.vercel.app/admin/exit\n"
+    )
+    return subject, body
+
+
+def access_revocation_already_sent(employee_code: str, stage: str) -> bool:
+    """True if a leaver access email for this person and stage is already in
+    hr_email_log (sent or skipped), so repeat edits do not re-send it."""
+    try:
+        from database import supabase  # lazy, same reason as log_attempt
+
+        marker = "has left JADE" if stage == "left" else "revoke system access"
+        rows = (
+            supabase.table("hr_email_log").select("id").eq("kind", f"access_revocation_{stage}")
+            .ilike("subject", f"%({employee_code})%").ilike("subject", f"%{marker}%").limit(1).execute().data
+        )
+        return bool(rows)
+    except Exception:
+        return False
+
+
+def notify_access_revocation(
+    employee_name: str, employee_code: str, last_working_day: str, stage: str, hr_email: str,
+) -> bool:
+    if not hr_email:
+        return False
+    subject, body = access_revocation_text(stage, employee_name, employee_code, last_working_day)
+    ok, _ = send_email_detailed(
+        hr_email, subject, body, kind=f"access_revocation_{stage}",
+        cc=[IT_NOTIFY_EMAIL] if IT_NOTIFY_EMAIL else None,
+    )
+    return ok
+
+
 def notify_exit_initiated(
     employee_name: str, employee_code: str, resignation_date: str, last_working_day: str, hr_email: str,
 ) -> None:
@@ -567,6 +637,8 @@ def notify_exit_initiated(
         f"Resignation date: {resignation_date}\n"
         f"Last working day: {last_working_day}\n\n"
         f"Track departmental clearance and the exit interview in the JADE HR console: "
-        f"https://jade-hr.vercel.app/admin/exit\n"
+        f"https://jade-hr.vercel.app/admin/exit\n\n"
+        f"Access to other systems (email, OMS, TDS, PR dashboard and others) must be revoked by the last working day. "
+        f"A separate action email lists each system.\n"
     )
     send_email(hr_email, subject, body, kind="exit_initiated")

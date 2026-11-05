@@ -158,8 +158,57 @@ def initiate_exit(body: ExitInitiate, user: dict = Depends(require_permission("e
         body.resignation_date.isoformat(), body.last_working_day.isoformat(),
         email_service.HR_NOTIFY_EMAIL,
     )
+    email_service.notify_access_revocation(
+        employee_name, employee.get("employee_code", ""), body.last_working_day.isoformat(), "notice",
+        email_service.HR_NOTIFY_EMAIL,
+    )
 
     return _hydrate(record)
+
+
+def send_access_revocation_if_new(employee_id: str, last_working_day: str, stage: str) -> bool:
+    """Email HR (once per person and stage) that the leaver's access to other
+    systems must be revoked. Also used when someone is marked Exited from the
+    employee profile page without going through Initiate Exit."""
+    employee = _employee_brief(employee_id)
+    if not employee:
+        return False
+    code = employee.get("employee_code", "")
+    if email_service.access_revocation_already_sent(code, stage):
+        return False
+    name = f"{employee.get('first_name', '')} {employee.get('last_name', '')}".strip()
+    return email_service.notify_access_revocation(name, code, last_working_day, stage, email_service.HR_NOTIFY_EMAIL)
+
+
+# Checklist rows that mean "their logins are still live".
+ACCESS_ITEM_LABELS = ("Email / OMS / TDS Login Deactivation", "Deactivation Sign-off")
+
+
+@router.get("/access-pending")
+def access_pending(user: dict = Depends(require_permission("exit.manage"))):
+    """Open exits whose system-access deactivation is not signed off yet.
+    Feeds the HR bell and dashboard alert; an item disappears when HR marks
+    those checklist rows Completed."""
+    exits = supabase.table("hr_exit_records").select("id,employee_id,last_working_day,initiated_at").eq("status", "in_progress").execute().data
+    out = []
+    for e in exits:
+        pending = (
+            supabase.table("hr_exit_checklist_items").select("id")
+            .eq("exit_id", e["id"]).eq("status", "pending").in_("item_label", list(ACCESS_ITEM_LABELS)).execute().data
+        )
+        if not pending:
+            continue
+        emp = _employee_brief(e["employee_id"])
+        out.append({
+            "id": e["id"],
+            "employee_name": f"{emp.get('first_name', '')} {emp.get('last_name', '')}".strip(),
+            "employee_code": emp.get("employee_code", ""),
+            "last_working_day": e["last_working_day"],
+            "created_at": e["initiated_at"],
+            "overdue": e["last_working_day"] <= datetime.now(timezone.utc).date().isoformat(),
+        })
+    out.sort(key=lambda r: r["last_working_day"])
+    return out
 
 
 @router.get("/{exit_id}")
@@ -234,6 +283,8 @@ def finalize_exit(exit_id: str, user: dict = Depends(require_permission("exit.ma
     ).execute()
     record_step("exit", exit_id, "finalized", user, employee_id=record["employee_id"],
                 basis={"last_working_day": record["last_working_day"], "checklist_items": len(items)})
+
+    send_access_revocation_if_new(record["employee_id"], record["last_working_day"], "left")
 
     updated = maybe_single_data(supabase.table("hr_exit_records").select("*").eq("id", exit_id).maybe_single().execute())
     return _hydrate(updated)
