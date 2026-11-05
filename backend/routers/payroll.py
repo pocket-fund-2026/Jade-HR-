@@ -21,6 +21,8 @@ from tds import DEFAULT_DECLARATION, project_annual_tax
 
 router = APIRouter(prefix="/api", tags=["payroll"])
 logger = logging.getLogger("jade_hr.payroll")
+LATE_DIGEST_HR_EMAIL = "team.hr@jadecouture.com"
+LATE_DIGEST_OLD_HR_EMAIL = "nimit.b@jadecouture.com"
 
 
 def _reporting_manager_emails(employee_ids: set[str]) -> dict[str, list[str]]:
@@ -630,7 +632,7 @@ def late_digest(
     emailed, email_error = False, None
     hod_digests: list[dict] = []
     if not dry_run:
-        emailed, email_error = email_service.notify_late_digest(target_iso, public_late, email_service.HR_NOTIFY_EMAIL)
+        emailed, email_error = email_service.notify_late_digest(target_iso, public_late, LATE_DIGEST_HR_EMAIL)
         # Each reporting manager gets their OWN reportees' late list only —
         # never the full company-wide one HR gets above. Grouped by manager
         # email (not department/HOD flag — see _reporting_manager_emails).
@@ -642,6 +644,10 @@ def late_digest(
                     {k: v for k, v in e.items() if k != "employee_id"}
                 )
         for manager_email, mgr_late in late_by_manager_email.items():
+            # HR receives the full digest above; do not also send Nimit the
+            # former HR copy through his reporting-manager assignment.
+            if manager_email.casefold() == LATE_DIGEST_OLD_HR_EMAIL:
+                continue
             ok, err = email_service.notify_late_digest(target_iso, mgr_late, manager_email, include_report_link=False)
             hod_digests.append({"recipient": manager_email, "count": len(mgr_late), "emailed": ok, "email_error": err})
     return {
