@@ -38,7 +38,7 @@ JOBS = {
         emits="attendance_synced", parse=[r"inserted=(?P<inserted>\d+)\s+skipped=(?P<skipped>\d+)\s+total=(?P<total>\d+)(?:\s+auto_provisioned=(?P<auto_provisioned>\d+))?"]),
     "roster_sync": dict(
         cmd=[PY, f"{ROOT}/employee_roster_sync.py"], slots=["06:30"], window_min=240, gate=None, idempotent=True,
-        max_attempts=20, timeout_s=900, retry_min=20, success_re=None, log=f"{LOG}/jade-hr-roster-sync.log",
+        max_attempts=4, timeout_s=900, retry_min=20, success_re=None, log=f"{LOG}/jade-hr-roster-sync.log",
         emits="roster_synced", parse=[r"Updated: (?P<updated>\d+) \(of which deactivated: (?P<deactivated>\d+)\)", r"Created: (?P<created>\d+)"]),
     "roster_new_joiners": dict(
         cmd=[PY, f"{ROOT}/employee_roster_sync.py", "--new-only"], slots=_every(3, 15, 15),
