@@ -23,7 +23,7 @@ export default function NimitRequests() {
   const rows = useMemo(() => (data?.[tab] || []).filter((row) => {
     if (filter !== "all" && row.status !== filter) return false;
     return [employeeName(row), row.hr_employees?.employee_code, row.hr_employees?.location,
-      row.hr_employees?.reporting_manager, row.leave_type, row.issue_type, row.reason]
+      row.hr_employees?.reporting_manager, row.leave_type, row.issue_type, row.reason, row.details]
       .join(" ").toLowerCase().includes(query.trim().toLowerCase());
   }), [data, tab, filter, query]);
   if (user?.employee_code !== "14456") return <p className="text-ink/70">This section is available to Nimit.</p>;
@@ -53,7 +53,9 @@ export default function NimitRequests() {
           <span className="text-xs uppercase tracking-wide text-jade-700 font-semibold">{row.status || "Unknown"}</span></div>
         <p className="text-sm text-ink mt-3">{tab === "leave" ? row.leave_type?.replaceAll("_", " ") : tab === "disputes" ? row.issue_type?.replaceAll("_", " ") : "Work absence"}
           {" · "}{dateLabel(row.start_date || row.date)}{row.end_date && row.end_date !== row.start_date ? ` – ${dateLabel(row.end_date)}` : ""}</p>
-        {row.reason && <p className="text-sm text-ink/80 mt-2 whitespace-pre-wrap">{row.reason}</p>}
+        {(row.reason || row.details) && <p className="text-sm text-ink/80 mt-2 whitespace-pre-wrap">{row.reason || row.details}</p>}
+        {tab === "disputes" && (row.claimed_in || row.claimed_out) && <p className="text-xs text-ink/65 mt-2">Claimed time: {row.claimed_in || "—"} – {row.claimed_out || "—"}</p>}
+        {(row.attachment_url || row.photo_url) && <a href={row.attachment_url || row.photo_url} target="_blank" rel="noreferrer" className="text-sm text-jade-700 underline mt-2 inline-block">View attachment</a>}
         {row.admin_note && <p className="text-xs text-ink/65 mt-2">Note: {row.admin_note}</p>}
         <p className="text-xs text-ink/50 mt-3">Requested {dateLabel(row.created_at)}</p>
       </article>)}</div>}
