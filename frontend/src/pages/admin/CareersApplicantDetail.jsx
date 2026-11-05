@@ -35,6 +35,7 @@ export default function CareersApplicantDetail() {
   useEffect(() => { load(); }, [id]);
 
   const setStatus = async (status) => {
+    if (status === "Shortlisted" && a.status !== "Shortlisted" && !window.confirm(`Move ${a.full_name} to Shortlisted? Review the candidate before confirming. No email will be sent by this move.`)) return;
     setSaving(true);
     try {
       await api.patch(`/api/careers/applications/${id}`, { status });

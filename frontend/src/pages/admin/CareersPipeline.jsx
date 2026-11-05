@@ -46,6 +46,7 @@ export default function CareersPipeline() {
   const move = async (id, status) => {
     const app = applications.find((a) => a.id === id);
     if (!app || app.status === status) return;
+    if (status === "Shortlisted" && !window.confirm(`Move ${app.full_name} to Shortlisted? Review the candidate before confirming. No email will be sent by this move.`)) return;
     const prev = applications;
     setApplications(applications.map((a) => (a.id === id ? { ...a, status } : a)));
     setError("");
