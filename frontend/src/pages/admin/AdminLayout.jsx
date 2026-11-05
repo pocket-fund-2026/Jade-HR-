@@ -29,6 +29,7 @@ const navItems = [
 
   // Time & Leave — requests, tracking, policy
   { to: "/admin/leave", label: "Leave", icon: Plane, badgeKey: "leave", permission: "leave.manage", sectionBreak: true },
+  { to: "/admin/all-requests", label: "All Requests", icon: ClipboardList, nimitOnly: true, sectionBreak: true },
   { to: "/admin/leave-entry", label: "Leave Entry", icon: ClipboardList, permission: "leave.manage" },
   { to: "/admin/wfh-requests", label: "WFH Requests", icon: Home, badgeKey: "wfh", permission: ["leave.manage", "wfh.approve"] },
   { to: "/admin/market-visits", label: "Market Visits", icon: MapPin, badgeKey: "marketVisits", permission: "market_visits.review" },
@@ -78,7 +79,7 @@ const navItems = [
 // (which otherwise has no entry in the left panel at all, just a card on
 // the Reports hub) — searched by the sidebar box below.
 const SECTION_INDEX = [
-  ...navItems.map((n) => ({ to: n.to, label: n.label, permission: n.permission, hrOnly: n.hrOnly, requiresApprover: n.requiresApprover })),
+  ...navItems.map((n) => ({ to: n.to, label: n.label, permission: n.permission, hrOnly: n.hrOnly, requiresApprover: n.requiresApprover, nimitOnly: n.nimitOnly })),
   ...REPORT_CATEGORIES.flatMap((cat) =>
     cat.items.map((item) => ({ to: item.to, label: item.label, permission: item.permission, group: cat.title })),
   ),
@@ -112,8 +113,9 @@ function SidebarSearch({ user, can, onNavigate }) {
 
   const q = query.trim().toLowerCase();
   const sectionMatches = q
-    ? SECTION_INDEX.filter(({ label, permission, hrOnly, requiresApprover }) => {
+    ? SECTION_INDEX.filter(({ label, permission, hrOnly, requiresApprover, nimitOnly }) => {
         if (hrOnly && !canSeeHrTasks(user)) return false;
+        if (nimitOnly && user?.employee_code !== "14456") return false;
         if (requiresApprover && !user?.is_leave_approver) return false;
         if (permission && !can(...[].concat(permission))) return false;
         return label.toLowerCase().includes(q);
@@ -190,8 +192,9 @@ function SidebarSearch({ user, can, onNavigate }) {
 }
 
 function SidebarContent({ user, can, logout, pendingCounts, onNavigate, bell }) {
-  const visibleItems = navItems.filter(({ permission, hrOnly, requiresApprover }) => {
+  const visibleItems = navItems.filter(({ permission, hrOnly, requiresApprover, nimitOnly }) => {
     if (hrOnly) return canSeeHrTasks(user);
+    if (nimitOnly && user?.employee_code !== "14456") return false;
     if (requiresApprover && !user?.is_leave_approver) return false;
     return permission ? can(...[].concat(permission)) : true;
   });
