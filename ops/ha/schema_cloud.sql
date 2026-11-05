@@ -48,7 +48,13 @@ BEGIN
   SELECT string_agg(format('%I',attname),',' ORDER BY attnum), string_agg(format('%I=r.%I',attname,attname),',' ORDER BY attnum) INTO cols,changes FROM pg_attribute WHERE attrelid=relation AND attnum>0 AND NOT attisdropped AND attgenerated='';
   SELECT string_agg(format('t.%I=k.%I',v,v),' AND ') INTO predicate FROM unnest(pk) v;
   IF event->>'operation'='INSERT' THEN
-   command=format('INSERT INTO %s (%s) SELECT %s FROM jsonb_populate_record(NULL::%s,$1) r',relation,cols,cols,relation);
+   -- A transaction can already be present on the standby after an earlier
+   -- failover or a response lost after commit. The local event remains the
+   -- authority: applying it again updates the same primary-key row.
+   command=format('INSERT INTO %s (%s) SELECT %s FROM jsonb_populate_record(NULL::%s,$1) r ON CONFLICT (%s) DO UPDATE SET %s',
+     relation,cols,cols,relation,
+     (SELECT string_agg(format('%I',v),',') FROM unnest(pk) v),
+     replace(changes,'=r.','=EXCLUDED.'));
    EXECUTE command USING event->'row_data';
   ELSIF event->>'operation'='UPDATE' THEN
    command=format('UPDATE %s t SET %s FROM jsonb_populate_record(NULL::%s,$1) r,jsonb_populate_record(NULL::%s,$2) k WHERE %s',relation,changes,relation,relation,predicate);
