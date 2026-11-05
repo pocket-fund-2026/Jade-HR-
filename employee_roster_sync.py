@@ -203,6 +203,7 @@ def reconcile(csv_text: str, token: str, new_only: bool = False):
     matched_submission_ids = set()
 
     updated = deactivated = created = unmatched = permanently_deleted = onboarding_linked = 0
+    leaver_ids = []  # newly gone from the roster this run; HR gets one access-revocation email
     now_iso = datetime.now(timezone.utc).isoformat()
 
     for code, emp in existing_by_code.items():
@@ -223,6 +224,9 @@ def reconcile(csv_text: str, token: str, new_only: bool = False):
             if emp.get("role") == "employee" and emp.get("roster_last_seen_at"):
                 streak = (emp.get("roster_unmatched_streak") or 0) + 1
                 if streak >= REMOVED_FROM_BIOMETRICS_THRESHOLD:
+                    # Alert first: once deleted there is no name left to put in the email.
+                    if emp.get("is_active", True):
+                        leaver_ids.append(emp["id"])
                     status, _ = _api(token, "DELETE", f"/api/employees/{emp['id']}/permanent")
                     if status == 200:
                         permanently_deleted += 1
@@ -246,6 +250,8 @@ def reconcile(csv_text: str, token: str, new_only: bool = False):
             updated += 1
             if not is_working:
                 deactivated += 1
+                if emp.get("is_active", True):  # only the active -> not working change, once
+                    leaver_ids.append(emp["id"])
             # This is the first time a real name has landed on this row — the
             # moment a biometric first-punch stub becomes matchable to a
             # pending onboarding submission.
@@ -286,7 +292,16 @@ def reconcile(csv_text: str, token: str, new_only: bool = False):
                 matched_submission_ids.add(sub_id)
                 onboarding_linked += 1
 
+    leaver_alert_sent = False
+    if leaver_ids:
+        try:
+            _, res = _api(token, "POST", "/api/exit-records/leaver-alert", {"employee_ids": leaver_ids})
+            leaver_alert_sent = bool(res.get("emailed"))
+        except Exception as e:  # never fail the sync because the alert failed
+            print(f"leaver alert failed: {e}", file=sys.stderr)
+
     return {
+        "leavers": len(leaver_ids), "leaver_alert_sent": leaver_alert_sent,
         "updated": updated, "deactivated": deactivated, "created": created,
         "unmatched": unmatched, "permanently_deleted": permanently_deleted,
         "onboarding_linked": onboarding_linked,

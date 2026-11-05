@@ -613,6 +613,28 @@ def access_revocation_already_sent(employee_code: str, stage: str) -> bool:
         return False
 
 
+def notify_roster_leavers(people: list[tuple[str, str]], hr_email: str) -> bool:
+    """One email listing everyone the biometric roster just marked as no
+    longer working (or removed), with the systems to revoke. One email per
+    sync run, however many people, so a clean-up night cannot flood HR."""
+    if not hr_email or not people:
+        return False
+    n = len(people)
+    names = "\n".join(f"  - {name} ({code})" for name, code in people)
+    systems = "\n".join(f"  [ ] {x}" for x in ACCESS_SYSTEMS)
+    subject = f"Action needed: revoke system access for {n} {'person' if n == 1 else 'people'} no longer on the roster"
+    body = (
+        f"The biometric roster sync found {n} {'person' if n == 1 else 'people'} no longer working at JADE:\n\n{names}\n\n"
+        f"Check each system and remove or disable their login where they have one:\n{systems}\n\n"
+        f"If someone here has not actually left, tell HR so the roster can be corrected.\n"
+    )
+    ok, _ = send_email_detailed(
+        hr_email, subject, body, kind="access_revocation_roster",
+        cc=[IT_NOTIFY_EMAIL] if IT_NOTIFY_EMAIL else None,
+    )
+    return ok
+
+
 def notify_access_revocation(
     employee_name: str, employee_code: str, last_working_day: str, stage: str, hr_email: str,
 ) -> bool:

@@ -29,7 +29,7 @@ import email_service
 from auth import get_current_user, require_permission
 from database import maybe_single_data, supabase
 from workflow_log import record_step
-from models import ExitAssetUpdate, ExitChecklistItemUpdate, ExitInitiate, ExitInterviewSubmit
+from models import LeaverAlert, ExitAssetUpdate, ExitChecklistItemUpdate, ExitInitiate, ExitInterviewSubmit
 
 router = APIRouter(prefix="/api/exit-records", tags=["exit-procedure"])
 
@@ -182,6 +182,19 @@ def send_access_revocation_if_new(employee_id: str, last_working_day: str, stage
 
 # Checklist rows that mean "their logins are still live".
 ACCESS_ITEM_LABELS = ("Email / OMS / TDS Login Deactivation", "Deactivation Sign-off")
+
+
+@router.post("/leaver-alert")
+def leaver_alert(body: LeaverAlert, user: dict = Depends(require_permission("employees.manage"))):
+    """Called by the nightly roster sync with everyone it just found to be no
+    longer working. Sends HR one email; returns how many people it named."""
+    people = []
+    for emp_id in dict.fromkeys(body.employee_ids):
+        emp = _employee_brief(emp_id)
+        if emp:
+            people.append((f"{emp.get('first_name', '')} {emp.get('last_name', '')}".strip(), emp.get("employee_code", "")))
+    sent = email_service.notify_roster_leavers(people, email_service.HR_NOTIFY_EMAIL)
+    return {"people": len(people), "emailed": sent}
 
 
 @router.get("/access-pending")

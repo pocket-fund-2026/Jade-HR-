@@ -711,6 +711,10 @@ class ExitInitiate(BaseModel):
     last_working_day: date
 
 
+class LeaverAlert(BaseModel):
+    employee_ids: list[str]
+
+
 class ExitAssetUpdate(BaseModel):
     system_no: Optional[str] = None
     monitor_returned: Optional[bool] = None

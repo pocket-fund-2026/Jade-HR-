@@ -13,3 +13,14 @@ def test_left_stage_says_revoke_now():
     assert "has left JADE" in subject
     assert "revoked now" in body
     assert "Email / OMS / TDS Login Deactivation" in body
+
+
+def test_roster_leavers_email_is_one_message_listing_everyone(monkeypatch):
+    import email_service
+    sent = []
+    monkeypatch.setattr(email_service, "send_email_detailed", lambda to, subject, body, **kw: (sent.append((subject, body)) or (True, None)))
+    assert email_service.notify_roster_leavers([("A B", "E1"), ("C D", "E2")], "hr@example.com")
+    assert len(sent) == 1
+    subject, body = sent[0]
+    assert "2 people" in subject and "A B (E1)" in body and "C D (E2)" in body
+    assert email_service.notify_roster_leavers([], "hr@example.com") is False
