@@ -119,25 +119,14 @@ MIDNIGHT_GRACE = time(12, 0)          # ran past midnight -> next day 12:00 PM
 # is 10 AM) — it's the tail of the PRIOR day's overnight finish.
 MIDNIGHT_TAIL_CUTOFF = time(6, 0)
 
-# Employees on this time_slot (hr_employee_profile.time_slot) get a shortened
-# Saturday — 10:00 AM - 3:00 PM (5h) — instead of their usual weekday
-# standard_hours_per_day, per JADE HR's Jul 2026 Saturday-hours change. This
-# still governs the late-coming/LOP policy's "completed the day's prescribed
-# hours" check below — OT itself no longer uses it (see SATURDAY_OT_CUTOFF).
+# Non-OT employees on this time slot have a shortened Saturday. OT-eligible
+# employees work their usual assigned shift on Saturdays as on weekdays.
 SATURDAY_SHIFT_HOURS = {
     "10:00 AM – 6:30 PM": 5.0,
 }
 
-# Company-wide Jul 2026 policy: on Saturdays, every employee's standard time
-# runs until 3:00 PM IST regardless of time_slot — only hours actually worked
-# with a clock time past this count as OT, not just hours in excess of some
-# threshold (so a late Saturday arrival who works past 3pm still earns OT for
-# that portion, and one who leaves before 3pm earns none regardless of when
-# they arrived).
-SATURDAY_OT_CUTOFF = time(15, 0)
-
-# HR policy, 25 Sept 2026: some time_slots grade OT off a fixed weekday clock
-# cutoff (mirroring SATURDAY_OT_CUTOFF's mechanism) instead of hours worked
+# HR policy, 25 Sept 2026: some time_slots grade OT off a fixed clock
+# cutoff instead of hours worked
 # past standard_hours_per_day — e.g. the "10:00 AM – 7:40 PM" slot's OT
 # starts strictly after 7:00 PM regardless of standard_hours_per_day. A
 # time_slot not listed here keeps the hours-past-standard rule below.
@@ -190,28 +179,27 @@ def _slot_shift_hours(time_slot: str | None) -> float | None:
     return (datetime.combine(date(2000, 1, 1), t[1]) - datetime.combine(date(2000, 1, 1), t[0])).total_seconds() / 3600.0
 
 
-def _standard_hours_for_day(d: date, standard_hours_per_day: float, time_slot: str | None) -> float:
-    if d.weekday() == 5 and time_slot in SATURDAY_SHIFT_HOURS:
+def _standard_hours_for_day(
+    d: date, standard_hours_per_day: float, time_slot: str | None, ot_eligible: bool = True
+) -> float:
+    if d.weekday() == 5 and not ot_eligible and time_slot in SATURDAY_SHIFT_HOURS:
         return SATURDAY_SHIFT_HOURS[time_slot]
     # The employee's assigned shift IS their standard day: a 10-7 employee
     # (9h) must not be graded against the generic 8h default, or every day
     # shows an hour of phantom overtime.
     slot_hours = _slot_shift_hours(time_slot)
-    if slot_hours and d.weekday() != 5 and time_slot != FLEXIBLE_TIME_SLOT:
+    if slot_hours and time_slot != FLEXIBLE_TIME_SLOT:
         return slot_hours
     return standard_hours_per_day
 
 
 def _ot_hours(d: date, start: datetime, end: datetime, day_standard: float, time_slot: str | None = None) -> float:
-    """OT for one worked span. Saturdays use the fixed 3pm clock cutoff
-    above for every employee; a time_slot in WEEKDAY_OT_CUTOFF_BY_TIME_SLOT
-    uses its own fixed weekday clock cutoff the same way; every other
-    day/slot is hours worked beyond that day's standard (day_standard —
-    Saturday-shortened for the late-coming policy's own purposes, but
-    irrelevant to OT now)."""
-    if d.weekday() == 5:
-        cutoff = datetime.combine(d, SATURDAY_OT_CUTOFF, tzinfo=IST)
-        return max(0.0, (end - max(start, cutoff)).total_seconds() / 3600.0)
+    """OT begins after the usual shift on every day, including Saturday.
+
+    Assigned time slots use their shift-end clock cutoff (including the
+    explicit 7:40 PM slot exception). Flexible or missing slots use worked
+    hours beyond the employee's standard day.
+    """
     weekday_cutoff = WEEKDAY_OT_CUTOFF_BY_TIME_SLOT.get(time_slot)
     if weekday_cutoff is None and time_slot != FLEXIBLE_TIME_SLOT:
         # Any other assigned shift: OT starts only after the shift's own end.
@@ -286,7 +274,10 @@ def _holidays_for_employee(all_holidays: list[dict], employee_location: str | No
     }
 
 
-def _apply_override(d: date, override: dict, standard_hours_per_day: float, time_slot: str | None = None) -> dict:
+def _apply_override(
+    d: date, override: dict, standard_hours_per_day: float,
+    time_slot: str | None = None, ot_eligible: bool = True,
+) -> dict:
     reg = override.get("register")
     if reg:
         # An imported register day (hr_attendance_register): shown and paid
@@ -308,7 +299,7 @@ def _apply_override(d: date, override: dict, standard_hours_per_day: float, time
         }
     status = override["status_override"]
     first_in, last_out = override.get("first_in"), override.get("last_out")
-    day_standard = _standard_hours_for_day(d, standard_hours_per_day, time_slot)
+    day_standard = _standard_hours_for_day(d, standard_hours_per_day, time_slot, ot_eligible)
 
     hours_worked = ot_hours = 0.0
     first_in_iso = last_out_iso = None
@@ -544,7 +535,7 @@ def compute_daily_attendance(
     d = fetch_start
     while d <= end:
         if d in overrides:
-            rows.append(_apply_override(d, overrides[d], standard_hours_per_day, time_slot))
+            rows.append(_apply_override(d, overrides[d], standard_hours_per_day, time_slot, ot_eligible))
             d += timedelta(days=1)
             continue
 
@@ -622,7 +613,7 @@ def compute_daily_attendance(
 
         first_in = punches[0]
         last_out = punches[-1]
-        day_standard = _standard_hours_for_day(d, standard_hours_per_day, time_slot)
+        day_standard = _standard_hours_for_day(d, standard_hours_per_day, time_slot, ot_eligible)
         hours_worked = max(0.0, (last_out - first_in).total_seconds() / 3600.0)
         ot_hours = _ot_hours(d, first_in, last_out, day_standard, time_slot)
         first_in_local = first_in.astimezone(IST).time()

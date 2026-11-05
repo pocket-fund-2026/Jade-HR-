@@ -327,9 +327,7 @@ function writeTimingsSheet(ws, rows) {
       // as the reference) rather than inventing a code jade-hr can't back.
       const status = dayCode(d);
       // `hours_worked` is the RAW in-to-out span and already contains
-      // whatever portion of it counts as OT (e.g. a Saturday shift worked
-      // 10:08-18:33 has hours_worked=8:25, of which 3:34 past the 3pm
-      // cutoff is also ot_hours — OT is a subset of the same span, not
+      // whatever portion of it counts as OT. OT is a subset of that span, not
       // extra time on top of it). W. Duration must show only the
       // non-OT/regular portion so it and OT sum to the real total instead
       // of double-counting the OT hours into both W. Duration AND T

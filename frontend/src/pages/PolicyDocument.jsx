@@ -459,7 +459,7 @@ function Policy2025({ showCorporateSections = true }) {
         <Bullets
           items={[
             "Retail stores: 10:00am – 8:00pm, on-time cutoff 10:00am with the tolerance/buffer bands below (from the pay cycle beginning 23 Aug 2026), first 3 Extended Buffer arrivals free. Monday–Saturday/Sunday, 1 weekly off on a roster set by the department HOD.",
-            "Corporate office: 10:00am – 6:30pm, same 10-minute buffer. Monday–Saturday with all Saturdays as half-days. Work exigencies expect attendance, with a planned comp-off on another day, HOD and team informed.",
+            "Corporate office: 10:00am – 6:30pm, same 10-minute buffer. Non-OT staff have a half-day Saturday; OT-eligible staff work their usual shift. Work exigencies expect attendance, with a planned comp-off on another day, HOD and team informed.",
             "Factory & Inventory (raw material and finished goods): 10:00am – 7:00pm, Monday–Saturday, same buffer. 1 weekly off on Sunday unless called in by the HOD.",
             "OT-eligible departments (RM store, FG store, CAD, DEO): 10:00am – 7:00pm, Monday–Saturday. Non-OT departments: 10:00am – 6:30pm Monday–Friday, 10:00am – 3:00pm on Saturday.",
           ]}

@@ -65,7 +65,7 @@ const SECTIONS = [
           {
             k: "time_slot", l: "Time Slot", t: "select",
             options: ["10:00 AM – 6:30 PM", "10:00 AM – 7:00 PM", "11:00 AM – 8:00 PM", "Flexible", "Intern (10:00 AM – 6:00 PM)"],
-            hint: "\"10:00 AM – 6:30 PM\" additionally gets a shortened Saturday of 10:00 AM – 3:00 PM for late-mark purposes — no separate setting needed. Saturday OT (after 3:00 PM) applies to every time slot.",
+            hint: "OT-eligible employees keep their usual shift on Saturday; OT starts after that shift ends. Non-OT employees on \"10:00 AM – 6:30 PM\" have a shortened Saturday of 10:00 AM – 3:00 PM.",
           },
           {
             k: "flexible_reference_time_slot", l: "Reference Time Slot (Flexible only)", t: "select", options: [],

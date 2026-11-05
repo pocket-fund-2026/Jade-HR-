@@ -660,7 +660,7 @@ def get_employee(employee_id: str, user: dict = Depends(get_current_user)):
 
 
 @router.post("")
-def create_employee(body: EmployeeCreate, user: dict = Depends(require_permission("employees.manage"))):
+def create_employee(body: EmployeeCreate, notify_joiner: bool = True, user: dict = Depends(require_permission("employees.manage"))):
     _require_role_grant_allowed(user, body.role)
     # Blank code/password = auto-assign the next free ID and a temporary
     # password (returned once in the response so HR can hand it over).
@@ -687,13 +687,13 @@ def create_employee(body: EmployeeCreate, user: dict = Depends(require_permissio
 
     inserted = supabase.table("hr_employees").insert(row).execute()
     new_employee = inserted.data[0]
-    if new_employee.get("date_of_joining"):
+    if notify_joiner and new_employee.get("date_of_joining"):
         notify_new_joiner(new_employee, recipient_emails())
     return {**_sanitize(new_employee, user_can(user, "salary.view")), "generated_password": generated_password}
 
 
 @router.put("/{employee_id}")
-def update_employee(employee_id: str, body: EmployeeUpdate, user: dict = Depends(require_permission("employees.manage", "policy.manage"))):
+def update_employee(employee_id: str, body: EmployeeUpdate, notify_joiner: bool = True, user: dict = Depends(require_permission("employees.manage", "policy.manage"))):
     _require_role_grant_allowed(user, body.role)
     updates = body.model_dump(exclude_unset=True, exclude={"password"})
     if "date_of_joining" in updates and updates["date_of_joining"] is not None:
@@ -727,7 +727,8 @@ def update_employee(employee_id: str, body: EmployeeUpdate, user: dict = Depends
         raise HTTPException(status_code=404, detail="Employee not found")
     updated_employee = resp.data[0]
     if (
-        "date_of_joining" in updates
+        notify_joiner
+        and "date_of_joining" in updates
         and updated_employee.get("date_of_joining")
         and updated_employee.get("date_of_joining") != prior_date_of_joining
     ):

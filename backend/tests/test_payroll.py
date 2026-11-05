@@ -444,50 +444,19 @@ def test_late_arrival_with_short_hours_has_no_special_penalty():
     assert summary["lop_days"] == 0
 
 
-def test_saturday_ot_is_calculated_only_after_3pm():
-    # 2026-01-03 is a Saturday. Company-wide Jul 2026 policy: every
-    # employee's Saturday standard time runs until 3:00 PM IST — only hours
-    # actually worked past that clock time count as OT — regardless of
-    # time_slot, and regardless of what time they arrived.
-    punch_in = datetime(2026, 1, 3, 10, 0, tzinfo=IST)
-    punch_out = datetime(2026, 1, 3, 16, 0, tzinfo=IST)  # 6h worked, 1h past 3pm
-
-    rows = compute_daily_attendance(2026, 1, [punch_in, punch_out], 8, weekly_off_day=6)
-    row = next(r for r in rows if r["date"] == "2026-01-03")
-    assert row["hours_worked"] == 6.0
-    assert row["ot_hours"] == 1.0  # 4pm - 3pm cutoff
-
-    # The old shortened-Saturday time_slot behaves identically now — the
-    # 5h day_standard it still carries only matters for the late-coming
-    # policy's shortfall check, not for OT.
-    rows_slot = compute_daily_attendance(
-        2026, 1, [punch_in, punch_out], 8, weekly_off_day=6, time_slot="10:00 AM – 6:30 PM",
-    )
-    row_slot = next(r for r in rows_slot if r["date"] == "2026-01-03")
-    assert row_slot["ot_hours"] == 1.0
-
-    # A late arrival who still works past 3pm earns OT for that portion —
-    # unlike the old hours-worked-minus-standard formula, arrival time
-    # doesn't reduce it.
-    late_in = datetime(2026, 1, 3, 13, 0, tzinfo=IST)
-    rows_late = compute_daily_attendance(2026, 1, [late_in, punch_out], 8, weekly_off_day=6)
-    row_late = next(r for r in rows_late if r["date"] == "2026-01-03")
-    assert row_late["hours_worked"] == 3.0
-    assert row_late["ot_hours"] == 1.0  # 4pm - 3pm cutoff, unaffected by the 1pm arrival
-
-    # Leaving before 3pm earns no OT no matter how early they arrived.
-    early_in = datetime(2026, 1, 3, 8, 0, tzinfo=IST)
-    early_out = datetime(2026, 1, 3, 14, 0, tzinfo=IST)
-    rows_early = compute_daily_attendance(2026, 1, [early_in, early_out], 8, weekly_off_day=6)
-    row_early = next(r for r in rows_early if r["date"] == "2026-01-03")
-    assert row_early["ot_hours"] == 0.0
-
-    # Weekdays are unaffected — still hours-worked-beyond-standard.
-    weekday_rows = compute_daily_attendance(
-        2026, 1, [datetime(2026, 1, 5, 9, 0, tzinfo=IST), datetime(2026, 1, 5, 19, 0, tzinfo=IST)], 8, weekly_off_day=6,
-    )
-    weekday_row = next(r for r in weekday_rows if r["date"] == "2026-01-05")
-    assert weekday_row["ot_hours"] == 2.0  # 10h worked - 8h standard
+def test_saturday_ot_uses_usual_shift_for_ot_eligible_staff():
+    saturday = date(2026, 1, 3)
+    start = datetime(2026, 1, 3, 10, tzinfo=IST)
+    end = datetime(2026, 1, 3, 20, tzinfo=IST)
+    for slot, expected in [("10:00 AM – 7:00 PM", 1.0), ("10:00 AM – 6:30 PM", 1.5)]:
+        rows = compute_daily_attendance(2026, 1, [start, end], 8, time_slot=slot)
+        row = next(r for r in rows if r["date"] == saturday.isoformat())
+        assert row["ot_hours"] == expected
+        assert row["status"] == "present"
+    assert __import__("payroll")._standard_hours_for_day(saturday, 8, "10:00 AM – 6:30 PM", False) == 5
+    assert __import__("payroll")._standard_hours_for_day(saturday, 8, "10:00 AM – 6:30 PM", True) == 8.5
+    rows = compute_daily_attendance(2026, 1, [start, end], 8, time_slot="10:00 AM – 6:30 PM", ot_eligible=False)
+    assert next(r for r in rows if r["date"] == saturday.isoformat())["ot_hours"] == 0
 
 
 def test_closed_holiday_is_paid_for_corporate_only():
