@@ -13,6 +13,48 @@ export default function NimitRequests() {
   const [query, setQuery] = useState("");
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
+  const [notes, setNotes] = useState({});
+  const [times, setTimes] = useState({});
+  const [busy, setBusy] = useState(null);
+  const [message, setMessage] = useState("");
+  const reload = async () => {
+    const { data: result } = await api.get("/api/nimit/requests");
+    setData(result);
+    return result;
+  };
+  const resolve = async (row, action) => {
+    setBusy(row.id);
+    setMessage("");
+    const path = tab === "leave" ? `/api/leave-requests/${row.id}`
+      : tab === "absence" ? `/api/absence-requests/${row.id}` : `/api/disputes/${row.id}`;
+    const body = { action, admin_note: notes[row.id] || "" };
+    if (tab === "disputes") {
+      body.first_in = times[row.id]?.first_in || row.claimed_in || null;
+      body.last_out = times[row.id]?.last_out || row.claimed_out || null;
+      body.status_override = "present";
+    }
+    try {
+      await api.put(path, body);
+      await reload();
+      setMessage(`${action === "approve" ? "Approved" : "Rejected"} ${employeeName(row)}'s request.`);
+    } catch (err) {
+      // HA can report a standby-sync error after the primary has committed.
+      // Read the resulting status before telling Nimit the decision failed.
+      try {
+        const updated = await reload();
+        const current = updated[tab]?.find((item) => item.id === row.id);
+        if (current?.status === (action === "approve" ? "approved" : "rejected")) {
+          setMessage(`${action === "approve" ? "Approved" : "Rejected"} ${employeeName(row)}'s request.`);
+        } else {
+          setMessage(err.response?.data?.detail || "Could not save the decision. Please try again.");
+        }
+      } catch {
+        setMessage("Could not confirm the decision. Refresh before trying again.");
+      }
+    } finally {
+      setBusy(null);
+    }
+  };
   useEffect(() => {
     if (user?.employee_code !== "14456") return;
     let cancelled = false;
@@ -30,7 +72,8 @@ export default function NimitRequests() {
   return <div className="space-y-5">
     <div><p className="text-xs font-semibold uppercase tracking-widest text-jade-600">Company-wide visibility</p>
       <h1 className="font-display text-3xl text-ink mt-1">All Requests</h1>
-      <p className="text-sm text-ink/70 mt-1">Leave, work absences, and attendance disputes across every location. Read only.</p></div>
+      <p className="text-sm text-ink/70 mt-1">Review and decide leave, work absences, and attendance disputes across every location.</p></div>
+    {message && <p role="status" className="bg-manila px-4 py-3 text-sm text-ink">{message}</p>}
     <div className="flex flex-wrap gap-2" role="tablist" aria-label="Request type">
       {TABS.map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={tab === key}
         onClick={() => { setTab(key); setFilter("pending"); }}
@@ -56,6 +99,25 @@ export default function NimitRequests() {
         {(row.reason || row.details) && <p className="text-sm text-ink/80 mt-2 whitespace-pre-wrap">{row.reason || row.details}</p>}
         {tab === "disputes" && (row.claimed_in || row.claimed_out) && <p className="text-xs text-ink/65 mt-2">Claimed time: {row.claimed_in || "—"} – {row.claimed_out || "—"}</p>}
         {(row.attachment_url || row.photo_url) && <a href={row.attachment_url || row.photo_url} target="_blank" rel="noreferrer" className="text-sm text-jade-700 underline mt-2 inline-block">View attachment</a>}
+        {row.status === "pending" && <div className="mt-4 pt-4 border-t border-ink/10 space-y-3">
+          {tab === "disputes" && <div className="flex flex-wrap gap-3">
+            <label className="text-xs text-ink/70">Corrected in <input type="time" value={times[row.id]?.first_in ?? row.claimed_in?.slice(0, 5) ?? ""}
+              onChange={(e) => setTimes((current) => ({ ...current, [row.id]: { ...current[row.id], first_in: e.target.value } }))}
+              className="block border border-ink/20 bg-paper px-2 py-1 mt-1" /></label>
+            <label className="text-xs text-ink/70">Corrected out <input type="time" value={times[row.id]?.last_out ?? row.claimed_out?.slice(0, 5) ?? ""}
+              onChange={(e) => setTimes((current) => ({ ...current, [row.id]: { ...current[row.id], last_out: e.target.value } }))}
+              className="block border border-ink/20 bg-paper px-2 py-1 mt-1" /></label>
+          </div>}
+          <input aria-label={`Note for ${employeeName(row)}`} placeholder="Decision note (optional)" value={notes[row.id] || ""}
+            onChange={(e) => setNotes((current) => ({ ...current, [row.id]: e.target.value }))}
+            className="w-full border border-ink/20 bg-paper px-3 py-2 text-sm rounded-sm" />
+          <div className="flex gap-2">
+            <button type="button" disabled={busy === row.id} onClick={() => resolve(row, "approve")}
+              className="bg-jade-700 text-white px-4 py-2 text-sm rounded-sm disabled:opacity-50">Approve</button>
+            <button type="button" disabled={busy === row.id} onClick={() => resolve(row, "reject")}
+              className="border border-red-700 text-red-700 px-4 py-2 text-sm rounded-sm disabled:opacity-50">Reject</button>
+          </div>
+        </div>}
         {row.admin_note && <p className="text-xs text-ink/65 mt-2">Note: {row.admin_note}</p>}
         <p className="text-xs text-ink/50 mt-3">Requested {dateLabel(row.created_at)}</p>
       </article>)}</div>}
