@@ -37,6 +37,10 @@ LETTER_CSS = """
 .letter-doc tr.lt-total td{border-top:2px solid #16302A;font-weight:700;background:#EAF4EF}
 .letter-doc .lt-callout{margin:0 0 1em;padding:10px 14px;border-left:3px solid #A13D2E;background:#FBEEE9}
 .letter-doc .lt-note{font-size:12px;color:#666}
+.letter-doc .lt-clauses{margin:1.4em 0 0}
+.letter-doc .lt-clauses-h{font-size:15px;font-weight:600;color:#16302A;margin:0 0 .5em;padding-bottom:4px;border-bottom:1px solid #DDE5E1}
+.letter-doc .lt-clauses ol{margin:0;padding-left:1.4em}
+.letter-doc .lt-clauses li{margin-bottom:.5em}
 .letter-doc .lt-sign{margin-top:2em}
 .letter-doc .lt-sign-space{height:40px}
 .letter-doc .lt-sign-name{display:inline-block;min-width:220px;border-top:1px solid #1B1B18;padding-top:6px}

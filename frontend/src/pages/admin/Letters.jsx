@@ -44,6 +44,26 @@ function wrapMultiline(text, mode) {
   return lines.map((l) => `<p>${l}</p>`).join("");
 }
 
+// Per-person clauses, mirrored from backend render_clauses/place_clauses so
+// the live preview matches the issued letter exactly.
+function renderClauses(clauses) {
+  const items = clauses
+    .filter((c) => c.included !== false && (c.title.trim() || c.body.trim()))
+    .map((c) => {
+      const t = escapeHtml(c.title.trim()), b = escapeHtml(c.body.trim()).replace(/\n/g, "<br>");
+      const lead = t && b ? `<strong>${t}.</strong> ` : t ? `<strong>${t}</strong>` : "";
+      return `<li>${lead}${b}</li>`;
+    });
+  return items.length ? `<div class="lt-clauses"><p class="lt-clauses-h">Additional Terms</p><ol>${items.join("")}</ol></div>` : "";
+}
+
+function placeClauses(body, clausesHtml) {
+  if (/\{\{\s*clauses\s*\}\}/.test(body)) return body.replace(/\{\{\s*clauses\s*\}\}/g, () => clausesHtml);
+  if (!clausesHtml) return body;
+  const idx = body.indexOf('<div class="lt-sign"');
+  return idx === -1 ? body + clausesHtml : body.slice(0, idx) + clausesHtml + body.slice(idx);
+}
+
 // Tokens auto-filled from an existing employee record — anything else on a
 // template is left for HR to type in per letter, always editable afterward.
 function autofillFromEmployee(employee, profile) {
@@ -431,6 +451,14 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null }) {
   const [fieldValues, setFieldValues] = useState(() => defaultsFor(template.letter_type, todayLabel, user?.name));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // Clause picker: library clauses (ticked/edited per person) + one-off custom ones.
+  const [clauses, setClauses] = useState([]); // {key, title, body, included, custom}
+
+  useEffect(() => {
+    api.get("/api/letters/clauses", { params: { letter_type: template.letter_type } })
+      .then(({ data }) => setClauses(data.map((c) => ({ key: c.id, title: c.title, body: c.body, included: !!c.default_on, custom: false }))))
+      .catch(() => {});
+  }, [template.letter_type]);
 
   useEffect(() => {
     // Every employee, active or not — Relieving/Termination letters are
@@ -477,7 +505,13 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null }) {
     return out;
   }, [fieldValues]);
 
-  const previewHtml = useMemo(() => substitute(template.body, previewValues, { markBlanks: true }), [template.body, previewValues]);
+  const previewHtml = useMemo(
+    () => substitute(placeClauses(template.body, renderClauses(clauses)), previewValues, { markBlanks: true }),
+    [template.body, previewValues, clauses],
+  );
+  const updateClause = (key, patch) => setClauses((cs) => cs.map((c) => (c.key === key ? { ...c, ...patch } : c)));
+  const addCustomClause = () => setClauses((cs) => [...cs, { key: `custom-${Date.now()}`, title: "", body: "", included: true, custom: true }]);
+  const removeClause = (key) => setClauses((cs) => cs.filter((c) => c.key !== key));
 
   const groups = useMemo(() => {
     const placed = new Set();
@@ -502,6 +536,7 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null }) {
         employee_id: mode === "existing" ? (employeeId || null) : null,
         // Raw values — the backend escapes them and wraps the multi-line ones.
         field_values: Object.fromEntries(template.tokens.map((t) => [t, fieldValues[t] || ""])),
+        clauses: clauses.filter((c) => c.included).map((c) => ({ title: c.title, body: c.body })),
       });
       onIssued(data.id);
     } catch (err) {
@@ -568,6 +603,26 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null }) {
                 ))}
               </fieldset>
             ))}
+            <fieldset className="p-5 space-y-3">
+              <legend className="sr-only">Clauses for this person</legend>
+              <div className="flex items-center justify-between">
+                <p className="font-display text-base text-ink">Clauses for this person</p>
+                <button type="button" onClick={addCustomClause} className="inline-flex items-center gap-1 text-xs font-semibold text-jade-700 hover:text-jade-600">
+                  <Plus size={13} /> Add clause
+                </button>
+              </div>
+              {clauses.length === 0 && <p className="text-xs text-ink/60">No clauses attached. Tick clauses from the library or add one just for this person; they appear above the signature.</p>}
+              {clauses.map((c) => (
+                <div key={c.key} className={`rounded-sm border p-3 space-y-2 ${c.included ? "border-jade-500/50 bg-jade-50/40" : "border-ink/10"}`}>
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" checked={c.included} onChange={(e) => updateClause(c.key, { included: e.target.checked })} aria-label="Include clause" />
+                    <input value={c.title} onChange={(e) => updateClause(c.key, { title: e.target.value })} placeholder="Clause title" className={`${inputCls} py-1`} />
+                    {c.custom && <button type="button" onClick={() => removeClause(c.key)} aria-label="Remove clause" className="text-xs text-rust-500">Remove</button>}
+                  </div>
+                  {c.included && <textarea value={c.body} onChange={(e) => updateClause(c.key, { body: e.target.value })} rows={3} placeholder="Clause text (edits apply to this letter only)" className={inputCls} />}
+                </div>
+              ))}
+            </fieldset>
           </div>
 
           {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
@@ -875,6 +930,70 @@ function IssuedLettersTable({ onOpen }) {
   );
 }
 
+function ClauseLibrary({ templates }) {
+  const [rows, setRows] = useState(null);
+  const [draft, setDraft] = useState(null); // {id?, title, body, letter_type, default_on}
+  const [error, setError] = useState("");
+  const load = () => api.get("/api/letters/clauses").then(({ data }) => setRows(data)).catch(() => setRows([]));
+  useEffect(() => { load(); }, []);
+  const save = async () => {
+    setError("");
+    try {
+      const payload = { title: draft.title, body: draft.body, letter_type: draft.letter_type || null, default_on: !!draft.default_on };
+      if (draft.id) await api.put(`/api/letters/clauses/${draft.id}`, payload);
+      else await api.post("/api/letters/clauses", payload);
+      setDraft(null);
+      load();
+    } catch (err) { setError(err.response?.data?.detail || "Could not save clause"); }
+  };
+  const remove = async (id) => { await api.delete(`/api/letters/clauses/${id}`); load(); };
+  const titleOf = (type) => templates.find((t) => t.letter_type === type)?.title || "All letters";
+  return (
+    <section className="bg-paper rounded-sm shadow-card mt-4">
+      <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-ink/10">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/55">Clause library</p>
+          <p className="text-xs text-ink/60 mt-0.5">Reusable clauses. When issuing a letter, tick the ones that apply to that person and edit the wording for them.</p>
+        </div>
+        <button onClick={() => setDraft({ title: "", body: "", letter_type: "", default_on: false })} className="flex items-center gap-1.5 bg-ledger-800 text-manila px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-ledger-700">
+          <Plus size={13} /> New clause
+        </button>
+      </div>
+      {draft && (
+        <div className="p-4 space-y-3 border-b border-ink/10 bg-manila/30">
+          <input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="Clause title, e.g. Non-compete" className={inputCls} />
+          <textarea value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} rows={4} placeholder="Clause text" className={inputCls} />
+          <div className="flex flex-wrap items-center gap-3">
+            <select value={draft.letter_type || ""} onChange={(e) => setDraft({ ...draft, letter_type: e.target.value })} className={`${inputCls} max-w-xs`}>
+              <option value="">Available on all letters</option>
+              {templates.map((t) => <option key={t.letter_type} value={t.letter_type}>{t.title} only</option>)}
+            </select>
+            <label className="flex items-center gap-1.5 text-xs text-ink/70"><input type="checkbox" checked={!!draft.default_on} onChange={(e) => setDraft({ ...draft, default_on: e.target.checked })} /> Pre-tick when issuing</label>
+            <div className="ml-auto flex gap-2">
+              <button onClick={() => setDraft(null)} className="text-xs text-ink/70 px-3 py-1.5">Cancel</button>
+              <button onClick={save} className={`${primaryBtn} px-3 py-1.5`}><Save size={13} /> Save clause</button>
+            </div>
+          </div>
+          {error && <p className="text-sm text-rust-500">{error}</p>}
+        </div>
+      )}
+      <ul className="divide-y divide-ink/[0.07]">
+        {rows && rows.length === 0 && <li className="px-4 py-3 text-xs text-ink/60">No clauses yet.</li>}
+        {(rows || []).map((c) => (
+          <li key={c.id} className="flex items-start gap-3 px-4 py-3">
+            <div className="min-w-0 flex-1">
+              <p className="font-display text-[15px] text-ink leading-tight">{c.title} <span className="text-[11px] font-sans text-ink/50">· {titleOf(c.letter_type)}{c.default_on ? " · pre-ticked" : ""}</span></p>
+              <p className="text-xs text-ink/65 mt-0.5 line-clamp-2">{c.body}</p>
+            </div>
+            <button onClick={() => setDraft({ ...c })} aria-label="Edit clause" className="border border-ink/15 px-2 py-1.5 rounded-sm hover:border-jade-500"><Pencil size={13} /></button>
+            <button onClick={() => remove(c.id)} className="text-xs text-rust-500 px-1 py-1.5">Delete</button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export default function Letters() {
   const { can } = useAuth();
   const [templates, setTemplates] = useState([]);
@@ -1011,6 +1130,8 @@ export default function Letters() {
           ))}
         </div>
       )}
+
+      {can("letters.manage") && <ClauseLibrary templates={templates} />}
 
       <IssuedLettersTable onOpen={openIssued} />
     </div>

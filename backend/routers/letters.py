@@ -1,4 +1,5 @@
 import html
+import json
 import re
 from datetime import datetime, timezone
 
@@ -8,11 +9,18 @@ import email_service
 from auth import require_permission
 from database import maybe_single_data, supabase
 from letter_email import HR_CONTACT, build_letter_email_html
-from models import LetterEmailRequest, LetterGenerateRequest, LetterTemplateCreate, LetterTemplateUpdate
+from models import (
+    LetterClauseIn,
+    LetterEmailRequest,
+    LetterGenerateRequest,
+    LetterTemplateCreate,
+    LetterTemplateUpdate,
+)
 
 router = APIRouter(prefix="/api/letters", tags=["letters"])
 
 TOKEN_RE = re.compile(r"\{\{\s*([a-zA-Z0-9_]+)\s*\}\}")
+CLAUSES_TOKEN_RE = re.compile(r"\{\{\s*clauses\s*\}\}")
 SLUG_RE = re.compile(r"[^a-z0-9]+")
 
 DEFAULT_NEW_TEMPLATE_BODY = """\
@@ -25,6 +33,47 @@ DEFAULT_NEW_TEMPLATE_BODY = """\
 """
 
 
+CLAUSES_TOKEN = "clauses"
+SIGN_BLOCK_MARKER = '<div class="lt-sign"'
+MAX_CLAUSES = 30
+
+
+def render_clauses(clauses: list[dict]) -> str:
+    """Per-person clauses as one numbered 'Additional Terms' block. Titles and
+    bodies are plain text from HR, so they are escaped; blank clauses drop out."""
+    items = []
+    for c in clauses or []:
+        title = html.escape((c.get("title") or "").strip())
+        body = html.escape((c.get("body") or "").strip()).replace("\n", "<br>")
+        if not body and not title:
+            continue
+        lead = f"<strong>{title}.</strong> " if title and body else (f"<strong>{title}</strong>" if title else "")
+        items.append(f"<li>{lead}{body}</li>")
+    if not items:
+        return ""
+    return '<div class="lt-clauses"><p class="lt-clauses-h">Additional Terms</p><ol>' + "".join(items) + "</ol></div>"
+
+
+def place_clauses(body: str, clauses_html: str) -> str:
+    """Put the clauses where the template says ({{clauses}}); templates without
+    that token (all the stock ones) get them just above the signature block."""
+    if CLAUSES_TOKEN_RE.search(body):
+        return CLAUSES_TOKEN_RE.sub(lambda _m: clauses_html, body)
+    if not clauses_html:
+        return body
+    idx = body.find(SIGN_BLOCK_MARKER)
+    if idx == -1:
+        return body + clauses_html
+    return body[:idx] + clauses_html + body[idx:]
+
+
+def _clean_clauses(clauses: list[LetterClauseIn]) -> list[dict]:
+    out = [{"title": c.title.strip(), "body": c.body.strip()} for c in clauses if c.title.strip() or c.body.strip()]
+    if len(out) > MAX_CLAUSES:
+        raise HTTPException(status_code=400, detail=f"At most {MAX_CLAUSES} clauses per letter")
+    return out
+
+
 def _slugify(title: str) -> str:
     return SLUG_RE.sub("_", title.strip().lower()).strip("_") or "letter"
 
@@ -34,7 +83,8 @@ def _tokens_in(body: str) -> list[str]:
     generate form can be laid out in the same order as the letter reads."""
     seen: list[str] = []
     for match in TOKEN_RE.finditer(body):
-        if match.group(1) not in seen:
+        # "clauses" is filled from the clause picker, not a typed form field.
+        if match.group(1) not in seen and match.group(1) != CLAUSES_TOKEN:
             seen.append(match.group(1))
     return seen
 
@@ -135,6 +185,78 @@ def delete_template(letter_type: str, user: dict = Depends(require_permission("l
     return {"ok": True}
 
 
+# ── Clause library ──────────────────────────────────────────────────────────
+# Reusable clauses HR can attach to a letter per person. letter_type NULL = offered
+# on every letter. Stored in hr_letter_clauses (sql/079); if that table has not
+# been applied yet the library is simply empty and one-off clauses still work.
+
+
+def _clause_table():
+    return supabase.table("hr_letter_clauses")
+
+
+@router.get("/clauses")
+def list_clauses(
+    letter_type: str | None = Query(default=None),
+    user: dict = Depends(require_permission("letters.generate", "letters.manage")),
+):
+    try:
+        rows = _clause_table().select("*").eq("is_active", True).order("sort_order").order("title").execute().data or []
+    except Exception:
+        return []
+    if letter_type:
+        rows = [r for r in rows if r.get("letter_type") in (None, letter_type)]
+    return rows
+
+
+@router.post("/clauses")
+def create_clause(body: LetterClauseIn, user: dict = Depends(require_permission("letters.manage"))):
+    if not body.title.strip() or not body.body.strip():
+        raise HTTPException(status_code=400, detail="A clause needs a title and text")
+    row = {
+        "letter_type": body.letter_type or None,
+        "title": body.title.strip(),
+        "body": body.body.strip(),
+        "default_on": body.default_on,
+        "sort_order": body.sort_order,
+        "updated_by": user["id"],
+    }
+    try:
+        return _clause_table().insert(row).execute().data[0]
+    except Exception:
+        raise HTTPException(status_code=503, detail="The clause library is not set up yet (run sql/079_letter_clauses.sql)")
+
+
+@router.put("/clauses/{clause_id}")
+def update_clause(clause_id: str, body: LetterClauseIn, user: dict = Depends(require_permission("letters.manage"))):
+    resp = (
+        _clause_table()
+        .update({
+            "letter_type": body.letter_type or None,
+            "title": body.title.strip(),
+            "body": body.body.strip(),
+            "default_on": body.default_on,
+            "sort_order": body.sort_order,
+            "updated_by": user["id"],
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        })
+        .eq("id", clause_id)
+        .execute()
+    )
+    if not resp.data:
+        raise HTTPException(status_code=404, detail="Clause not found")
+    return resp.data[0]
+
+
+@router.delete("/clauses/{clause_id}")
+def delete_clause(clause_id: str, user: dict = Depends(require_permission("letters.manage"))):
+    # Soft delete: issued letters keep their own copy of the text either way.
+    resp = _clause_table().update({"is_active": False}).eq("id", clause_id).execute()
+    if not resp.data:
+        raise HTTPException(status_code=404, detail="Clause not found")
+    return {"ok": True}
+
+
 @router.post("/generate")
 def generate_letter(body: LetterGenerateRequest, user: dict = Depends(require_permission("letters.generate"))):
     resp = (
@@ -148,13 +270,19 @@ def generate_letter(body: LetterGenerateRequest, user: dict = Depends(require_pe
     if not template:
         raise HTTPException(status_code=404, detail="Unknown letter type")
 
-    rendered = _substitute(template["body"], body.field_values)
+    clauses = _clean_clauses(body.clauses)
+    rendered = _substitute(place_clauses(template["body"], render_clauses(clauses)), body.field_values)
 
+    field_values = dict(body.field_values)
+    if clauses:
+        # Kept with the letter (no schema change) so an issued letter shows
+        # exactly which clauses were attached for this person.
+        field_values["_clauses"] = json.dumps(clauses)
     row = {
         "letter_type": body.letter_type,
         "employee_id": body.employee_id,
         "rendered_body": rendered,
-        "field_values": body.field_values,
+        "field_values": field_values,
         "generated_by": user["id"],
         "title": template.get("title"),
     }

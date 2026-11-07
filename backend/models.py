@@ -558,10 +558,20 @@ class LetterTemplateCreate(BaseModel):
     letter_type: Optional[str] = None  # slug — derived from title if omitted
 
 
+class LetterClauseIn(BaseModel):
+    title: str = ""
+    body: str = ""
+    letter_type: Optional[str] = None  # None = available on every letter
+    default_on: bool = False
+    sort_order: int = 0
+
+
 class LetterGenerateRequest(BaseModel):
     letter_type: str
     employee_id: Optional[str] = None
     field_values: dict[str, str] = {}
+    # Per-person clauses picked/edited/written in the generator.
+    clauses: list[LetterClauseIn] = []
 
 
 class LetterEmailRequest(BaseModel):
