@@ -64,7 +64,23 @@ insert into hr_ha.allowed_tables (name, pk) values
     ('hr_onboarding_fields','{id}'), ('hr_invoices','{id}'),
     ('hr_invoice_events','{id}'), ('hr_invoice_payments','{id}')
 on conflict (name) do nothing;
--- COPY the guard trigger exactly as it exists on an existing table first:
---   select pg_get_triggerdef(oid) from pg_trigger
---   where tgrelid='public.hr_workflow_events'::regclass and not tgisinternal;
--- then create the same trigger (named hr_ha_cloud_guard) on each of the four tables above.
+-- 5. Attach the same guard trigger(s) the existing replicated tables have.
+do $$
+declare t text; d record; stmt text;
+begin
+  -- Copy whatever triggers hr_workflow_events has (it is already wired for replication)
+  -- onto the four new tables, so they behave exactly like the existing ones.
+  if (select count(*) from pg_trigger where tgrelid = 'public.hr_workflow_events'::regclass and not tgisinternal) = 0 then
+    raise exception 'hr_workflow_events has no triggers to copy; stop and tell Claude';
+  end if;
+  foreach t in array array['hr_onboarding_fields','hr_invoices','hr_invoice_events','hr_invoice_payments'] loop
+    for d in select tgname, pg_get_triggerdef(oid) as def from pg_trigger
+             where tgrelid = 'public.hr_workflow_events'::regclass and not tgisinternal loop
+      if exists (select 1 from pg_trigger where tgrelid = ('public.' || t)::regclass and tgname = d.tgname) then continue; end if;
+      stmt := regexp_replace(d.def, ' ON (public\.)?hr_workflow_events ', ' ON public.' || t || ' ');
+      if stmt = d.def then raise exception 'could not rewrite trigger %', d.tgname; end if;
+      execute stmt;
+      raise notice 'added % on %', d.tgname, t;
+    end loop;
+  end loop;
+end $$;
