@@ -93,8 +93,9 @@ def upload_attachment(body: OnboardingUpload):
     path = f"{now.strftime('%Y%m%d_%H%M%S')}_{now.microsecond}.{ALLOWED_TYPES[body.content_type]}"
     try:
         supabase.storage.from_(BUCKET).upload(path, data, {"content-type": body.content_type})
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Upload failed: {e}")
+    except Exception:
+        # Most likely the invoice-documents bucket doesn't exist yet (sql/081 not applied).
+        raise HTTPException(status_code=503, detail="Invoice submission isn't open yet. Please try again later or contact JADE accounts.")
     return {"path": path, "content_type": body.content_type}
 
 
@@ -139,7 +140,10 @@ def submit_invoice(body: InvoiceSubmit):
         "verification_source": "auto", "verification_checks": outcome["checks"],
         "verification_note": failed if status == "verification_rejected" else "",
     }
-    inv = supabase.table("hr_invoices").insert(row).execute().data[0]
+    try:
+        inv = supabase.table("hr_invoices").insert(row).execute().data[0]
+    except Exception:
+        raise HTTPException(status_code=503, detail="Invoice submission isn't open yet. Please try again later or contact JADE accounts.")
     _log(inv["id"], "submitted", None, f"Auto-verification: {outcome['result']}" + (f" ({failed})" if failed else ""))
 
     ref = inv["reference_no"]
