@@ -3,6 +3,7 @@ approval -> accounting notified -> paid. Every step is written to
 hr_invoice_events with who did it (the approver ID is also on the invoice)."""
 import base64
 import html
+import logging
 import os
 import re
 from datetime import datetime, timezone
@@ -16,6 +17,7 @@ from invoice_check import extract_fields, extract_text, verify
 from models import InvoiceDecision, InvoicePay, InvoiceSubmit, OnboardingUpload
 
 router = APIRouter(prefix="/api/invoices", tags=["invoices"])
+log = logging.getLogger("invoices")
 
 BUCKET = "invoice-documents"
 MAX_UPLOAD_BYTES = 3 * 1024 * 1024  # base64 inflates ~33%; Vercel caps a request body at 4.5 MB
@@ -94,6 +96,7 @@ def upload_attachment(body: OnboardingUpload):
     try:
         supabase.storage.from_(BUCKET).upload(path, data, {"content-type": body.content_type})
     except Exception:
+        log.exception("invoice attachment upload failed")
         # Most likely the invoice-documents bucket doesn't exist yet (sql/081 not applied).
         raise HTTPException(status_code=503, detail="Invoice submission isn't open yet. Please try again later or contact JADE accounts.")
     return {"path": path, "content_type": body.content_type}
@@ -143,6 +146,7 @@ def submit_invoice(body: InvoiceSubmit):
     try:
         inv = supabase.table("hr_invoices").insert(row).execute().data[0]
     except Exception:
+        log.exception("invoice insert failed")
         raise HTTPException(status_code=503, detail="Invoice submission isn't open yet. Please try again later or contact JADE accounts.")
     _log(inv["id"], "submitted", None, f"Auto-verification: {outcome['result']}" + (f" ({failed})" if failed else ""))
 
