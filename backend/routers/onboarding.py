@@ -8,7 +8,9 @@ import email_service
 from auth import get_current_user, hash_password, require_permission, user_can
 from database import maybe_single_data, supabase
 from workflow_log import record_step
-from models import OnboardingResolve, OnboardingSubmissionCreate, OnboardingUpload
+import re
+
+from models import OnboardingFieldIn, OnboardingResolve, OnboardingSubmissionCreate, OnboardingUpload
 
 router = APIRouter(prefix="/api/onboarding", tags=["onboarding"])
 
@@ -52,12 +54,126 @@ def upload_document(body: OnboardingUpload):
     return {"path": path}
 
 
+FIELD_TYPES = {"text", "textarea", "number", "date", "select", "checkbox", "file"}
+KEY_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _active_fields() -> list[dict]:
+    """HR-defined extra fields. Empty if sql/080 hasn't been applied, so the
+    built-in form keeps working either way."""
+    try:
+        return (
+            supabase.table("hr_onboarding_fields").select("*").eq("is_active", True)
+            .order("sort_order").order("created_at").execute().data or []
+        )
+    except Exception:
+        return []
+
+
+@router.get("/fields")
+def public_fields():
+    """Public — the form renders these after the built-in sections."""
+    return [
+        {k: f[k] for k in ("field_key", "label", "field_type", "options", "required", "section", "help_text")}
+        for f in _active_fields()
+    ]
+
+
+def _clean_field(body: OnboardingFieldIn) -> dict:
+    label = body.label.strip()
+    if not label:
+        raise HTTPException(status_code=400, detail="A field needs a label")
+    if body.field_type not in FIELD_TYPES:
+        raise HTTPException(status_code=400, detail=f"Field type must be one of: {', '.join(sorted(FIELD_TYPES))}")
+    options = [o.strip() for o in body.options if o.strip()]
+    if body.field_type == "select" and not options:
+        raise HTTPException(status_code=400, detail="A dropdown needs at least one option")
+    return {
+        "label": label,
+        "field_type": body.field_type,
+        "options": options if body.field_type == "select" else [],
+        "required": body.required,
+        "section": body.section.strip() or "Additional Details",
+        "help_text": body.help_text.strip(),
+        "sort_order": body.sort_order,
+        "is_active": body.is_active,
+    }
+
+
+@router.get("/admin/fields")
+def admin_fields(user: dict = Depends(require_permission("onboarding.manage"))):
+    try:
+        return supabase.table("hr_onboarding_fields").select("*").order("sort_order").order("created_at").execute().data or []
+    except Exception:
+        return []
+
+
+@router.post("/admin/fields")
+def create_field(body: OnboardingFieldIn, user: dict = Depends(require_permission("onboarding.manage"))):
+    row = _clean_field(body)
+    base = KEY_RE.sub("_", row["label"].lower()).strip("_") or "field"
+    taken = {f["field_key"] for f in supabase.table("hr_onboarding_fields").select("field_key").execute().data or []}
+    key, n = base, 2
+    while key in taken:  # keys are permanent once answers exist, so never reuse one
+        key, n = f"{base}_{n}", n + 1
+    row.update({"field_key": key, "updated_by": user["id"]})
+    try:
+        return supabase.table("hr_onboarding_fields").insert(row).execute().data[0]
+    except Exception:
+        raise HTTPException(status_code=503, detail="Custom fields are not set up yet (run sql/080_onboarding_custom_fields.sql)")
+
+
+@router.put("/admin/fields/{field_id}")
+def update_field(field_id: str, body: OnboardingFieldIn, user: dict = Depends(require_permission("onboarding.manage"))):
+    row = _clean_field(body)
+    row.update({"updated_by": user["id"], "updated_at": datetime.now(timezone.utc).isoformat()})
+    resp = supabase.table("hr_onboarding_fields").update(row).eq("id", field_id).execute()
+    if not resp.data:
+        raise HTTPException(status_code=404, detail="Field not found")
+    return resp.data[0]
+
+
+@router.delete("/admin/fields/{field_id}")
+def delete_field(field_id: str, user: dict = Depends(require_permission("onboarding.manage"))):
+    # Hide, don't drop: answers already stored on submissions stay readable.
+    resp = supabase.table("hr_onboarding_fields").update({"is_active": False}).eq("id", field_id).execute()
+    if not resp.data:
+        raise HTTPException(status_code=404, detail="Field not found")
+    return {"ok": True}
+
+
+def _validated_custom_values(values: dict, fields: list[dict]) -> dict:
+    out, missing = {}, []
+    for f in fields:
+        raw = values.get(f["field_key"])
+        if f["field_type"] == "checkbox":
+            val = bool(raw)
+            empty = not val
+        elif isinstance(raw, list):
+            val = [str(x) for x in raw][:10]
+            empty = not val
+        else:
+            val = ("" if raw is None else str(raw)).strip()[:2000]
+            empty = not val
+            if f["field_type"] == "select" and val and val not in (f.get("options") or []):
+                raise HTTPException(status_code=400, detail=f"Invalid choice for {f['label']}")
+        if f["required"] and empty:
+            missing.append(f["label"])
+        out[f["field_key"]] = val
+    if missing:
+        raise HTTPException(status_code=400, detail="Please fill in: " + ", ".join(missing))
+    return out
+
+
 @router.post("/submit")
 def submit_onboarding(body: OnboardingSubmissionCreate):
     """Public — the new-joinee-details form (replaces the external Zoho
     form). Lands in the review queue below; never writes to hr_employees/
     hr_employee_profile directly — see resolve_submission for that."""
     row = body.model_dump()
+    custom = _validated_custom_values(row.pop("custom_values", {}) or {}, _active_fields())
+    if custom:
+        row["custom_values"] = custom
     for date_field in DATE_FIELDS:
         if row[date_field] is not None:
             row[date_field] = row[date_field].isoformat()
@@ -65,7 +181,7 @@ def submit_onboarding(body: OnboardingSubmissionCreate):
     row["submitted_at"] = datetime.now(timezone.utc).isoformat()
     inserted = supabase.table("hr_onboarding_submissions").insert(row).execute()
     email_service.notify_onboarding_submitted(row, email_service.HR_NOTIFY_EMAIL)
-    return {"id": inserted.data[0]["id"]}
+    return {"id": inserted.data[0]["id"], "reference_no": inserted.data[0].get("reference_no")}
 
 
 def _signed_url(path: str | None) -> str | None:
@@ -122,14 +238,19 @@ def my_submission(user: dict = Depends(get_current_user)):
 
 @router.get("/submissions")
 def list_submissions(status: str | None = None, user: dict = Depends(require_permission("onboarding.manage"))):
-    query = supabase.table("hr_onboarding_submissions").select(
+    cols = (
         "id,status,submitted_at,full_name,designation,department,place_of_work,date_of_joining,"
         "admin_note,resolved_at,created_employee_id"
     )
-    if status:
-        query = query.eq("status", status)
-    resp = query.order("submitted_at", desc=True).execute()
-    return resp.data
+    for select in (cols + ",reference_no", cols):  # second pass: sql/080 not applied yet
+        try:
+            query = supabase.table("hr_onboarding_submissions").select(select)
+            if status:
+                query = query.eq("status", status)
+            return query.order("submitted_at", desc=True).execute().data
+        except Exception:
+            if select == cols:
+                raise
 
 
 @router.get("/submissions/{submission_id}")

@@ -1,5 +1,5 @@
 from datetime import date, datetime, time
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -598,7 +598,21 @@ class EmployeeDocumentUpload(BaseModel):
     doc_type: str  # aadhar | pan
 
 
+class OnboardingFieldIn(BaseModel):
+    label: str
+    field_type: str = "text"  # text | textarea | number | date | select | checkbox | file
+    options: list[str] = []
+    required: bool = False
+    section: str = "Additional Details"
+    help_text: str = ""
+    sort_order: int = 0
+    is_active: bool = True
+
+
 class OnboardingSubmissionCreate(BaseModel):
+    # Answers to HR-defined extra fields, keyed by field_key (see hr_onboarding_fields).
+    custom_values: dict[str, Any] = {}
+
     # Personal
     full_name: str
     date_of_birth: Optional[date] = None
@@ -865,3 +879,41 @@ class HrTaskUpdate(BaseModel):
 class AvatarUpload(BaseModel):
     content_base64: str  # data: URL or raw base64; the browser sends a 256px JPEG
     content_type: str = "image/jpeg"
+
+
+class InvoiceSubmit(BaseModel):
+    vendor_name: str
+    vendor_email: str
+    vendor_phone: str
+    invoice_number: str
+    amount: float
+    invoice_date: Optional[date] = None
+    bill_details: str = ""
+    attachment_path: str
+
+
+class InvoiceDecision(BaseModel):
+    note: str = ""
+
+
+class InvoicePay(BaseModel):
+    payment_ref: str = ""
+    note: str = ""
+
+
+class ReconcilePreview(BaseModel):
+    csv_text: str
+
+
+class ReconcileLine(BaseModel):
+    hash: str
+    date: str
+    description: str = ""
+    reference: str = ""
+    amount_paise: int
+    invoice_id: Optional[str] = None  # None = record as an unmatched payment
+    note: str = ""
+
+
+class ReconcileConfirm(BaseModel):
+    matches: list[ReconcileLine]

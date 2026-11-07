@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, X } from "lucide-react";
+import { ArrowLeft, Check, Plus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 
@@ -11,7 +11,83 @@ const TABS = [
   { key: "pending", label: "Pending" },
   { key: "approved", label: "Approved" },
   { key: "rejected", label: "Rejected" },
+  { key: "form", label: "Form fields" },
 ];
+
+const FIELD_TYPES = [
+  ["text", "Short text"], ["textarea", "Long text"], ["number", "Number"], ["date", "Date"],
+  ["select", "Dropdown"], ["checkbox", "Tick box"], ["file", "File upload"],
+];
+const inputCls = "w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-jade-500";
+
+// HR-managed extra fields for the public form (no tech request needed).
+function FormFields() {
+  const [fields, setFields] = useState(null);
+  const [draft, setDraft] = useState(null);
+  const [error, setError] = useState("");
+  const load = () => api.get("/api/onboarding/admin/fields").then(({ data }) => setFields(data)).catch(() => setFields([]));
+  useEffect(() => { load(); }, []);
+
+  const save = async () => {
+    setError("");
+    const payload = {
+      label: draft.label, field_type: draft.field_type, required: !!draft.required, section: draft.section,
+      help_text: draft.help_text, sort_order: Number(draft.sort_order) || 0, is_active: true,
+      options: draft.field_type === "select" ? String(draft.optionsText || "").split("\n") : [],
+    };
+    try {
+      if (draft.id) await api.put(`/api/onboarding/admin/fields/${draft.id}`, payload);
+      else await api.post("/api/onboarding/admin/fields", payload);
+      setDraft(null);
+      load();
+    } catch (err) { setError(err.response?.data?.detail || "Could not save field"); }
+  };
+  const remove = async (id) => { await api.delete(`/api/onboarding/admin/fields/${id}`); load(); };
+  const visible = (fields || []).filter((f) => f.is_active);
+
+  return (
+    <div className="bg-paper rounded-sm shadow-card">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-ink/10">
+        <p className="text-xs text-ink/70">Extra questions shown on the public form, after the built-in sections. Existing answers stay on each submission if you remove a field.</p>
+        <button onClick={() => setDraft({ label: "", field_type: "text", section: "Additional Details", help_text: "", required: false, sort_order: visible.length + 1, optionsText: "" })}
+          className="flex items-center gap-1.5 bg-ledger-800 text-manila px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-ledger-700 flex-shrink-0 ml-3"><Plus size={13} /> Add field</button>
+      </div>
+      {draft && (
+        <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-3 border-b border-ink/10 bg-manila/30">
+          <input value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} placeholder="Question / label" className={inputCls} />
+          <select value={draft.field_type} onChange={(e) => setDraft({ ...draft, field_type: e.target.value })} className={inputCls}>
+            {FIELD_TYPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+          </select>
+          <input value={draft.section} onChange={(e) => setDraft({ ...draft, section: e.target.value })} placeholder="Section heading" className={inputCls} />
+          <input value={draft.help_text} onChange={(e) => setDraft({ ...draft, help_text: e.target.value })} placeholder="Help text (optional)" className={inputCls} />
+          {draft.field_type === "select" && (
+            <textarea value={draft.optionsText} onChange={(e) => setDraft({ ...draft, optionsText: e.target.value })} rows={3} placeholder="One choice per line" className={`${inputCls} sm:col-span-2`} />
+          )}
+          <label className="flex items-center gap-2 text-xs text-ink/70"><input type="checkbox" checked={!!draft.required} onChange={(e) => setDraft({ ...draft, required: e.target.checked })} /> Required</label>
+          <label className="flex items-center gap-2 text-xs text-ink/70">Order <input type="number" value={draft.sort_order} onChange={(e) => setDraft({ ...draft, sort_order: e.target.value })} className={`${inputCls} w-20`} /></label>
+          {error && <p className="text-sm text-rust-500 sm:col-span-2">{error}</p>}
+          <div className="sm:col-span-2 flex justify-end gap-2">
+            <button onClick={() => setDraft(null)} className="text-xs text-ink/70 px-3 py-1.5">Cancel</button>
+            <button onClick={save} className="bg-jade-600 text-white px-4 py-1.5 rounded-sm text-xs font-semibold hover:bg-jade-700">Save field</button>
+          </div>
+        </div>
+      )}
+      <ul className="divide-y divide-ink/[0.07]">
+        {fields && visible.length === 0 && <li className="px-5 py-6 text-sm text-ink/60 text-center">No extra fields yet.</li>}
+        {visible.map((f) => (
+          <li key={f.id} className="flex items-center gap-3 px-5 py-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-ink font-medium">{f.label}{f.required && <span className="text-rust-500"> *</span>}</p>
+              <p className="text-xs text-ink/60">{f.section} · {FIELD_TYPES.find(([k]) => k === f.field_type)?.[1]}{f.field_type === "select" ? ` (${f.options.length} choices)` : ""} · order {f.sort_order}</p>
+            </div>
+            <button onClick={() => setDraft({ ...f, optionsText: (f.options || []).join("\n") })} className="text-xs text-jade-600 font-semibold">Edit</button>
+            <button onClick={() => remove(f.id)} className="text-xs text-rust-500">Remove</button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 function DocLink({ label, url }) {
   if (!url) return null;
@@ -89,7 +165,7 @@ function SubmissionDetail({ id, onBack, onResolved, canViewSalary }) {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="font-display text-xl text-ink">{submission.full_name}</h3>
-            <p className="text-xs text-ink/70 font-nums">Submitted {new Date(submission.submitted_at).toLocaleString()}</p>
+            <p className="text-xs text-ink/70 font-nums">{submission.reference_no ? `Ref #${submission.reference_no} · ` : ""}Submitted {new Date(submission.submitted_at).toLocaleString()}</p>
           </div>
           <StampBadge status={submission.status}>{submission.status}</StampBadge>
         </div>
@@ -163,6 +239,14 @@ function SubmissionDetail({ id, onBack, onResolved, canViewSalary }) {
             <DetailField label="Conveyance" value={submission.conveyance} />
             <DetailField label="Other Allowance" value={submission.other_allowance} />
             <DetailField label="Monthly CTC" value={submission.monthly_ctc} />
+          </DetailGroup>
+        )}
+
+        {Object.keys(submission.custom_values || {}).length > 0 && (
+          <DetailGroup title="Additional details">
+            {Object.entries(submission.custom_values).map(([k, v]) => (
+              <DetailField key={k} label={k.replace(/_/g, " ")} value={typeof v === "boolean" ? (v ? "Yes" : "No") : Array.isArray(v) ? v.join(", ") : v} />
+            ))}
           </DetailGroup>
         )}
 
@@ -271,6 +355,7 @@ export default function Onboarding() {
   };
 
   useEffect(() => {
+    if (tab === "form") return;
     if (skipNextLoad.current) {
       skipNextLoad.current = false;
       return;
@@ -303,10 +388,12 @@ export default function Onboarding() {
 
       <SlidingTabs tabs={TABS} value={tab} onChange={setTab} className="flex gap-1 mb-4" />
 
+      {tab === "form" ? <FormFields /> : (
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm tabular-nums">
           <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
             <tr className="border-b-2 border-ink/10">
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Ref</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Name</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Designation</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Place of Work</th>
@@ -317,9 +404,9 @@ export default function Onboarding() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={6}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
+              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={7}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : rows.length === 0 ? (
-              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={6}>No {tab} submissions.</td></tr>
+              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={7}>No {tab} submissions.</td></tr>
             ) : (
               rows.map((r) => (
                 <tr
@@ -327,6 +414,7 @@ export default function Onboarding() {
                   className="border-b border-ink/[0.06] last:border-0 cursor-pointer hover:bg-manila/30"
                   onClick={() => setSelectedId(r.id)}
                 >
+                  <td className="px-5 py-3.5 text-ink/70 font-nums">{r.reference_no ? `#${r.reference_no}` : "—"}</td>
                   <td className="px-5 py-3.5 text-ink font-medium">{r.full_name}</td>
                   <td className="px-5 py-3.5 text-ink/70">{r.designation || "—"}</td>
                   <td className="px-5 py-3.5 text-ink/70">{r.place_of_work || "—"}</td>
@@ -339,6 +427,7 @@ export default function Onboarding() {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }

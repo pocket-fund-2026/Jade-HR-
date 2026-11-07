@@ -1,5 +1,5 @@
 import { ChevronDown, HelpCircle } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import api from "../lib/api.js";
 import { prepareUpload } from "../lib/upload.js";
@@ -159,6 +159,20 @@ function FileField({ label, hint, multiple, count, onUploaded }) {
   );
 }
 
+// One HR-defined extra field (sql/080) — rendered with the same building
+// blocks as the built-in ones; answers go to custom_values[field_key].
+function CustomField({ field, value, onChange }) {
+  const label = field.help_text ? `${field.label}` : field.label;
+  const hint = field.help_text ? <p className="text-xs text-ink/60 -mt-1">{field.help_text}</p> : null;
+  let input;
+  if (field.field_type === "textarea") input = <TextAreaField label={label} value={value || ""} onChange={(e) => onChange(e.target.value)} required={field.required} />;
+  else if (field.field_type === "select") input = <SelectField label={label} value={value || ""} onChange={(e) => onChange(e.target.value)} options={field.options} required={field.required} />;
+  else if (field.field_type === "checkbox") input = <CheckboxField label={label} checked={!!value} onChange={(e) => onChange(e.target.checked)} span />;
+  else if (field.field_type === "file") input = <FileField label={`${label}${field.required ? " *" : ""}`} onUploaded={onChange} count={value ? 1 : 0} />;
+  else input = <TextField label={label} type={field.field_type === "number" ? "number" : field.field_type === "date" ? "date" : "text"} value={value || ""} onChange={(e) => onChange(e.target.value)} required={field.required} />;
+  return <div className={field.field_type === "textarea" || field.field_type === "checkbox" ? "sm:col-span-2" : ""}>{input}{hint}</div>;
+}
+
 function StepStrip() {
   return (
     <div className="hidden sm:flex items-center gap-1.5 mb-6 overflow-x-auto">
@@ -212,6 +226,19 @@ export default function Onboarding() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  const [refNo, setRefNo] = useState(null);
+  const [extraFields, setExtraFields] = useState([]);
+  const [custom, setCustom] = useState({});
+
+  useEffect(() => {
+    api.get("/api/onboarding/fields").then(({ data }) => setExtraFields(data)).catch(() => {});
+  }, []);
+
+  // Extra fields grouped by the section name HR gave them, in the order defined.
+  const extraSections = extraFields.reduce((acc, f) => {
+    (acc.find((g) => g.title === f.section) || (acc[acc.push({ title: f.section, fields: [] }) - 1])).fields.push(f);
+    return acc;
+  }, []);
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
   const setChecked = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.checked }));
@@ -225,15 +252,23 @@ export default function Onboarding() {
       window.scrollTo(0, 0);
       return;
     }
+    const missingFile = extraFields.find((f) => f.field_type === "file" && f.required && !custom[f.field_key]);
+    if (missingFile) {
+      setError(`Please upload: ${missingFile.label}`);
+      window.scrollTo(0, 0);
+      return;
+    }
     setBusy(true);
     try {
       const payload = {
         ...form,
+        custom_values: custom,
         date_of_birth: form.date_of_birth || null,
         date_of_joining: form.date_of_joining || null,
         date_of_offer_letter: form.date_of_offer_letter || null,
       };
-      await api.post("/api/onboarding/submit", payload);
+      const { data } = await api.post("/api/onboarding/submit", payload);
+      setRefNo(data.reference_no || null);
       setDone(true);
       window.scrollTo(0, 0);
     } catch (err) {
@@ -253,6 +288,12 @@ export default function Onboarding() {
           <p className="text-sm text-ink/70 mb-5">
             Your details have been submitted for JADE HR's review.
           </p>
+          {refNo && (
+            <p className="text-sm text-ink mb-5">
+              Your reference number: <span className="font-nums font-semibold text-jade-700">#{refNo}</span>
+              <span className="block text-xs text-ink/60 mt-0.5">Quote this if you contact HR about your joining.</span>
+            </p>
+          )}
           <div className="text-left bg-manila/40 rounded-sm p-4 space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wider text-ink/70">What happens next</p>
             <ol className="list-decimal pl-5 text-sm text-ink/80 space-y-1.5">
@@ -344,7 +385,15 @@ export default function Onboarding() {
             <TextField label="Timings + Days" placeholder="e.g. 10:00 AM - 6:30 PM, Mon-Sat" value={form.timings_and_days} onChange={set("timings_and_days")} required />
           </Section>
 
-          <Section title="Confirmation" step={8}>
+          {extraSections.map((g, i) => (
+            <Section key={g.title} title={g.title} step={8 + i}>
+              {g.fields.map((f) => (
+                <CustomField key={f.field_key} field={f} value={custom[f.field_key]} onChange={(v) => setCustom((c) => ({ ...c, [f.field_key]: v }))} />
+              ))}
+            </Section>
+          ))}
+
+          <Section title="Confirmation" step={8 + extraSections.length}>
             <CheckboxField
               label="I confirm the details above are accurate to the best of my knowledge"
               checked={form.signature_confirmed}

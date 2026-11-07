@@ -8,6 +8,7 @@ import MatrixLoader from "./components/MatrixLoader.jsx";
 import Login from "./pages/Login.jsx";
 import { ForgotPassword, ResetPassword } from "./pages/PasswordRecovery.jsx";
 import Onboarding from "./pages/Onboarding.jsx";
+import InvoiceSubmit from "./pages/InvoiceSubmit.jsx";
 import Setup from "./pages/Setup.jsx";
 
 // Shown exactly once, ever, per policy version, after a successful login,
@@ -121,6 +122,7 @@ const LeaveLedgerReport = lazyWithReload(() => import("./pages/admin/reports/Lea
 const LumpsumReport = lazyWithReload(() => import("./pages/admin/reports/LumpsumReport.jsx"));
 const AttendanceReport = lazyWithReload(() => import("./pages/admin/reports/AttendanceReport.jsx"));
 const TeamAccess = lazyWithReload(() => import("./pages/admin/TeamAccess.jsx"));
+const InvoicesAdmin = lazyWithReload(() => import("./pages/admin/Invoices.jsx"));
 const OnboardingReview = lazyWithReload(() => import("./pages/admin/Onboarding.jsx"));
 const WorkAbsence = lazyWithReload(() => import("./pages/admin/WorkAbsence.jsx"));
 const Exit = lazyWithReload(() => import("./pages/admin/Exit.jsx"));
@@ -236,6 +238,7 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/setup" element={<Setup />} />
           <Route path="/onboarding/new" element={<Onboarding />} />
+          <Route path="/invoices/submit" element={<InvoiceSubmit />} />
           <Route path="/sign/:token" element={<SignLetter />} />
 
           <Route
@@ -306,6 +309,7 @@ export default function App() {
             <Route path="policy-document" element={<PolicyDocument />} />
             <Route path="policy-acknowledgements" element={<RequirePermission anyOf={["policy.acknowledgements.view"]}><PolicyAcknowledgements /></RequirePermission>} />
             <Route path="team-access" element={<RequirePermission anyOf={["permissions.manage", "roles.manage"]}><TeamAccess /></RequirePermission>} />
+            <Route path="invoices" element={<RequirePermission anyOf={["invoices.view", "invoices.reconcile"]}><InvoicesAdmin /></RequirePermission>} />
             <Route path="onboarding" element={<RequirePermission anyOf={["onboarding.manage"]}><OnboardingReview /></RequirePermission>} />
             <Route path="hr-tasks" element={<RequireHrRole><HrTasks /></RequireHrRole>} />
             <Route path="hr-tasks/report" element={<RequireHrRole><HrTasksReport /></RequireHrRole>} />
