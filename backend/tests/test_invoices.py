@@ -35,7 +35,7 @@ def test_routes_registered_and_gated():
 
     import main
 
-    paths = {r.path for r in main.app.routes}
+    paths = set(main.app.openapi()["paths"])  # stable across FastAPI versions
     assert {"/api/invoices/submit", "/api/invoices/track", "/api/invoices/{invoice_id}/approve"} <= paths
     client = TestClient(main.app)
     assert client.get("/api/invoices").status_code in (401, 403)
