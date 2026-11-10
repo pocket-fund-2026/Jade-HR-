@@ -344,14 +344,19 @@ def _create_employee_from_submission(submission: dict, body: OnboardingResolve) 
     return employee_id
 
 
+EMPLOYEE_CODE_BAND = (10000, 20000)   # real codes (biometric IDs); 21xxx/22xxx/70xxx/225427 are legacy/test outliers
+EMPLOYEE_CODE_FLOOR = 14851           # Zoho's last code was 14850 (confirmed 2026-11-07), so we continue from here
+
+
 def _next_employee_code() -> str:
-    """Next free numeric employee code. Real codes are biometric device IDs in
-    the 10000s; a few legacy outliers (225427) are ignored so they don't
-    skew the sequence. The new joiner must be enrolled on the device with
-    this same ID."""
+    """Next code in the Zoho sequence: highest code in the 10000-19999 band + 1,
+    never below 14851. Outliers outside the band are ignored so they can't
+    skew it. The new joiner must be enrolled on the biometric device with this
+    same ID."""
     rows = supabase.table("hr_employees").select("employee_code").execute().data or []
-    nums = [int(r["employee_code"]) for r in rows if str(r["employee_code"]).isdigit() and int(r["employee_code"]) < 100000]
-    return str(max(nums, default=10000) + 1)
+    lo, hi = EMPLOYEE_CODE_BAND
+    nums = [int(r["employee_code"]) for r in rows if str(r["employee_code"]).isdigit() and lo <= int(r["employee_code"]) < hi]
+    return str(max(max(nums, default=lo) + 1, EMPLOYEE_CODE_FLOOR))
 
 
 def _email_login_details(submission: dict, code: str, password: str) -> None:

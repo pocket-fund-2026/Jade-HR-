@@ -558,9 +558,16 @@ class LetterTemplateCreate(BaseModel):
     letter_type: Optional[str] = None  # slug — derived from title if omitted
 
 
+class ClauseCondition(BaseModel):
+    field: str  # a letter form field key, e.g. department, location, ctc
+    op: str  # eq | neq | in | contains | gt | gte | lt | lte
+    value: str = ""
+
+
 class LetterClauseIn(BaseModel):
     title: str = ""
     body: str = ""
+    conditions: list[ClauseCondition] = []  # all must match for the clause to auto-apply
     letter_type: Optional[str] = None  # None = available on every letter
     default_on: bool = False
     sort_order: int = 0

@@ -46,6 +46,31 @@ function wrapMultiline(text, mode) {
 
 // Per-person clauses, mirrored from backend render_clauses/place_clauses so
 // the live preview matches the issued letter exactly.
+const COND_OPS = [
+  ["eq", "is"], ["neq", "is not"], ["in", "is one of (comma list)"], ["contains", "contains"],
+  ["gt", ">"], ["gte", "≥"], ["lt", "<"], ["lte", "≤"],
+];
+const condNum = (t) => { const n = parseFloat(String(t).replace(/,/g, "").trim()); return Number.isNaN(n) ? null : n; };
+// Mirrors backend condition_matches: blank/missing field never matches.
+function conditionMatches(c, values) {
+  const actual = String(values[c.field] ?? "").trim();
+  if (!actual) return false;
+  const a = actual.toLowerCase(), w = String(c.value ?? "").trim().toLowerCase();
+  switch (c.op) {
+    case "eq": return a === w;
+    case "neq": return a !== w;
+    case "in": return w.split(",").map((x) => x.trim()).filter(Boolean).includes(a);
+    case "contains": return a.includes(w);
+    case "gt": case "gte": case "lt": case "lte": {
+      const x = condNum(actual), y = condNum(c.value);
+      if (x === null || y === null) return false;
+      return { gt: x > y, gte: x >= y, lt: x < y, lte: x <= y }[c.op];
+    }
+    default: return false;
+  }
+}
+const clauseApplies = (conds, values) => Array.isArray(conds) && conds.length > 0 && conds.every((c) => conditionMatches(c, values));
+
 function renderClauses(clauses) {
   const items = clauses
     .filter((c) => c.included !== false && (c.title.trim() || c.body.trim()))
@@ -456,7 +481,7 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null }) {
 
   useEffect(() => {
     api.get("/api/letters/clauses", { params: { letter_type: template.letter_type } })
-      .then(({ data }) => setClauses(data.map((c) => ({ key: c.id, title: c.title, body: c.body, included: !!c.default_on, custom: false }))))
+      .then(({ data }) => setClauses(data.map((c) => ({ key: c.id, title: c.title, body: c.body, included: !!c.default_on, custom: false, conditions: c.conditions || [], touched: false }))))
       .catch(() => {});
   }, [template.letter_type]);
 
@@ -509,7 +534,21 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null }) {
     () => substitute(placeClauses(template.body, renderClauses(clauses)), previewValues, { markBlanks: true }),
     [template.body, previewValues, clauses],
   );
-  const updateClause = (key, patch) => setClauses((cs) => cs.map((c) => (c.key === key ? { ...c, ...patch } : c)));
+  // Conditional clauses follow the form values until HR ticks/unticks one by hand.
+  useEffect(() => {
+    setClauses((cs) => {
+      let changed = false;
+      const next = cs.map((c) => {
+        if (c.touched || !c.conditions?.length) return c;
+        const on = clauseApplies(c.conditions, fieldValues);
+        if (on === c.included) return c;
+        changed = true;
+        return { ...c, included: on };
+      });
+      return changed ? next : cs;
+    });
+  }, [fieldValues, clauses.length]);
+  const updateClause = (key, patch) => setClauses((cs) => cs.map((c) => (c.key === key ? { ...c, ...patch, ...("included" in patch ? { touched: true } : {}) } : c)));
   const addCustomClause = () => setClauses((cs) => [...cs, { key: `custom-${Date.now()}`, title: "", body: "", included: true, custom: true }]);
   const removeClause = (key) => setClauses((cs) => cs.filter((c) => c.key !== key));
 
@@ -616,6 +655,7 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null }) {
                 <div key={c.key} className={`rounded-sm border p-3 space-y-2 ${c.included ? "border-jade-500/50 bg-jade-50/40" : "border-ink/10"}`}>
                   <div className="flex items-center gap-2">
                     <input type="checkbox" checked={c.included} onChange={(e) => updateClause(c.key, { included: e.target.checked })} aria-label="Include clause" />
+                    {c.conditions?.length > 0 && <span className="text-[10px] uppercase tracking-wide text-jade-700" title={c.conditions.map((k) => `${k.field} ${k.op} ${k.value}`).join(" AND ")}>{c.touched ? "manual" : "conditional"}</span>}
                     <input value={c.title} onChange={(e) => updateClause(c.key, { title: e.target.value })} placeholder="Clause title" className={`${inputCls} py-1`} />
                     {c.custom && <button type="button" onClick={() => removeClause(c.key)} aria-label="Remove clause" className="text-xs text-rust-500">Remove</button>}
                   </div>
@@ -939,7 +979,7 @@ function ClauseLibrary({ templates }) {
   const save = async () => {
     setError("");
     try {
-      const payload = { title: draft.title, body: draft.body, letter_type: draft.letter_type || null, default_on: !!draft.default_on };
+      const payload = { title: draft.title, body: draft.body, letter_type: draft.letter_type || null, default_on: !!draft.default_on, conditions: (draft.conditions || []).filter((c) => c.field.trim()) };
       if (draft.id) await api.put(`/api/letters/clauses/${draft.id}`, payload);
       else await api.post("/api/letters/clauses", payload);
       setDraft(null);
@@ -955,7 +995,7 @@ function ClauseLibrary({ templates }) {
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/55">Clause library</p>
           <p className="text-xs text-ink/60 mt-0.5">Reusable clauses. When issuing a letter, tick the ones that apply to that person and edit the wording for them.</p>
         </div>
-        <button onClick={() => setDraft({ title: "", body: "", letter_type: "", default_on: false })} className="flex items-center gap-1.5 bg-ledger-800 text-manila px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-ledger-700">
+        <button onClick={() => setDraft({ title: "", body: "", letter_type: "", default_on: false, conditions: [] })} className="flex items-center gap-1.5 bg-ledger-800 text-manila px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-ledger-700">
           <Plus size={13} /> New clause
         </button>
       </div>
@@ -963,6 +1003,24 @@ function ClauseLibrary({ templates }) {
         <div className="p-4 space-y-3 border-b border-ink/10 bg-manila/30">
           <input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="Clause title, e.g. Non-compete" className={inputCls} />
           <textarea value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} rows={4} placeholder="Clause text" className={inputCls} />
+          <div className="space-y-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/55">Apply automatically when (all must match)</p>
+            {(draft.conditions || []).map((c, i) => {
+              const setC = (patch) => setDraft({ ...draft, conditions: draft.conditions.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
+              return (
+                <div key={i} className="flex flex-wrap items-center gap-2">
+                  <input value={c.field} onChange={(e) => setC({ field: e.target.value })} placeholder="field key, e.g. department" className={`${inputCls} py-1 max-w-[11rem]`} />
+                  <select value={c.op} onChange={(e) => setC({ op: e.target.value })} className={`${inputCls} py-1 max-w-[12rem]`}>
+                    {COND_OPS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                  <input value={c.value} onChange={(e) => setC({ value: e.target.value })} placeholder="value" className={`${inputCls} py-1 max-w-[12rem]`} />
+                  <button type="button" onClick={() => setDraft({ ...draft, conditions: draft.conditions.filter((_, j) => j !== i) })} className="text-xs text-rust-500">Remove</button>
+                </div>
+              );
+            })}
+            <button type="button" onClick={() => setDraft({ ...draft, conditions: [...(draft.conditions || []), { field: "", op: "eq", value: "" }] })} className="inline-flex items-center gap-1 text-xs font-semibold text-jade-700 hover:text-jade-600"><Plus size={13} /> Add condition</button>
+            <p className="text-[11px] text-ink/50">Field key is the {"{{token}}"} name used in the letter (department, designation, location, ctc…). No conditions = HR ticks it by hand.</p>
+          </div>
           <div className="flex flex-wrap items-center gap-3">
             <select value={draft.letter_type || ""} onChange={(e) => setDraft({ ...draft, letter_type: e.target.value })} className={`${inputCls} max-w-xs`}>
               <option value="">Available on all letters</option>
@@ -982,7 +1040,7 @@ function ClauseLibrary({ templates }) {
         {(rows || []).map((c) => (
           <li key={c.id} className="flex items-start gap-3 px-4 py-3">
             <div className="min-w-0 flex-1">
-              <p className="font-display text-[15px] text-ink leading-tight">{c.title} <span className="text-[11px] font-sans text-ink/50">· {titleOf(c.letter_type)}{c.default_on ? " · pre-ticked" : ""}</span></p>
+              <p className="font-display text-[15px] text-ink leading-tight">{c.title} <span className="text-[11px] font-sans text-ink/50">· {titleOf(c.letter_type)}{c.default_on ? " · pre-ticked" : ""}{c.conditions?.length ? ` · when ${c.conditions.map((k) => `${k.field} ${k.op} ${k.value}`).join(" and ")}` : ""}</span></p>
               <p className="text-xs text-ink/65 mt-0.5 line-clamp-2">{c.body}</p>
             </div>
             <button onClick={() => setDraft({ ...c })} aria-label="Edit clause" className="border border-ink/15 px-2 py-1.5 rounded-sm hover:border-jade-500"><Pencil size={13} /></button>

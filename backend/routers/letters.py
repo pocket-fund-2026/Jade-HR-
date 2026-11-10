@@ -191,6 +191,58 @@ def delete_template(letter_type: str, user: dict = Depends(require_permission("l
 # been applied yet the library is simply empty and one-off clauses still work.
 
 
+CONDITION_OPS = {"eq", "neq", "in", "contains", "gt", "gte", "lt", "lte"}
+
+
+def _num(text):
+    try:
+        return float(str(text).replace(",", "").strip())
+    except ValueError:
+        return None
+
+
+def condition_matches(cond: dict, values: dict) -> bool:
+    """One rule against the letter's form values. Text is compared trimmed and
+    case-insensitive; gt/gte/lt/lte compare numbers (commas ignored). A blank
+    or missing field never matches, so nothing is attached by accident."""
+    actual = str(values.get(cond.get("field", ""), "") or "").strip()
+    if not actual:
+        return False
+    op, want = cond.get("op"), str(cond.get("value", "") or "").strip()
+    a, w = actual.lower(), want.lower()
+    if op == "eq":
+        return a == w
+    if op == "neq":
+        return a != w
+    if op == "in":
+        return a in {x.strip().lower() for x in want.split(",") if x.strip()}
+    if op == "contains":
+        return w in a
+    if op in ("gt", "gte", "lt", "lte"):
+        x, y = _num(actual), _num(want)
+        if x is None or y is None:
+            return False
+        return {"gt": x > y, "gte": x >= y, "lt": x < y, "lte": x <= y}[op]
+    return False
+
+
+def clause_applies(conditions: list[dict] | None, values: dict) -> bool:
+    """True when the clause has rules and every one matches. No rules = not conditional."""
+    return bool(conditions) and all(condition_matches(c, values) for c in conditions)
+
+
+def _clean_conditions(conditions) -> list[dict]:
+    out = []
+    for c in conditions or []:
+        field, op = c.field.strip(), c.op.strip()
+        if not field:
+            continue
+        if op not in CONDITION_OPS:
+            raise HTTPException(status_code=400, detail=f"Unknown condition '{op}'")
+        out.append({"field": field, "op": op, "value": c.value.strip()})
+    return out
+
+
 def _clause_table():
     return supabase.table("hr_letter_clauses")
 
@@ -221,6 +273,9 @@ def create_clause(body: LetterClauseIn, user: dict = Depends(require_permission(
         "sort_order": body.sort_order,
         "updated_by": user["id"],
     }
+    # Only sent when used, so plain clauses keep saving before sql/083 is applied.
+    if body.conditions:
+        row["conditions"] = _clean_conditions(body.conditions)
     try:
         return _clause_table().insert(row).execute().data[0]
     except Exception:
@@ -229,9 +284,7 @@ def create_clause(body: LetterClauseIn, user: dict = Depends(require_permission(
 
 @router.put("/clauses/{clause_id}")
 def update_clause(clause_id: str, body: LetterClauseIn, user: dict = Depends(require_permission("letters.manage"))):
-    resp = (
-        _clause_table()
-        .update({
+    fields = {
             "letter_type": body.letter_type or None,
             "title": body.title.strip(),
             "body": body.body.strip(),
@@ -239,10 +292,15 @@ def update_clause(clause_id: str, body: LetterClauseIn, user: dict = Depends(req
             "sort_order": body.sort_order,
             "updated_by": user["id"],
             "updated_at": datetime.now(timezone.utc).isoformat(),
-        })
-        .eq("id", clause_id)
-        .execute()
-    )
+    }
+    conditions = _clean_conditions(body.conditions)
+    try:
+        resp = _clause_table().update({**fields, "conditions": conditions}).eq("id", clause_id).execute()
+    except Exception:
+        if conditions:
+            raise HTTPException(status_code=503, detail="Conditions need sql/083_letter_clause_conditions.sql applied first")
+        # sql/083 not applied yet and nothing to store: save the rest as before.
+        resp = _clause_table().update(fields).eq("id", clause_id).execute()
     if not resp.data:
         raise HTTPException(status_code=404, detail="Clause not found")
     return resp.data[0]

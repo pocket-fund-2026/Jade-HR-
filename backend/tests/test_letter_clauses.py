@@ -24,3 +24,14 @@ def test_explicit_clauses_token_and_not_a_form_field():
     assert place_clauses("a{{ clauses }}b", "X") == "aXb"
     assert place_clauses("a{{clauses}}b", "") == "ab"
     assert _tokens_in("{{clauses}}{{name}}") == ["name"]
+
+
+def test_conditional_clause_matching():
+    from routers.letters import clause_applies
+    vals = {"department": "Production", "ctc": "12,00,000", "location": "Mumbai"}
+    assert clause_applies([{"field": "department", "op": "eq", "value": "production"}], vals)
+    assert clause_applies([{"field": "location", "op": "in", "value": "Delhi, Mumbai"}], vals)
+    assert clause_applies([{"field": "ctc", "op": "gte", "value": "1000000"}, {"field": "department", "op": "neq", "value": "CAD"}], vals)
+    assert not clause_applies([{"field": "ctc", "op": "gt", "value": "2000000"}], vals)
+    assert not clause_applies([{"field": "notice", "op": "neq", "value": "x"}], vals)  # missing field never matches
+    assert not clause_applies([], vals)  # unconditional clause is not "conditional"
