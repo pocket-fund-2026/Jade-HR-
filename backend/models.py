@@ -628,6 +628,9 @@ class OnboardingLocationIn(BaseModel):
 class OnboardingSubmissionCreate(BaseModel):
     # Answers to HR-defined extra fields, keyed by field_key (see hr_onboarding_fields).
     custom_values: dict[str, Any] = {}
+    # Candidate's personal link token from the signed-offer email; the form is
+    # only accepted for a candidate whose offer letter has been signed.
+    offer_token: Optional[str] = None
 
     # Personal
     full_name: str
