@@ -84,6 +84,8 @@ function TextAreaField({ label, value, onChange, required }) {
 }
 
 function SelectField({ label, value, onChange, options, required }) {
+  // options: strings, or {value, label} pairs
+  const opts = options.map((o) => (typeof o === "string" ? { value: o, label: o } : o));
   return (
     <div>
       <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">
@@ -95,7 +97,7 @@ function SelectField({ label, value, onChange, options, required }) {
         required={required}
         className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500"
       >
-        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+        {opts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
     </div>
   );
@@ -230,7 +232,15 @@ export default function Onboarding() {
   const [extraFields, setExtraFields] = useState([]);
   const [custom, setCustom] = useState({});
 
+  const [locationOptions, setLocationOptions] = useState(LOCATIONS);
   useEffect(() => {
+    api.get("/api/onboarding/locations").then(({ data }) => {
+      if (!data?.length) return;
+      setLocationOptions(data.map((l) => ({
+        value: l.value,
+        label: `${l.is_hq ? "HQ — " : ""}${l.value}${l.address ? ` — ${l.address}` : ""}`,
+      })));
+    }).catch(() => {});
     api.get("/api/onboarding/fields").then(({ data }) => setExtraFields(data)).catch(() => {});
   }, []);
 
@@ -381,7 +391,7 @@ export default function Onboarding() {
           </Section>
 
           <Section title="Workplace & Schedule" step={7}>
-            <SelectField label="Place of Work" value={form.place_of_work} onChange={set("place_of_work")} options={LOCATIONS} required />
+            <SelectField label="Place of Work" value={form.place_of_work} onChange={set("place_of_work")} options={locationOptions} required />
             <TextField label="Timings + Days" placeholder="e.g. 10:00 AM - 6:30 PM, Mon-Sat" value={form.timings_and_days} onChange={set("timings_and_days")} required />
           </Section>
 

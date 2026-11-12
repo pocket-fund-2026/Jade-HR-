@@ -616,6 +616,14 @@ class OnboardingFieldIn(BaseModel):
     is_active: bool = True
 
 
+class OnboardingLocationIn(BaseModel):
+    value: str
+    address: str = ""
+    is_hq: bool = False
+    sort_order: int = 0
+    is_active: bool = True
+
+
 class OnboardingSubmissionCreate(BaseModel):
     # Answers to HR-defined extra fields, keyed by field_key (see hr_onboarding_fields).
     custom_values: dict[str, Any] = {}

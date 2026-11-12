@@ -11,7 +11,7 @@ const TABS = [
   { key: "pending", label: "Pending" },
   { key: "approved", label: "Approved" },
   { key: "rejected", label: "Rejected" },
-  { key: "form", label: "Form fields" },
+  { key: "form", label: "Form builder" },
 ];
 
 const FIELD_TYPES = [
@@ -19,6 +19,59 @@ const FIELD_TYPES = [
   ["select", "Dropdown"], ["checkbox", "Tick box"], ["file", "File upload"],
 ];
 const inputCls = "w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-jade-500";
+
+// HR-managed "Place of Work" options (name + full address, HQ flag).
+function Locations() {
+  const [rows, setRows] = useState(null);
+  const [draft, setDraft] = useState(null);
+  const [error, setError] = useState("");
+  const load = () => api.get("/api/onboarding/admin/locations").then(({ data }) => setRows(data)).catch(() => setRows([]));
+  useEffect(() => { load(); }, []);
+  const save = async () => {
+    setError("");
+    const payload = { value: draft.value, address: draft.address, is_hq: !!draft.is_hq, sort_order: Number(draft.sort_order) || 0, is_active: true };
+    try {
+      if (draft.id) await api.put(`/api/onboarding/admin/locations/${draft.id}`, payload);
+      else await api.post("/api/onboarding/admin/locations", payload);
+      setDraft(null); load();
+    } catch (err) { setError(err.response?.data?.detail || "Could not save"); }
+  };
+  const visible = (rows || []).filter((r) => r.is_active !== false);
+  return (
+    <div className="bg-paper rounded-sm shadow-card mb-6">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-ink/10">
+        <p className="text-xs text-ink/70">Place of Work choices on the public form. The name is what gets stored on the employee; the full address is shown to the joiner.</p>
+        <button onClick={() => setDraft({ value: "", address: "", is_hq: false, sort_order: visible.length + 1 })}
+          className="flex items-center gap-1.5 bg-ledger-800 text-manila px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-ledger-700 flex-shrink-0 ml-3"><Plus size={13} /> Add place</button>
+      </div>
+      {draft && (
+        <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-3 border-b border-ink/10 bg-manila/30">
+          <input value={draft.value} onChange={(e) => setDraft({ ...draft, value: e.target.value })} placeholder="Name, e.g. Pedder Road, Mumbai" className={inputCls} />
+          <input value={draft.address} onChange={(e) => setDraft({ ...draft, address: e.target.value })} placeholder="Full address" className={inputCls} />
+          <label className="flex items-center gap-2 text-xs text-ink/70"><input type="checkbox" checked={!!draft.is_hq} onChange={(e) => setDraft({ ...draft, is_hq: e.target.checked })} /> This is HQ</label>
+          <label className="flex items-center gap-2 text-xs text-ink/70">Order <input type="number" value={draft.sort_order} onChange={(e) => setDraft({ ...draft, sort_order: e.target.value })} className={`${inputCls} w-20`} /></label>
+          {error && <p className="text-sm text-rust-500 sm:col-span-2">{error}</p>}
+          <div className="sm:col-span-2 flex justify-end gap-2">
+            <button onClick={() => setDraft(null)} className="text-xs text-ink/70 px-3 py-1.5">Cancel</button>
+            <button onClick={save} className="bg-jade-600 text-white px-4 py-1.5 rounded-sm text-xs font-semibold hover:bg-jade-700">Save</button>
+          </div>
+        </div>
+      )}
+      <ul className="divide-y divide-ink/[0.07]">
+        {visible.map((r) => (
+          <li key={r.value} className="flex items-center gap-3 px-5 py-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-ink font-medium">{r.is_hq && <span className="text-jade-600">HQ · </span>}{r.value}</p>
+              <p className="text-xs text-ink/60">{r.address || <span className="text-rust-500">No address yet — click Edit to add it</span>}</p>
+            </div>
+            {r.id && <button onClick={() => setDraft({ ...r })} className="text-xs text-jade-600 font-semibold">Edit</button>}
+            {r.id && <button onClick={async () => { await api.delete(`/api/onboarding/admin/locations/${r.id}`); load(); }} className="text-xs text-rust-500">Remove</button>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 // HR-managed extra fields for the public form (no tech request needed).
 function FormFields() {
@@ -388,7 +441,7 @@ export default function Onboarding() {
 
       <SlidingTabs tabs={TABS} value={tab} onChange={setTab} className="flex gap-1 mb-4" />
 
-      {tab === "form" ? <FormFields /> : (
+      {tab === "form" ? <><Locations /><FormFields /></> : (
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm tabular-nums">
           <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">

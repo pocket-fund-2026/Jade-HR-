@@ -22,3 +22,12 @@ def test_continues_after_zoho_and_ignores_outliers(monkeypatch):
 def test_floor_and_increment(monkeypatch):
     assert _next(monkeypatch, ["14600"]) == "14851"
     assert _next(monkeypatch, ["14851", "14852", "abc"]) == "14853"
+
+
+def test_locations_fallback_includes_hq_with_full_address(monkeypatch):
+    class Boom:
+        def table(self, _): raise RuntimeError("no table")
+    monkeypatch.setattr(onboarding, "supabase", Boom())
+    locs = onboarding.public_locations()
+    hq = [l for l in locs if l["is_hq"]]
+    assert len(hq) == 1 and "Lower Parel" in hq[0]["address"]

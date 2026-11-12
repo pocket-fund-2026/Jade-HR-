@@ -10,7 +10,7 @@ from database import maybe_single_data, supabase
 from workflow_log import record_step
 import re
 
-from models import OnboardingFieldIn, OnboardingResolve, OnboardingSubmissionCreate, OnboardingUpload
+from models import OnboardingFieldIn, OnboardingLocationIn, OnboardingResolve, OnboardingSubmissionCreate, OnboardingUpload
 
 router = APIRouter(prefix="/api/onboarding", tags=["onboarding"])
 
@@ -77,6 +77,69 @@ def public_fields():
         {k: f[k] for k in ("field_key", "label", "field_type", "options", "required", "section", "help_text")}
         for f in _active_fields()
     ]
+
+
+DEFAULT_LOCATIONS = [
+    {"value": "Madhu Estate, Mumbai", "is_hq": True, "sort_order": 1,
+     "address": "Jade Lifestyles India, Madhu Estate, 2nd Floor B wing, Pandurang Budhkar Marg, Lower Parel, Mumbai 400013"},
+    *[{"value": v, "is_hq": False, "sort_order": i, "address": ""} for i, v in enumerate(
+        ["Pedder Road, Mumbai", "Mehrauli (Ambawatta), Delhi", "Emporio, Delhi", "Ahmedabad"], start=2)],
+]
+
+
+def _active_locations() -> list[dict]:
+    """Place-of-work options; built-in defaults if sql/084 isn't applied yet."""
+    try:
+        rows = (supabase.table("hr_onboarding_locations").select("*").eq("is_active", True)
+                .order("sort_order").order("created_at").execute().data)
+        return rows or DEFAULT_LOCATIONS
+    except Exception:
+        return DEFAULT_LOCATIONS
+
+
+@router.get("/locations")
+def public_locations():
+    return [{k: l.get(k) for k in ("value", "address", "is_hq")} for l in _active_locations()]
+
+
+@router.get("/admin/locations")
+def admin_locations(user: dict = Depends(require_permission("onboarding.manage"))):
+    try:
+        return supabase.table("hr_onboarding_locations").select("*").order("sort_order").order("created_at").execute().data or []
+    except Exception:
+        return [{**l, "id": None} for l in DEFAULT_LOCATIONS]
+
+
+def _clean_location(body: OnboardingLocationIn) -> dict:
+    value = body.value.strip()
+    if not value:
+        raise HTTPException(status_code=400, detail="A place of work needs a name")
+    return {"value": value, "address": body.address.strip(), "is_hq": body.is_hq,
+            "sort_order": body.sort_order, "is_active": body.is_active}
+
+
+@router.post("/admin/locations")
+def create_location(body: OnboardingLocationIn, user: dict = Depends(require_permission("onboarding.manage"))):
+    try:
+        return supabase.table("hr_onboarding_locations").insert(_clean_location(body)).execute().data[0]
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=409, detail="Could not save — name already exists, or sql/084_onboarding_locations.sql is not applied")
+
+
+@router.put("/admin/locations/{location_id}")
+def update_location(location_id: str, body: OnboardingLocationIn, user: dict = Depends(require_permission("onboarding.manage"))):
+    resp = supabase.table("hr_onboarding_locations").update(_clean_location(body)).eq("id", location_id).execute()
+    if not resp.data:
+        raise HTTPException(status_code=404, detail="Place of work not found")
+    return resp.data[0]
+
+
+@router.delete("/admin/locations/{location_id}")
+def delete_location(location_id: str, user: dict = Depends(require_permission("onboarding.manage"))):
+    supabase.table("hr_onboarding_locations").update({"is_active": False}).eq("id", location_id).execute()
+    return {"ok": True}
 
 
 def _clean_field(body: OnboardingFieldIn) -> dict:
