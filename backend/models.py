@@ -957,3 +957,7 @@ class ExitSignerCreate(BaseModel):
     row_department: str
     employee_id: str
     scope_department: Optional[str] = None  # only for the "Department Head" row: the leaver's department this person heads
+
+
+class ReorderIn(BaseModel):
+    ids: list[str]

@@ -12,7 +12,7 @@ from database import maybe_single_data, supabase
 from workflow_log import record_step
 import re
 
-from models import OnboardingFieldIn, OnboardingLocationIn, OnboardingResolve, OnboardingSubmissionCreate, OnboardingUpload
+from models import ReorderIn, OnboardingFieldIn, OnboardingLocationIn, OnboardingResolve, OnboardingSubmissionCreate, OnboardingUpload
 
 router = APIRouter(prefix="/api/onboarding", tags=["onboarding"])
 
@@ -166,13 +166,13 @@ class CoreFieldIn(BaseModel):
 
 def _core_overrides() -> dict:
     try:
-        rows = supabase.table("hr_onboarding_core_fields").select("field_key,is_hidden,hr_only,label,required").execute().data or []
+        rows = supabase.table("hr_onboarding_core_fields").select("field_key,is_hidden,hr_only,label,required,sort_order").execute().data or []
     except Exception:  # sql/087 not applied yet: every built-in field behaves as before
         return {}
     return {
         r["field_key"]: {
             "hidden": bool(r["is_hidden"]), "hr_only": bool(r.get("hr_only")),
-            "label": r.get("label") or "", "required": r.get("required"),
+            "label": r.get("label") or "", "required": r.get("required"), "order": r.get("sort_order"),
         }
         for r in rows
     }
@@ -197,9 +197,13 @@ def set_core_field(field_key: str, body: CoreFieldIn, user: dict = Depends(requi
         raise HTTPException(status_code=400, detail="Name and email must be filled in by the candidate")
     label = (body.label or "").strip()[:120] or None
     if not body.is_hidden and not body.hr_only and label is None and body.required is None:
-        # nothing left to override: drop the row so the field is back to its default
+        # nothing left to override: back to the built-in label/required/visibility. The row stays only if it
+        # carries a position (drag-and-drop order), otherwise it is removed.
         try:
-            supabase.table("hr_onboarding_core_fields").delete().eq("field_key", field_key).execute()
+            supabase.table("hr_onboarding_core_fields").update(
+                {"is_hidden": False, "hr_only": False, "label": None, "required": None}
+            ).eq("field_key", field_key).execute()
+            supabase.table("hr_onboarding_core_fields").delete().eq("field_key", field_key).is_("sort_order", "null").execute()
         except Exception:
             pass
         return {"ok": True, "reset": True}
@@ -210,6 +214,39 @@ def set_core_field(field_key: str, body: CoreFieldIn, user: dict = Depends(requi
         }, on_conflict="field_key").execute()
     except Exception:
         raise HTTPException(status_code=503, detail="The form builder is not fully set up yet (run sql/087_onboarding_core_fields.sql)")
+    return {"ok": True}
+
+
+class CoreOrderIn(BaseModel):
+    keys: list[str]
+
+
+@router.put("/admin/core-fields-order")
+def reorder_core_fields(body: CoreOrderIn, user: dict = Depends(require_permission("onboarding.manage"))):
+    """Drag-and-drop order of the built-in questions within a section (position in `keys`)."""
+    keys = [k for k in body.keys if CORE_KEY_RE.match(k)]
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        supabase.table("hr_onboarding_core_fields").upsert(
+            [{"field_key": k, "sort_order": i, "updated_by": user["id"], "updated_at": now} for i, k in enumerate(keys)],
+            on_conflict="field_key",
+        ).execute()
+    except Exception:
+        raise HTTPException(status_code=503, detail="Reordering needs sql/087_onboarding_core_fields.sql")
+    return {"ok": True}
+
+
+@router.put("/admin/fields-order")
+def reorder_custom_fields(body: ReorderIn, user: dict = Depends(require_permission("onboarding.manage"))):
+    for position, field_id in enumerate(body.ids):
+        supabase.table("hr_onboarding_fields").update({"sort_order": position}).eq("id", field_id).execute()
+    return {"ok": True}
+
+
+@router.put("/admin/locations-order")
+def reorder_locations(body: ReorderIn, user: dict = Depends(require_permission("onboarding.manage"))):
+    for position, location_id in enumerate(body.ids):
+        supabase.table("hr_onboarding_locations").update({"sort_order": position}).eq("id", location_id).execute()
     return {"ok": True}
 
 

@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 
 import StampBadge from "../../components/StampBadge.jsx";
-import { CORE_FIELDS, CORE_SECTIONS, effectiveField } from "../../lib/onboardingFields.js";
+import SortableList from "../../components/SortableList.jsx";
+import { CORE_FIELDS, CORE_SECTIONS, effectiveField, orderedCoreFields } from "../../lib/onboardingFields.js";
 import api from "../../lib/api.js";
 import { useAuth } from "../../lib/auth.jsx";
 import SlidingTabs from "../../components/SlidingTabs.jsx";
@@ -38,6 +39,11 @@ function Locations() {
     } catch (err) { setError(err.response?.data?.detail || "Could not save"); }
   };
   const visible = (rows || []).filter((r) => r.is_active !== false);
+  const reorderPlaces = async (next) => {
+    if (!next.every((r) => r.id)) return; // the built-in fallback list (no rows saved yet) cannot be reordered
+    setRows((cur) => [...next, ...(cur || []).filter((r) => r.is_active === false)]);
+    try { await api.put("/api/onboarding/admin/locations-order", { ids: next.map((r) => r.id) }); } catch { load(); }
+  };
   return (
     <div className="bg-paper rounded-sm shadow-card mb-6">
       <div className="flex items-center justify-between px-5 py-3 border-b border-ink/10">
@@ -50,7 +56,6 @@ function Locations() {
           <input value={draft.value} onChange={(e) => setDraft({ ...draft, value: e.target.value })} placeholder="Name, e.g. Pedder Road, Mumbai" className={inputCls} />
           <input value={draft.address} onChange={(e) => setDraft({ ...draft, address: e.target.value })} placeholder="Full address" className={inputCls} />
           <label className="flex items-center gap-2 text-xs text-ink/70"><input type="checkbox" checked={!!draft.is_hq} onChange={(e) => setDraft({ ...draft, is_hq: e.target.checked })} /> This is HQ</label>
-          <label className="flex items-center gap-2 text-xs text-ink/70">Order <input type="number" value={draft.sort_order} onChange={(e) => setDraft({ ...draft, sort_order: e.target.value })} className={`${inputCls} w-20`} /></label>
           {error && <p className="text-sm text-rust-500 sm:col-span-2">{error}</p>}
           <div className="sm:col-span-2 flex justify-end gap-2">
             <button onClick={() => setDraft(null)} className="text-xs text-ink/70 px-3 py-1.5">Cancel</button>
@@ -58,18 +63,21 @@ function Locations() {
           </div>
         </div>
       )}
-      <ul className="divide-y divide-ink/[0.07]">
-        {visible.map((r) => (
-          <li key={r.value} className="flex items-center gap-3 px-5 py-3">
+      <SortableList
+        as="ul" className="divide-y divide-ink/[0.07]" items={visible} getKey={(r) => r.id || r.value}
+        onReorder={reorderPlaces} arrows
+        renderItem={(r, _i, handle) => (
+          <div className="flex items-center gap-3 px-5 py-3">
+            {r.id ? handle : <span className="w-4" />}
             <div className="flex-1 min-w-0">
               <p className="text-sm text-ink font-medium">{r.is_hq && <span className="text-jade-600">HQ · </span>}{r.value}</p>
               <p className="text-xs text-ink/60">{r.address || <span className="text-rust-500">No address yet — click Edit to add it</span>}</p>
             </div>
             {r.id && <button onClick={() => setDraft({ ...r })} className="text-xs text-jade-600 font-semibold">Edit</button>}
             {r.id && <button onClick={async () => { await api.delete(`/api/onboarding/admin/locations/${r.id}`); load(); }} className="text-xs text-rust-500">Remove</button>}
-          </li>
-        ))}
-      </ul>
+          </div>
+        )}
+      />
     </div>
   );
 }
@@ -96,6 +104,11 @@ function BuiltInFields() {
       load();
     } catch (err) { setError(err.response?.data?.detail || "Could not save"); }
   };
+  const reorderSection = async (keys) => {
+    // optimistic: show the new order at once, then save it
+    setOverrides((cur) => { const next = { ...cur }; keys.forEach((k, i) => { next[k] = { ...(next[k] || {}), order: i }; }); return next; });
+    try { await api.put("/api/onboarding/admin/core-fields-order", { keys }); } catch (err) { setError(err.response?.data?.detail || "Could not save the order"); load(); }
+  };
   const setAsked = (field, who) => save(field, { is_hidden: who === "hidden", hr_only: who === "hr" });
   const resetAll = async () => {
     for (const key of Object.keys(overrides)) {
@@ -119,12 +132,15 @@ function BuiltInFields() {
       {CORE_SECTIONS.map((section) => (
         <div key={section} className="border-b border-ink/[0.07] last:border-0">
           <p className="px-5 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-ink/60">{section}</p>
-          <ul>
-            {CORE_FIELDS.filter((f) => f.section === section).map((f) => {
-              const e = effectiveField(f, overrides);
+          <SortableList
+            items={orderedCoreFields(section, overrides)} getKey={(f) => f.key}
+            onReorder={(next) => reorderSection(next.map((f) => f.key))}
+            renderItem={(f, _i, handle) => {
+              const e = f;
               const who = f.locked ? "candidate" : e.hrOnly ? "hr" : e.hidden ? "hidden" : "candidate";
               return (
-                <li key={f.key} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-2">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-2">
+                  {handle}
                   <div className="flex-1 min-w-[180px]">
                     {renaming === f.key ? (
                       <input
@@ -159,10 +175,10 @@ function BuiltInFields() {
                   {e.overridden && !f.locked && (
                     <button onClick={() => save(f, { is_hidden: false, hr_only: false, label: null, required: null })} className="text-xs text-ink/50">Reset</button>
                   )}
-                </li>
+                </div>
               );
-            })}
-          </ul>
+            }}
+          />
         </div>
       ))}
     </div>
@@ -193,15 +209,9 @@ function FormFields() {
   };
   const remove = async (id) => { await api.delete(`/api/onboarding/admin/fields/${id}`); load(); };
   const visible = (fields || []).filter((f) => f.is_active);
-  // Move a field up/down by swapping its sort order with its neighbour's.
-  const move = async (idx, dir) => {
-    const a = visible[idx], b = visible[idx + dir];
-    if (!a || !b) return;
-    const body = (f, order) => ({ label: f.label, field_type: f.field_type, required: f.required, section: f.section, help_text: f.help_text, options: f.options || [], is_active: true, hr_only: !!f.hr_only, sort_order: order });
-    const ao = a.sort_order === b.sort_order ? a.sort_order + dir : a.sort_order;
-    await api.put(`/api/onboarding/admin/fields/${a.id}`, body(a, b.sort_order));
-    await api.put(`/api/onboarding/admin/fields/${b.id}`, body(b, ao));
-    load();
+  const reorderCustom = async (next) => {
+    setFields((cur) => [...next, ...(cur || []).filter((f) => !f.is_active)]);
+    try { await api.put("/api/onboarding/admin/fields-order", { ids: next.map((f) => f.id) }); } catch { load(); }
   };
 
   return (
@@ -224,7 +234,6 @@ function FormFields() {
           )}
           <label className="flex items-center gap-2 text-xs text-ink/70"><input type="checkbox" checked={!!draft.required} onChange={(e) => setDraft({ ...draft, required: e.target.checked })} /> Required</label>
           <label className="flex items-center gap-2 text-xs text-ink/70"><input type="checkbox" checked={!!draft.hr_only} onChange={(e) => setDraft({ ...draft, hr_only: e.target.checked })} /> HR fills this in (not shown to the candidate)</label>
-          <label className="flex items-center gap-2 text-xs text-ink/70">Order <input type="number" value={draft.sort_order} onChange={(e) => setDraft({ ...draft, sort_order: e.target.value })} className={`${inputCls} w-20`} /></label>
           {error && <p className="text-sm text-rust-500 sm:col-span-2">{error}</p>}
           <div className="sm:col-span-2 flex justify-end gap-2">
             <button onClick={() => setDraft(null)} className="text-xs text-ink/70 px-3 py-1.5">Cancel</button>
@@ -232,23 +241,22 @@ function FormFields() {
           </div>
         </div>
       )}
-      <ul className="divide-y divide-ink/[0.07]">
-        {fields && visible.length === 0 && <li className="px-5 py-6 text-sm text-ink/60 text-center">No extra fields yet.</li>}
-        {visible.map((f, idx) => (
-          <li key={f.id} className="flex items-center gap-3 px-5 py-3">
-            <div className="flex flex-col text-ink/50 -my-1">
-              <button onClick={() => move(idx, -1)} disabled={idx === 0} aria-label="Move up" className="leading-none hover:text-ink disabled:opacity-20">▲</button>
-              <button onClick={() => move(idx, 1)} disabled={idx === visible.length - 1} aria-label="Move down" className="leading-none hover:text-ink disabled:opacity-20">▼</button>
-            </div>
+      {fields && visible.length === 0 && <p className="px-5 py-6 text-sm text-ink/60 text-center">No extra fields yet.</p>}
+      <SortableList
+        as="ul" className="divide-y divide-ink/[0.07]" items={visible} getKey={(f) => f.id}
+        onReorder={reorderCustom}
+        renderItem={(f, _i, handle) => (
+          <div className="flex items-center gap-3 px-5 py-3">
+            {handle}
             <div className="flex-1 min-w-0">
               <p className="text-sm text-ink font-medium">{f.label}{f.required && <span className="text-rust-500"> *</span>}{f.hr_only && <span className="ml-2 text-[10px] font-semibold uppercase tracking-wider text-jade-700 bg-jade-50 px-1.5 py-0.5 rounded-sm">HR fills</span>}</p>
-              <p className="text-xs text-ink/60">{f.section} · {FIELD_TYPES.find(([k]) => k === f.field_type)?.[1]}{f.field_type === "select" ? ` (${f.options.length} choices)` : ""} · order {f.sort_order}</p>
+              <p className="text-xs text-ink/60">{f.section} · {FIELD_TYPES.find(([k]) => k === f.field_type)?.[1]}{f.field_type === "select" ? ` (${f.options.length} choices)` : ""}</p>
             </div>
             <button onClick={() => setDraft({ ...f, optionsText: (f.options || []).join("\n") })} className="text-xs text-jade-600 font-semibold">Edit</button>
             <button onClick={() => remove(f.id)} className="text-xs text-rust-500">Remove</button>
-          </li>
-        ))}
-      </ul>
+          </div>
+        )}
+      />
     </div>
   );
 }

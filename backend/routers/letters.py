@@ -10,6 +10,7 @@ from auth import require_permission
 from database import maybe_single_data, supabase
 from letter_email import HR_CONTACT, build_letter_email_html
 from models import (
+    ReorderIn,
     LetterBodyEdit,
     LetterClauseIn,
     LetterEmailRequest,
@@ -281,6 +282,14 @@ def create_clause(body: LetterClauseIn, user: dict = Depends(require_permission(
         return _clause_table().insert(row).execute().data[0]
     except Exception:
         raise HTTPException(status_code=503, detail="The clause library is not set up yet (run sql/079_letter_clauses.sql)")
+
+
+@router.put("/clauses/reorder")
+def reorder_clauses(body: ReorderIn, user: dict = Depends(require_permission("letters.manage"))):
+    """Drag-and-drop order of the clause library: position in `ids` becomes sort_order."""
+    for position, clause_id in enumerate(body.ids):
+        _clause_table().update({"sort_order": position}).eq("id", clause_id).execute()
+    return {"ok": True, "count": len(body.ids)}
 
 
 @router.put("/clauses/{clause_id}")

@@ -7,6 +7,7 @@ create table if not exists hr_onboarding_core_fields (
     hr_only     boolean not null default false,   -- not asked of the candidate; HR fills it in on the submission
     label       text,                 -- null = built-in label
     required    boolean,              -- null = built-in default
+    sort_order  integer,              -- drag-and-drop position within its section; null = built-in order
     updated_by  uuid references hr_employees(id) on delete set null,
     updated_at  timestamptz not null default now()
 );

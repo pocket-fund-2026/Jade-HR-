@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { useConfirm } from "../../components/ConfirmDialog.jsx";
+import SortableList from "../../components/SortableList.jsx";
 import api from "../../lib/api.js";
 import { useAuth } from "../../lib/auth.jsx";
 import { formatOrdinalDate } from "../../lib/format.js";
@@ -587,7 +588,7 @@ function FieldInput({ token, value, onChange }) {
 }
 
 function LetterGenerator({ template, onClose, onIssued, candidateId = null, submissionId = null }) {
-  const { user } = useAuth();
+  const { user, can } = useAuth();
   const confirm = useConfirm();
   const todayLabel = formatOrdinalDate(new Date().toISOString());
   const [mode, setMode] = useState(candidateId ? "new" : submissionId ? "form" : "existing"); // existing | new | form
@@ -606,7 +607,10 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null, subm
 
   useEffect(() => {
     api.get("/api/letters/clauses", { params: { letter_type: template.letter_type } })
-      .then(({ data }) => setClauses(data.map((c) => ({ key: c.id, title: c.title, body: c.body, included: !!c.default_on, custom: false, conditions: c.conditions || [], touched: false }))))
+      .then(({ data }) => {
+        const list = data.map((c) => ({ key: c.id, title: c.title, body: c.body, included: !!c.default_on, custom: false, conditions: c.conditions || [], touched: false }));
+        setClauses([...list.filter((c) => c.included), ...list.filter((c) => !c.included)]);
+      })
       .catch(() => {});
   }, [template.letter_type]);
 
@@ -700,12 +704,32 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null, subm
         changed = true;
         return { ...c, included: on };
       });
-      return changed ? next : cs;
+      return changed ? inLetterFirst(next) : cs;
     });
   }, [fieldValues, clauses.length]);
-  const updateClause = (key, patch) => setClauses((cs) => cs.map((c) => (c.key === key ? { ...c, ...patch, ...("included" in patch ? { touched: true } : {}) } : c)));
-  const addCustomClause = () => setClauses((cs) => [...cs, { key: `custom-${Date.now()}`, title: "", body: "", included: true, custom: true }]);
+  // Invariant: clauses in the letter come first, in the order HR gave them; the rest of the library follows.
+  const inLetterFirst = (cs) => [...cs.filter((c) => c.included), ...cs.filter((c) => !c.included)];
+  const updateClause = (key, patch) => setClauses((cs) => inLetterFirst(cs.map((c) => (c.key === key ? { ...c, ...patch, ...("included" in patch ? { touched: true } : {}) } : c))));
   const removeClause = (key) => setClauses((cs) => cs.filter((c) => c.key !== key));
+  const reorderIncluded = (next) => setClauses((cs) => [...next, ...cs.filter((c) => !c.included)]);
+  const [clauseSearch, setClauseSearch] = useState("");
+  const [newClause, setNewClause] = useState(null); // { title, body, saveToLibrary }
+  const [clauseError, setClauseError] = useState("");
+  const inLetter = clauses.filter((c) => c.included);
+  const availableClauses = clauses.filter((c) => !c.included && `${c.title} ${c.body}`.toLowerCase().includes(clauseSearch.trim().toLowerCase()));
+  const addNewClause = async () => {
+    setClauseError("");
+    if (!newClause.title.trim() || !newClause.body.trim()) { setClauseError("Give the clause a title and its text"); return; }
+    let entry = { key: `custom-${Date.now()}`, title: newClause.title.trim(), body: newClause.body.trim(), included: true, custom: true, touched: true };
+    if (newClause.saveToLibrary) {
+      try {
+        const { data } = await api.post("/api/letters/clauses", { title: entry.title, body: entry.body, letter_type: template.letter_type });
+        entry = { ...entry, key: data.id, custom: false, conditions: [] };
+      } catch (err) { setClauseError(err.response?.data?.detail || "Could not save it to the library"); return; }
+    }
+    setClauses((cs) => inLetterFirst([...cs, entry]));
+    setNewClause(null);
+  };
 
   const groups = useMemo(() => {
     const placed = new Set();
@@ -810,26 +834,81 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null, subm
                 ))}
               </fieldset>
             ))}
-            <fieldset className="p-5 space-y-3">
+            <fieldset className="p-5 space-y-4">
               <legend className="sr-only">Clauses for this person</legend>
-              <div className="flex items-center justify-between">
-                <p className="font-display text-base text-ink">Clauses for this person</p>
-                <button type="button" onClick={addCustomClause} className="inline-flex items-center gap-1 text-xs font-semibold text-jade-700 hover:text-jade-600">
-                  <Plus size={13} /> Add clause
-                </button>
+              <div>
+                <p className="font-display text-base text-ink">Clauses in this letter ({inLetter.length})</p>
+                <p className="text-xs text-ink/60">They print above the signature in this order. Drag to re-sequence; edit the wording for this letter only.</p>
               </div>
-              {clauses.length === 0 && <p className="text-xs text-ink/60">No clauses attached. Tick clauses from the library or add one just for this person; they appear above the signature.</p>}
-              {clauses.map((c) => (
-                <div key={c.key} className={`rounded-sm border p-3 space-y-2 ${c.included ? "border-jade-500/50 bg-jade-50/40" : "border-ink/10"}`}>
-                  <div className="flex items-center gap-2">
-                    <input type="checkbox" checked={c.included} onChange={(e) => updateClause(c.key, { included: e.target.checked })} aria-label="Include clause" />
-                    {c.conditions?.length > 0 && <span className="text-[10px] uppercase tracking-wide text-jade-700" title={c.conditions.map((k) => `${k.field} ${k.op} ${k.value}`).join(" AND ")}>{c.touched ? "manual" : "conditional"}</span>}
-                    <input value={c.title} onChange={(e) => updateClause(c.key, { title: e.target.value })} placeholder="Clause title" className={`${inputCls} py-1`} />
-                    {c.custom && <button type="button" onClick={() => removeClause(c.key)} aria-label="Remove clause" className="text-xs text-rust-500">Remove</button>}
+              {inLetter.length === 0 && <p className="text-xs text-ink/60 border border-dashed border-ink/20 rounded-sm px-3 py-4 text-center">No clauses yet. Add one from the library below, or write a new one.</p>}
+              <SortableList
+                as="ol" className="space-y-2" items={inLetter} getKey={(c) => c.key} onReorder={reorderIncluded}
+                renderItem={(c, i, handle) => (
+                  <div className="rounded-sm border border-jade-500/50 bg-jade-50/40 p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      {handle}
+                      <span className="text-xs font-nums text-ink/50 w-4 text-right">{i + 1}.</span>
+                      <input value={c.title} onChange={(e) => updateClause(c.key, { title: e.target.value })} placeholder="Clause title" className={`${inputCls} py-1`} />
+                      {c.conditions?.length > 0 && (
+                        <span className="text-[10px] uppercase tracking-wide text-jade-700 whitespace-nowrap" title={c.conditions.map((k) => `${k.field} ${k.op} ${k.value}`).join(" AND ")}>{c.touched ? "manual" : "auto"}</span>
+                      )}
+                      <button
+                        type="button" aria-label="Take this clause out of the letter"
+                        onClick={() => (c.custom ? removeClause(c.key) : updateClause(c.key, { included: false }))}
+                        className="text-xs text-rust-500 whitespace-nowrap"
+                      >Take out</button>
+                    </div>
+                    <textarea value={c.body} onChange={(e) => updateClause(c.key, { body: e.target.value })} rows={3} placeholder="Clause text (edits apply to this letter only)" className={inputCls} />
                   </div>
-                  {c.included && <textarea value={c.body} onChange={(e) => updateClause(c.key, { body: e.target.value })} rows={3} placeholder="Clause text (edits apply to this letter only)" className={inputCls} />}
+                )}
+              />
+
+              <div className="border-t border-ink/10 pt-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-ink">Add a clause</p>
+                  {!newClause && (
+                    <button type="button" onClick={() => setNewClause({ title: "", body: "", saveToLibrary: false })} className="inline-flex items-center gap-1 text-xs font-semibold text-jade-700 hover:text-jade-600">
+                      <Plus size={13} /> Write a new clause
+                    </button>
+                  )}
                 </div>
-              ))}
+                {newClause && (
+                  <div className="rounded-sm border border-ink/15 p-3 space-y-2 bg-manila/30">
+                    <input autoFocus value={newClause.title} onChange={(e) => setNewClause({ ...newClause, title: e.target.value })} placeholder="Clause title, e.g. Non-compete" className={inputCls} />
+                    <textarea value={newClause.body} onChange={(e) => setNewClause({ ...newClause, body: e.target.value })} rows={4} placeholder="Clause text" className={inputCls} />
+                    {can("letters.manage") && (
+                      <label className="flex items-center gap-2 text-xs text-ink/70">
+                        <input type="checkbox" checked={newClause.saveToLibrary} onChange={(e) => setNewClause({ ...newClause, saveToLibrary: e.target.checked })} />
+                        Also save it to the clause library for future letters
+                      </label>
+                    )}
+                    {clauseError && <p className="text-xs text-rust-500">{clauseError}</p>}
+                    <div className="flex justify-end gap-2">
+                      <button type="button" onClick={() => { setNewClause(null); setClauseError(""); }} className="text-xs text-ink/70 px-2">Cancel</button>
+                      <button type="button" onClick={addNewClause} className="bg-jade-600 text-white px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-jade-700">Add to letter</button>
+                    </div>
+                  </div>
+                )}
+                {clauses.length > inLetter.length || clauseSearch ? (
+                  <>
+                    <input value={clauseSearch} onChange={(e) => setClauseSearch(e.target.value)} placeholder="Search the clause library…" className={inputCls} />
+                    <ul className="max-h-60 overflow-y-auto divide-y divide-ink/[0.07] border border-ink/10 rounded-sm">
+                      {availableClauses.length === 0 && <li className="px-3 py-3 text-xs text-ink/60">No clause in the library matches.</li>}
+                      {availableClauses.map((c) => (
+                        <li key={c.key} className="flex items-start gap-2 px-3 py-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm text-ink leading-tight">{c.title}{c.conditions?.length > 0 && <span className="ml-1.5 text-[10px] uppercase tracking-wide text-jade-700">auto when {c.conditions.map((k) => `${k.field} ${k.op} ${k.value}`).join(" and ")}</span>}</p>
+                            <p className="text-xs text-ink/60 line-clamp-2">{c.body}</p>
+                          </div>
+                          <button type="button" onClick={() => updateClause(c.key, { included: true })} className="text-xs font-semibold text-jade-700 hover:text-jade-600 whitespace-nowrap">+ Add</button>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <p className="text-xs text-ink/60">Every clause in the library is already in this letter.</p>
+                )}
+              </div>
             </fieldset>
           </div>
 
@@ -1214,7 +1293,7 @@ function ClauseLibrary({ templates }) {
       <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-ink/10">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/55">Clause library</p>
-          <p className="text-xs text-ink/60 mt-0.5">Reusable clauses. When issuing a letter, tick the ones that apply to that person and edit the wording for them.</p>
+          <p className="text-xs text-ink/60 mt-0.5">Reusable clauses. Drag to set the order they appear in. When issuing a letter, add the ones that apply to that person and edit the wording for them.</p>
         </div>
         <button onClick={() => setDraft({ title: "", body: "", letter_type: "", default_on: false, conditions: [] })} className="flex items-center gap-1.5 bg-ledger-800 text-manila px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-ledger-700">
           <Plus size={13} /> New clause
@@ -1256,19 +1335,25 @@ function ClauseLibrary({ templates }) {
           {error && <p className="text-sm text-rust-500">{error}</p>}
         </div>
       )}
-      <ul className="divide-y divide-ink/[0.07]">
-        {rows && rows.length === 0 && <li className="px-4 py-3 text-xs text-ink/60">No clauses yet.</li>}
-        {(rows || []).map((c) => (
-          <li key={c.id} className="flex items-start gap-3 px-4 py-3">
+      {rows && rows.length === 0 && <p className="px-4 py-3 text-xs text-ink/60">No clauses yet.</p>}
+      <SortableList
+        as="ul" className="divide-y divide-ink/[0.07]" items={rows || []} getKey={(c) => c.id}
+        onReorder={async (next) => {
+          setRows(next);
+          try { await api.put("/api/letters/clauses/reorder", { ids: next.map((c) => c.id) }); } catch { load(); }
+        }}
+        renderItem={(c, _i, handle) => (
+          <div className="flex items-start gap-3 px-4 py-3">
+            <div className="pt-0.5">{handle}</div>
             <div className="min-w-0 flex-1">
               <p className="font-display text-[15px] text-ink leading-tight">{c.title} <span className="text-[11px] font-sans text-ink/50">· {titleOf(c.letter_type)}{c.default_on ? " · pre-ticked" : ""}{c.conditions?.length ? ` · when ${c.conditions.map((k) => `${k.field} ${k.op} ${k.value}`).join(" and ")}` : ""}</span></p>
               <p className="text-xs text-ink/65 mt-0.5 line-clamp-2">{c.body}</p>
             </div>
             <button onClick={() => setDraft({ ...c })} aria-label="Edit clause" className="border border-ink/15 px-2 py-1.5 rounded-sm hover:border-jade-500"><Pencil size={13} /></button>
             <button onClick={() => remove(c.id)} className="text-xs text-rust-500 px-1 py-1.5">Delete</button>
-          </li>
-        ))}
-      </ul>
+          </div>
+        )}
+      />
     </section>
   );
 }

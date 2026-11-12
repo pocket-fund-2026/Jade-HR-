@@ -58,6 +58,15 @@ export function effectiveField(field, overrides = {}) {
     hidden: !field.locked && (!!o.hidden || !!o.hr_only),
     label: (o.label || "").trim() || field.label,
     required: field.locked ? field.required : (typeof o.required === "boolean" ? o.required : field.required),
+    order: typeof o.order === "number" ? o.order : null,
     overridden: !!(o.hidden || o.hr_only || (o.label || "").trim() || typeof o.required === "boolean"),
   };
+}
+
+// Built-in questions of one section in the order HR dragged them into (untouched ones keep the built-in order).
+export function orderedCoreFields(section, overrides = {}) {
+  return CORE_FIELDS
+    .map((f, idx) => ({ ...effectiveField(f, overrides), _idx: idx }))
+    .filter((f) => f.section === section)
+    .sort((a, b) => (a.order ?? a._idx) - (b.order ?? b._idx));
 }

@@ -2,7 +2,7 @@ import { ChevronDown, HelpCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import api from "../lib/api.js";
-import { CORE_FIELDS, CORE_SECTIONS, effectiveField } from "../lib/onboardingFields.js";
+import { CORE_FIELDS, CORE_SECTIONS, effectiveField, orderedCoreFields } from "../lib/onboardingFields.js";
 import { prepareUpload } from "../lib/upload.js";
 
 const LOCATIONS = [
@@ -248,7 +248,7 @@ export default function Onboarding() {
 
   // Built-in questions after HR's builder overrides: hidden ones drop out, and a section with nothing left disappears.
   const coreSections = CORE_SECTIONS
-    .map((title) => ({ title, fields: CORE_FIELDS.filter((f) => f.section === title).map((f) => effectiveField(f, overrides)).filter((f) => !f.hidden) }))
+    .map((title) => ({ title, fields: orderedCoreFields(title, overrides).filter((f) => !f.hidden) }))
     .filter((g) => g.fields.length);
   const stepTitles = [...coreSections.map((g) => g.title), ...extraSections.map((g) => g.title), "Confirmation"];
 

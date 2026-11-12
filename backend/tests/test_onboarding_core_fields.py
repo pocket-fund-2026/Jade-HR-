@@ -8,6 +8,8 @@ class _Q:
     def __init__(self, db): self.db = db
     def select(self, *_): return self
     def delete(self): self.db.calls.append("delete"); return self
+    def update(self, row): self.db.calls.append(("update", row)); return self
+    def is_(self, *_): return self
     def upsert(self, row, **_): self.db.calls.append(("upsert", row)); return self
     def eq(self, *_): return self
     def execute(self):
@@ -49,7 +51,7 @@ def test_cannot_hide_name_or_email_or_make_them_optional(monkeypatch):
 def test_reset_deletes_row_and_change_upserts(monkeypatch):
     db = _DB(); monkeypatch.setattr(ob, "supabase", db)
     assert ob.set_core_field("mobile", ob.CoreFieldIn(), {"id": "u"}) == {"ok": True, "reset": True}
-    assert db.calls == ["delete"]
+    assert db.calls == [("update", {"is_hidden": False, "hr_only": False, "label": None, "required": None}), "delete"]
     ob.set_core_field("mobile", ob.CoreFieldIn(is_hidden=True, label="  Phone ", required=None), {"id": "u"})
     kind, row = db.calls[-1]
     assert row["is_hidden"] is True and row["label"] == "Phone"
