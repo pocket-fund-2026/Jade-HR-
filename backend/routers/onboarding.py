@@ -228,35 +228,12 @@ def _validated_custom_values(values: dict, fields: list[dict]) -> dict:
     return out
 
 
-def _signed_offer_for_token(token: str | None) -> dict | None:
-    """The accepted (signed) offer letter whose candidate link this is, or None."""
-    if not token:
-        return None
-    rows = (
-        supabase.table("hr_generated_letters").select("id,candidate_email,candidate_signed_at,approval_status")
-        .eq("candidate_token", token).eq("approval_status", "accepted").limit(1).execute().data
-    )
-    return rows[0] if rows else None
-
-
-@router.get("/offer-check/{token}")
-def offer_check(token: str):
-    """Public — lets the form tell a candidate with a signed offer from one without."""
-    offer = _signed_offer_for_token(token)
-    return {"valid": bool(offer), "email": (offer or {}).get("candidate_email") or ""}
-
-
 @router.post("/submit")
 def submit_onboarding(body: OnboardingSubmissionCreate):
     """Public — the new-joinee-details form (replaces the external Zoho
     form). Lands in the review queue below; never writes to hr_employees/
     hr_employee_profile directly — see resolve_submission for that."""
     row = body.model_dump()
-    if not _signed_offer_for_token(row.pop("offer_token", None)):
-        raise HTTPException(
-            status_code=403,
-            detail="Please sign your offer letter first — the joining form link is emailed to you once it is signed.",
-        )
     custom = _validated_custom_values(row.pop("custom_values", {}) or {}, _active_fields())
     if custom:
         row["custom_values"] = custom
@@ -492,9 +469,11 @@ def resolve_submission(
             body.password = body.password or secrets.token_urlsafe(9)
             created_employee_id = _create_employee_from_submission(submission, body)
             issued = {"employee_code": code, "password": body.password if generated else None}
-            # The form is only accepted after the candidate signed their offer
-            # (see submit_onboarding), so mailing the login now is the right moment.
-            _email_login_details(submission, code, body.password)
+            # Deliberately NOT emailed here: login details go to the candidate
+            # only together with the offer letter, after they have signed and
+            # returned it (HR sends them from the returned `issued` details).
+            # Mailing on approval sent credentials too early, with a code that
+            # was only a guess until the biometric ID is confirmed.
 
     supabase.table("hr_onboarding_submissions").update({
         "status": "approved" if body.action == "approve" else "rejected",

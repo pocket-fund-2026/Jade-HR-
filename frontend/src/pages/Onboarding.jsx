@@ -1,6 +1,5 @@
 import { ChevronDown, HelpCircle } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
 
 import api from "../lib/api.js";
 import { prepareUpload } from "../lib/upload.js";
@@ -225,19 +224,6 @@ function FaqPanel() {
 }
 
 export default function Onboarding() {
-  const [searchParams] = useSearchParams();
-  const offerToken = searchParams.get("offer") || "";
-  // null = still checking; the form is only for candidates who signed their offer.
-  const [offerOk, setOfferOk] = useState(null);
-  useEffect(() => {
-    if (!offerToken) { setOfferOk(false); return; }
-    api.get(`/api/onboarding/offer-check/${encodeURIComponent(offerToken)}`)
-      .then(({ data }) => {
-        setOfferOk(!!data.valid);
-        if (data.valid && data.email) setForm((f) => (f.email ? f : { ...f, email: data.email }));
-      })
-      .catch(() => setOfferOk(false));
-  }, [offerToken]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -287,7 +273,6 @@ export default function Onboarding() {
       const payload = {
         ...form,
         custom_values: custom,
-        offer_token: offerToken,
         date_of_birth: form.date_of_birth || null,
         date_of_joining: form.date_of_joining || null,
         date_of_offer_letter: form.date_of_offer_letter || null,
@@ -344,19 +329,10 @@ export default function Onboarding() {
           <p className="text-manila/60 text-sm mt-1">Please fill in your details to complete your joining formalities with JADE</p>
         </div>
 
-        {offerOk === false && (
-          <div className="bg-paper rounded-sm shadow-card p-5 mb-5 border-l-4 border-rust-500">
-            <p className="font-display text-lg text-ink">Please sign your offer letter first</p>
-            <p className="text-sm text-ink/70 mt-1">
-              This form opens once you have signed your offer letter. The link to this form is emailed to you right after you sign.
-              If you have already signed and cannot open it, write to team.hr@jadecouture.com.
-            </p>
-          </div>
-        )}
         <StepStrip />
         <FaqPanel />
 
-        <form onSubmit={submit} className={`space-y-5 ${offerOk ? "" : "pointer-events-none opacity-50"}`}>
+        <form onSubmit={submit} className="space-y-5">
           <Section title="Personal Details" step={1}>
             <TextField label="Full Name" value={form.full_name} onChange={set("full_name")} required span />
             <TextField label="Date of Birth" type="date" value={form.date_of_birth} onChange={set("date_of_birth")} required />

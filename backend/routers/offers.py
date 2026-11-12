@@ -1,4 +1,3 @@
-import logging
 """Offer letter approval + e-sign flow.
 
 HR issues an offer letter, then sends it for approval: the approver (Head-HR)
@@ -201,19 +200,6 @@ def sign(token: str, body: SignBody):
         "rendered_body": stamped, "candidate_signature": signature, "candidate_signed_at": now, "approval_status": "accepted",
     }).eq("id", row["id"]).execute().data[0]
     _send_final_copies(updated)
-    # Signing is the gate for the joining form: only now does the candidate get
-    # their personal onboarding link. Best-effort: the signature is already saved.
-    try:
-        first = (name.split(" ")[0] if name else "") or "there"
-        email_service.send_email_detailed(
-            updated["candidate_email"], "Next step: your joining details | JADE Lifestyles India",
-            f"Dear {first},\n\nThank you for signing your {title}. Please fill in your joining details here: "
-            f"{APP_URL}/onboarding/new?offer={updated['candidate_token']}\n\n"
-            f"Once HR has reviewed it, you will receive your Employee ID and login. Questions? Write to {HR_CONTACT}.\n",
-            kind="onboarding_invite", reply_to=HR_CONTACT, letter_id=updated["id"],
-        )
-    except Exception:
-        logging.getLogger(__name__).exception("onboarding invite email failed (letter %s)", updated.get("id"))
     return {"ok": True, "status": "accepted"}
 
 
