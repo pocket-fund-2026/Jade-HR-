@@ -192,7 +192,7 @@ function SubmissionDetail({ id, onBack, onResolved, canViewSalary }) {
       if (data.issued) {
         window.alert(
           `Employee created.\n\nEmployee ID: ${data.issued.employee_code}` +
-          (data.issued.password ? `\nTemporary password: ${data.issued.password}\n\nThe login details were also emailed to the employee.` : "")
+          (data.issued.password ? `\nTemporary password: ${data.issued.password}\n\nNot emailed to the candidate — send the login with the offer letter once they have signed and returned it.` : "")
         );
       }
       onResolved();
@@ -316,7 +316,7 @@ function SubmissionDetail({ id, onBack, onResolved, canViewSalary }) {
           <div className="border-t border-ink/10 pt-5">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1">Resolve</h4>
             <p className="text-xs text-ink/70 mb-3">
-              Approving creates the real employee record. Leave Employee Code and Password blank to auto-assign the next free ID and a temporary password (emailed to the employee). If you type a code, it must match the biometric device.
+              Approving creates the real employee record. Leave Employee Code and Password blank to auto-assign the next free ID and a temporary password (shown to you here, NOT emailed — send it with the signed offer letter). If you type a code, it must match the biometric device.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-3">
               <div>

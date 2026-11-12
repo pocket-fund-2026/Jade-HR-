@@ -469,7 +469,11 @@ def resolve_submission(
             body.password = body.password or secrets.token_urlsafe(9)
             created_employee_id = _create_employee_from_submission(submission, body)
             issued = {"employee_code": code, "password": body.password if generated else None}
-            _email_login_details(submission, code, body.password)
+            # Deliberately NOT emailed here: login details go to the candidate
+            # only together with the offer letter, after they have signed and
+            # returned it (HR sends them from the returned `issued` details).
+            # Mailing on approval sent credentials too early, with a code that
+            # was only a guess until the biometric ID is confirmed.
 
     supabase.table("hr_onboarding_submissions").update({
         "status": "approved" if body.action == "approve" else "rejected",
