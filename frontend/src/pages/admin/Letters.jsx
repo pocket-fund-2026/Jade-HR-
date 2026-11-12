@@ -1,6 +1,7 @@
 import {
-  ArrowLeft, Bold, Briefcase, CheckCircle2, Download, FileSignature, FileText, GraduationCap, List, ListOrdered,
-  Mail, Pencil, Plus, Printer, Save, Send, ShieldAlert, UserCheck, UserMinus,
+  AlignCenter, AlignLeft, AlignRight, ArrowLeft, Bold, Briefcase, CheckCircle2, Code2, Download, FileSignature, FileText,
+  GraduationCap, Heading2, Italic, List, ListOrdered, Mail, Pencil, Plus, Printer, RemoveFormatting, Redo2, RotateCcw,
+  Save, Send, ShieldAlert, Underline, Undo2, UserCheck, UserMinus,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -314,19 +315,23 @@ function slugify(title) {
   return title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "letter";
 }
 
-// Lets HR type a letter the way they'd type it in a word processor — no HTML
-// tags — while still producing the <p>/<strong>/<ol>/<ul> markup the
-// generator's substitute()+dangerouslySetInnerHTML pipeline expects.
-function RichTextEditor({ value, onChange }) {
+// A word-processor style editor for letters: type text, format it, drop in fields
+// ({{employee_name}} etc.) from a menu — no HTML knowledge needed. It produces the
+// <p>/<strong>/<ol>/<ul> markup the letter pipeline expects. Used to write letter
+// templates, to edit a whole letter before it is issued, and on issued drafts.
+// `bare` removes the box so it can sit inside the letter sheet and look like the letter.
+function RichTextEditor({ value, onChange, fields = [], bare = false, minHeight = 420 }) {
   const editorRef = useRef(null);
   const loadedValue = useRef(null);
+  const savedRange = useRef(null);
+  const [source, setSource] = useState(false);
 
   useEffect(() => {
     if (editorRef.current && loadedValue.current !== value) {
       editorRef.current.innerHTML = value;
       loadedValue.current = value;
     }
-  }, [value]);
+  }, [value, source]);
 
   const emit = () => {
     if (!editorRef.current) return;
@@ -334,44 +339,114 @@ function RichTextEditor({ value, onChange }) {
     onChange(editorRef.current.innerHTML);
   };
 
-  const exec = (command) => {
+  const remember = () => {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount && editorRef.current?.contains(sel.anchorNode)) savedRange.current = sel.getRangeAt(0).cloneRange();
+  };
+  const restore = () => {
     editorRef.current?.focus();
-    document.execCommand(command);
+    if (savedRange.current) {
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(savedRange.current);
+    }
+  };
+
+  const exec = (command, arg) => {
+    restore();
+    document.execCommand(command, false, arg);
     emit();
   };
 
-  const toolbarButton = (command, label, Icon) => (
+  const insertField = (key) => {
+    if (!key) return;
+    let token = key;
+    if (key === "__new") {
+      const name = window.prompt("Name of the new field (e.g. notice_period). It becomes a blank you fill in for each letter.");
+      token = slugify(name || "");
+      if (!name || !token) return;
+    }
+    restore();
+    document.execCommand("insertText", false, `{{${token}}}`);
+    emit();
+  };
+
+  const btn = (command, label, Icon, arg) => (
     <button
-      type="button"
-      onMouseDown={(e) => e.preventDefault()}
-      onClick={() => exec(command)}
-      title={label}
-      className="p-1.5 rounded-sm border border-ink/15 text-ink hover:border-jade-500 hover:text-jade-600 transition-colors"
+      key={label} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => exec(command, arg)} title={label} aria-label={label}
+      className="p-1.5 rounded-sm border border-ink/15 bg-paper text-ink hover:border-jade-500 hover:text-jade-600 transition-colors"
     >
       <Icon size={14} />
     </button>
   );
+  const sep = <span className="w-px bg-ink/15 mx-0.5" />;
 
   return (
     <div>
-      <div className="flex gap-1.5 mb-2">
-        {toolbarButton("bold", "Bold", Bold)}
-        {toolbarButton("insertOrderedList", "Numbered list", ListOrdered)}
-        {toolbarButton("insertUnorderedList", "Bullet list", List)}
+      <div className={`flex flex-wrap items-center gap-1.5 mb-2 ${bare ? "sticky top-0 z-10 bg-manila/90 backdrop-blur py-1.5 px-2 rounded-sm" : ""}`}>
+        {btn("undo", "Undo", Undo2)}{btn("redo", "Redo", Redo2)}{sep}
+        {btn("bold", "Bold", Bold)}{btn("italic", "Italic", Italic)}{btn("underline", "Underline", Underline)}{sep}
+        {btn("formatBlock", "Heading", Heading2, "h3")}<button key="para" type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => exec("formatBlock", "p")} title="Normal paragraph" aria-label="Normal paragraph" className="px-2 py-1 rounded-sm border border-ink/15 bg-paper text-ink text-sm hover:border-jade-500 hover:text-jade-600 transition-colors">¶</button>{sep}
+        {btn("justifyLeft", "Align left", AlignLeft)}{btn("justifyCenter", "Align centre", AlignCenter)}{btn("justifyRight", "Align right", AlignRight)}{sep}
+        {btn("insertOrderedList", "Numbered list", ListOrdered)}{btn("insertUnorderedList", "Bullet list", List)}{sep}
+        {btn("removeFormat", "Clear formatting", RemoveFormatting)}
+        {fields.length > 0 && (
+          <select
+            value="" onChange={(e) => insertField(e.target.value)} onMouseDown={remember}
+            className="ml-1 rounded-sm border border-ink/15 bg-paper px-2 py-1.5 text-xs text-ink"
+            aria-label="Insert a field"
+          >
+            <option value="">+ Insert field…</option>
+            {fields.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+            <option value="__new">New field…</option>
+          </select>
+        )}
+        <button
+          type="button" onClick={() => setSource((v) => !v)} title="Edit the raw HTML"
+          className={`ml-auto inline-flex items-center gap-1 px-2 py-1.5 rounded-sm border text-xs ${source ? "border-jade-500 text-jade-700 bg-jade-50" : "border-ink/15 text-ink/70 bg-paper"}`}
+        >
+          <Code2 size={13} /> HTML
+        </button>
       </div>
-      <div
-        ref={editorRef}
-        contentEditable
-        suppressContentEditableWarning
-        onInput={emit}
-        onFocus={() => document.execCommand("defaultParagraphSeparator", false, "p")}
-        className="letter-doc w-full min-h-[420px] rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
-      />
+      {source ? (
+        <textarea
+          value={value} onChange={(e) => onChange(e.target.value)} spellCheck={false}
+          className="w-full font-mono text-xs rounded-sm border border-ink/15 bg-paper px-3 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+          style={{ minHeight }}
+        />
+      ) : (
+        <div
+          ref={editorRef} contentEditable suppressContentEditableWarning onInput={emit} onBlur={remember} onKeyUp={remember} onMouseUp={remember}
+          onFocus={() => document.execCommand("defaultParagraphSeparator", false, "p")}
+          style={{ minHeight }}
+          className={`letter-doc w-full text-sm text-ink focus:outline-none ${bare ? "" : "rounded-sm border border-ink/15 bg-paper px-3 py-2 focus:ring-2 focus:ring-jade-500"}`}
+        />
+      )}
     </div>
   );
 }
 
-function TemplateEditor({ template, onClose, onSaved, onDeleted }) {
+// The letter sheet (letterhead + footer stay fixed company branding) with the body editable in place.
+function EditableLetterSheet({ html, onChange, fields }) {
+  return (
+    <article className="letter-sheet relative mx-auto w-full max-w-[794px] bg-white shadow-stamp px-6 py-8 sm:px-14 sm:py-12 ring-2 ring-jade-500/40">
+      <header className="flex flex-col items-center text-center mb-6">
+        <img src="/jade-letterhead-logo.png" alt="JADE" className="h-[60px] w-auto" crossOrigin="anonymous" />
+        <div className="w-full mt-5 border-t border-ink/70" />
+        <div className="w-full mt-[3px] border-t border-ink/20" />
+      </header>
+      <RichTextEditor bare value={html} onChange={onChange} fields={fields} minHeight={360} />
+      <footer className="mt-12 pt-3 border-t border-ink/15 text-center text-[9.5px] leading-relaxed tracking-[0.06em] text-ink/50">
+        <p>JADE Lifestyles India · {OFFICE_ADDRESS}</p>
+        <p>{HR_CONTACT}</p>
+      </footer>
+    </article>
+  );
+}
+
+const FIELD_OPTIONS = Object.entries(TOKEN_LABELS).map(([key, label]) => ({ key, label }));
+
+function TemplateEditor({ template, onClose, onSaved, onDeleted, templates = [] }) {
   const confirm = useConfirm();
   const isNew = !template;
   const [letterType, setLetterType] = useState(template?.letter_type || "");
@@ -382,6 +457,17 @@ function TemplateEditor({ template, onClose, onSaved, onDeleted }) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
   const tokens = useMemo(() => [...new Set([...body.matchAll(TOKEN_RE)].map((m) => m[1]))], [body]);
+  // Fields HR can insert: the standard ones plus any custom field already used in this letter.
+  const insertable = useMemo(() => [
+    ...FIELD_OPTIONS,
+    ...tokens.filter((t) => !TOKEN_LABELS[t]).map((t) => ({ key: t, label: t.replace(/_/g, " ") })),
+  ], [tokens]);
+  const [startFrom, setStartFrom] = useState("");
+  const useAsStart = (type) => {
+    setStartFrom(type);
+    const t = templates.find((x) => x.letter_type === type);
+    setBody(t ? t.body : NEW_TEMPLATE_SCAFFOLD);
+  };
 
   const onTitleChange = (value) => {
     setTitle(value);
@@ -424,9 +510,9 @@ function TemplateEditor({ template, onClose, onSaved, onDeleted }) {
       <button onClick={onClose} className="inline-flex items-center gap-1.5 text-xs text-ink/70 hover:text-ink transition-colors mb-4">
         <ArrowLeft size={13} /> Back to Letters
       </button>
-      <h2 className="font-display text-2xl text-ink mb-1">{isNew ? "New Letter Type" : "Edit Template"}</h2>
+      <h2 className="font-display text-2xl text-ink mb-1">{isNew ? "Create a letter" : "Edit letter template"}</h2>
       <p className="text-sm text-ink/70 mb-5">
-        Type the letter as you'd write it — use <code className="font-nums">{"{{token_name}}"}</code> for anything that should be filled in per letter.
+        Write the letter as you would in a word processor. Use <strong>Insert field</strong> for anything that changes per person (name, designation, salary…); you'll fill those in each time you issue the letter.
       </p>
 
       <div className="bg-paper rounded-sm shadow-card p-6 mb-4">
@@ -447,8 +533,17 @@ function TemplateEditor({ template, onClose, onSaved, onDeleted }) {
             />
           </>
         )}
+        {isNew && templates.length > 0 && (
+          <div className="mb-4">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Start from</label>
+            <select value={startFrom} onChange={(e) => useAsStart(e.target.value)} className="w-full rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
+              <option value="">A blank letter (date, recipient, subject, signature)</option>
+              {templates.map((t) => <option key={t.letter_type} value={t.letter_type}>A copy of: {t.title}</option>)}
+            </select>
+          </div>
+        )}
         <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Letter Body</label>
-        <RichTextEditor value={body} onChange={setBody} />
+        <RichTextEditor value={body} onChange={setBody} fields={insertable} />
         {tokens.length > 0 && (
           <p className="text-xs text-ink/70 mt-2">Tokens found: {tokens.join(", ")}</p>
         )}
@@ -493,6 +588,7 @@ function FieldInput({ token, value, onChange }) {
 
 function LetterGenerator({ template, onClose, onIssued, candidateId = null, submissionId = null }) {
   const { user } = useAuth();
+  const confirm = useConfirm();
   const todayLabel = formatOrdinalDate(new Date().toISOString());
   const [mode, setMode] = useState(candidateId ? "new" : submissionId ? "form" : "existing"); // existing | new | form
   const [submissions, setSubmissions] = useState([]);
@@ -502,6 +598,9 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null, subm
   const [fieldValues, setFieldValues] = useState(() => defaultsFor(template.letter_type, todayLabel, user?.name));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // null = the letter follows the template + form + clauses. A string = HR has edited the whole
+  // letter by hand; that text is what gets issued and the form on the left no longer rewrites it.
+  const [editedHtml, setEditedHtml] = useState(null);
   // Clause picker: library clauses (ticked/edited per person) + one-off custom ones.
   const [clauses, setClauses] = useState([]); // {key, title, body, included, custom}
 
@@ -583,6 +682,13 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null, subm
     () => substitute(placeClauses(template.body, renderClauses(clauses)), previewValues, { markBlanks: true }),
     [template.body, previewValues, clauses],
   );
+  const startEditingLetter = () =>
+    setEditedHtml(substitute(placeClauses(template.body, renderClauses(clauses)), previewValues, { markBlanks: false }));
+  const letterFields = useMemo(() => [
+    ...FIELD_OPTIONS,
+    ...template.tokens.filter((t) => !TOKEN_LABELS[t]).map((t) => ({ key: t, label: t.replace(/_/g, " ") })),
+  ], [template.tokens]);
+
   // Conditional clauses follow the form values until HR ticks/unticks one by hand.
   useEffect(() => {
     setClauses((cs) => {
@@ -625,6 +731,7 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null, subm
         // Raw values — the backend escapes them and wraps the multi-line ones.
         field_values: Object.fromEntries(template.tokens.map((t) => [t, fieldValues[t] || ""])),
         clauses: clauses.filter((c) => c.included).map((c) => ({ title: c.title, body: c.body })),
+        ...(editedHtml !== null ? { rendered_body: editedHtml } : {}),
       });
       onIssued(data.id);
     } catch (err) {
@@ -733,8 +840,29 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null, subm
           <p className="text-[11px] text-ink/55 text-center -mt-2">Saves it to Issued Letters, where you can print, download or email it.</p>
         </div>
 
-        <div className="bg-manila/60 rounded-sm p-3 sm:p-6 overflow-x-auto">
-          <LetterSheet html={previewHtml} />
+        <div>
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            {editedHtml === null ? (
+              <>
+                <p className="text-xs text-ink/60">Preview. The form on the left fills this in.</p>
+                <button type="button" onClick={startEditingLetter} className={secondaryBtn}><Pencil size={14} /> Edit the whole letter</button>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-jade-700 font-semibold">You are editing the letter directly. Click in the letter and type; the form on the left no longer changes it.</p>
+                <button
+                  type="button"
+                  onClick={async () => { if (await confirm("Throw away your manual edits and go back to the template and form?", { confirmLabel: "Reset letter" })) setEditedHtml(null); }}
+                  className={secondaryBtn}
+                ><RotateCcw size={14} /> Reset to template</button>
+              </>
+            )}
+          </div>
+          <div className="bg-manila/60 rounded-sm p-3 sm:p-6 overflow-x-auto">
+            {editedHtml === null
+              ? <LetterSheet html={previewHtml} />
+              : <EditableLetterSheet html={editedHtml} onChange={setEditedHtml} fields={letterFields} />}
+          </div>
         </div>
       </div>
     </div>
@@ -910,6 +1038,9 @@ function IssuedLetter({ letterId, onClose }) {
   const [letter, setLetter] = useState(null);
   const [error, setError] = useState("");
   const [downloading, setDownloading] = useState(false);
+  const [draft, setDraft] = useState(null); // string while editing the letter text
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState("");
 
   useEffect(() => {
     api.get(`/api/letters/history/${letterId}`).then(({ data }) => setLetter(data)).catch(() => setError("Could not load this letter"));
@@ -917,6 +1048,18 @@ function IssuedLetter({ letterId, onClose }) {
 
   if (error) return <p className="text-sm text-rust-500">{error}</p>;
   if (!letter) return <p className="text-ink/70"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>;
+
+  // A letter can be edited until it leaves HR (emailed, or sent for approval).
+  const canEdit = !letter.approval_status && !letter.emailed_at;
+  const saveEdit = async () => {
+    setSavingEdit(true); setEditError("");
+    try {
+      const { data } = await api.put(`/api/letters/history/${letter.id}`, { rendered_body: draft });
+      setLetter((l) => ({ ...l, ...data }));
+      setDraft(null);
+    } catch (err) { setEditError(err.response?.data?.detail || "Could not save the letter"); }
+    finally { setSavingEdit(false); }
+  };
 
   const download = async () => {
     setDownloading(true);
@@ -942,6 +1085,9 @@ function IssuedLetter({ letterId, onClose }) {
           </p>
         </div>
         <div className="flex gap-2">
+          {canEdit && draft === null && (
+            <button onClick={() => setDraft(letter.rendered_body)} className={secondaryBtn}><Pencil size={15} /> Edit letter</button>
+          )}
           <button onClick={() => printSheet(sheetRef.current, letter.title)} className={secondaryBtn}><Printer size={15} /> Print</button>
           <button onClick={download} disabled={downloading} className={secondaryBtn}><Download size={15} /> {downloading ? "Preparing…" : "Download PDF"}</button>
         </div>
@@ -953,8 +1099,22 @@ function IssuedLetter({ letterId, onClose }) {
           )}
           <EmailPanel letter={letter} sheetRef={sheetRef} onSent={(d) => setLetter((l) => ({ ...l, ...d }))} />
         </div>
-        <div className="bg-manila/60 rounded-sm p-3 sm:p-6 overflow-x-auto">
-          <LetterSheet html={letter.rendered_body} sheetRef={sheetRef} />
+        <div>
+          {draft !== null && (
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <p className="text-xs text-jade-700 font-semibold">Editing this letter. It can be changed until it is emailed or sent for approval.</p>
+              <div className="flex items-center gap-2">
+                {editError && <span className="text-xs text-rust-500">{editError}</span>}
+                <button onClick={() => { setDraft(null); setEditError(""); }} className={secondaryBtn}>Cancel</button>
+                <button onClick={saveEdit} disabled={savingEdit} className={primaryBtn}><Save size={14} /> {savingEdit ? "Saving…" : "Save changes"}</button>
+              </div>
+            </div>
+          )}
+          <div className="bg-manila/60 rounded-sm p-3 sm:p-6 overflow-x-auto">
+            {draft === null
+              ? <LetterSheet html={letter.rendered_body} sheetRef={sheetRef} />
+              : <EditableLetterSheet html={draft} onChange={setDraft} fields={FIELD_OPTIONS} />}
+          </div>
         </div>
       </div>
     </div>
@@ -1152,6 +1312,7 @@ export default function Letters() {
     return (
       <TemplateEditor
         template={null}
+        templates={templates}
         onClose={() => setView("hub")}
         onSaved={(created) => {
           setTemplates((ts) => [...ts, created].sort((a, b) => a.title.localeCompare(b.title)));
@@ -1198,7 +1359,7 @@ export default function Letters() {
         </div>
         {can("letters.manage") && (
           <button onClick={() => setView("new")} className="flex items-center gap-1.5 bg-ledger-800 text-manila px-3 py-2 rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors">
-            <Plus size={14} /> New Letter Type
+            <Plus size={14} /> Create a letter
           </button>
         )}
       </div>

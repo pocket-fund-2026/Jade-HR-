@@ -1,8 +1,10 @@
 import base64
 import secrets
 from datetime import datetime, timezone
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 import email_service
 from auth import get_current_user, hash_password, require_permission, user_can
@@ -58,7 +60,7 @@ FIELD_TYPES = {"text", "textarea", "number", "date", "select", "checkbox", "file
 KEY_RE = re.compile(r"[^a-z0-9]+")
 
 
-def _active_fields() -> list[dict]:
+def _all_active_fields() -> list[dict]:
     """HR-defined extra fields. Empty if sql/080 hasn't been applied, so the
     built-in form keeps working either way."""
     try:
@@ -68,6 +70,13 @@ def _active_fields() -> list[dict]:
         )
     except Exception:
         return []
+
+
+def _active_fields() -> list[dict]:
+    """The extra fields the CANDIDATE answers (public form + validation).
+    Fields HR marked "filled by HR" are left out: the candidate never sees or
+    owes them."""
+    return [f for f in _all_active_fields() if not f.get("hr_only")]
 
 
 @router.get("/fields")
@@ -142,6 +151,73 @@ def delete_location(location_id: str, user: dict = Depends(require_permission("o
     return {"ok": True}
 
 
+# Built-in questions HR can never hide: the name and email are how a submission is
+# matched to a biometric code and how the offer letter and login reach the person.
+LOCKED_CORE_FIELDS = frozenset({"full_name", "email"})
+CORE_KEY_RE = re.compile(r"^[a-z][a-z0-9_]{1,48}$")
+
+
+class CoreFieldIn(BaseModel):
+    is_hidden: bool = False
+    hr_only: bool = False  # not asked of the candidate; HR fills it in on the submission
+    label: Optional[str] = None
+    required: Optional[bool] = None
+
+
+def _core_overrides() -> dict:
+    try:
+        rows = supabase.table("hr_onboarding_core_fields").select("field_key,is_hidden,hr_only,label,required").execute().data or []
+    except Exception:  # sql/087 not applied yet: every built-in field behaves as before
+        return {}
+    return {
+        r["field_key"]: {
+            "hidden": bool(r["is_hidden"]), "hr_only": bool(r.get("hr_only")),
+            "label": r.get("label") or "", "required": r.get("required"),
+        }
+        for r in rows
+    }
+
+
+@router.get("/core-fields")
+def public_core_fields():
+    """Public — the form reads this to hide/rename/re-require built-in questions."""
+    out = _core_overrides()
+    for key in LOCKED_CORE_FIELDS:
+        if key in out:
+            out[key]["hidden"] = False
+            out[key]["hr_only"] = False
+    return out
+
+
+@router.put("/admin/core-fields/{field_key}")
+def set_core_field(field_key: str, body: CoreFieldIn, user: dict = Depends(require_permission("onboarding.manage"))):
+    if not CORE_KEY_RE.match(field_key):
+        raise HTTPException(status_code=400, detail="Unknown field")
+    if field_key in LOCKED_CORE_FIELDS and (body.is_hidden or body.hr_only or body.required is False):
+        raise HTTPException(status_code=400, detail="Name and email must be filled in by the candidate")
+    label = (body.label or "").strip()[:120] or None
+    if not body.is_hidden and not body.hr_only and label is None and body.required is None:
+        # nothing left to override: drop the row so the field is back to its default
+        try:
+            supabase.table("hr_onboarding_core_fields").delete().eq("field_key", field_key).execute()
+        except Exception:
+            pass
+        return {"ok": True, "reset": True}
+    try:
+        supabase.table("hr_onboarding_core_fields").upsert({
+            "field_key": field_key, "is_hidden": body.is_hidden, "hr_only": body.hr_only, "label": label, "required": body.required,
+            "updated_by": user["id"], "updated_at": datetime.now(timezone.utc).isoformat(),
+        }, on_conflict="field_key").execute()
+    except Exception:
+        raise HTTPException(status_code=503, detail="The form builder is not fully set up yet (run sql/087_onboarding_core_fields.sql)")
+    return {"ok": True}
+
+
+@router.get("/admin/core-fields")
+def admin_core_fields(user: dict = Depends(require_permission("onboarding.manage"))):
+    return _core_overrides()
+
+
 def _clean_field(body: OnboardingFieldIn) -> dict:
     label = body.label.strip()
     if not label:
@@ -160,7 +236,12 @@ def _clean_field(body: OnboardingFieldIn) -> dict:
         "help_text": body.help_text.strip(),
         "sort_order": body.sort_order,
         "is_active": body.is_active,
+        "hr_only": body.hr_only,
     }
+
+
+def _without_hr_only(row: dict) -> dict:
+    return {k: v for k, v in row.items() if k != "hr_only"}
 
 
 @router.get("/admin/fields")
@@ -181,16 +262,26 @@ def create_field(body: OnboardingFieldIn, user: dict = Depends(require_permissio
         key, n = f"{base}_{n}", n + 1
     row.update({"field_key": key, "updated_by": user["id"]})
     try:
-        return supabase.table("hr_onboarding_fields").insert(row).execute().data[0]
+        try:
+            return supabase.table("hr_onboarding_fields").insert(row).execute().data[0]
+        except Exception:
+            if not row.get("hr_only"):  # sql/087 (hr_only column) not applied yet: save without it
+                return supabase.table("hr_onboarding_fields").insert(_without_hr_only(row)).execute().data[0]
+            raise
     except Exception:
-        raise HTTPException(status_code=503, detail="Custom fields are not set up yet (run sql/080_onboarding_custom_fields.sql)")
+        raise HTTPException(status_code=503, detail="Custom fields are not set up yet (run sql/080 and sql/087)")
 
 
 @router.put("/admin/fields/{field_id}")
 def update_field(field_id: str, body: OnboardingFieldIn, user: dict = Depends(require_permission("onboarding.manage"))):
     row = _clean_field(body)
     row.update({"updated_by": user["id"], "updated_at": datetime.now(timezone.utc).isoformat()})
-    resp = supabase.table("hr_onboarding_fields").update(row).eq("id", field_id).execute()
+    try:
+        resp = supabase.table("hr_onboarding_fields").update(row).eq("id", field_id).execute()
+    except Exception:
+        if row.get("hr_only"):
+            raise HTTPException(status_code=503, detail="'Filled by HR' needs sql/087_onboarding_core_fields.sql")
+        resp = supabase.table("hr_onboarding_fields").update(_without_hr_only(row)).eq("id", field_id).execute()
     if not resp.data:
         raise HTTPException(status_code=404, detail="Field not found")
     return resp.data[0]
@@ -438,6 +529,77 @@ def _email_login_details(submission: dict, code: str, password: str) -> None:
         "Sign in here and change your password: https://jade-hr.vercel.app/login\n",
         kind="new_joiner_login", reply_to="team.hr@jadecouture.com",
     )
+
+
+# Submission columns HR may edit by hand after the candidate submits (typo fixes and
+# the things only HR knows: KRA, designation, timings, pay). Files and the
+# confirmation signature are never editable. Bank/ID numbers and pay follow the
+# same salary gates as viewing them.
+HR_EDITABLE_PLAIN = (
+    "full_name", "date_of_birth", "mobile", "emergency_contact_no", "email",
+    "address_line1", "address_line2", "address_line3", "address_line4",
+    "date_of_joining", "is_fresher", "date_of_offer_letter",
+    "designation", "department", "kra", "requires_personal_email", "requires_oms_login",
+    "place_of_work", "timings_and_days",
+)
+HR_EDITABLE_SENSITIVE = ("aadhar_no", "pan_no", "bank_name", "bank_account_no", "bank_ifsc")
+HR_EDITABLE_PAY = ("basic", "hra", "conveyance", "other_allowance", "monthly_ctc")
+_BOOL_FIELDS = {"is_fresher", "requires_personal_email", "requires_oms_login"}
+
+
+class SubmissionDetailsEdit(BaseModel):
+    values: dict[str, Any] = {}
+    custom_values: dict[str, Any] = {}
+
+
+@router.put("/submissions/{submission_id}/details")
+def edit_submission_details(
+    submission_id: str, body: SubmissionDetailsEdit, user: dict = Depends(require_permission("onboarding.manage"))
+):
+    resp = supabase.table("hr_onboarding_submissions").select("*").eq("id", submission_id).maybe_single().execute()
+    submission = maybe_single_data(resp)
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    if submission["status"] == "rejected":
+        raise HTTPException(status_code=409, detail="A rejected submission cannot be edited")
+
+    allowed = set(HR_EDITABLE_PLAIN)
+    if user_can(user, "salary.view"):
+        allowed |= set(HR_EDITABLE_SENSITIVE)
+    if user_can(user, "salary.edit"):
+        allowed |= set(HR_EDITABLE_PAY)
+    updates: dict[str, Any] = {}
+    for key, raw in body.values.items():
+        if key not in allowed:
+            raise HTTPException(status_code=400, detail=f"'{key}' cannot be edited here")
+        if key in _BOOL_FIELDS:
+            updates[key] = bool(raw)
+        elif key in DATE_FIELDS:
+            updates[key] = (str(raw).strip() or None) if raw not in (None, "") else None
+        elif key in HR_EDITABLE_PAY:
+            try:
+                updates[key] = float(raw or 0)
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail=f"{key} must be a number")
+        else:
+            updates[key] = str(raw if raw is not None else "").strip()
+    if "full_name" in updates and not updates["full_name"]:
+        raise HTTPException(status_code=400, detail="Full name cannot be blank")
+
+    if body.custom_values:
+        known = {f["field_key"] for f in _all_active_fields()}
+        unknown = [k for k in body.custom_values if k not in known]
+        if unknown:
+            raise HTTPException(status_code=400, detail=f"Unknown field: {unknown[0]}")
+        merged = dict(submission.get("custom_values") or {})
+        merged.update(body.custom_values)
+        updates["custom_values"] = merged
+
+    if not updates:
+        return {"ok": True, "changed": []}
+    supabase.table("hr_onboarding_submissions").update(updates).eq("id", submission_id).execute()
+    record_step("onboarding", submission_id, "details_edited", user, basis={"fields": sorted(k for k in updates if k != "custom_values")})
+    return {"ok": True, "changed": sorted(updates)}
 
 
 @router.get("/next-code")

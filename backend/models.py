@@ -580,6 +580,12 @@ class LetterGenerateRequest(BaseModel):
     field_values: dict[str, str] = {}
     # Per-person clauses picked/edited/written in the generator.
     clauses: list[LetterClauseIn] = []
+    # HR edited the whole letter by hand: this text is issued as-is instead of the rendered template.
+    rendered_body: Optional[str] = None
+
+
+class LetterBodyEdit(BaseModel):
+    rendered_body: str
 
 
 class LetterEmailRequest(BaseModel):
@@ -615,6 +621,7 @@ class OnboardingFieldIn(BaseModel):
     help_text: str = ""
     sort_order: int = 0
     is_active: bool = True
+    hr_only: bool = False  # filled in by HR on the submission, not asked on the public form
 
 
 class OnboardingLocationIn(BaseModel):

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 
 import StampBadge from "../../components/StampBadge.jsx";
+import { CORE_FIELDS, CORE_SECTIONS, effectiveField } from "../../lib/onboardingFields.js";
 import api from "../../lib/api.js";
 import { useAuth } from "../../lib/auth.jsx";
 import SlidingTabs from "../../components/SlidingTabs.jsx";
@@ -73,6 +74,101 @@ function Locations() {
   );
 }
 
+// Every built-in question of the public form, with HR's control over each one.
+function BuiltInFields() {
+  const [overrides, setOverrides] = useState({});
+  const [error, setError] = useState("");
+  const [renaming, setRenaming] = useState(null);
+  const load = () => api.get("/api/onboarding/admin/core-fields").then(({ data }) => setOverrides(data || {})).catch(() => {});
+  useEffect(() => { load(); }, []);
+
+  const save = async (field, patch) => {
+    setError("");
+    const cur = overrides[field.key] || {};
+    const next = {
+      is_hidden: "is_hidden" in patch ? patch.is_hidden : !!cur.hidden,
+      hr_only: "hr_only" in patch ? patch.hr_only : !!cur.hr_only,
+      label: "label" in patch ? patch.label : (cur.label || null),
+      required: "required" in patch ? patch.required : (typeof cur.required === "boolean" ? cur.required : null),
+    };
+    try {
+      await api.put(`/api/onboarding/admin/core-fields/${field.key}`, next);
+      load();
+    } catch (err) { setError(err.response?.data?.detail || "Could not save"); }
+  };
+  const setAsked = (field, who) => save(field, { is_hidden: who === "hidden", hr_only: who === "hr" });
+  const resetAll = async () => {
+    for (const key of Object.keys(overrides)) {
+      await api.put(`/api/onboarding/admin/core-fields/${key}`, { is_hidden: false, hr_only: false, label: null, required: null });
+    }
+    load();
+  };
+
+  return (
+    <div className="bg-paper rounded-sm shadow-card mb-6">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-ink/10 gap-3">
+        <p className="text-xs text-ink/70">
+          Every question on the joining form. Choose who fills each one: the <strong>candidate</strong>, <strong>HR</strong> (hidden from the candidate; you fill it in on their submission,
+          e.g. KRA), or <strong>hidden</strong> altogether. You can also rename a question or make it optional. Name and email are fixed.
+        </p>
+        {Object.keys(overrides).length > 0 && (
+          <button onClick={resetAll} className="text-xs text-rust-500 whitespace-nowrap">Reset all to default</button>
+        )}
+      </div>
+      {error && <p className="px-5 py-2 text-sm text-rust-500">{error}</p>}
+      {CORE_SECTIONS.map((section) => (
+        <div key={section} className="border-b border-ink/[0.07] last:border-0">
+          <p className="px-5 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-ink/60">{section}</p>
+          <ul>
+            {CORE_FIELDS.filter((f) => f.section === section).map((f) => {
+              const e = effectiveField(f, overrides);
+              const who = f.locked ? "candidate" : e.hrOnly ? "hr" : e.hidden ? "hidden" : "candidate";
+              return (
+                <li key={f.key} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-2">
+                  <div className="flex-1 min-w-[180px]">
+                    {renaming === f.key ? (
+                      <input
+                        autoFocus defaultValue={e.label} className={inputCls}
+                        onBlur={(ev) => { const v = ev.target.value.trim(); setRenaming(null); if (v !== e.label) save(f, { label: v === f.label ? null : v }); }}
+                        onKeyDown={(ev) => { if (ev.key === "Enter") ev.target.blur(); if (ev.key === "Escape") setRenaming(null); }}
+                      />
+                    ) : (
+                      <p className={`text-sm ${who === "hidden" ? "text-ink/40 line-through" : "text-ink"}`}>
+                        {e.label}{who === "candidate" && e.required && <span className="text-rust-500"> *</span>}
+                        {e.label !== f.label && <span className="text-[10px] text-ink/40 ml-1.5">(was “{f.label}”)</span>}
+                        {f.locked && <span className="text-[10px] text-ink/40 ml-1.5">fixed</span>}
+                      </p>
+                    )}
+                  </div>
+                  <select
+                    value={who} disabled={f.locked} onChange={(ev) => setAsked(f, ev.target.value)}
+                    className={`${inputCls} w-40 ${who === "hr" ? "border-jade-500/60" : ""} disabled:opacity-60`}
+                    aria-label={`Who fills ${f.label}`}
+                  >
+                    <option value="candidate">Candidate fills</option>
+                    <option value="hr">HR fills</option>
+                    <option value="hidden">Hidden</option>
+                  </select>
+                  <label className={`flex items-center gap-1.5 text-xs w-24 ${who === "candidate" && !f.locked ? "text-ink/70" : "text-ink/30"}`}>
+                    <input
+                      type="checkbox" disabled={who !== "candidate" || f.locked} checked={who === "candidate" && !!e.required}
+                      onChange={(ev) => save(f, { required: ev.target.checked })}
+                    /> Required
+                  </label>
+                  {!f.locked && <button onClick={() => setRenaming(f.key)} className="text-xs text-jade-600 font-semibold">Rename</button>}
+                  {e.overridden && !f.locked && (
+                    <button onClick={() => save(f, { is_hidden: false, hr_only: false, label: null, required: null })} className="text-xs text-ink/50">Reset</button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // HR-managed extra fields for the public form (no tech request needed).
 function FormFields() {
   const [fields, setFields] = useState(null);
@@ -85,7 +181,7 @@ function FormFields() {
     setError("");
     const payload = {
       label: draft.label, field_type: draft.field_type, required: !!draft.required, section: draft.section,
-      help_text: draft.help_text, sort_order: Number(draft.sort_order) || 0, is_active: true,
+      help_text: draft.help_text, sort_order: Number(draft.sort_order) || 0, is_active: true, hr_only: !!draft.hr_only,
       options: draft.field_type === "select" ? String(draft.optionsText || "").split("\n") : [],
     };
     try {
@@ -97,11 +193,21 @@ function FormFields() {
   };
   const remove = async (id) => { await api.delete(`/api/onboarding/admin/fields/${id}`); load(); };
   const visible = (fields || []).filter((f) => f.is_active);
+  // Move a field up/down by swapping its sort order with its neighbour's.
+  const move = async (idx, dir) => {
+    const a = visible[idx], b = visible[idx + dir];
+    if (!a || !b) return;
+    const body = (f, order) => ({ label: f.label, field_type: f.field_type, required: f.required, section: f.section, help_text: f.help_text, options: f.options || [], is_active: true, hr_only: !!f.hr_only, sort_order: order });
+    const ao = a.sort_order === b.sort_order ? a.sort_order + dir : a.sort_order;
+    await api.put(`/api/onboarding/admin/fields/${a.id}`, body(a, b.sort_order));
+    await api.put(`/api/onboarding/admin/fields/${b.id}`, body(b, ao));
+    load();
+  };
 
   return (
     <div className="bg-paper rounded-sm shadow-card">
       <div className="flex items-center justify-between px-5 py-3 border-b border-ink/10">
-        <p className="text-xs text-ink/70">Extra questions shown on the public form, after the built-in sections. Existing answers stay on each submission if you remove a field.</p>
+        <p className="text-xs text-ink/70">Your own extra questions, shown after the built-in sections. Existing answers stay on each submission if you remove a field.</p>
         <button onClick={() => setDraft({ label: "", field_type: "text", section: "Additional Details", help_text: "", required: false, sort_order: visible.length + 1, optionsText: "" })}
           className="flex items-center gap-1.5 bg-ledger-800 text-manila px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-ledger-700 flex-shrink-0 ml-3"><Plus size={13} /> Add field</button>
       </div>
@@ -117,6 +223,7 @@ function FormFields() {
             <textarea value={draft.optionsText} onChange={(e) => setDraft({ ...draft, optionsText: e.target.value })} rows={3} placeholder="One choice per line" className={`${inputCls} sm:col-span-2`} />
           )}
           <label className="flex items-center gap-2 text-xs text-ink/70"><input type="checkbox" checked={!!draft.required} onChange={(e) => setDraft({ ...draft, required: e.target.checked })} /> Required</label>
+          <label className="flex items-center gap-2 text-xs text-ink/70"><input type="checkbox" checked={!!draft.hr_only} onChange={(e) => setDraft({ ...draft, hr_only: e.target.checked })} /> HR fills this in (not shown to the candidate)</label>
           <label className="flex items-center gap-2 text-xs text-ink/70">Order <input type="number" value={draft.sort_order} onChange={(e) => setDraft({ ...draft, sort_order: e.target.value })} className={`${inputCls} w-20`} /></label>
           {error && <p className="text-sm text-rust-500 sm:col-span-2">{error}</p>}
           <div className="sm:col-span-2 flex justify-end gap-2">
@@ -127,10 +234,14 @@ function FormFields() {
       )}
       <ul className="divide-y divide-ink/[0.07]">
         {fields && visible.length === 0 && <li className="px-5 py-6 text-sm text-ink/60 text-center">No extra fields yet.</li>}
-        {visible.map((f) => (
+        {visible.map((f, idx) => (
           <li key={f.id} className="flex items-center gap-3 px-5 py-3">
+            <div className="flex flex-col text-ink/50 -my-1">
+              <button onClick={() => move(idx, -1)} disabled={idx === 0} aria-label="Move up" className="leading-none hover:text-ink disabled:opacity-20">▲</button>
+              <button onClick={() => move(idx, 1)} disabled={idx === visible.length - 1} aria-label="Move down" className="leading-none hover:text-ink disabled:opacity-20">▼</button>
+            </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-ink font-medium">{f.label}{f.required && <span className="text-rust-500"> *</span>}</p>
+              <p className="text-sm text-ink font-medium">{f.label}{f.required && <span className="text-rust-500"> *</span>}{f.hr_only && <span className="ml-2 text-[10px] font-semibold uppercase tracking-wider text-jade-700 bg-jade-50 px-1.5 py-0.5 rounded-sm">HR fills</span>}</p>
               <p className="text-xs text-ink/60">{f.section} · {FIELD_TYPES.find(([k]) => k === f.field_type)?.[1]}{f.field_type === "select" ? ` (${f.options.length} choices)` : ""} · order {f.sort_order}</p>
             </div>
             <button onClick={() => setDraft({ ...f, optionsText: (f.options || []).join("\n") })} className="text-xs text-jade-600 font-semibold">Edit</button>
@@ -165,6 +276,76 @@ function DetailGroup({ title, children }) {
     <div>
       <h4 className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-2">{title}</h4>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">{children}</div>
+    </div>
+  );
+}
+
+const PAY_FIELDS = [["basic", "Basic (monthly)"], ["hra", "HRA"], ["conveyance", "Conveyance"], ["other_allowance", "Other allowance"], ["monthly_ctc", "Monthly CTC"]];
+
+// HR's own part of the form: questions marked "HR fills" in the builder (KRA, timings, ...),
+// pay, and an "edit any detail" switch for typo fixes. The offer letter pulls from these.
+function HrDetailsCard({ submission, canViewSalary, onSaved }) {
+  const [overrides, setOverrides] = useState({});
+  const [custom, setCustom] = useState([]);
+  const [showAll, setShowAll] = useState(false);
+  const [edits, setEdits] = useState({});
+  const [customEdits, setCustomEdits] = useState({});
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  useEffect(() => {
+    api.get("/api/onboarding/admin/core-fields").then(({ data }) => setOverrides(data || {})).catch(() => {});
+    api.get("/api/onboarding/admin/fields").then(({ data }) => setCustom((data || []).filter((f) => f.is_active))).catch(() => {});
+  }, []);
+
+  const editable = CORE_FIELDS.filter((f) => ["text", "date", "email", "textarea", "checkbox", "place"].includes(f.type));
+  const coreShown = editable.map((f) => effectiveField(f, overrides)).filter((f) => showAll || f.hrOnly);
+  const customShown = custom.filter((f) => f.field_type !== "file" && (showAll || f.hr_only));
+  const val = (key) => (key in edits ? edits[key] : submission[key]);
+  const cval = (key) => (key in customEdits ? customEdits[key] : (submission.custom_values || {})[key]);
+  const dirty = Object.keys(edits).length + Object.keys(customEdits).length > 0;
+
+  const save = async () => {
+    setBusy(true); setMsg("");
+    try {
+      await api.put(`/api/onboarding/submissions/${submission.id}/details`, { values: edits, custom_values: customEdits });
+      const { data } = await api.get(`/api/onboarding/submissions/${submission.id}`);
+      onSaved(data); setEdits({}); setCustomEdits({}); setMsg("Saved");
+    } catch (err) { setMsg(err.response?.data?.detail || "Could not save"); }
+    finally { setBusy(false); }
+  };
+
+  const input = (key, type, label, v, set) => {
+    if (type === "checkbox") {
+      return <label key={key} className="flex items-center gap-2 text-sm text-ink"><input type="checkbox" checked={!!v} onChange={(e) => set(e.target.checked)} /> {label}</label>;
+    }
+    return (
+      <div key={key} className={type === "textarea" ? "sm:col-span-2" : ""}>
+        <label className="block text-[10px] uppercase tracking-wider text-ink/70 mb-1">{label}</label>
+        {type === "textarea"
+          ? <textarea rows={4} className={inputCls} value={v ?? ""} onChange={(e) => set(e.target.value)} />
+          : <input type={type === "date" ? "date" : type === "number" ? "number" : "text"} className={inputCls} value={v ?? ""} onChange={(e) => set(e.target.value)} />}
+      </div>
+    );
+  };
+
+  return (
+    <div className="border border-jade-500/30 bg-jade-50/40 rounded-sm p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-jade-700">Filled by HR</h4>
+        <label className="flex items-center gap-1.5 text-xs text-ink/70"><input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> Edit any detail</label>
+      </div>
+      {coreShown.length + customShown.length === 0 && !canViewSalary && (
+        <p className="text-xs text-ink/60">Nothing is set to "HR fills". Mark questions as HR-filled in the Form builder, or tick "Edit any detail".</p>
+      )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {coreShown.map((f) => input(f.key, f.type, f.label, val(f.key), (v) => setEdits((e) => ({ ...e, [f.key]: v }))))}
+        {customShown.map((f) => input(`c-${f.field_key}`, f.field_type === "textarea" ? "textarea" : f.field_type === "date" ? "date" : f.field_type === "checkbox" ? "checkbox" : f.field_type === "number" ? "number" : "text", f.label, cval(f.field_key), (v) => setCustomEdits((e) => ({ ...e, [f.field_key]: v }))))}
+        {canViewSalary && PAY_FIELDS.map(([k, label]) => input(k, "number", label, val(k), (v) => setEdits((e) => ({ ...e, [k]: v }))))}
+      </div>
+      <div className="flex items-center justify-end gap-3 mt-3">
+        {msg && <span className={`text-xs ${msg === "Saved" ? "text-jade-700" : "text-rust-500"}`}>{msg}</span>}
+        <button onClick={save} disabled={!dirty || busy} className="bg-jade-600 text-white px-4 py-1.5 rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-40">{busy ? "Saving…" : "Save details"}</button>
+      </div>
     </div>
   );
 }
@@ -226,6 +407,10 @@ function SubmissionDetail({ id, onBack, onResolved, canViewSalary }) {
           </div>
           <StampBadge status={submission.status}>{submission.status}</StampBadge>
         </div>
+
+        {submission.status !== "rejected" && (
+          <HrDetailsCard submission={submission} canViewSalary={canViewSalary} onSaved={setSubmission} />
+        )}
 
         <DetailGroup title="Personal">
           <DetailField label="Date of Birth" value={submission.date_of_birth} />
@@ -457,7 +642,7 @@ export default function Onboarding() {
 
       <SlidingTabs tabs={TABS} value={tab} onChange={setTab} className="flex gap-1 mb-4" />
 
-      {tab === "form" ? <><Locations /><FormFields /></> : (
+      {tab === "form" ? <><Locations /><BuiltInFields /><FormFields /></> : (
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm tabular-nums">
           <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">

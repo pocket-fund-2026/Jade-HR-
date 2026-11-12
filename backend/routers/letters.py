@@ -10,6 +10,7 @@ from auth import require_permission
 from database import maybe_single_data, supabase
 from letter_email import HR_CONTACT, build_letter_email_html
 from models import (
+    LetterBodyEdit,
     LetterClauseIn,
     LetterEmailRequest,
     LetterGenerateRequest,
@@ -315,6 +316,25 @@ def delete_clause(clause_id: str, user: dict = Depends(require_permission("lette
     return {"ok": True}
 
 
+# Letters are HR-authored HTML that is later shown to candidates (sign page, email, PDF).
+# HR is trusted, but a pasted-in snippet should not be able to carry script. This strips
+# active content only; ordinary formatting is untouched.
+_ACTIVE_BLOCKS = re.compile(r"<\s*(script|style|iframe|object|embed)\b.*?<\s*/\s*\1\s*>", re.I | re.S)
+_ACTIVE_TAGS = re.compile(r"<\s*/?\s*(script|style|iframe|object|embed|link|meta|base|form)\b[^>]*>", re.I)
+_EVENT_ATTRS = re.compile(r"""\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)""", re.I)
+_JS_URLS = re.compile(r"""(href|src|xlink:href)\s*=\s*(["']?)\s*(javascript|data\s*:\s*text/html)""", re.I)
+MAX_LETTER_HTML = 400_000
+
+
+def sanitize_letter_html(markup: str) -> str:
+    if len(markup) > MAX_LETTER_HTML:
+        raise HTTPException(status_code=413, detail="That letter is too long")
+    markup = _ACTIVE_BLOCKS.sub("", markup)
+    markup = _ACTIVE_TAGS.sub("", markup)
+    markup = _EVENT_ATTRS.sub("", markup)
+    return _JS_URLS.sub(r"\1=\2#blocked:", markup)
+
+
 @router.post("/generate")
 def generate_letter(body: LetterGenerateRequest, user: dict = Depends(require_permission("letters.generate"))):
     resp = (
@@ -329,7 +349,12 @@ def generate_letter(body: LetterGenerateRequest, user: dict = Depends(require_pe
         raise HTTPException(status_code=404, detail="Unknown letter type")
 
     clauses = _clean_clauses(body.clauses)
-    rendered = _substitute(place_clauses(template["body"], render_clauses(clauses)), body.field_values)
+    if body.rendered_body is not None:
+        if not body.rendered_body.strip():
+            raise HTTPException(status_code=400, detail="The letter is empty")
+        rendered = sanitize_letter_html(body.rendered_body)  # HR edited the whole letter
+    else:
+        rendered = _substitute(place_clauses(template["body"], render_clauses(clauses)), body.field_values)
 
     field_values = dict(body.field_values)
     if clauses:
@@ -394,6 +419,21 @@ def get_generated_letter(letter_id: str, user: dict = Depends(require_permission
     if not row:
         raise HTTPException(status_code=404, detail="Letter not found")
     return _with_people([row])[0]
+
+
+@router.put("/history/{letter_id}")
+def edit_generated_letter(letter_id: str, body: LetterBodyEdit, user: dict = Depends(require_permission("letters.generate"))):
+    """Change the text of an issued letter. Allowed only until it leaves HR: once it has been
+    emailed or sent for approval, what the other side received must not silently change."""
+    row = maybe_single_data(supabase.table("hr_generated_letters").select("id,approval_status,emailed_at").eq("id", letter_id).maybe_single().execute())
+    if not row:
+        raise HTTPException(status_code=404, detail="Letter not found")
+    if row.get("approval_status") or row.get("emailed_at"):
+        raise HTTPException(status_code=409, detail="This letter has already been sent, so it can no longer be edited. Issue a new one instead.")
+    if not body.rendered_body.strip():
+        raise HTTPException(status_code=400, detail="The letter is empty")
+    updated = supabase.table("hr_generated_letters").update({"rendered_body": sanitize_letter_html(body.rendered_body)}).eq("id", letter_id).execute()
+    return _with_people(updated.data)[0]
 
 
 MAX_PDF_B64 = 3_500_000  # Vercel caps a request body at 4.5 MB

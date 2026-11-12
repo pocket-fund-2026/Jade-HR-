@@ -2,6 +2,7 @@ import { ChevronDown, HelpCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import api from "../lib/api.js";
+import { CORE_FIELDS, CORE_SECTIONS, effectiveField } from "../lib/onboardingFields.js";
 import { prepareUpload } from "../lib/upload.js";
 
 const LOCATIONS = [
@@ -10,13 +11,6 @@ const LOCATIONS = [
   "Mehrauli (Ambawatta), Delhi",
   "Emporio, Delhi",
   "Ahmedabad",
-];
-
-// Mirrors the Section titles below, in order — used to render the step
-// progress strip and to number each Section heading.
-const STEP_TITLES = [
-  "Personal Details", "Permanent Address", "Employment Details", "Bank Account Information",
-  "Document Upload", "Job Designation", "Workplace & Schedule", "Confirmation",
 ];
 
 const EMPTY_FORM = {
@@ -175,10 +169,10 @@ function CustomField({ field, value, onChange }) {
   return <div className={field.field_type === "textarea" || field.field_type === "checkbox" ? "sm:col-span-2" : ""}>{input}{hint}</div>;
 }
 
-function StepStrip() {
+function StepStrip({ titles }) {
   return (
     <div className="hidden sm:flex items-center gap-1.5 mb-6 overflow-x-auto">
-      {STEP_TITLES.map((title, i) => (
+      {titles.map((title, i) => (
         <a
           key={title}
           href={`#step-${i + 1}`}
@@ -188,7 +182,7 @@ function StepStrip() {
           {i + 1}
         </a>
       ))}
-      <span className="text-manila/50 text-xs ml-1">{STEP_TITLES.length} short sections — jump to any of them</span>
+      <span className="text-manila/50 text-xs ml-1">{titles.length} short sections — jump to any of them</span>
     </div>
   );
 }
@@ -231,6 +225,7 @@ export default function Onboarding() {
   const [refNo, setRefNo] = useState(null);
   const [extraFields, setExtraFields] = useState([]);
   const [custom, setCustom] = useState({});
+  const [overrides, setOverrides] = useState({});
 
   const [locationOptions, setLocationOptions] = useState(LOCATIONS);
   useEffect(() => {
@@ -242,6 +237,7 @@ export default function Onboarding() {
       })));
     }).catch(() => {});
     api.get("/api/onboarding/fields").then(({ data }) => setExtraFields(data)).catch(() => {});
+    api.get("/api/onboarding/core-fields").then(({ data }) => setOverrides(data || {})).catch(() => {});
   }, []);
 
   // Extra fields grouped by the section name HR gave them, in the order defined.
@@ -250,6 +246,12 @@ export default function Onboarding() {
     return acc;
   }, []);
 
+  // Built-in questions after HR's builder overrides: hidden ones drop out, and a section with nothing left disappears.
+  const coreSections = CORE_SECTIONS
+    .map((title) => ({ title, fields: CORE_FIELDS.filter((f) => f.section === title).map((f) => effectiveField(f, overrides)).filter((f) => !f.hidden) }))
+    .filter((g) => g.fields.length);
+  const stepTitles = [...coreSections.map((g) => g.title), ...extraSections.map((g) => g.title), "Confirmation"];
+
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
   const setChecked = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.checked }));
   const setFile = (key) => (value) => setForm((f) => ({ ...f, [key]: value }));
@@ -257,8 +259,12 @@ export default function Onboarding() {
   const submit = async (e) => {
     e.preventDefault();
     setError("");
-    if (!form.photo_path) {
-      setError("Please upload a photo before submitting");
+    const missingCoreFile = CORE_FIELDS.map((f) => effectiveField(f, overrides)).find(
+      (f) => !f.hidden && f.required && (f.type === "file" || f.type === "files")
+        && !(f.type === "files" ? form[f.key]?.length : form[f.key]),
+    );
+    if (missingCoreFile) {
+      setError(`Please upload: ${missingCoreFile.label}`);
       window.scrollTo(0, 0);
       return;
     }
@@ -287,6 +293,28 @@ export default function Onboarding() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const renderCoreField = (f) => {
+    const k = f.key;
+    if (f.type === "checkbox") return <CheckboxField key={k} label={f.label} checked={!!form[k]} onChange={setChecked(k)} />;
+    if (f.type === "file") return <FileField key={k} label={f.label} hint={f.hint} count={form[k] ? 1 : 0} onUploaded={setFile(k)} />;
+    if (f.type === "files") {
+      return (
+        <FileField
+          key={k} label={f.label} hint={f.hint} multiple count={form[k].length}
+          onUploaded={(paths) => setForm((cur) => ({ ...cur, [k]: [...cur[k], ...paths] }))}
+        />
+      );
+    }
+    if (f.type === "textarea") return <TextAreaField key={k} label={f.label} value={form[k]} onChange={set(k)} required={f.required} />;
+    if (f.type === "place") return <SelectField key={k} label={f.label} value={form[k]} onChange={set(k)} options={locationOptions} required={f.required} />;
+    return (
+      <TextField
+        key={k} label={f.label} type={f.type === "date" ? "date" : f.type === "email" ? "email" : "text"}
+        placeholder={f.placeholder} value={form[k]} onChange={set(k)} required={f.required} span={f.span}
+      />
+    );
   };
 
   if (done) {
@@ -329,81 +357,25 @@ export default function Onboarding() {
           <p className="text-manila/60 text-sm mt-1">Please fill in your details to complete your joining formalities with JADE</p>
         </div>
 
-        <StepStrip />
+        <StepStrip titles={stepTitles} />
         <FaqPanel />
 
         <form onSubmit={submit} className="space-y-5">
-          <Section title="Personal Details" step={1}>
-            <TextField label="Full Name" value={form.full_name} onChange={set("full_name")} required span />
-            <TextField label="Date of Birth" type="date" value={form.date_of_birth} onChange={set("date_of_birth")} required />
-            <TextField label="Mobile" value={form.mobile} onChange={set("mobile")} required />
-            <TextField label="Emergency Contact No." value={form.emergency_contact_no} onChange={set("emergency_contact_no")} required />
-            <TextField label="Email" type="email" value={form.email} onChange={set("email")} required />
-            <FileField label="Upload Photo" hint="A clear passport-style photo" count={form.photo_path ? 1 : 0} onUploaded={setFile("photo_path")} />
-          </Section>
-
-          <Section title="Permanent Address" step={2}>
-            <TextField label="Address Line 1" placeholder="Flat / house / apartment / society" value={form.address_line1} onChange={set("address_line1")} required span />
-            <TextField label="Address Line 2" placeholder="Road / street" value={form.address_line2} onChange={set("address_line2")} required span />
-            <TextField label="Address Line 3" placeholder="Landmark / area" value={form.address_line3} onChange={set("address_line3")} span />
-            <TextField label="Address Line 4" placeholder="City - Pin - Country" value={form.address_line4} onChange={set("address_line4")} required span />
-          </Section>
-
-          <Section title="Employment Details" step={3}>
-            <TextField label="Date of Joining" type="date" value={form.date_of_joining} onChange={set("date_of_joining")} required />
-            <CheckboxField label="I am a fresher" checked={form.is_fresher} onChange={setChecked("is_fresher")} />
-          </Section>
-
-          <Section title="Bank Account Information" step={4}>
-            <TextField label="Bank Name and Branch" value={form.bank_name} onChange={set("bank_name")} required span />
-            <TextField label="Bank Account No" value={form.bank_account_no} onChange={set("bank_account_no")} required />
-            <TextField label="Bank IFSC Code" value={form.bank_ifsc} onChange={set("bank_ifsc")} required />
-          </Section>
-
-          <Section title="Document Upload" step={5}>
-            <TextField label="Aadhar Card No" value={form.aadhar_no} onChange={set("aadhar_no")} required />
-            <TextField label="PAN Card No" value={form.pan_no} onChange={set("pan_no")} required />
-            <FileField label="Upload Aadhar Card — Front" count={form.aadhar_front_path ? 1 : 0} onUploaded={setFile("aadhar_front_path")} />
-            <FileField label="Upload Aadhar Card — Back" count={form.aadhar_back_path ? 1 : 0} onUploaded={setFile("aadhar_back_path")} />
-            <FileField label="Upload PAN Card" count={form.pan_card_path ? 1 : 0} onUploaded={setFile("pan_card_path")} />
-            <FileField
-              label="Upload Latest Salary Slip(s)"
-              hint="You can select more than one page/file"
-              multiple
-              count={form.salary_slip_paths.length}
-              onUploaded={(paths) => setForm((f) => ({ ...f, salary_slip_paths: [...f.salary_slip_paths, ...paths] }))}
-            />
-            <TextField label="Date of Offer Letter" type="date" value={form.date_of_offer_letter} onChange={set("date_of_offer_letter")} />
-            <FileField
-              label="Upload Resume"
-              hint="For offline/consultant hires without one already on file — optional otherwise"
-              count={form.resume_path ? 1 : 0}
-              onUploaded={setFile("resume_path")}
-            />
-          </Section>
-
-          <Section title="Job Designation" step={6}>
-            <TextField label="Designation" value={form.designation} onChange={set("designation")} required />
-            <TextField label="Department" value={form.department} onChange={set("department")} required />
-            <TextAreaField label="KRA in Detail" value={form.kra} onChange={set("kra")} required />
-            <CheckboxField label="Requires Personal Email" checked={form.requires_personal_email} onChange={setChecked("requires_personal_email")} />
-            <CheckboxField label="Requires Independent OMS Login" checked={form.requires_oms_login} onChange={setChecked("requires_oms_login")} />
-          </Section>
-
-          <Section title="Workplace & Schedule" step={7}>
-            <SelectField label="Place of Work" value={form.place_of_work} onChange={set("place_of_work")} options={locationOptions} required />
-            <TextField label="Timings + Days" placeholder="e.g. 10:00 AM - 6:30 PM, Mon-Sat" value={form.timings_and_days} onChange={set("timings_and_days")} required />
-          </Section>
+          {coreSections.map((g, i) => (
+            <Section key={g.title} title={g.title} step={i + 1}>
+              {g.fields.map((f) => renderCoreField(f))}
+            </Section>
+          ))}
 
           {extraSections.map((g, i) => (
-            <Section key={g.title} title={g.title} step={8 + i}>
+            <Section key={g.title} title={g.title} step={coreSections.length + 1 + i}>
               {g.fields.map((f) => (
                 <CustomField key={f.field_key} field={f} value={custom[f.field_key]} onChange={(v) => setCustom((c) => ({ ...c, [f.field_key]: v }))} />
               ))}
             </Section>
           ))}
 
-          <Section title="Confirmation" step={8 + extraSections.length}>
+          <Section title="Confirmation" step={coreSections.length + extraSections.length + 1}>
             <CheckboxField
               label="I confirm the details above are accurate to the best of my knowledge"
               checked={form.signature_confirmed}
