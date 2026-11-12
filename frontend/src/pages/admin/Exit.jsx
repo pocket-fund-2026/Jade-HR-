@@ -1,5 +1,5 @@
 import { ArrowLeft, Check, CheckCircle2, Circle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { useConfirm } from "../../components/ConfirmDialog.jsx";
@@ -255,11 +255,12 @@ function ExitDetail({ id }) {
   );
 }
 
-function InitiateExitModal({ onClose, onCreated }) {
+function InitiateExitModal({ onClose, onCreated, initial = null }) {
   const [employees, setEmployees] = useState([]);
-  const [employeeId, setEmployeeId] = useState("");
+  const [employeeId, setEmployeeId] = useState(initial?.employeeId || "");
   const [resignationDate, setResignationDate] = useState("");
-  const [lastWorkingDay, setLastWorkingDay] = useState("");
+  const [lastWorkingDay, setLastWorkingDay] = useState(initial?.lastWorkingDay || "");
+  const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -269,9 +270,21 @@ function InitiateExitModal({ onClose, onCreated }) {
     });
   }, []);
 
+  const selected = employees.find((e) => e.id === employeeId) || null;
+  const matches = useMemo(() => {
+    const words = search.toLowerCase().split(/\s+/).filter(Boolean);
+    return employees
+      .filter((e) => {
+        const hay = `${e.employee_code} ${e.first_name} ${e.last_name || ""} ${e.department || ""}`.toLowerCase();
+        return words.every((w) => hay.includes(w));
+      })
+      .slice(0, 60);
+  }, [employees, search]);
+
   const submit = async (e) => {
     e.preventDefault();
     setError("");
+    if (!employeeId) { setError("Pick an employee first"); return; }
     setBusy(true);
     try {
       const { data } = await api.post("/api/exit-records", {
@@ -292,12 +305,32 @@ function InitiateExitModal({ onClose, onCreated }) {
         <form onSubmit={submit} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Employee</label>
-            <select required className={inputCls} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
-              <option value="">Select an employee…</option>
-              {employees.map((e) => (
-                <option key={e.id} value={e.id}>{e.employee_code} — {e.first_name} {e.last_name}</option>
-              ))}
-            </select>
+            {selected ? (
+              <div className="flex items-center justify-between rounded-sm border border-jade-500/40 bg-jade-50 px-3 py-2 text-sm text-ink">
+                <span><span className="font-nums">{selected.employee_code}</span> — {selected.first_name} {selected.last_name}{selected.department ? ` · ${selected.department}` : ""}</span>
+                <button type="button" onClick={() => { setEmployeeId(""); setSearch(""); }} className="text-xs text-ink/60 hover:text-ink">Change</button>
+              </div>
+            ) : (
+              <>
+                <input
+                  autoFocus value={search} onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by name, code or department…" className={inputCls}
+                />
+                <div className="mt-1.5 max-h-48 overflow-y-auto rounded-sm border border-ink/10 bg-paper">
+                  {matches.length === 0 ? (
+                    <p className="px-3 py-3 text-xs text-ink/60">No active employee matches “{search}”.</p>
+                  ) : matches.map((e) => (
+                    <button
+                      type="button" key={e.id} onClick={() => setEmployeeId(e.id)}
+                      className="block w-full text-left px-3 py-2 text-sm hover:bg-manila/60 border-b border-ink/[0.06] last:border-0"
+                    >
+                      <span className="font-nums text-ink/70">{e.employee_code}</span> — <span className="text-ink">{e.first_name} {e.last_name}</span>
+                      {e.department ? <span className="text-xs text-ink/60"> · {e.department}</span> : null}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -328,25 +361,82 @@ function ExitList() {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [prefill, setPrefill] = useState(null);
+  const [soon, setSoon] = useState([]);
+  const [q, setQ] = useState("");
 
   const load = () => {
     setLoading(true);
     api.get("/api/exit-records", { params: { status: tab } }).then(({ data }) => setRecords(data)).finally(() => setLoading(false));
   };
   useEffect(load, [tab]);
+  useEffect(() => {
+    api.get("/api/exit-records/exiting-soon").then(({ data }) => setSoon(data)).catch(() => setSoon([]));
+  }, []);
+
+  const needle = q.trim().toLowerCase();
+  const shown = needle
+    ? records.filter((r) => `${r.employee?.employee_code} ${r.employee?.first_name} ${r.employee?.last_name || ""} ${r.employee?.department || ""}`.toLowerCase().includes(needle))
+    : records;
 
   return (
     <div>
       <div className="flex items-center justify-between gap-3 mb-1">
         <h2 className="font-display text-2xl text-ink">Exit Procedure</h2>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => { setPrefill(null); setShowModal(true); }}
           className="bg-ledger-800 text-manila px-4 py-2 rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
         >
           Initiate Exit
         </button>
       </div>
       <p className="text-sm text-ink/70 mb-6">Departmental clearance checklist and exit interview, matching the Final Settlement Form.</p>
+
+      <div className="bg-paper rounded-sm shadow-card overflow-hidden mb-6">
+        <div className="px-5 py-3 border-b border-ink/10 flex items-center justify-between">
+          <p className="text-xs font-semibold uppercase tracking-wider text-ink/70">Exiting Soon ({soon.length})</p>
+          <p className="text-[11px] text-ink/50">Everyone with a Scheduled Exit Date or Exit Date on their profile who hasn't exited yet</p>
+        </div>
+        {soon.length === 0 ? (
+          <p className="px-5 py-6 text-sm text-ink/60">Nobody is scheduled to leave. Set a Scheduled Exit Date on an employee's profile and they appear here.</p>
+        ) : (
+          <table className="w-full text-sm tabular-nums">
+            <tbody>
+              {soon.map((r) => {
+                const days = r.exit_on ? Math.round((new Date(r.exit_on) - new Date(new Date().toISOString().slice(0, 10))) / 86400000) : null;
+                return (
+                  <tr key={r.employee_id} className="border-b border-ink/[0.06] last:border-0">
+                    <td className="px-5 py-3">
+                      <span className="text-ink font-medium">{r.employee.first_name} {r.employee.last_name}</span>
+                      <div className="text-xs text-ink/70 font-nums">{r.employee.employee_code} · {r.employee.department || "—"}</div>
+                    </td>
+                    <td className="px-5 py-3 text-ink/70 font-nums">
+                      {r.exit_date ? "Exit date" : "Scheduled exit"} {formatDate(r.exit_on)}
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className={`text-xs font-semibold ${r.overdue ? "text-rust-500" : "text-ink/70"}`}>
+                        {days === null ? "" : r.overdue ? `${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} overdue` : days === 0 ? "Today" : `in ${days} day${days === 1 ? "" : "s"}`}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      {r.exit_id ? (
+                        <button onClick={() => navigate(`/admin/exit/${r.exit_id}`)} className="text-xs font-semibold text-jade-600 hover:text-jade-700">Open exit →</button>
+                      ) : (
+                        <button
+                          onClick={() => { setPrefill({ employeeId: r.employee_id, lastWorkingDay: r.exit_on || "" }); setShowModal(true); }}
+                          className="text-xs font-semibold text-ledger-800 hover:underline"
+                        >
+                          Start exit process
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       <div className="flex gap-1 mb-4">
         {[["in_progress", "In Progress"], ["completed", "Completed"]].map(([key, label]) => (
@@ -357,6 +447,10 @@ function ExitList() {
             {label}
           </button>
         ))}
+        <input
+          value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter by name, code or department…"
+          className={`${inputCls} ml-auto max-w-xs`}
+        />
       </div>
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden">
@@ -364,10 +458,10 @@ function ExitList() {
           <tbody>
             {loading ? (
               <tr><td className="px-5 py-12 text-ink/70 text-center text-sm"><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
-            ) : records.length === 0 ? (
-              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm">No {tab === "in_progress" ? "exits in progress" : "completed exits"}.</td></tr>
+            ) : shown.length === 0 ? (
+              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm">{needle ? "No exits match that filter." : `No ${tab === "in_progress" ? "exits in progress" : "completed exits"}.`}</td></tr>
             ) : (
-              records.map((r) => (
+              shown.map((r) => (
                 <tr key={r.id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/30 cursor-pointer" onClick={() => navigate(`/admin/exit/${r.id}`)}>
                   <td className="px-5 py-3.5">
                     <span className="text-ink font-medium">{r.employee?.first_name} {r.employee?.last_name}</span>
@@ -385,6 +479,7 @@ function ExitList() {
 
       {showModal && (
         <InitiateExitModal
+          initial={prefill}
           onClose={() => setShowModal(false)}
           onCreated={(id) => { setShowModal(false); navigate(`/admin/exit/${id}`); }}
         />

@@ -15,10 +15,9 @@ The 9 departments named on the paper form (Finished Goods, Raw Material,
 Costing/Purchase, Operations, Admin, Audit, plus Department Head/Accounts/HR)
 have no logins of their own in jade-hr (CONSOLE_ROLES is just accounts/hr),
 so their sign-off is tracked by HR/Accounts typing in who signed and when —
-same as the paper form being walked around physically today. 3 IT/security
-rows (ID Card Return, Email/OMS/TDS Deactivation, IT Sign-off) were added on
-top of the paper form's original 9 — Rajendra Power (outsourced IT) has no
-jade-hr login either, so their sign-off is tracked the same way.
+same as the paper form being walked around physically today. 2 IT/security
+rows (ID Card Return, Email/OMS/TDS Deactivation) were added on top of the
+paper form's original 9.
 """
 
 from datetime import datetime, timezone
@@ -34,8 +33,8 @@ from models import LeaverAlert, ExitAssetUpdate, ExitChecklistItemUpdate, ExitIn
 router = APIRouter(prefix="/api/exit-records", tags=["exit-procedure"])
 
 # (department, item label) — the Final Settlement Form's original 9 rows,
-# plus 3 IT/security rows (identity card return, system account
-# deactivation, and outsourced-IT sign-off) that weren't on the paper form.
+# plus 2 IT/security rows (identity card return, system account
+# deactivation) that weren't on the paper form.
 CHECKLIST_TEMPLATE = [
     ("Finished Goods", "Material"),
     ("Raw Material", "Material(s)"),
@@ -48,8 +47,13 @@ CHECKLIST_TEMPLATE = [
     ("HR", "Status"),
     ("Admin", "Identity Card Return"),
     ("IT", "Email / OMS / TDS Login Deactivation"),
-    ("IT (Rajendra Power)", "Deactivation Sign-off"),
 ]
+
+# Rows that older exit records were created with but that are no longer part of
+# the process (Rajendra Power's deactivation sign-off was dropped 2026-11-12).
+# They are hidden from the checklist and ignored when finalizing, so an exit
+# opened before the change is not stuck waiting for a sign-off nobody gives.
+RETIRED_DEPARTMENTS = ("IT (Rajendra Power)",)
 
 
 def _employee_brief(employee_id: str) -> dict:
@@ -72,6 +76,7 @@ def _hydrate(record: dict) -> dict:
         .execute()
         .data
     )
+    items = [i for i in items if i["department"] not in RETIRED_DEPARTMENTS]
     interview_resp = (
         supabase.table("hr_exit_interviews").select("*").eq("exit_id", record["id"]).maybe_single().execute()
     )
@@ -181,7 +186,7 @@ def send_access_revocation_if_new(employee_id: str, last_working_day: str, stage
 
 
 # Checklist rows that mean "their logins are still live".
-ACCESS_ITEM_LABELS = ("Email / OMS / TDS Login Deactivation", "Deactivation Sign-off")
+ACCESS_ITEM_LABELS = ("Email / OMS / TDS Login Deactivation",)
 
 
 @router.post("/leaver-alert")
@@ -222,6 +227,62 @@ def access_pending(user: dict = Depends(require_permission("exit.manage"))):
         })
     out.sort(key=lambda r: r["last_working_day"])
     return out
+
+
+def exiting_soon_rows(today_iso: str) -> list[dict]:
+    """Everyone whose profile carries a Scheduled Exit Date and/or Exit Date but
+    who has not actually Exited yet — the "Exiting soon" section. Includes people
+    HR has dated by hand on the profile (no exit record yet) and people whose
+    exit is already in progress, so nothing dated can fall between the two.
+    Filtering is done here rather than in SQL: `employee_status != 'Exited'`
+    would silently drop every row whose status is NULL."""
+    profiles = (
+        supabase.table("hr_employee_profile")
+        .select("employee_id,employee_status,scheduled_exit_date,exit_date")
+        .or_("scheduled_exit_date.not.is.null,exit_date.not.is.null")
+        .execute()
+        .data
+    ) or []
+    profiles = [p for p in profiles if (p.get("employee_status") or "") != "Exited"]
+    if not profiles:
+        return []
+    ids = [p["employee_id"] for p in profiles]
+    employees = {
+        e["id"]: e for e in (
+            supabase.table("hr_employees")
+            .select("id,employee_code,first_name,last_name,department,designation,location,is_active")
+            .in_("id", ids).execute().data or []
+        )
+    }
+    open_exits = {
+        r["employee_id"]: r["id"] for r in (
+            supabase.table("hr_exit_records").select("id,employee_id")
+            .in_("employee_id", ids).eq("status", "in_progress").execute().data or []
+        )
+    }
+    out = []
+    for p in profiles:
+        emp = employees.get(p["employee_id"])
+        if not emp or not emp.get("is_active"):
+            continue
+        when = p.get("exit_date") or p.get("scheduled_exit_date")
+        out.append({
+            "employee_id": p["employee_id"],
+            "employee": emp,
+            "employee_status": p.get("employee_status") or "",
+            "scheduled_exit_date": p.get("scheduled_exit_date"),
+            "exit_date": p.get("exit_date"),
+            "exit_on": when,
+            "overdue": bool(when and when < today_iso),
+            "exit_id": open_exits.get(p["employee_id"]),
+        })
+    out.sort(key=lambda r: r["exit_on"] or "9999-12-31")
+    return out
+
+
+@router.get("/exiting-soon")
+def exiting_soon(user: dict = Depends(require_permission("exit.manage"))):
+    return exiting_soon_rows(datetime.now(timezone.utc).date().isoformat())
 
 
 @router.get("/{exit_id}")
@@ -282,7 +343,10 @@ def finalize_exit(exit_id: str, user: dict = Depends(require_permission("exit.ma
         raise HTTPException(status_code=404, detail="Exit record not found")
     if record["status"] == "completed":
         raise HTTPException(status_code=409, detail="Exit already finalized")
-    items = supabase.table("hr_exit_checklist_items").select("status").eq("exit_id", exit_id).execute().data
+    items = [
+        i for i in supabase.table("hr_exit_checklist_items").select("status,department").eq("exit_id", exit_id).execute().data
+        if i["department"] not in RETIRED_DEPARTMENTS
+    ]
     if not items or any(i["status"] != "completed" for i in items):
         raise HTTPException(status_code=409, detail="Every department must be marked Completed before finalizing")
 
