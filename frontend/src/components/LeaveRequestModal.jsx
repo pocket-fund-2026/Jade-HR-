@@ -42,6 +42,8 @@ export default function LeaveRequestModal({ onClose, onSubmitted, onBehalfOf }) 
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [reason, setReason] = useState("");
+  const [session, setSession] = useState("first");
+  const isHalf = leaveType === "half_day";
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -61,7 +63,7 @@ export default function LeaveRequestModal({ onClose, onSubmitted, onBehalfOf }) 
   const submit = async (e) => {
     e.preventDefault();
     setError("");
-    if (endDate < startDate) {
+    if (!isHalf && endDate < startDate) {
       setError("End date must be on or after the start date");
       return;
     }
@@ -70,8 +72,9 @@ export default function LeaveRequestModal({ onClose, onSubmitted, onBehalfOf }) 
       await api.post("/api/me/leave-requests", {
         leave_type: leaveType,
         start_date: startDate,
-        end_date: endDate,
+        end_date: isHalf ? startDate : endDate,
         reason,
+        ...(isHalf ? { half_day_session: session } : {}),
         ...(onBehalfOf ? { employee_id: onBehalfOf.id } : {}),
       });
       onSubmitted();
@@ -128,22 +131,35 @@ export default function LeaveRequestModal({ onClose, onSubmitted, onBehalfOf }) 
               </select>
             </Field>
             {leaveType === "comp_off" && <CompOffPolicy />}
+            {isHalf && (
+              <>
+                <p className="text-xs text-ink/70 border-l-2 border-ochre-700 pl-2.5">
+                  Half Day: you are paid for half a day only; the other half is without pay. Goes to your reporting manager and HR for approval.
+                </p>
+                <Field label="Which half" required>
+                  <select className={inputCls} value={session} onChange={(e) => setSession(e.target.value)}>
+                    <option value="first">First half (morning off)</option>
+                    <option value="second">Second half (afternoon off)</option>
+                  </select>
+                </Field>
+              </>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="From" required>
                 <input
                   type="date" required className={`${inputCls} font-nums`}
-                  value={startDate} onChange={(e) => setStartDate(e.target.value)}
+                  value={startDate} onChange={(e) => { setStartDate(e.target.value); if (isHalf) setEndDate(e.target.value); }}
                 />
               </Field>
               <Field label="To" required>
                 <input
-                  type="date" required className={`${inputCls} font-nums`}
-                  value={endDate} onChange={(e) => setEndDate(e.target.value)}
+                  type="date" required disabled={isHalf} className={`${inputCls} font-nums`}
+                  value={isHalf ? startDate : endDate} onChange={(e) => setEndDate(e.target.value)}
                 />
               </Field>
             </div>
             <Field label="Number of days">
-              <input type="number" className={`${readOnlyCls} font-nums`} value={daysBetween(startDate, endDate)} disabled />
+              <input type="number" className={`${readOnlyCls} font-nums`} value={isHalf ? (startDate ? 0.5 : 0) : daysBetween(startDate, endDate)} disabled />
             </Field>
             <Field label="Details" required>
               <textarea

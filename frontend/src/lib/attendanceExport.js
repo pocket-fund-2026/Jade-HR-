@@ -16,7 +16,7 @@ export const STATUS_CODE = {
 // the generic "L".
 export const LEAVE_TYPE_CODE = {
   paid: "PL", comp_off: "CO", unpaid: "LWP", maternity: "ML", paternity: "PTL",
-  compassionate: "CL", casual: "CL", sick: "SL", earned: "EL",
+  half_day: "HD", compassionate: "CL", casual: "CL", sick: "SL", earned: "EL",
 };
 
 // The code that actually goes in a day's cell: leave days carry their own

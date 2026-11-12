@@ -18,6 +18,8 @@ export default function MyLeave() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [reason, setReason] = useState("");
+  const [session, setSession] = useState("first");
+  const isHalf = leaveType === "half_day";
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -37,13 +39,13 @@ export default function MyLeave() {
   const submit = async (e) => {
     e.preventDefault();
     setError("");
-    if (!startDate || !endDate) {
+    if (!startDate || (!isHalf && !endDate)) {
       setError("Start and end date are required.");
       return;
     }
     setSubmitting(true);
     try {
-      await api.post("/api/me/leave-requests", { leave_type: leaveType, start_date: startDate, end_date: endDate, reason });
+      await api.post("/api/me/leave-requests", { leave_type: leaveType, start_date: startDate, end_date: isHalf ? startDate : endDate, reason, ...(isHalf ? { half_day_session: session } : {}) });
       setStartDate(""); setEndDate(""); setReason("");
       load();
     } catch (err) {
@@ -91,9 +93,17 @@ export default function MyLeave() {
                   className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">End Date</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">{isHalf ? "Which half" : "End Date"}</label>
+                {isHalf ? (
+                  <select value={session} onChange={(e) => setSession(e.target.value)}
+                    className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
+                    <option value="first">First half (morning off)</option>
+                    <option value="second">Second half (afternoon off)</option>
+                  </select>
+                ) : (
                 <input type="date" required value={endDate} onChange={(e) => setEndDate(e.target.value)}
                   className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+                )}
               </div>
             </div>
             <div className="mt-4">

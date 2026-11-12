@@ -201,10 +201,11 @@ class StatutoryFlagsImportRequest(BaseModel):
 
 
 class LeaveRequestCreate(BaseModel):
-    leave_type: str  # paid | unpaid | other | paternity | maternity | compassionate | comp_off
+    leave_type: str  # paid | unpaid | other | paternity | maternity | compassionate | comp_off | half_day
     start_date: date
     end_date: date
     reason: str
+    half_day_session: str | None = None  # half_day only: 'first' | 'second'
     # Set only when HR is filing on an employee's behalf (requires
     # leave.manage) — e.g. a documented Red Card exception, since the
     # employee's own self-service submission is blocked in that case.

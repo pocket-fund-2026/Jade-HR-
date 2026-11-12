@@ -14,6 +14,7 @@ export const LEAVE_LABELS = {
   maternity: "Maternity Leave",
   compassionate: "Compassionate Leave",
   comp_off: "Comp-Off",
+  half_day: "Half Day (half-day pay)",
 };
 
 // Offered on new leave-request forms — excludes the discontinued types and
@@ -21,7 +22,7 @@ export const LEAVE_LABELS = {
 // "unpaid" and "other" were retired from new requests Jul 2026 (HR request):
 // unpaid days are derived automatically from attendance/LOP, and "other" was a
 // catch-all HR wanted removed. Both stay in LEAVE_LABELS so old requests render.
-export const SELECTABLE_LEAVE_TYPES = ["paid", "paternity", "maternity", "compassionate", "comp_off"];
+export const SELECTABLE_LEAVE_TYPES = ["paid", "half_day", "paternity", "maternity", "compassionate", "comp_off"];
 
 // comp_off is available to everyone — both the Retail and Corporate policy
 // documents grant it, and the nightly accrual credits the whole roster.

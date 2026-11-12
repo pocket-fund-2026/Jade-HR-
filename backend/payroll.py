@@ -564,6 +564,22 @@ def compute_daily_attendance(
         # still show as leave and consume PL, not silently flip to "present"
         # and mask the approval. Checked ahead of punches for exactly that
         # reason; only an admin override (above) can supersede it.
+        if d in leaves and leaves[d] == "half_day":
+            # Approved Half Day leave: reuses the "half_day" status so the
+            # monthly summary pays 0.5 and books 0.5 without-pay.
+            rows.append({
+                "date": d.isoformat(),
+                "first_in": None,
+                "last_out": None,
+                "hours_worked": 0.0,
+                "ot_hours": 0.0,
+                "status": "half_day",
+                "leave_type": "half_day",
+                "late": False,
+            })
+            d += timedelta(days=1)
+            continue
+
         if d in leaves:
             rows.append({
                 "date": d.isoformat(),

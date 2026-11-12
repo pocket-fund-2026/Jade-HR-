@@ -429,6 +429,24 @@ def create_leave_request(body: LeaveRequestCreate, user: dict = Depends(get_curr
             ),
         )
 
+    if body.leave_type == "half_day":
+        # Half Day: one date only, paid 0.5 day, the other half is without pay
+        # (payroll turns the approved day into a "half_day" status). Does not
+        # draw down the Paid Leave pool.
+        if body.start_date != body.end_date:
+            raise HTTPException(status_code=400, detail="Half Day leave covers a single date — set From and To to the same day")
+        if body.half_day_session not in ("first", "second"):
+            raise HTTPException(status_code=400, detail="Choose which half of the day: first half or second half")
+        clash = (
+            supabase.table("hr_leave_requests").select("id")
+            .eq("employee_id", target["id"]).in_("status", ["pending", "approved"])
+            .lte("start_date", body.start_date.isoformat()).gte("end_date", body.start_date.isoformat())
+            .execute().data
+        )
+        if clash:
+            raise HTTPException(status_code=400, detail="You already have a leave request covering that date")
+        requested_days = 0.5
+
     if body.leave_type == "paid":
         doj = target.get("date_of_joining")
         if doj and (date.today() - date.fromisoformat(doj)).days < PL_PROBATION_DAYS:
@@ -459,6 +477,8 @@ def create_leave_request(body: LeaveRequestCreate, user: dict = Depends(get_curr
         "end_date": body.end_date.isoformat(),
         "reason": reason,
     }
+    if body.leave_type == "half_day":
+        row["half_day_session"] = body.half_day_session
     dup = find_recent_duplicate("hr_leave_requests", {
         "employee_id": row["employee_id"], "leave_type": row["leave_type"],
         "start_date": row["start_date"], "end_date": row["end_date"], "reason": row["reason"],
