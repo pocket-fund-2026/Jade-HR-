@@ -1,6 +1,6 @@
 import { ArrowLeft, Check, Plus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { Link, useOutletContext } from "react-router-dom";
 
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
@@ -172,6 +172,10 @@ function DetailGroup({ title, children }) {
 function SubmissionDetail({ id, onBack, onResolved, canViewSalary }) {
   const [submission, setSubmission] = useState(null);
   const [employeeCode, setEmployeeCode] = useState("");
+  const [nextCode, setNextCode] = useState("");
+  useEffect(() => {
+    api.get("/api/onboarding/next-code").then(({ data }) => setNextCode(data.employee_code)).catch(() => {});
+  }, []);
   const [password, setPassword] = useState("");
   const [employeeCategory, setEmployeeCategory] = useState("factory_retail");
   const [note, setNote] = useState("");
@@ -312,6 +316,18 @@ function SubmissionDetail({ id, onBack, onResolved, canViewSalary }) {
           <DetailField label="Confirmed by submitter" value={submission.signature_confirmed ? "Yes" : "No"} />
         </DetailGroup>
 
+        {submission.status !== "rejected" && (
+          <div className="border-t border-ink/10 pt-5 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-ink/70">Next step: the offer letter fills in from this form. Add pay and any other details, then send it for approval.</p>
+            <Link
+              to={`/admin/letters?type=offer_employment&submission=${submission.id}`}
+              className="px-3 py-1.5 rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 whitespace-nowrap"
+            >
+              Create offer letter
+            </Link>
+          </div>
+        )}
+
         {submission.status === "pending" ? (
           <div className="border-t border-ink/10 pt-5">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1">Resolve</h4>
@@ -324,7 +340,7 @@ function SubmissionDetail({ id, onBack, onResolved, canViewSalary }) {
                 <input
                   value={employeeCode}
                   onChange={(e) => setEmployeeCode(e.target.value)}
-                  placeholder="Auto-assign next free ID"
+                  placeholder={nextCode ? `Auto: ${nextCode}` : "Auto-assign next free ID"}
                   className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
                 />
               </div>

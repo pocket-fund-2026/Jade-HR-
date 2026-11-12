@@ -19,6 +19,12 @@ def test_continues_after_zoho_and_ignores_outliers(monkeypatch):
     assert _next(monkeypatch, ["14850", "14699", "70464", "225427", "22004"]) == "14851"
 
 
+def test_stray_codes_in_band_do_not_skew_sequence(monkeypatch):
+    # 16041/16261/16262 are biometric stubs / test rows that used to push the next code to 16263
+    assert _next(monkeypatch, ["14850", "16041", "16261", "16262"]) == "14851"
+    assert _next(monkeypatch, ["14850", "14851", "14852", "16262"]) == "14853"
+
+
 def test_floor_and_increment(monkeypatch):
     assert _next(monkeypatch, ["14600"]) == "14851"
     assert _next(monkeypatch, ["14851", "14852", "abc"]) == "14853"

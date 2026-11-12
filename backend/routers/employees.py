@@ -664,6 +664,25 @@ def create_employee(body: EmployeeCreate, notify_joiner: bool = True, user: dict
     _require_role_grant_allowed(user, body.role)
     # Blank code/password = auto-assign the next free ID and a temporary
     # password (returned once in the response so HR can hand it over).
+    if not body.employee_code.strip():
+        # Auto-assign path (HR typing a new joiner by hand): refuse a second
+        # active person with the same name. 2026-11-12: Tanishka Malhotra was
+        # added twice (16263, 16264) while her real biometric code 14845
+        # already existed. Roster sync always passes an explicit code, so it
+        # is never blocked by this.
+        full = f"{body.first_name} {body.last_name}".split()
+        same = [
+            e for e in supabase.table("hr_employees").select("employee_code,first_name,last_name")
+            .ilike("first_name", body.first_name.strip().replace("%", "\\%").replace("_", "\\_")).eq("is_active", True).execute().data
+            if f"{e['first_name']} {e.get('last_name') or ''}".split() == full
+            or f"{e['first_name']} {e.get('last_name') or ''}".lower().split() == " ".join(full).lower().split()
+        ]
+        if same:
+            raise HTTPException(
+                status_code=409,
+                detail=f"{body.first_name} {body.last_name}".strip()
+                + f" already exists as employee {same[0]['employee_code']}. Open that record instead of adding a duplicate.",
+            )
     body.employee_code = body.employee_code.strip() or _next_employee_code()
     generated_password = None
     if not body.password:

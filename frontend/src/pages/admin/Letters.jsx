@@ -106,6 +106,30 @@ function autofillFromEmployee(employee, profile) {
   };
 }
 
+function autofillFromSubmission(sub) {
+  if (!sub) return {};
+  const address = [sub.address_line1, sub.address_line2, sub.address_line3, sub.address_line4].filter(Boolean).join(", ");
+  const out = {
+    employee_name: sub.full_name || "",
+    designation: sub.designation || "",
+    department: sub.department || "",
+    email: sub.email || "",
+    address,
+  };
+  if (sub.date_of_joining) {
+    const d = formatOrdinalDate(sub.date_of_joining);
+    out.date_of_joining = d; out.joining_date = d; out.start_date = d;
+  }
+  // Compensation HR entered on the form (only components that were actually filled).
+  for (const [from, to] of [["basic", "basic_salary"], ["hra", "hra"], ["conveyance", "conveyance"], ["other_allowance", "other_allowance"]]) {
+    if (Number(sub[from]) > 0) out[to] = String(sub[from]);
+  }
+  if (sub.date_of_offer_letter) out.letter_date = formatOrdinalDate(sub.date_of_offer_letter);
+  if (sub.kra) out.kras = sub.kra;
+  if (sub.timings_and_days) out.work_hours = sub.timings_and_days;
+  return out;
+}
+
 const WORK_LOCATION = "Jade Lifestyles India, Madhu Estate, 2nd Floor B wing, Pandurang Budhkar Marg, Lower Parel, Mumbai 400013.";
 
 // Starting values for tokens no employee record can supply — every one of
@@ -467,10 +491,12 @@ function FieldInput({ token, value, onChange }) {
   return <input value={value} onChange={(e) => onChange(e.target.value)} className={inputCls} />;
 }
 
-function LetterGenerator({ template, onClose, onIssued, candidateId = null }) {
+function LetterGenerator({ template, onClose, onIssued, candidateId = null, submissionId = null }) {
   const { user } = useAuth();
   const todayLabel = formatOrdinalDate(new Date().toISOString());
-  const [mode, setMode] = useState(candidateId ? "new" : "existing"); // existing | new
+  const [mode, setMode] = useState(candidateId ? "new" : submissionId ? "form" : "existing"); // existing | new | form
+  const [submissions, setSubmissions] = useState([]);
+  const [submissionPick, setSubmissionPick] = useState(submissionId || "");
   const [employees, setEmployees] = useState([]);
   const [employeeId, setEmployeeId] = useState("");
   const [fieldValues, setFieldValues] = useState(() => defaultsFor(template.letter_type, todayLabel, user?.name));
@@ -505,6 +531,29 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null }) {
       setFieldValues((prev) => ({ ...prev, employee_name: a.full_name || "", designation: job.title || "", department: job.department || "", email: a.email || "", address: prev.address || "" }));
     }).catch(() => {});
   }, [candidateId]);
+
+  // Joining-form candidates (onboarding is filled in BEFORE the offer letter): HR picks the submission and the letter fills itself in.
+  // Needs onboarding.manage; without it the list is simply empty and the other sources still work.
+  useEffect(() => {
+    api.get("/api/onboarding/submissions").then(({ data }) => setSubmissions(data.filter((x) => x.status !== "rejected"))).catch(() => {});
+  }, []);
+
+  const applySubmission = async (id) => {
+    setSubmissionPick(id);
+    if (!id) return;
+    try {
+      const { data } = await api.get(`/api/onboarding/submissions/${id}`);
+      setFieldValues((prev) => ({
+        ...prev,
+        ...defaultsFor(template.letter_type, todayLabel, user?.name),
+        ...autofillFromSubmission(data),
+      }));
+    } catch {
+      setError("Could not load that joining form");
+    }
+  };
+
+  useEffect(() => { if (submissionId) applySubmission(submissionId); }, [submissionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const applyEmployee = async (id) => {
     setEmployeeId(id);
@@ -603,8 +652,8 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null }) {
         <div className="xl:sticky xl:top-4 space-y-4">
           <div className="bg-paper rounded-sm shadow-card p-5">
             <p className={labelCls}>Letter for</p>
-            <div className="grid grid-cols-2 gap-1 p-1 bg-manila rounded-sm mb-3 text-xs font-semibold">
-              {[["existing", "Existing employee"], ["new", "New / not in system"]].map(([k, label]) => (
+            <div className="grid grid-cols-3 gap-1 p-1 bg-manila rounded-sm mb-3 text-xs font-semibold">
+              {[["form", "Joining form"], ["existing", "Existing employee"], ["new", "New / not in system"]].map(([k, label]) => (
                 <button
                   key={k}
                   type="button"
@@ -615,7 +664,19 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null }) {
                 </button>
               ))}
             </div>
-            {mode === "existing" ? (
+            {mode === "form" ? (
+              <>
+                <select value={submissionPick} onChange={(e) => applySubmission(e.target.value)} className={inputCls}>
+                  <option value="">Select a joining form…</option>
+                  {submissions.map((x) => (
+                    <option key={x.id} value={x.id}>
+                      {x.full_name}{x.designation ? ` — ${x.designation}` : ""}{x.status === "approved" ? " (approved)" : ""}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-ink/60 mt-2">The candidate's joining-form details fill in below. Add pay and anything else, then generate and send for approval.</p>
+              </>
+            ) : mode === "existing" ? (
               <select value={employeeId} onChange={(e) => applyEmployee(e.target.value)} className={inputCls}>
                 <option value="">Select an employee…</option>
                 {employees.map((e) => (
@@ -1060,7 +1121,7 @@ export default function Letters() {
   const [activeType, setActiveType] = useState(null);
   const [issuedId, setIssuedId] = useState(null);
   const [params] = useSearchParams();
-  const wantType = params.get("type"), candidateId = params.get("candidate");
+  const wantType = params.get("type"), candidateId = params.get("candidate"), submissionId = params.get("submission");
   const [autoOpened, setAutoOpened] = useState(false);
 
   const load = () => {
@@ -1118,7 +1179,7 @@ export default function Letters() {
   }
 
   if (view === "generate" && active) {
-    return <LetterGenerator template={active} candidateId={candidateId} onClose={() => setView("hub")} onIssued={(id) => {
+    return <LetterGenerator template={active} candidateId={candidateId} submissionId={submissionId} onClose={() => setView("hub")} onIssued={(id) => {
       if (candidateId) api.post(`/api/careers/applications/${candidateId}/notes`, { body: `Offer letter created in Letters (${active.title}). Review it there and send it for approval.` }).catch(() => {});
       openIssued(id);
     }} />;
