@@ -5,7 +5,9 @@ import { useSearchParams } from "react-router-dom";
 
 import AbsenceRequestModal from "../../components/AbsenceRequestModal.jsx";
 import DisputeModal from "../../components/DisputeModal.jsx";
+import ExitAssetsModal from "../../components/ExitAssetsModal.jsx";
 import ExitInterviewModal from "../../components/ExitInterviewModal.jsx";
+import ExitSignoffModal from "../../components/ExitSignoffModal.jsx";
 import LeaveRequestModal from "../../components/LeaveRequestModal.jsx";
 import LoanRequestModal from "../../components/LoanRequestModal.jsx";
 import MarketVisitCheckinCard from "../../components/MarketVisitCheckinCard.jsx";
@@ -15,6 +17,7 @@ import SelfieCheckinCard from "../../components/SelfieCheckinCard.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import WFHRequestModal from "../../components/WFHRequestModal.jsx";
 import api from "../../lib/api.js";
+import { useAuth } from "../../lib/auth.jsx";
 import { currentPayPeriod, formatDate, formatHolidayDate, formatHoursMins, formatTime } from "../../lib/format.js";
 import { LEAVE_LABELS } from "../../lib/leaveTypes.js";
 import AnimatedNumber from "../../components/AnimatedNumber.jsx";
@@ -30,6 +33,7 @@ const DAY_TYPE_LABELS = {
 };
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const [year, setYear] = useState(currentPayPeriod().year);
   const [month, setMonth] = useState(currentPayPeriod().month);
   const [summary, setSummary] = useState(null);
@@ -43,6 +47,10 @@ export default function Dashboard() {
   const [myExit, setMyExit] = useState(null);
   const [compOff, setCompOff] = useState(null);
   const [showExitInterview, setShowExitInterview] = useState(false);
+  const [myAssets, setMyAssets] = useState(null);
+  const [showAssets, setShowAssets] = useState(false);
+  const [signoffs, setSignoffs] = useState([]);
+  const [showSignoffs, setShowSignoffs] = useState(false);
   const [holidays, setHolidays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [disputeDate, setDisputeDate] = useState(null);
@@ -64,6 +72,22 @@ export default function Dashboard() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // HOD sign-offs and the leaver's own handover form are fetched on their own so a failure here can never blank the dashboard.
+  const loadExitExtras = () => {
+    api.get("/api/me/exit-assets").then(({ data }) => setMyAssets(data)).catch(() => setMyAssets(null));
+    api.get("/api/me/exit-signoffs").then(({ data }) => {
+      setSignoffs(data);
+      // Pop up once per browser session; the banner below stays until everything is signed.
+      let seen = false;
+      try { seen = sessionStorage.getItem("exitSignoffPopup") === "1"; } catch { /* storage unavailable */ }
+      if (data.length && !seen) {
+        setShowSignoffs(true);
+        try { sessionStorage.setItem("exitSignoffPopup", "1"); } catch { /* ignore */ }
+      }
+    }).catch(() => setSignoffs([]));
+  };
+  useEffect(loadExitExtras, []);
 
   const load = () => {
     setLoading(true);
@@ -155,6 +179,16 @@ export default function Dashboard() {
         <p className="text-ink/70">Loading ledger…</p>
       ) : (
         <div className="print-area">
+          {signoffs.length > 0 && (
+            <div className="bg-rust-50 border border-rust-500/40 rounded-sm px-4 py-3 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
+              <div className="text-sm text-ink/80">
+                <strong className="text-ink">Exit clearance</strong> — {signoffs.length === 1 ? `${signoffs[0].employee_name} is leaving and` : `${signoffs.length} people are leaving and`} needs your e-sign.
+              </div>
+              <button onClick={() => setShowSignoffs(true)} className="bg-ledger-800 text-manila px-3 py-2 rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors whitespace-nowrap self-start sm:self-auto">
+                Review &amp; sign
+              </button>
+            </div>
+          )}
           {myExit?.has_exit && (
             <div className="bg-manila border border-ink/20 rounded-sm px-4 py-3 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
               <div className="text-sm text-ink/80">
@@ -170,6 +204,14 @@ export default function Dashboard() {
               >
                 {myExit.submitted ? "Review answers" : "Fill exit interview"}
               </button>
+              {myAssets?.has_exit && (
+                <button
+                  onClick={() => setShowAssets(true)}
+                  className="flex items-center gap-1.5 border border-ledger-800 text-ledger-800 px-3 py-2 rounded-sm text-xs font-semibold hover:bg-ledger-800 hover:text-manila transition-colors whitespace-nowrap self-start sm:self-auto"
+                >
+                  {myAssets.submitted ? "System handover ✓" : "System handover (required)"}
+                </button>
+              )}
             </div>
           )}
           {aip && aip.status === "active" && (
@@ -525,6 +567,21 @@ export default function Dashboard() {
         <WFHRequestModal
           onClose={() => setShowWfhModal(false)}
           onSubmitted={() => { setShowWfhModal(false); load(); }}
+        />
+      )}
+      {showAssets && (
+        <ExitAssetsModal
+          existing={myAssets}
+          onClose={() => setShowAssets(false)}
+          onSubmitted={() => { setShowAssets(false); loadExitExtras(); }}
+        />
+      )}
+      {showSignoffs && signoffs.length > 0 && (
+        <ExitSignoffModal
+          items={signoffs}
+          fullName={user?.name || ""}
+          onClose={() => setShowSignoffs(false)}
+          onChanged={(left) => setSignoffs(left)}
         />
       )}
       {showExitInterview && (

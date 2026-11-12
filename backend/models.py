@@ -933,3 +933,20 @@ class ReconcileLine(BaseModel):
 
 class ReconcileConfirm(BaseModel):
     matches: list[ReconcileLine]
+
+
+class ExitSignoff(BaseModel):
+    typed_name: str
+    confirm: bool = False
+    notes: str = ""
+
+
+class ExitAssetSubmit(BaseModel):
+    system_no: str = ""  # optional
+    system_password: str  # mandatory
+
+
+class ExitSignerCreate(BaseModel):
+    row_department: str
+    employee_id: str
+    scope_department: Optional[str] = None  # only for the "Department Head" row: the leaver's department this person heads

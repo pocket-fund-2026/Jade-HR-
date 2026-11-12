@@ -73,6 +73,7 @@ function ChecklistRow({ item, exitId, onUpdated }) {
 
 function AssetSection({ record, onUpdated }) {
   const [systemNo, setSystemNo] = useState(record.system_no || "");
+  const [showPw, setShowPw] = useState(false);
   const flags = [
     ["monitor_returned", "Monitor returned"],
     ["keyboard_returned", "Keyboard returned"],
@@ -99,6 +100,17 @@ function AssetSection({ record, onUpdated }) {
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">System No.</label>
           <input value={systemNo} onChange={(e) => setSystemNo(e.target.value)} onBlur={saveSystemNo} className={inputCls} />
+        </div>
+        <div className="sm:col-span-2 rounded-sm border border-ink/10 bg-manila/40 px-3 py-2.5">
+          <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1">System password (from the employee)</p>
+          {record.system_password ? (
+            <p className="text-sm text-ink font-nums">
+              {showPw ? record.system_password : "••••••••"}{" "}
+              <button type="button" onClick={() => setShowPw((v) => !v)} className="text-xs text-jade-600 hover:underline ml-2">{showPw ? "Hide" : "Show"}</button>
+            </p>
+          ) : (
+            <p className="text-sm text-rust-500">Not provided yet. The employee enters it from their dashboard (required).</p>
+          )}
         </div>
         <div className="flex flex-col gap-2 justify-center">
           {flags.map(([key, label]) => (
@@ -355,6 +367,95 @@ function InitiateExitModal({ onClose, onCreated, initial = null }) {
   );
 }
 
+function SignerConfig() {
+  const [data, setData] = useState(null);
+  const [employees, setEmployees] = useState([]);
+  const [row, setRow] = useState("Costing/Purchase");
+  const [person, setPerson] = useState("");
+  const [scope, setScope] = useState("");
+  const [error, setError] = useState("");
+  const [open, setOpen] = useState(false);
+
+  const load = () => api.get("/api/exit-records/signers").then(({ data }) => setData(data)).catch(() => setData(null));
+  useEffect(() => {
+    load();
+    api.get("/api/employees", { params: { lite: true } }).then(({ data }) => setEmployees(data.filter((e) => e.is_active)));
+  }, []);
+
+  const label = (e) => `${e.employee_code} — ${e.first_name} ${e.last_name || ""}`.trim();
+  const add = async (ev) => {
+    ev.preventDefault();
+    setError("");
+    const emp = employees.find((e) => label(e) === person.trim());
+    if (!emp) { setError("Pick a person from the list"); return; }
+    try {
+      await api.post("/api/exit-records/signers", { row_department: row, employee_id: emp.id, scope_department: scope || null });
+      setPerson(""); setScope("");
+      load();
+    } catch (err) {
+      setError(err.response?.data?.detail || "Could not add");
+    }
+  };
+  const remove = async (id) => { await api.delete(`/api/exit-records/signers/${id}`); load(); };
+
+  if (!data) return null;
+  const byRow = (d) => data.signers.filter((x) => x.row_department === d);
+  return (
+    <div className="bg-paper rounded-sm shadow-card mb-6">
+      <button onClick={() => setOpen((v) => !v)} className="w-full px-5 py-3 flex items-center justify-between text-left">
+        <p className="text-xs font-semibold uppercase tracking-wider text-ink/70">Who e-signs which row</p>
+        <span className="text-xs text-ink/50">{open ? "Hide" : `${data.signers.length} assigned · Edit`}</span>
+      </button>
+      {open && (
+        <div className="px-5 pb-5 border-t border-ink/10 pt-4">
+          <p className="text-xs text-ink/60 mb-3">
+            The person named for a row gets a popup on their dashboard when someone is leaving, and e-signs it there. A row with nobody named stays HR-typed.
+            For "Department Head", name the HOD together with the department they head: they sign for people leaving that department.
+          </p>
+          <table className="w-full text-sm mb-4">
+            <tbody>
+              {data.row_departments.map((d) => (
+                <tr key={d} className="border-b border-ink/[0.06] last:border-0 align-top">
+                  <td className="py-2 pr-4 text-ink font-medium whitespace-nowrap">{d}</td>
+                  <td className="py-2 text-ink/80">
+                    {byRow(d).length === 0 ? <span className="text-ink/40">HR types it in</span> : byRow(d).map((x) => (
+                      <span key={x.id} className="inline-flex items-center gap-1.5 mr-3 mb-1 bg-manila rounded-sm px-2 py-0.5 text-xs">
+                        {x.employee?.first_name} {x.employee?.last_name}{x.scope_department ? ` (${x.scope_department})` : ""}
+                        <button onClick={() => remove(x.id)} aria-label="Remove" className="text-rust-500 hover:text-rust-600">×</button>
+                      </span>
+                    ))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <form onSubmit={add} className="flex flex-wrap items-end gap-3">
+            <div>
+              <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink/70 mb-1">Row</label>
+              <select className={inputCls} value={row} onChange={(e) => setRow(e.target.value)}>
+                {data.row_departments.map((d) => <option key={d}>{d}</option>)}
+              </select>
+            </div>
+            <div className="flex-1 min-w-[220px]">
+              <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink/70 mb-1">Person</label>
+              <input list="exit-signer-people" className={inputCls} value={person} onChange={(e) => setPerson(e.target.value)} placeholder="Type a name or code…" />
+              <datalist id="exit-signer-people">{employees.map((e) => <option key={e.id} value={label(e)} />)}</datalist>
+            </div>
+            {row === "Department Head" && (
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink/70 mb-1">Department they head</label>
+                <input className={inputCls} value={scope} onChange={(e) => setScope(e.target.value)} placeholder="e.g. Costing" />
+              </div>
+            )}
+            <button type="submit" className="bg-ledger-800 text-manila px-4 py-2 rounded-sm text-sm font-semibold hover:bg-ledger-700">Add</button>
+          </form>
+          {error && <p className="text-sm text-rust-500 mt-2">{error}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ExitList() {
   const navigate = useNavigate();
   const [tab, setTab] = useState("in_progress");
@@ -391,6 +492,8 @@ function ExitList() {
         </button>
       </div>
       <p className="text-sm text-ink/70 mb-6">Departmental clearance checklist and exit interview, matching the Final Settlement Form.</p>
+
+      <SignerConfig />
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden mb-6">
         <div className="px-5 py-3 border-b border-ink/10 flex items-center justify-between">
