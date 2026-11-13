@@ -1,4 +1,5 @@
 import base64
+import logging
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -13,6 +14,8 @@ from config import COOKIE_SECURE, JWT_ALGORITHM, JWT_EXPIRE_MINUTES, JWT_SECRET
 from database import maybe_single_data, supabase
 from paging import ContextThreadPoolExecutor
 from models import AvatarUpload, BootstrapAdminRequest, ForgotPasswordRequest, LoginRequest, MagicLinkRequest, MagicLinkVerify, PasswordChange, ResetPasswordRequest
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -95,9 +98,14 @@ def login(body: LoginRequest, response: Response, request: Request):
         raise HTTPException(status_code=401, detail="Invalid employee code or password")
 
     if employee.get("failed_login_count", 0) > 0 or employee.get("locked_until"):
-        supabase.table("hr_employees").update(
-            {"failed_login_count": 0, "locked_until": None}
-        ).eq("id", employee["id"]).execute()
+        # Best-effort: the password was correct, so a database hiccup while clearing the
+        # counter must never turn into a login error for the user.
+        try:
+            supabase.table("hr_employees").update(
+                {"failed_login_count": 0, "locked_until": None}
+            ).eq("id", employee["id"]).execute()
+        except Exception:
+            logger.exception("Could not reset failed-login counter for %s", employee.get("id"))
 
     record_login(employee, request.headers.get("user-agent", ""))
     token = create_access_token(employee)
