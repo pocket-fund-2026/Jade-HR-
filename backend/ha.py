@@ -158,13 +158,19 @@ class HAProxy:
         from starlette.concurrency import run_in_threadpool
         from starlette.responses import JSONResponse
         token=None
+        selected=False
         try:
             route=await run_in_threadpool(self.coordinator.select)
+            selected=True
             token=PIN.set(route)
             response=await call_next(request)
             response.headers['X-JadeHR-Backend']=route['backend']
             return response
         except HAUnavailable:
-            return JSONResponse({'detail':'HR database standby is switching or catching up. Please retry shortly.'},status_code=503,headers={'Retry-After':'5'})
+            headers={'Retry-After':'5'}
+            # Failed while choosing the database: nothing was written, so the client may safely
+            # retry even a save. Failures after the route was chosen may have committed: no retry.
+            if not selected: headers['X-HA-Retry-Safe']='1'
+            return JSONResponse({'detail':'HR database standby is switching or catching up. Please retry shortly.'},status_code=503,headers=headers)
         finally:
             if token is not None: PIN.reset(token)
