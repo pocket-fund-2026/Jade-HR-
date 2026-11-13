@@ -22,7 +22,17 @@ class Coordinator:
         self.cached=None
         self.cached_at=0.0
 
-    def rpc(self,backend,name,payload):
+    def rpc(self,backend,name,payload,retries=1):
+        # Read-only/idempotent RPCs get short retries: the office link is high-latency and
+        # a single dropped packet used to surface as a 503 to the user.
+        for attempt in range(retries):
+            try:
+                return self._rpc_once(backend,name,payload)
+            except HAUnavailable:
+                if attempt==retries-1: raise
+                time.sleep(0.3*(attempt+1))
+
+    def _rpc_once(self,backend,name,payload):
         try:
             r=self.http.post(self.urls[backend]+'/rest/v1/rpc/'+name,json=payload,headers={'apikey':self.keys[backend],'Authorization':'Bearer '+self.keys[backend]})
             r.raise_for_status()
@@ -31,7 +41,7 @@ class Coordinator:
             raise HAUnavailable('HR database availability check failed') from exc
 
     def state(self,promote=False):
-        return self.rpc('supabase','hr_ha_route',{'p_promote':promote})
+        return self.rpc('supabase','hr_ha_route',{'p_promote':promote},retries=4)
 
     def select(self):
         # Cloud authority is checked outside the Windows failure domain.
@@ -40,7 +50,15 @@ class Coordinator:
             now=time.monotonic()
             if self.cached and now-self.cached_at<2:
                 return dict(self.cached)
-            state=self.state(promote=True)
+            try:
+                state=self.state(promote=True)
+            except HAUnavailable:
+                # Cloud authority briefly unreachable: keep serving the last known route for
+                # up to 25 s (inside the 30 s lease). Writes still re-verify the fence in
+                # flush(), so this can only serve slightly stale reads, never split-brain writes.
+                if self.cached and now-self.cached_at<25:
+                    return dict(self.cached)
+                raise
             route={'backend':state['active'],'epoch':int(state['epoch'])}
             self.cached=route; self.cached_at=now
             return dict(route)
@@ -53,7 +71,7 @@ class Coordinator:
             raise HAUnavailable('The local database has been fenced')
         after=int(state['last_event'])
         for _ in range(100):
-            events=self.rpc('local','hr_ha_pending',{'p_after':after,'p_limit':1000})
+            events=self.rpc('local','hr_ha_pending',{'p_after':after,'p_limit':1000},retries=3)
             if not events: return after
             result=self.rpc('supabase','hr_ha_apply',{'p_events':events,'p_epoch':int(epoch)})
             after=int(result['last_event'])
