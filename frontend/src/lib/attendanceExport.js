@@ -151,6 +151,50 @@ function addLateLegend(ws, font, days) {
   return row;
 }
 
+// Per-day deduction note for the Remarks column: how much of that day's 1 day
+// of pay is deducted and why, per the attendance/late-coming policies. The
+// backend is the authority — late-coming deductions arrive as `lop_days`
+// (with `late_band_v3` under Policy v3); absent/unpaid leave cost the full
+// day, half-day and WFH (50% pay, doc §25) cost half. "0" when nothing is
+// deducted. Note: custom date-range exports don't run the late-coming engine
+// backend-side, so only the status-based deductions appear there.
+const V3_BAND_LABEL = {
+  extended_buffer: "Extended Buffer late (beyond free buffer)",
+  level1: "Late Level 1 (21–45m)",
+  level2: "Late Level 2 (46–105m)",
+  level3: "Late Level 3 (106m+)",
+};
+// "1 - 1/4 = 0.75": the deduction as a fraction, and what that day pays.
+const FRACTIONS = { 0.25: "1/4", 0.5: "1/2", 0.75: "3/4", 1: "1" };
+function fmtDays(n) {
+  const r = Number(n.toFixed(2));
+  return `1 - ${FRACTIONS[r] ?? r} = ${Number((1 - r).toFixed(2))}`;
+}
+export function dayRemark(d) {
+  // Must never throw: a malformed row would otherwise abort the whole export.
+  try {
+    return buildRemark(d || {});
+  } catch {
+    return "";
+  }
+}
+
+function buildRemark(d) {
+  const parts = [];
+  if (d.status === "absent") parts.push(`${fmtDays(1)} — Absent`);
+  else if (d.status === "leave" && d.leave_type === "unpaid") parts.push(`${fmtDays(1)} — Unpaid leave`);
+  else if (d.status === "half_day") parts.push(`${fmtDays(0.5)} — Half day`);
+  else if (d.status === "wfh") parts.push(`${fmtDays(0.5)} — WFH (50% pay)`);
+  const lop = Number(d.lop_days) || 0;
+  if (lop > 0) {
+    const why = V3_BAND_LABEL[d.late_band_v3] || "Late arrival";
+    parts.push(`${fmtDays(lop)} — ${why}`);
+  }
+  // Every person gets a remark for every day — a day with nothing deducted
+  // shows 0 rather than leaving the cell blank.
+  return parts.length ? parts.join("; ") : "0";
+}
+
 export function dayNumber(iso) {
   return Number(iso.slice(8, 10));
 }
@@ -164,9 +208,27 @@ export function summarize(daily) {
   return counts;
 }
 
+// exceljs is a separate file that Vite renames on every deploy, so a tab left
+// open across a deploy can fail to fetch it ("Failed to fetch dynamically
+// imported module"). Retry once, then tell the user plainly and reload so the
+// next click works, rather than failing silently.
 async function loadExcelJS() {
-  const mod = await import("exceljs");
-  return mod.default ?? mod;
+  try {
+    const mod = await import("exceljs");
+    return mod.default ?? mod;
+  } catch (first) {
+    try {
+      await new Promise((r) => setTimeout(r, 600));
+      const mod = await import("exceljs");
+      return mod.default ?? mod;
+    } catch {
+      if (typeof window !== "undefined") {
+        window.alert("JADE HR was updated since this page was opened. The page will reload now. Please press Export again.");
+        window.location.reload();
+      }
+      throw first;
+    }
+  }
 }
 
 function styleHeaderRow(row) {
@@ -220,26 +282,27 @@ export async function exportAttendanceExcel(rows, year, month, rangeLabel) {
   const header = ["Employee Code", "Name", "Department"];
   for (const d of days) {
     const n = dayNumber(d.date);
-    header.push(`${n} In`, `${n} Out`, `${n} Status`);
+    header.push(`${n} In`, `${n} Out`, `${n} Status`, `${n} Remarks`);
   }
   header.push("Present", "Absent", "Leave", "Weekoff", "Holiday", "Late");
   styleHeaderRow(ws.addRow(header));
 
   for (const r of rows) {
     const values = [r.employee_code, r.name, r.department];
-    for (const d of r.daily) {
+    for (const d of (r.daily || [])) {
       values.push(
         d.first_in ? formatTime(d.first_in) : "",
         d.last_out ? formatTime(d.last_out) : "",
         dayCode(d),
+        dayRemark(d),
       );
     }
-    const s = summarize(r.daily);
+    const s = summarize((r.daily || []));
     values.push(s.present, s.absent, s.leave, s.weekoff, s.holiday, s.late);
     const row = ws.addRow(values);
 
-    r.daily.forEach((d, i) => {
-      const col = 4 + i * 3; // 1-indexed — Employee Code/Name/Department occupy 1-3
+    (r.daily || []).forEach((d, i) => {
+      const col = 4 + i * 4; // 1-indexed — Employee Code/Name/Department occupy 1-3
       colorRowByStatus(row, statusColorKey(d), col, col + 2);
       // col is the "In" cell of the group — grade it by lateness severity,
       // overriding just that cell's fill+font (Out/Status keep their normal
@@ -253,10 +316,11 @@ export async function exportAttendanceExcel(rows, year, month, rangeLabel) {
   ws.getColumn(2).width = 22;
   ws.getColumn(3).width = 16;
   for (let i = 0; i < days.length; i++) {
-    const col = 4 + i * 3;
+    const col = 4 + i * 4;
     ws.getColumn(col).width = 9;
     ws.getColumn(col + 1).width = 9;
     ws.getColumn(col + 2).width = 8;
+    ws.getColumn(col + 3).width = 34; // Remarks
   }
   // Freeze the legend + header rows and employee identity columns so all
   // stay in view while scanning across a month's worth of day-groups.
@@ -318,10 +382,10 @@ function writeTimingsSheet(ws, rows) {
     ws.mergeCells(headerRow.number, 2, headerRow.number, 4);
     ws.mergeCells(headerRow.number, 6, headerRow.number, 8);
 
-    const colHeaderRow = ws.addRow(["AttendanceDate", "Shift", "A. InTime", "A.OutTime", "W. Duration", "OT", "T Duration", "Status"]);
+    const colHeaderRow = ws.addRow(["AttendanceDate", "Shift", "A. InTime", "A.OutTime", "W. Duration", "OT", "T Duration", "Status", "Remarks"]);
     colHeaderRow.eachCell((cell) => { cell.font = { ...BLOCK_FONT, bold: true }; cell.alignment = { horizontal: "left", vertical: "top" }; });
 
-    for (const d of r.daily) {
+    for (const d of (r.daily || [])) {
       // jade-hr has no separate per-day "shift code" concept (the source
       // system's "GS"/etc) — Shift mirrors Status (WO shows in both, same
       // as the reference) rather than inventing a code jade-hr can't back.
@@ -344,6 +408,7 @@ function writeTimingsSheet(ws, rows) {
         formatDurationHHMM(d.ot_hours),
         formatDurationHHMM(d.hours_worked),
         status,
+        dayRemark(d),
       ]);
       dataRow.eachCell((cell) => { cell.font = BLOCK_FONT; cell.alignment = { horizontal: "left", vertical: "top" }; });
       // Cell 3 is "A. InTime" — grade it by lateness severity, same tiers
@@ -366,6 +431,7 @@ function writeTimingsSheet(ws, rows) {
   ws.getColumn(6).width = 5;
   ws.getColumn(7).width = 9;
   ws.getColumn(8).width = 6;
+  ws.getColumn(9).width = 30;
 }
 
 // Date-wise export, structured to match the attendance-machine export format
@@ -426,7 +492,7 @@ export async function exportDailyAttendanceExcel(daily, { employeeCode, name, ra
   titleRow.font = { bold: true, size: 11 };
   ws.addRow([]);
 
-  const header = ["Date", "In", "Out", "Hours", "OT Hours", "Status"];
+  const header = ["Date", "In", "Out", "Hours", "OT Hours", "Status", "Remarks"];
   styleHeaderRow(ws.addRow(header));
 
   for (const d of daily) {
@@ -437,6 +503,7 @@ export async function exportDailyAttendanceExcel(daily, { employeeCode, name, ra
       formatDurationHHMM(d.hours_worked),
       formatDurationHHMM(d.ot_hours),
       dayCode(d),
+      dayRemark(d),
     ]);
     colorRowByStatus(row, statusColorKey(d), 1, 6);
     const tier = lateTier(d);
@@ -449,6 +516,7 @@ export async function exportDailyAttendanceExcel(daily, { employeeCode, name, ra
   ws.getColumn(4).width = 9;
   ws.getColumn(5).width = 10;
   ws.getColumn(6).width = 10;
+  ws.getColumn(7).width = 30;
   ws.views = [{ state: "frozen", ySplit: 3 }];
 
   const suffix = employeeCode ? `-${employeeCode}` : "";
