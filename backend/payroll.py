@@ -641,7 +641,9 @@ def compute_daily_attendance(
             "hours_worked": round(hours_worked, 2),
             "ot_hours": round(ot_hours, 2),
             "status": "present",
-            "late": (
+            # Never late on the employee's own weekly off (WOP): coming in on a
+            # day off carries no late mark, card or deduction (HR, 17 Nov 2026).
+            "late": d.weekday() != weekly_off_day and (
                 hours_worked < day_standard
                 if time_slot == FLEXIBLE_TIME_SLOT
                 else first_in_local > _extended_grace_for(d, by_day, midnight_tail_dates, time_slot)
@@ -893,6 +895,8 @@ def apply_late_coming_policy_v3(daily: list[dict], time_slot: str | None) -> dic
     for r in daily:
         if r["status"] != "present" or not r.get("first_in"):
             continue
+        if r.get("worked_on_weekly_off"):
+            continue  # WOP: no Yellow Card, band or deduction on a day off
         arrival = datetime.fromisoformat(r["first_in"]).astimezone(IST).time()
         grace_until = r.get("stay_back_grace_until_v3")
         if grace_until and arrival <= time.fromisoformat(grace_until):

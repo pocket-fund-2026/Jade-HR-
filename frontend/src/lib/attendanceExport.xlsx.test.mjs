@@ -111,3 +111,13 @@ test("timings export: Employee Code and Name lead every row, then the day column
   assert.deepEqual([data[0][0], data[0][1]], ["1001", "Emp 1001"]);
   assert.deepEqual([data[5][0], data[5][1]], ["1002", "Emp 1002"]);
 });
+
+test("timings export: one blank row between employees", async () => {
+  const wb = await workbookFrom(() => exportAttendanceTimingsExcel(rows.slice(0, 2), 2026, 11));
+  const ws = wb.worksheets[0];
+  const codes = [];
+  ws.eachRow({ includeEmpty: true }, (row) => { codes.push(String(row.getCell(1).value ?? "")); });
+  const lastFirst = codes.lastIndexOf("1001");
+  assert.equal(codes[lastFirst + 1], "");      // blank row after the first employee's last day
+  assert.equal(codes[lastFirst + 2], "1002");  // next employee starts right after it
+});

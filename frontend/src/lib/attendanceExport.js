@@ -422,6 +422,7 @@ function writeTimingsSheet(ws, rows) {
       }
       if (missedPunch(d)) paintMissed(dataRow, 1, 11);
     }
+    ws.addRow([]); // one blank row between employees
   }
 
   ws.getColumn(1).width = 14;
