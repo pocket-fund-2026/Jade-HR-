@@ -19,6 +19,10 @@ from routers.payroll import (
 from routers.wfh import fetch_all_confirmed_wfh_by_employee, fetch_confirmed_wfh
 from tds import DEFAULT_DECLARATION, project_annual_tax
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
 
@@ -32,6 +36,7 @@ def _attach_manual_remarks(results: list[dict], start: date, end: date) -> None:
             lambda q: q.gte("date", start.isoformat()).lte("date", end.isoformat()),
         )
     except Exception:
+        logger.exception("could not read hr_attendance_remarks")
         return
     by_key = {(r["employee_id"], r["date"]): r["remark"] for r in rows}
     if not by_key:
@@ -67,7 +72,13 @@ def set_attendance_remark(
         else:
             supabase.table("hr_attendance_remarks").delete().eq("employee_id", employee_id).eq("date", body.date.isoformat()).execute()
     except Exception as exc:
+        logger.exception("could not write hr_attendance_remarks")
         raise HTTPException(status_code=503, detail="Remarks storage is not set up yet — sql/088_attendance_remarks.sql must be applied") from exc
+    # Read it straight back: a save that did not stick must never look saved.
+    stored = supabase.table("hr_attendance_remarks").select("remark").eq("employee_id", employee_id).eq("date", body.date.isoformat()).limit(1).execute().data
+    if bool(remark) != bool(stored) or (remark and stored[0]["remark"] != remark):
+        logger.error("hr_attendance_remarks write did not persist for %s %s", employee_id, body.date)
+        raise HTTPException(status_code=500, detail="The remark was not saved — please try again or tell IT")
     return {"date": body.date.isoformat(), "remark": remark}
 
 
