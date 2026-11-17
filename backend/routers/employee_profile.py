@@ -1,12 +1,14 @@
 import base64
 from datetime import datetime, timezone
+from datetime import time as time_type
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from auth import CONSOLE_ROLES, get_current_user, require_permission, user_can
 from database import maybe_single_data, supabase
 from paging import ContextThreadPoolExecutor
-from models import EmployeeDocumentUpload, EmployeeProfileUpdate
+from payroll import register_time_slot
+from models import EmployeeDocumentUpload, EmployeeProfileUpdate, ShiftTimingSet
 
 import logging
 
@@ -180,3 +182,39 @@ def update_employee_profile(
             supabase.table("hr_employee_udf").insert(rows).execute()
 
     return get_employee_profile(employee_id, user)
+
+
+def _slot_label(start: time_type, end: time_type) -> str:
+    """"10:30 AM – 7:30 PM" — the label format payroll's _slot_times() parses."""
+    def one(t: time_type) -> str:
+        return f"{(t.hour % 12) or 12}:{t.minute:02d} {'AM' if t.hour < 12 else 'PM'}"
+    return f"{one(start)} \u2013 {one(end)}"
+
+
+@router.post("/{employee_id}/shift-timing")
+def set_shift_timing(
+    employee_id: str, body: ShiftTimingSet, user: dict = Depends(require_permission("employees.manage"))
+):
+    """HR types this person's own In and Out time. The matching time slot
+    ("10:30 AM – 7:30 PM") is created if it doesn't exist yet and assigned to
+    the employee, so late grading, standard hours and OT all follow it."""
+    if not _employee_exists(employee_id):
+        raise HTTPException(status_code=404, detail="Employee not found")
+    if body.end_time <= body.start_time:
+        raise HTTPException(status_code=400, detail="Out time must be after In time")
+    label = _slot_label(body.start_time, body.end_time)
+    existing = supabase.table("hr_time_slots").select("id").eq("label", label).limit(1).execute().data
+    if not existing:
+        last = supabase.table("hr_time_slots").select("sort_order").order("sort_order", desc=True).limit(1).execute().data
+        supabase.table("hr_time_slots").insert({
+            "label": label,
+            "shift_start": body.start_time.replace(second=0, microsecond=0).isoformat(),
+            "sort_order": ((last[0]["sort_order"] if last else 0) or 0) + 1,
+        }).execute()
+    register_time_slot(label, body.start_time.replace(second=0, microsecond=0))
+    supabase.table("hr_employee_profile").upsert(
+        {"employee_id": employee_id, "time_slot": label, "updated_at": datetime.now(timezone.utc).isoformat()},
+        on_conflict="employee_id",
+    ).execute()
+    logger.info("shift timing for %s set to %s by %s", employee_id, label, user.get("employee_code"))
+    return {"time_slot": label}

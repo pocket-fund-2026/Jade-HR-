@@ -703,6 +703,48 @@ function LineItemTable({ fields, form, editing, onChange }) {
 // HRA numbers above actually turn into on the payslip.
 const today = new Date();
 
+// HR types this person's own In and Out time; the backend creates/assigns the
+// matching time slot ("10:30 AM – 7:30 PM") so late grading and OT follow it.
+function ShiftTimingEditor({ employeeId, currentSlot, onSaved }) {
+  const [start, setStart] = useState("10:00");
+  const [end, setEnd] = useState("19:00");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const save = async () => {
+    setBusy(true);
+    setMsg("");
+    try {
+      const { data } = await api.post(`/api/employees/${employeeId}/shift-timing`, { start_time: start, end_time: end });
+      onSaved(data.time_slot);
+      setMsg(`Saved: ${data.time_slot}`);
+    } catch (e) {
+      setMsg(e?.response?.data?.detail || "Could not save the shift timing");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="mt-6 rounded-sm border border-ink/15 bg-manila/40 p-4">
+      <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1">Custom shift timing</p>
+      <p className="text-xs text-ink/70 mb-3">
+        Current: <span className="font-medium text-ink">{currentSlot || "—"}</span>. Enter this person&apos;s own In and Out time — it replaces their time slot.
+      </p>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="text-xs text-ink/70">In time
+          <input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="block mt-1 rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink" />
+        </label>
+        <label className="text-xs text-ink/70">Out time
+          <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="block mt-1 rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink" />
+        </label>
+        <button type="button" onClick={save} disabled={busy || !start || !end} className="rounded-sm bg-jade-600 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">
+          {busy ? "Saving…" : "Set shift timing"}
+        </button>
+      </div>
+      {msg && <p className="mt-2 text-xs text-ink/80">{msg}</p>}
+    </div>
+  );
+}
+
 function EmployeePayslipBreakdown({ employeeId }) {
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
@@ -1546,6 +1588,17 @@ export default function EmployeeDetails() {
               })}
             </div>
           ))}
+
+          {activeTab === "official" && !isNew && canManage && (
+            <ShiftTimingEditor
+              employeeId={id}
+              currentSlot={form.time_slot}
+              onSaved={(label) => {
+                setField("time_slot", label);
+                setTimeSlotOptions((opts) => (opts.includes(label) ? opts : [label, ...opts]));
+              }}
+            />
+          )}
 
           {activeTab === "personal" && !isNew && (
             <KycDocumentsSection

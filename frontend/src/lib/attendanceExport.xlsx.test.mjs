@@ -43,7 +43,7 @@ test("wide sheet: a Remarks cell under every day for every person", async () => 
   for (let r = 3; r <= 5; r++) {
     const vals = remarkCols.map((c) => String(ws.getRow(r).getCell(c).value));
     assert.ok(vals.every((v) => v !== "" && v !== "undefined" && v !== "null"), `blank remark in row ${r}: ${vals}`);
-    assert.deepEqual(vals, ["0", "1 - 1/4 = 0.75 — Late Level 2 (46–105m)", "1 - 1 = 0 — Absent", "0", "1 - 1/2 = 0.5 — Late Level 3 (106m+)"]);
+    assert.deepEqual(vals, ["1", "0.75", "0", "1", "0.5"]);
   }
 });
 
@@ -70,5 +70,28 @@ test("single-employee daily export: Remarks on every day", async () => {
   const ws = wb.getWorksheet("Daily Attendance");
   assert.equal(String(ws.getRow(3).getCell(7).value), "Remarks");
   const vals = [4, 5, 6, 7, 8].map((r) => String(ws.getRow(r).getCell(7).value));
-  assert.deepEqual(vals, ["0", "1 - 1/4 = 0.75 — Late Level 2 (46–105m)", "1 - 1 = 0 — Absent", "0", "1 - 1/2 = 0.5 — Late Level 3 (106m+)"]);
+  assert.deepEqual(vals, ["1", "0.75", "0", "1", "0.5"]);
+});
+
+test("missed punch: row highlighted, Remarks blank, in all three exports", async () => {
+  const missed = [mk("2026-11-01"), mk("2026-11-02", { last_out: "2026-11-02T04:30:00+00:00", hours_worked: 0 })];
+  const r = [{ employee_code: "2001", name: "Missed", department: "Ops", time_slot: "10:00 AM – 7:00 PM", daily: missed }];
+  const fill = (c) => c.fill?.fgColor?.argb;
+
+  let wb = await workbookFrom(() => exportAttendanceExcel(r, 2026, 11));
+  let row = wb.getWorksheet("Attendance").getRow(3);
+  assert.equal(fill(row.getCell(8)), "FFFFE066");          // day 2 In
+  assert.equal(fill(row.getCell(11)), "FFFFE066");         // day 2 Remarks
+  assert.ok(!row.getCell(11).value);                        // blank, for manual entry
+  assert.equal(String(row.getCell(7).value), "1"); // day 1 normal
+
+  wb = await workbookFrom(() => exportAttendanceTimingsExcel(r, 2026, 11));
+  const hit = [];
+  wb.eachSheet((ws) => ws.eachRow((rw) => { if (fill(rw.getCell(9)) === "FFFFE066") hit.push(rw.getCell(9).value); }));
+  assert.deepEqual(hit.map((v) => v || ""), [""]);
+
+  wb = await workbookFrom(() => exportDailyAttendanceExcel(missed, { employeeCode: "2001", name: "Missed", rangeLabel: "x" }));
+  const ws = wb.getWorksheet("Daily Attendance");
+  assert.equal(fill(ws.getRow(5).getCell(7)), "FFFFE066");
+  assert.ok(!ws.getRow(5).getCell(7).value);
 });

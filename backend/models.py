@@ -961,3 +961,8 @@ class ExitSignerCreate(BaseModel):
 
 class ReorderIn(BaseModel):
     ids: list[str]
+
+
+class ShiftTimingSet(BaseModel):
+    start_time: time
+    end_time: time

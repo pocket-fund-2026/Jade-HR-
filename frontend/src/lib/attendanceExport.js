@@ -155,21 +155,9 @@ function addLateLegend(ws, font, days) {
 // of pay is deducted and why, per the attendance/late-coming policies. The
 // backend is the authority — late-coming deductions arrive as `lop_days`
 // (with `late_band_v3` under Policy v3); absent/unpaid leave cost the full
-// day, half-day and WFH (50% pay, doc §25) cost half. "0" when nothing is
-// deducted. Note: custom date-range exports don't run the late-coming engine
+// day, half-day and WFH (50% pay, doc §25) cost half. a plain label when
+// nothing is deducted. Note: custom date-range exports don't run the late-coming engine
 // backend-side, so only the status-based deductions appear there.
-const V3_BAND_LABEL = {
-  extended_buffer: "Extended Buffer late (beyond free buffer)",
-  level1: "Late Level 1 (21–45m)",
-  level2: "Late Level 2 (46–105m)",
-  level3: "Late Level 3 (106m+)",
-};
-// "1 - 1/4 = 0.75": the deduction as a fraction, and what that day pays.
-const FRACTIONS = { 0.25: "1/4", 0.5: "1/2", 0.75: "3/4", 1: "1" };
-function fmtDays(n) {
-  const r = Number(n.toFixed(2));
-  return `1 - ${FRACTIONS[r] ?? r} = ${Number((1 - r).toFixed(2))}`;
-}
 export function dayRemark(d) {
   // Must never throw: a malformed row would otherwise abort the whole export.
   try {
@@ -179,20 +167,35 @@ export function dayRemark(d) {
   }
 }
 
-function buildRemark(d) {
-  const parts = [];
-  if (d.status === "absent") parts.push(`${fmtDays(1)} — Absent`);
-  else if (d.status === "leave" && d.leave_type === "unpaid") parts.push(`${fmtDays(1)} — Unpaid leave`);
-  else if (d.status === "half_day") parts.push(`${fmtDays(0.5)} — Half day`);
-  else if (d.status === "wfh") parts.push(`${fmtDays(0.5)} — WFH (50% pay)`);
-  const lop = Number(d.lop_days) || 0;
-  if (lop > 0) {
-    const why = V3_BAND_LABEL[d.late_band_v3] || "Late arrival";
-    parts.push(`${fmtDays(lop)} — ${why}`);
+// A worked day (Present/Half day/WFH) where the biometric has only ONE punch —
+// no check-in, no check-out, or the same single timestamp as both. The hours
+// can't be trusted, so HR types that day's Remarks by hand: the cell is left
+// blank and the row is highlighted (HR, 17 Nov 2026).
+export const MISSED_PUNCH_FILL = "FFFFE066";
+export const MISSED_PUNCH_FONT = "FF5C3B00";
+export function missedPunch(d) {
+  if (!d || !["present", "half_day", "wfh"].includes(d.status)) return false;
+  if (!d.first_in || !d.last_out) return true;
+  return new Date(d.first_in).getTime() === new Date(d.last_out).getTime();
+}
+
+function paintMissed(row, fromCol, toCol) {
+  for (let col = fromCol; col <= toCol; col++) {
+    const cell = row.getCell(col);
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: MISSED_PUNCH_FILL } };
+    cell.font = { ...(cell.font || {}), color: { argb: MISSED_PUNCH_FONT }, bold: true };
   }
-  // Every person gets a remark for every day — a day with nothing deducted
-  // shows 0 rather than leaving the cell blank.
-  return parts.length ? parts.join("; ") : "0";
+}
+
+function buildRemark(d) {
+  if (missedPunch(d)) return ""; // entered manually
+  if (d.status === "future" || !d.status) return "";
+  // Just the number: what fraction of the day's pay is paid. 1 = full day,
+  // 0.75 / 0.5 / 0.25 = partial, 0 = nothing (absent, unpaid leave).
+  let deducted = Number(d.lop_days) || 0;
+  if (d.status === "absent" || (d.status === "leave" && d.leave_type === "unpaid")) deducted += 1;
+  else if (d.status === "half_day" || d.status === "wfh") deducted += 0.5;
+  return String(Number(Math.min(1, Math.max(0, 1 - deducted)).toFixed(2)));
 }
 
 export function dayNumber(iso) {
@@ -309,6 +312,7 @@ export async function exportAttendanceExcel(rows, year, month, rangeLabel) {
       // status coloring — a late day is still Present everywhere else).
       const tier = lateTier(d);
       if (tier) applyLateTier(row.getCell(col), tier, {});
+      if (missedPunch(d)) paintMissed(row, col, col + 3);
     });
   }
 
@@ -418,6 +422,7 @@ function writeTimingsSheet(ws, rows) {
         applyLateTier(dataRow.getCell(3), tier, BLOCK_FONT);
         dataRow.getCell(3).alignment = { horizontal: "left", vertical: "top" };
       }
+      if (missedPunch(d)) paintMissed(dataRow, 1, 9);
     }
 
     ws.addRow([]);
@@ -508,6 +513,7 @@ export async function exportDailyAttendanceExcel(daily, { employeeCode, name, ra
     colorRowByStatus(row, statusColorKey(d), 1, 6);
     const tier = lateTier(d);
     if (tier) applyLateTier(row.getCell(2), tier, {});
+    if (missedPunch(d)) paintMissed(row, 1, 7);
   }
 
   ws.getColumn(1).width = 14;
