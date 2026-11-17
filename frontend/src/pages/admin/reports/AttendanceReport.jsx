@@ -8,7 +8,7 @@ import MonthPicker from "../../../components/MonthPicker.jsx";
 import api from "../../../lib/api.js";
 import { useAuth } from "../../../lib/auth.jsx";
 import { LEAVE_LABELS } from "../../../lib/leaveTypes.js";
-import { dayCode, dayNumber, exportAttendanceExcel, exportAttendanceTimingsExcel, statusColorKey, summarize } from "../../../lib/attendanceExport.js";
+import { dayCode, dayNumber, dayRemark, exportAttendanceExcel, exportAttendanceTimingsExcel, statusColorKey, summarize } from "../../../lib/attendanceExport.js";
 import { formatHoursMins, formatTime } from "../../../lib/format.js";
 
 const today = new Date();
@@ -36,7 +36,9 @@ function cellTitle(d) {
   return d.status;
 }
 
-function EditCellModal({ employee, day, onClose, onSaved }) {
+function EditCellModal({ employee, day, onClose, onSaved, canCorrect }) {
+  const [remark, setRemark] = useState(day.remark_manual || "");
+  const [remarkBusy, setRemarkBusy] = useState(false);
   const [statusOverride, setStatusOverride] = useState(day.status === "absent" || day.status === "half_day" ? day.status : "present");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -71,13 +73,27 @@ function EditCellModal({ employee, day, onClose, onSaved }) {
     }
   };
 
+  const saveRemark = async () => {
+    setError("");
+    setRemarkBusy(true);
+    try {
+      await api.put(`/api/reports/attendance-remark/${employee.employee_id}`, { date: day.date, remark });
+      onSaved();
+    } catch (err) {
+      setError(err.response?.data?.detail || "Could not save the remark — try again");
+    } finally {
+      setRemarkBusy(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-ledger-900/60 flex items-center justify-center px-4 z-50">
       <div className="bg-paper rounded-sm shadow-stamp w-full max-w-sm p-6 border-t-4 border-jade-500">
-        <p className="text-xs font-semibold uppercase tracking-wider text-jade-600 mb-1">Edit attendance</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-jade-600 mb-1">{canCorrect ? "Edit attendance" : "Remark"}</p>
         <p className="font-display text-lg text-ink mb-4">{employee.name} — {day.date}</p>
 
         <div className="space-y-3">
+          {canCorrect && (<>
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Status</label>
             <select
@@ -109,19 +125,31 @@ function EditCellModal({ employee, day, onClose, onSaved }) {
             <input value={note} onChange={(e) => setNote(e.target.value)}
               className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
           </div>
+          </>)}
+          <div className={canCorrect ? "border-t border-ink/10 pt-3" : ""}>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">
+              Remark <span className="normal-case font-normal">(shown in the exported sheet; sheet value: {dayRemark(day) || "blank"})</span>
+            </label>
+            <input value={remark} onChange={(e) => setRemark(e.target.value)} maxLength={500} placeholder="Type a remark — leave empty to clear"
+              className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+            <button type="button" onClick={saveRemark} disabled={remarkBusy || busy}
+              className="mt-2 bg-jade-600 text-white px-4 py-2 rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors">
+              {remarkBusy ? "Saving…" : "Save remark"}
+            </button>
+          </div>
         </div>
 
         {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5 mt-3">{error}</p>}
 
         <div className="flex justify-end gap-3 pt-4">
           <button type="button" onClick={onClose} className="text-sm text-ink/70 hover:text-ink px-2">Cancel</button>
-          <button
+          {canCorrect && <button
             onClick={save}
             disabled={busy}
             className="bg-ledger-800 text-manila px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
           >
             {busy ? "Saving…" : "Save"}
-          </button>
+          </button>}
         </div>
       </div>
     </div>
@@ -187,12 +215,10 @@ export default function AttendanceReport() {
         <div>
           <h2 className="font-display text-2xl text-ink">Attendance Sheet</h2>
           <p className="text-xs text-ink/70 font-nums mt-0.5 flex items-center gap-1.5 flex-wrap">
-            <span>P = Present · A = Absent · WO = Weekoff · H = Holiday · HD = Half Day · PL = Paid Leave · CO = Comp-Off · LWP = Leave Without Pay · ML/PTL/CL = Maternity/Paternity/Compassionate — hover a cell for hours &amp; OT. Green dot = Comp-Off eligible.</span>
-            {canEdit && (
-              <span className="inline-flex items-center gap-1 text-jade-700">
-                <Pencil size={11} /> Click any cell to correct it.
-              </span>
-            )}
+            <span>P = Present · A = Absent · WO = Weekoff · H = Holiday · HD = Half Day · PL = Paid Leave · CO = Comp-Off · LWP = Leave Without Pay · ML/PTL/CL = Maternity/Paternity/Compassionate — hover a cell for hours &amp; OT. Green dot = Comp-Off eligible. Orange dot = has a remark.</span>
+            <span className="inline-flex items-center gap-1 text-jade-700">
+              <Pencil size={11} /> {canEdit ? "Click any cell to correct it or add a remark." : "Click any cell to add a remark."}
+            </span>
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -282,11 +308,11 @@ export default function AttendanceReport() {
                       <div className="text-ink/70 font-nums">{r.employee_code}</div>
                     </td>
                     {r.daily.map((d) => {
-                      const editable = canEdit && d.status !== "future";
+                      const editable = d.status !== "future";
                       return (
                         <td
                           key={d.date}
-                          title={editable ? `${cellTitle(d)} — click to edit` : cellTitle(d)}
+                          title={`${cellTitle(d)}${d.remark_manual ? ` — Remark: ${d.remark_manual}` : ""}${editable ? (canEdit ? " — click to edit" : " — click to add a remark") : ""}`}
                           onClick={editable ? () => setEditing({ employee: r, day: d }) : undefined}
                           className={`p-0.5 text-center align-top ${editable ? "cursor-pointer hover:ring-1 hover:ring-jade-500 hover:ring-inset" : ""}`}
                         >
@@ -297,6 +323,9 @@ export default function AttendanceReport() {
                               {dayCode(d)}
                               {d.comp_off_eligible && (
                                 <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-jade-500 ring-1 ring-paper" />
+                              )}
+                              {d.remark_manual && (
+                                <span className="absolute -bottom-1 -right-1 w-2 h-2 rounded-full bg-ochre-500 ring-1 ring-paper" />
                               )}
                             </span>
                             {d.first_in && (
@@ -329,6 +358,7 @@ export default function AttendanceReport() {
         <EditCellModal
           employee={editing.employee}
           day={editing.day}
+          canCorrect={canEdit}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); load(); }}
         />

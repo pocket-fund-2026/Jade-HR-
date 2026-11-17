@@ -188,6 +188,8 @@ function paintMissed(row, fromCol, toCol) {
 }
 
 function buildRemark(d) {
+  // HR's typed Remarks (Attendance Sheet) always win over the computed value.
+  if (typeof d.remark_manual === "string" && d.remark_manual.trim()) return d.remark_manual.trim();
   if (missedPunch(d)) return ""; // entered manually
   if (d.status === "future" || !d.status) return "";
   // Just the number: what fraction of the day's pay is paid. 1 = full day,

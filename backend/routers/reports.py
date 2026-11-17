@@ -1,12 +1,13 @@
 from collections import defaultdict
-from datetime import date
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 
 from auth import require_permission
 from bonus import BONUS_MIN_RATE, compute_bonus
 from database import maybe_single_data, supabase
-from paging import ContextThreadPoolExecutor
+from paging import ContextThreadPoolExecutor, fetch_all_paged
 from gratuity import compute_gratuity
 from payroll import compute_attendance_for_range, compute_monthly_summary, fy_month_labels, pay_period_bounds
 from routers.leave import fetch_all_approved_leaves_by_employee, fetch_approved_leaves, paid_leave_balance_as_of
@@ -19,6 +20,55 @@ from routers.wfh import fetch_all_confirmed_wfh_by_employee, fetch_confirmed_wfh
 from tds import DEFAULT_DECLARATION, project_annual_tax
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
+
+
+def _attach_manual_remarks(results: list[dict], start: date, end: date) -> None:
+    """Adds `remark_manual` (HR's typed Remarks, hr_attendance_remarks) to the
+    matching daily rows. Best-effort: until sql/088 is applied the table is
+    missing and the sheet simply has no typed remarks."""
+    try:
+        rows = fetch_all_paged(
+            "hr_attendance_remarks", "employee_id,date,remark", ("employee_id", "date"),
+            lambda q: q.gte("date", start.isoformat()).lte("date", end.isoformat()),
+        )
+    except Exception:
+        return
+    by_key = {(r["employee_id"], r["date"]): r["remark"] for r in rows}
+    if not by_key:
+        return
+    for res in results:
+        for d in res.get("daily") or []:
+            remark = by_key.get((res["employee_id"], d["date"]))
+            if remark:
+                d["remark_manual"] = remark
+
+
+class AttendanceRemarkSet(BaseModel):
+    date: date
+    remark: str = ""
+
+
+@router.put("/attendance-remark/{employee_id}")
+def set_attendance_remark(
+    employee_id: str,
+    body: AttendanceRemarkSet,
+    user: dict = Depends(require_permission("attendance.restricted_reports", "disputes.manage")),
+):
+    """HR types (or clears) the Remarks for one employee-day on the Attendance
+    Sheet. An empty remark removes it."""
+    remark = (body.remark or "").strip()[:500]
+    try:
+        if remark:
+            supabase.table("hr_attendance_remarks").upsert(
+                {"employee_id": employee_id, "date": body.date.isoformat(), "remark": remark,
+                 "updated_by": user["id"], "updated_at": datetime.now(timezone.utc).isoformat()},
+                on_conflict="employee_id,date",
+            ).execute()
+        else:
+            supabase.table("hr_attendance_remarks").delete().eq("employee_id", employee_id).eq("date", body.date.isoformat()).execute()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Remarks storage is not set up yet — sql/088_attendance_remarks.sql must be applied") from exc
+    return {"date": body.date.isoformat(), "remark": remark}
 
 
 @router.get("/ctc-as-per-salary")
@@ -415,7 +465,7 @@ def attendance_report(
         profiles_by_employee = profiles_future.result()
         holidays = holidays_future.result()
     summaries = _all_summaries_for_month(employees, profiles_by_employee, holidays, year, month, keep_daily=True)
-    return [
+    out = [
         {
             "employee_id": s["employee_id"],
             "employee_code": s["employee_code"],
@@ -428,6 +478,10 @@ def attendance_report(
         }
         for s in summaries
     ]
+    dates = [d["date"] for r in out for d in (r["daily"] or [])]
+    if dates:
+        _attach_manual_remarks(out, date.fromisoformat(min(dates)), date.fromisoformat(max(dates)))
+    return out
 
 
 MAX_ATTENDANCE_RANGE_DAYS = 366
@@ -493,6 +547,7 @@ def attendance_report_range(
             "flexible_reference_time_slot": employee.get("flexible_reference_time_slot"),
             "daily": daily,
         })
+    _attach_manual_remarks(results, from_date, to_date)
     return results
 
 

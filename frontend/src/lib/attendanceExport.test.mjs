@@ -47,3 +47,9 @@ test("missed check-in/out: blank remark for manual entry", () => {
   assert.equal(dayRemark({ ...P, status: "present", first_in: "2026-10-24T05:01:55+00:00", last_out: "2026-10-24T10:41:31+00:00" }), "1");
   assert.equal(dayRemark({ status: "absent" }), "0");
 });
+
+test("HR-typed remark overrides the computed one, including on missed punches", () => {
+  assert.equal(dayRemark({ ...P, status: "present", lop_days: 0.25, remark_manual: "Forgot to punch out" }), "Forgot to punch out");
+  assert.equal(dayRemark({ status: "present", first_in: "2026-10-22T05:39:49+00:00", last_out: null, remark_manual: " Left at 4pm " }), "Left at 4pm");
+  assert.equal(dayRemark({ ...P, status: "present", remark_manual: "  " }), "1");
+});
