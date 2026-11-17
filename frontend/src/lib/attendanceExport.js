@@ -380,30 +380,28 @@ function writeTimingsSheet(ws, rows) {
   addLateLegend(ws, BLOCK_FONT, rows[0]?.daily ?? []);
   ws.addRow([]);
 
+  // One flat table: Employee Code and Employee Name lead EVERY row (HR,
+  // 17 Nov 2026), then the day's columns, so the sheet can be filtered/sorted.
+  const colHeaderRow = ws.addRow([
+    "Employee Code", "Employee Name", "AttendanceDate", "Shift", "A. InTime", "A.OutTime",
+    "W. Duration", "OT", "T Duration", "Status", "Remarks",
+  ]);
+  colHeaderRow.eachCell((cell) => { cell.font = { ...BLOCK_FONT, bold: true }; cell.alignment = { horizontal: "left", vertical: "top" }; });
+  const headerRowNumber = colHeaderRow.number;
+
   for (const r of rows) {
-    const headerRow = ws.addRow(["Employee Code", r.employee_code, null, null, null, r.name, null, null]);
-    headerRow.eachCell((cell) => { cell.font = BLOCK_FONT; cell.alignment = { horizontal: "left", vertical: "top" }; });
-    ws.mergeCells(headerRow.number, 2, headerRow.number, 4);
-    ws.mergeCells(headerRow.number, 6, headerRow.number, 8);
-
-    const colHeaderRow = ws.addRow(["AttendanceDate", "Shift", "A. InTime", "A.OutTime", "W. Duration", "OT", "T Duration", "Status", "Remarks"]);
-    colHeaderRow.eachCell((cell) => { cell.font = { ...BLOCK_FONT, bold: true }; cell.alignment = { horizontal: "left", vertical: "top" }; });
-
     for (const d of (r.daily || [])) {
       // jade-hr has no separate per-day "shift code" concept (the source
       // system's "GS"/etc) — Shift mirrors Status (WO shows in both, same
       // as the reference) rather than inventing a code jade-hr can't back.
       const status = dayCode(d);
       // `hours_worked` is the RAW in-to-out span and already contains
-      // whatever portion of it counts as OT. OT is a subset of that span, not
-      // extra time on top of it). W. Duration must show only the
-      // non-OT/regular portion so it and OT sum to the real total instead
-      // of double-counting the OT hours into both W. Duration AND T
-      // Duration (was `hours_worked + ot_hours`, which for the Saturday
-      // example above produced 11:59 — a number that isn't anyone's real
-      // clock-in-to-clock-out span).
+      // whatever portion of it counts as OT, so W. Duration shows only the
+      // non-OT/regular portion — it and OT then sum to the real total.
       const regularHours = Math.max(0, (d.hours_worked || 0) - (d.ot_hours || 0));
       const dataRow = ws.addRow([
+        r.employee_code,
+        r.name,
         formatBlockDate(d.date),
         status,
         formatClockHHMM(d.first_in),
@@ -415,28 +413,29 @@ function writeTimingsSheet(ws, rows) {
         dayRemark(d),
       ]);
       dataRow.eachCell((cell) => { cell.font = BLOCK_FONT; cell.alignment = { horizontal: "left", vertical: "top" }; });
-      // Cell 3 is "A. InTime" — grade it by lateness severity, same tiers
+      // Cell 5 is "A. InTime" — grade it by lateness severity, same tiers
       // and colors as the wide export's In column.
       const tier = lateTier(d);
       if (tier) {
-        applyLateTier(dataRow.getCell(3), tier, BLOCK_FONT);
-        dataRow.getCell(3).alignment = { horizontal: "left", vertical: "top" };
+        applyLateTier(dataRow.getCell(5), tier, BLOCK_FONT);
+        dataRow.getCell(5).alignment = { horizontal: "left", vertical: "top" };
       }
-      if (missedPunch(d)) paintMissed(dataRow, 1, 9);
+      if (missedPunch(d)) paintMissed(dataRow, 1, 11);
     }
-
-    ws.addRow([]);
   }
 
-  ws.getColumn(1).width = 12;
-  ws.getColumn(2).width = 5;
-  ws.getColumn(3).width = 8.5;
-  ws.getColumn(4).width = 10;
+  ws.getColumn(1).width = 14;
+  ws.getColumn(2).width = 24;
+  ws.getColumn(3).width = 14;
+  ws.getColumn(4).width = 7;
   ws.getColumn(5).width = 10;
-  ws.getColumn(6).width = 5;
-  ws.getColumn(7).width = 9;
-  ws.getColumn(8).width = 6;
-  ws.getColumn(9).width = 30;
+  ws.getColumn(6).width = 10;
+  ws.getColumn(7).width = 11;
+  ws.getColumn(8).width = 7;
+  ws.getColumn(9).width = 10;
+  ws.getColumn(10).width = 8;
+  ws.getColumn(11).width = 30;
+  ws.views = [{ state: "frozen", xSplit: 2, ySplit: headerRowNumber }];
 }
 
 // Date-wise export, structured to match the attendance-machine export format

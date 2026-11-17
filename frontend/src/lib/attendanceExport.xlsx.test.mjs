@@ -56,10 +56,10 @@ test("timings export: Remarks on every day row of every tab", async () => {
   const wb = await workbookFrom(() => exportAttendanceTimingsExcel(rows.slice(0, 3), 2026, 11));
   let dayRows = 0;
   wb.eachSheet((ws) => ws.eachRow((row) => {
-    if (/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(String(row.getCell(1).value))) {
+    if (/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(String(row.getCell(3).value))) {
       dayRows += 1;
-      const v = String(row.getCell(9).value);
-      assert.ok(v && v !== "undefined", `blank remark on ${row.getCell(1).value}`);
+      const v = String(row.getCell(11).value);
+      assert.ok(v && v !== "undefined", `blank remark on ${row.getCell(3).value}`);
     }
   }));
   assert.equal(dayRows, 15);
@@ -87,11 +87,27 @@ test("missed punch: row highlighted, Remarks blank, in all three exports", async
 
   wb = await workbookFrom(() => exportAttendanceTimingsExcel(r, 2026, 11));
   const hit = [];
-  wb.eachSheet((ws) => ws.eachRow((rw) => { if (fill(rw.getCell(9)) === "FFFFE066") hit.push(rw.getCell(9).value); }));
+  wb.eachSheet((ws) => ws.eachRow((rw) => { if (fill(rw.getCell(11)) === "FFFFE066") hit.push(rw.getCell(11).value); }));
   assert.deepEqual(hit.map((v) => v || ""), [""]);
 
   wb = await workbookFrom(() => exportDailyAttendanceExcel(missed, { employeeCode: "2001", name: "Missed", rangeLabel: "x" }));
   const ws = wb.getWorksheet("Daily Attendance");
   assert.equal(fill(ws.getRow(5).getCell(7)), "FFFFE066");
   assert.ok(!ws.getRow(5).getCell(7).value);
+});
+
+test("timings export: Employee Code and Name lead every row, then the day columns", async () => {
+  const wb = await workbookFrom(() => exportAttendanceTimingsExcel(rows.slice(0, 2), 2026, 11));
+  const ws = wb.worksheets[0];
+  let header = null;
+  const data = [];
+  ws.eachRow((row) => {
+    const v = row.values.slice(1).map((c) => (c && c.text !== undefined ? c.text : c));
+    if (v[0] === "Employee Code") header = v;
+    else if (/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(String(v[2]))) data.push(v);
+  });
+  assert.deepEqual(header, ["Employee Code", "Employee Name", "AttendanceDate", "Shift", "A. InTime", "A.OutTime", "W. Duration", "OT", "T Duration", "Status", "Remarks"]);
+  assert.equal(data.length, 10);
+  assert.deepEqual([data[0][0], data[0][1]], ["1001", "Emp 1001"]);
+  assert.deepEqual([data[5][0], data[5][1]], ["1002", "Emp 1002"]);
 });
