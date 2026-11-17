@@ -39,6 +39,13 @@ export function statusColorKey(d) {
   return d.status;
 }
 
+// Worked on the declared weekly off (WOP): strong orange so it is never missed.
+export const WOP_FILL = "FFFFB74D";
+export const WOP_FONT = "FF4A2800";
+export function isWop(d) {
+  return !!d && d.status === "present" && !!d.worked_on_weekly_off;
+}
+
 // Mirrors AttendanceReport.jsx's STATUS_CLASS (tailwind.config.js jade/rust/
 // ochre/manila/ink) — Excel cell colors can't reference Tailwind classes
 // directly, so these are hand-converted to ARGB and have to be kept in sync
@@ -50,7 +57,7 @@ const STATUS_COLORS = {
   // Present + worked their declared weekly off — same jade background as an
   // ordinary Present (they did show up and work), bolded and flagged gold
   // so it doesn't read as an indistinguishable P on a scan of the sheet.
-  weekoff_present: { fill: "FFEAF4EF", font: "FF8B5219", bold: true },
+  weekoff_present: { fill: WOP_FILL, font: WOP_FONT, bold: true },
   holiday: { fill: "FFFBF0E2", font: "FF8B5219" },
   leave: { fill: "FFEFE9DA", font: "FF5B5952" },
   half_day: { fill: "FFFBF0E2", font: "FF8B5219" },
@@ -177,6 +184,14 @@ export function missedPunch(d) {
   if (!d || !["present", "half_day", "wfh"].includes(d.status)) return false;
   if (!d.first_in || !d.last_out) return true;
   return new Date(d.first_in).getTime() === new Date(d.last_out).getTime();
+}
+
+function paintWop(row, fromCol, toCol) {
+  for (let col = fromCol; col <= toCol; col++) {
+    const cell = row.getCell(col);
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: WOP_FILL } };
+    cell.font = { ...(cell.font || {}), color: { argb: WOP_FONT }, bold: true };
+  }
 }
 
 function paintMissed(row, fromCol, toCol) {
@@ -314,7 +329,11 @@ export async function exportAttendanceExcel(rows, year, month, rangeLabel) {
       // status coloring — a late day is still Present everywhere else).
       const tier = lateTier(d);
       if (tier) applyLateTier(row.getCell(col), tier, {});
-      if (missedPunch(d)) paintMissed(row, col, col + 3);
+      if (isWop(d)) paintWop(row, col, col + 3);
+      if (missedPunch(d)) {
+        paintMissed(row, col, col + 3);
+        if (isWop(d)) paintWop(row, col + 2, col + 2); // keep WOP visible on the Status cell
+      }
     });
   }
 
@@ -422,7 +441,11 @@ function writeTimingsSheet(ws, rows) {
         applyLateTier(dataRow.getCell(5), tier, BLOCK_FONT);
         dataRow.getCell(5).alignment = { horizontal: "left", vertical: "top" };
       }
-      if (missedPunch(d)) paintMissed(dataRow, 1, 11);
+      if (isWop(d)) paintWop(dataRow, 1, 11);
+      if (missedPunch(d)) {
+        paintMissed(dataRow, 1, 11);
+        if (isWop(d)) { paintWop(dataRow, 4, 4); paintWop(dataRow, 10, 10); }
+      }
     }
     ws.addRow([]); // one blank row between employees
   }
@@ -515,7 +538,11 @@ export async function exportDailyAttendanceExcel(daily, { employeeCode, name, ra
     colorRowByStatus(row, statusColorKey(d), 1, 6);
     const tier = lateTier(d);
     if (tier) applyLateTier(row.getCell(2), tier, {});
-    if (missedPunch(d)) paintMissed(row, 1, 7);
+    if (isWop(d)) paintWop(row, 1, 7);
+    if (missedPunch(d)) {
+      paintMissed(row, 1, 7);
+      if (isWop(d)) paintWop(row, 6, 6);
+    }
   }
 
   ws.getColumn(1).width = 14;

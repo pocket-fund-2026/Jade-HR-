@@ -121,3 +121,43 @@ test("timings export: one blank row between employees", async () => {
   assert.equal(codes[lastFirst + 1], "");      // blank row after the first employee's last day
   assert.equal(codes[lastFirst + 2], "1002");  // next employee starts right after it
 });
+
+test("WOP days are highlighted orange in all three exports", async () => {
+  const wop = (date) => mk(date, { worked_on_weekly_off: true });
+  const r = [{ employee_code: "3001", name: "Wop", department: "Ops", time_slot: "10:00 AM – 7:00 PM", daily: [mk("2026-11-14"), wop("2026-11-15")] }];
+  const fill = (c) => c.fill?.fgColor?.argb;
+
+  let wb = await workbookFrom(() => exportAttendanceExcel(r, 2026, 11));
+  let row = wb.getWorksheet("Attendance").getRow(3);
+  assert.equal(fill(row.getCell(8)), "FFFFB74D");   // day 2 In
+  assert.equal(fill(row.getCell(10)), "FFFFB74D");  // day 2 Status
+  assert.equal(fill(row.getCell(11)), "FFFFB74D");  // day 2 Remarks
+  assert.notEqual(fill(row.getCell(5)), "FFFFB74D"); // day 1 (normal) is not orange
+
+  wb = await workbookFrom(() => exportAttendanceTimingsExcel(r, 2026, 11));
+  const orange = [];
+  wb.eachSheet((ws) => ws.eachRow((rw) => { if (fill(rw.getCell(1)) === "FFFFB74D") orange.push(String(rw.getCell(3).value)); }));
+  assert.equal(orange.length, 1);
+
+  wb = await workbookFrom(() => exportDailyAttendanceExcel(r[0].daily, { employeeCode: "3001", name: "Wop", rangeLabel: "x" }));
+  const ws = wb.getWorksheet("Daily Attendance");
+  assert.equal(fill(ws.getRow(5).getCell(1)), "FFFFB74D");
+  assert.notEqual(fill(ws.getRow(4).getCell(1)), "FFFFB74D");
+});
+
+test("WOP with a single punch: row is yellow, Status/Shift stay orange", async () => {
+  const d = mk("2026-11-15", { worked_on_weekly_off: true, last_out: "2026-11-15T04:30:00+00:00", hours_worked: 0 });
+  const r = [{ employee_code: "3002", name: "WopMissed", department: "Ops", time_slot: "10:00 AM – 7:00 PM", daily: [d] }];
+  const fill = (c) => c.fill?.fgColor?.argb;
+  const wb = await workbookFrom(() => exportAttendanceTimingsExcel(r, 2026, 11));
+  let found = false;
+  wb.eachSheet((ws) => ws.eachRow((rw) => {
+    if (String(rw.getCell(3).value).match(/^\d{2}-/)) {
+      found = true;
+      assert.equal(fill(rw.getCell(1)), "FFFFE066");
+      assert.equal(fill(rw.getCell(4)), "FFFFB74D");
+      assert.equal(fill(rw.getCell(10)), "FFFFB74D");
+    }
+  }));
+  assert.ok(found);
+});

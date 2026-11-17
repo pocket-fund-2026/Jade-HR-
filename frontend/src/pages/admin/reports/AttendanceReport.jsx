@@ -8,7 +8,7 @@ import MonthPicker from "../../../components/MonthPicker.jsx";
 import api from "../../../lib/api.js";
 import { useAuth } from "../../../lib/auth.jsx";
 import { LEAVE_LABELS } from "../../../lib/leaveTypes.js";
-import { dayCode, dayNumber, dayRemark, exportAttendanceExcel, exportAttendanceTimingsExcel, statusColorKey, summarize } from "../../../lib/attendanceExport.js";
+import { dayCode, dayNumber, dayRemark, exportAttendanceExcel, isWop, missedPunch, exportAttendanceTimingsExcel, statusColorKey, summarize } from "../../../lib/attendanceExport.js";
 import { formatHoursMins, formatTime } from "../../../lib/format.js";
 
 const today = new Date();
@@ -17,7 +17,7 @@ const STATUS_CLASS = {
   present: "bg-jade-50 text-jade-700", absent: "bg-rust-50 text-rust-600", weekoff: "bg-ink/5 text-ink/70",
   // Present, but worked their declared weekly off — same jade background as
   // an ordinary Present, bolded so WOP doesn't blend into a plain P.
-  weekoff_present: "bg-jade-50 text-jade-700 font-bold",
+  weekoff_present: "bg-[#FFB74D] text-[#4A2800] font-bold",
   holiday: "bg-ochre-50 text-ochre-700", leave: "bg-manila text-ink/70", half_day: "bg-ochre-50 text-ochre-700",
   wfh: "bg-ink/5 text-jade-700",
   future: "text-ink/20",
@@ -215,7 +215,7 @@ export default function AttendanceReport() {
         <div>
           <h2 className="font-display text-2xl text-ink">Attendance Sheet</h2>
           <p className="text-xs text-ink/70 font-nums mt-0.5 flex items-center gap-1.5 flex-wrap">
-            <span>P = Present · A = Absent · WO = Weekoff · H = Holiday · HD = Half Day · PL = Paid Leave · CO = Comp-Off · LWP = Leave Without Pay · ML/PTL/CL = Maternity/Paternity/Compassionate — hover a cell for hours &amp; OT. Green dot = Comp-Off eligible. Orange dot = has a remark.</span>
+            <span>P = Present · A = Absent · WO = Weekoff · H = Holiday · HD = Half Day · PL = Paid Leave · CO = Comp-Off · LWP = Leave Without Pay · ML/PTL/CL = Maternity/Paternity/Compassionate — hover a cell for hours &amp; OT. Green dot = Comp-Off eligible. Orange dot = has a remark. Orange cell = WOP (worked their weekly off). Yellow cell = missed check-in/out.</span>
             <span className="inline-flex items-center gap-1 text-jade-700">
               <Pencil size={11} /> {canEdit ? "Click any cell to correct it or add a remark." : "Click any cell to add a remark."}
             </span>
@@ -314,7 +314,7 @@ export default function AttendanceReport() {
                           key={d.date}
                           title={`${cellTitle(d)}${d.remark_manual ? ` — Remark: ${d.remark_manual}` : ""}${editable ? (canEdit ? " — click to edit" : " — click to add a remark") : ""}`}
                           onClick={editable ? () => setEditing({ employee: r, day: d }) : undefined}
-                          className={`p-0.5 text-center align-top ${editable ? "cursor-pointer hover:ring-1 hover:ring-jade-500 hover:ring-inset" : ""}`}
+                          className={`p-0.5 text-center align-top ${missedPunch(d) ? "bg-[#FFE066]" : isWop(d) ? "bg-[#FFE0B2]" : ""} ${editable ? "cursor-pointer hover:ring-1 hover:ring-jade-500 hover:ring-inset" : ""}`}
                         >
                           <div className="flex flex-col items-center gap-0.5">
                             <span
