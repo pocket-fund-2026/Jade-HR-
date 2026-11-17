@@ -204,3 +204,58 @@ def leave_reminder_digest(
         "hr_emailed": hr_emailed, "hr_email_error": hr_error, "manager_reminders": results,
         "hr_preview": "\n".join(hr_lines) if dry_run else None,
     }
+
+
+APPROVAL_NOTICE_SUBJECT = "Action Required: Please approve your team's leave requests in the JADE HR Console"
+APPROVAL_NOTICE_BODY = """Dear {first_name},
+
+As a reporting manager, you are the approver for your team's leave requests in the JADE HR Console. This is a reminder to review and action every pending request promptly.
+
+Why this matters
+Leave that is not approved or rejected in the console cannot be recorded correctly. Payroll is calculated from the attendance and leave records in the console, so an unapproved leave can:
+  • be treated as an absence, resulting in a Loss of Pay deduction for the employee;
+  • change paid days, and therefore salary, for your team members; and
+  • affect colleagues' payroll, as attendance and approvals are reconciled together at month-end.
+
+What we need from you
+  1. Sign in to the JADE HR Console: {console}
+  2. Open Leave Approvals and review all pending requests, including past-dated ones.
+  3. Approve or reject each request, so that nothing remains pending before the payroll cut-off (22nd of each month).
+
+If a request is unclear, please speak with the employee directly and then record your decision in the console. For any help, reply to this email or contact the HR team.
+
+Thank you for your prompt attention.
+
+Warm regards,
+Tina
+JADE HR"""
+
+
+@router.post("/approval-notice")
+def approval_notice(
+    send: bool = Query(default=False, description="Actually send; the default only previews the recipient list"),
+    user: dict = Depends(require_console),
+):
+    """One-off notice to every active reporting manager: approve team leave in
+    the console or payroll for their team can be affected. Previews by default;
+    pass send=true to email. Recipients are the same active managers the
+    Reporting Managers page resolves, de-duplicated by email."""
+    from routers.employees import list_reporting_managers
+
+    data = list_reporting_managers(user={})
+    by_id = {m["id"]: m for m in data["managers"]}
+    ids = {r["manager_id"] for r in data["rows"] if r.get("manager_id") and r.get("manager_active")}
+    recipients: dict[str, str] = {}
+    for i in ids:
+        m = by_id.get(i)
+        if m and m.get("email") and m.get("is_active", True):
+            recipients.setdefault(m["email"].lower(), m["name"])
+    results = []
+    for email, name in sorted(recipients.items()):
+        ok, err = (None, "preview") if not send else email_service.send_email_detailed(
+            email, APPROVAL_NOTICE_SUBJECT,
+            APPROVAL_NOTICE_BODY.format(first_name=(name.split(" ")[0] or "there"), console=CONSOLE),
+            kind="leave_approval_notice",
+        )
+        results.append({"recipient": email, "name": name, "emailed": ok, "email_error": err})
+    return {"sent": send, "count": len(results), "results": results}
