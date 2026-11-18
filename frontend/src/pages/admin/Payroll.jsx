@@ -32,7 +32,7 @@ async function exportExcel(rows, year, month) {
     "Per Hour Salary": r.per_hour_salary,
     "OT Hours": formatHoursMins(r.total_ot_hours),
     "OT Amount": r.ot_amount,
-    "Total Payable": r.total_payable,
+    "Total Payable": r.calc_error ? "CALC FAILED" : r.total_payable,
   }));
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
@@ -69,8 +69,17 @@ export default function Payroll() {
     });
   }, [rows, location, query]);
 
+  const failedRows = useMemo(() => rows.filter((r) => r.calc_error), [rows]);
+
   return (
     <div>
+      {failedRows.length > 0 && (
+        <div role="alert" className="mb-4 rounded-sm border border-rust-500/40 bg-rust-50 px-4 py-3 text-sm text-rust-500">
+          <strong>Payroll could not be calculated for {failedRows.length} employee{failedRows.length > 1 ? "s" : ""}:</strong>{" "}
+          {failedRows.map((r) => `${r.name} (${r.employee_code})`).join(", ")}.
+          Their rows show zero — do not pay from them. Check their salary/compliance data and refresh.
+        </div>
+      )}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-6">
         <div>
           <h2 className="font-display text-2xl text-ink">Payroll &amp; OT</h2>
@@ -144,6 +153,12 @@ export default function Payroll() {
                 <tr key={r.employee_id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
                   <td className="px-5 py-3.5">
                     <span className="text-ink font-medium">{r.name}</span>
+                    {r.calc_error ? (
+                      <span title={r.calc_error}
+                        className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-rust-500 bg-rust-50 border border-rust-500/40 rounded-sm px-1.5 py-0.5">
+                        Calc failed
+                      </span>
+                    ) : null}
                     {r.red_card ? (
                       <span title={`${r.late_mark_count} late marks this cycle`}
                         className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-rust-500 bg-rust-50 border border-rust-500/40 rounded-sm px-1.5 py-0.5">
@@ -171,7 +186,7 @@ export default function Payroll() {
                   <td className="px-5 py-3.5 font-nums text-ink/70">{formatINR(r.per_hour_salary)}</td>
                   <td className="px-5 py-3.5 font-nums">{formatHoursMins(r.total_ot_hours)}</td>
                   <td className="px-5 py-3.5 font-nums font-semibold text-ochre-700">{formatINR(r.ot_amount)}</td>
-                  <td className="px-5 py-3.5 font-nums font-semibold text-ink">{formatINR(r.total_payable)}</td>
+                  <td className="px-5 py-3.5 font-nums font-semibold text-ink">{r.calc_error ? <span className="text-rust-500">—</span> : formatINR(r.total_payable)}</td>
                   <td className="px-5 py-3.5">
                     <Link
                       to={`/admin/payroll/${r.employee_id}?year=${year}&month=${month}`}
