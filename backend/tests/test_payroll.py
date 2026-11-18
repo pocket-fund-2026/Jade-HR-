@@ -795,3 +795,19 @@ def test_ot_day_is_never_half_day_or_lop():
     assert rows[0]["status"] == "present"
     assert "lop_days" not in rows[1] and rows[1]["register_credit"] == 1.0
     assert rows[2]["status"] == "half_day"
+
+
+def test_one_bad_employee_does_not_break_whole_payroll(monkeypatch):
+    import routers.payroll as rp
+    monkeypatch.setattr(rp, "_fetch_all_punches_by_employee", lambda *a, **k: {})
+    monkeypatch.setattr(rp, "_fetch_all_overrides_by_employee", lambda *a, **k: {})
+    monkeypatch.setattr(rp, "fetch_all_approved_leaves_by_employee", lambda *a, **k: {})
+    monkeypatch.setattr(rp, "fetch_all_confirmed_wfh_by_employee", lambda *a, **k: {})
+    monkeypatch.setattr(rp, "_fetch_all_tax_declarations", lambda *a, **k: {})
+    good = {**CORPORATE_EMPLOYEE, "id": "g", "employee_code": "G1"}
+    bad = {**CORPORATE_EMPLOYEE, "id": "b", "employee_code": "B1", "basic": "not-a-number"}
+    out = rp._all_summaries_for_month([good, bad, good], {}, [], 2026, 9)
+    assert len(out) == 3
+    assert "calc_error" not in out[0] and out[0]["basic_rate"] > 0
+    assert out[1]["calc_error"] and out[1]["total_payable"] == 0
+    assert all(f in out[1] for f in rp.RANGE_SUM_FIELDS)

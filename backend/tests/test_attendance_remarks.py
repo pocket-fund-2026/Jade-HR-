@@ -19,3 +19,32 @@ def test_attach_manual_remarks_survives_missing_table(monkeypatch):
     results = [{"employee_id": "e1", "daily": [{"date": "2026-10-22"}]}]
     reports._attach_manual_remarks(results, date(2026, 10, 1), date(2026, 10, 31))
     assert "remark_manual" not in results[0]["daily"][0]
+
+
+def test_set_remark_503_when_verify_read_fails(monkeypatch):
+    import pytest
+    from fastapi import HTTPException
+
+    class Q:
+        def __init__(self, fail): self.fail = fail
+        def upsert(self, *a, **k): return self
+        def select(self, *a, **k): return self
+        def eq(self, *a, **k): return self
+        def limit(self, *a, **k): return self
+        def execute(self):
+            if self.fail:
+                raise RuntimeError("boom")
+            return type("R", (), {"data": []})()
+
+    calls = {"n": 0}
+
+    class SB:
+        def table(self, name):
+            calls["n"] += 1
+            return Q(fail=calls["n"] > 1)  # write ok, verify read fails
+
+    monkeypatch.setattr(reports, "supabase", SB())
+    body = reports.AttendanceRemarkSet(date=date(2026, 10, 22), remark="x")
+    with pytest.raises(HTTPException) as e:
+        reports.set_attendance_remark("e1", body, user={"id": "u"})
+    assert e.value.status_code == 503

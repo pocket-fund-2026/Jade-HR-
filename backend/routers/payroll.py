@@ -377,6 +377,50 @@ def _monthly_tds(employee: dict, year: int, month: int, declaration: dict | None
     return project_annual_tax(employee, financial_year, declaration, year, month)["monthly_tds"]
 
 
+def _summary_for_employee(
+    employee: dict, profiles_by_employee: dict[str, dict], holidays: dict[date, dict],
+    year: int, month: int, calendar_month: bool,
+    punches_by_employee: dict, overrides_by_employee: dict, leaves_by_employee: dict,
+    wfh_by_employee: dict, declarations_by_employee: dict,
+) -> dict:
+    employee = {**employee, **profiles_by_employee.get(employee["id"], {})}
+    punches = punches_by_employee.get(employee["employee_code"], [])
+    overrides = overrides_by_employee.get(employee["id"], {})
+    leaves = leaves_by_employee.get(employee["id"], {})
+    wfh_days = wfh_by_employee.get(employee["id"], {})
+    # Bulk path: a missing entry means "no declaration saved", not "go
+    # fetch it individually" — must never fall through to _monthly_tds's
+    # per-employee DB query, or this reintroduces an N+1 for every
+    # employee who hasn't filled in a declaration yet.
+    declaration = declarations_by_employee.get(employee["id"]) or DEFAULT_DECLARATION
+    monthly_tds = _monthly_tds(employee, year, month, declaration)
+    return compute_monthly_summary(
+        employee, year, month, punches, overrides, leaves, holidays, monthly_tds,
+        calendar_month=calendar_month, wfh_days=wfh_days,
+    )
+
+
+def _failed_summary(employee: dict, year: int, month: int, exc: Exception) -> dict:
+    """Placeholder row for an employee whose payroll could not be computed:
+    same numeric shape as a real summary (so reports/range sums don't crash)
+    but all zeros and flagged `calc_error` — HR must fix and recompute, never
+    pay from this row."""
+    row = {f: 0 for f in RANGE_SUM_FIELDS}
+    row.update({
+        "employee_id": employee.get("id"),
+        "employee_code": employee.get("employee_code", ""),
+        "name": f"{employee.get('first_name', '')} {employee.get('last_name') or ''}".strip(),
+        "location": employee.get("location", ""),
+        "designation": employee.get("designation", ""),
+        "department": employee.get("department", ""),
+        "employee_category": employee.get("employee_category", ""),
+        "year": year, "month": month,
+        "calc_error": f"{type(exc).__name__}: {exc}"[:300],
+        "daily": [],
+    })
+    return row
+
+
 def _all_summaries_for_month(
     employees: list[dict], profiles_by_employee: dict[str, dict], holidays: dict[date, dict],
     year: int, month: int, keep_daily: bool = False, calendar_month: bool = False,
@@ -407,23 +451,19 @@ def _all_summaries_for_month(
         declarations_by_employee = declarations_future.result()
     summaries = []
     for employee in employees:
-        employee = {**employee, **profiles_by_employee.get(employee["id"], {})}
-        punches = punches_by_employee.get(employee["employee_code"], [])
-        overrides = overrides_by_employee.get(employee["id"], {})
-        leaves = leaves_by_employee.get(employee["id"], {})
-        wfh_days = wfh_by_employee.get(employee["id"], {})
-        # Bulk path: a missing entry means "no declaration saved", not "go
-        # fetch it individually" — must never fall through to _monthly_tds's
-        # per-employee DB query, or this reintroduces an N+1 for every
-        # employee who hasn't filled in a declaration yet.
-        declaration = declarations_by_employee.get(employee["id"]) or DEFAULT_DECLARATION
-        monthly_tds = _monthly_tds(employee, year, month, declaration)
-        summary = compute_monthly_summary(
-            employee, year, month, punches, overrides, leaves, holidays, monthly_tds,
-            calendar_month=calendar_month, wfh_days=wfh_days,
-        )
+        try:
+            summary = _summary_for_employee(
+                employee, profiles_by_employee, holidays, year, month, calendar_month,
+                punches_by_employee, overrides_by_employee, leaves_by_employee,
+                wfh_by_employee, declarations_by_employee,
+            )
+        except Exception as exc:
+            # One employee's bad data must never take down everyone's payroll.
+            # Surface a clearly-flagged zero row instead of a 500 for all.
+            logger.exception("payroll calc failed for %s (%s-%02d)", employee.get("employee_code"), year, month)
+            summary = _failed_summary(employee, year, month, exc)
         if not keep_daily:
-            summary.pop("daily")
+            summary.pop("daily", None)
         summaries.append(summary)
     return summaries
 
@@ -452,8 +492,13 @@ def payroll_for_month(
         ledgers_future = pool.submit(pl_ledger_for_period_bulk, merged_employees, year, month)
         arrears_future = pool.submit(_fetch_all_arrears_by_employee, year, month)
         summaries = summaries_future.result()
-        ledgers_by_employee = ledgers_future.result()
-        arrears_by_employee = arrears_future.result()
+        try:
+            ledgers_by_employee = ledgers_future.result()
+        except Exception:
+            # Informational only (not part of pay) — never block payroll on it.
+            logger.exception("pl ledger bulk read failed; payroll continues without it")
+            ledgers_by_employee = {}
+        arrears_by_employee = arrears_future.result()  # money: must fail loudly, never skip
     for employee, summary in zip(employees, summaries):
         summary["pl_ledger"] = ledgers_by_employee.get(employee["id"])
         period_items = arrears_by_employee.get(employee["id"], {})
@@ -940,6 +985,8 @@ def payroll_for_range(
                     agg[f] = 0
                 aggregated[summary["employee_id"]] = agg
             agg["months_included"] += 1
+            if summary.get("calc_error"):
+                agg["calc_error"] = summary["calc_error"]  # totals are incomplete for this employee
             for f in RANGE_SUM_FIELDS:
                 agg[f] = round(agg[f] + summary[f], 2)
 

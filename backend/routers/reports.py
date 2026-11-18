@@ -75,7 +75,11 @@ def set_attendance_remark(
         logger.exception("could not write hr_attendance_remarks")
         raise HTTPException(status_code=503, detail="Remarks storage is not set up yet — sql/088_attendance_remarks.sql must be applied") from exc
     # Read it straight back: a save that did not stick must never look saved.
-    stored = supabase.table("hr_attendance_remarks").select("remark").eq("employee_id", employee_id).eq("date", body.date.isoformat()).limit(1).execute().data
+    try:
+        stored = supabase.table("hr_attendance_remarks").select("remark").eq("employee_id", employee_id).eq("date", body.date.isoformat()).limit(1).execute().data
+    except Exception as exc:
+        logger.exception("could not verify hr_attendance_remarks write")
+        raise HTTPException(status_code=503, detail="Could not confirm the remark was saved — please check and try again") from exc
     if bool(remark) != bool(stored) or (remark and stored[0]["remark"] != remark):
         logger.error("hr_attendance_remarks write did not persist for %s %s", employee_id, body.date)
         raise HTTPException(status_code=500, detail="The remark was not saved — please try again or tell IT")
