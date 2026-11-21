@@ -11,6 +11,7 @@ const TABS = [
   { key: "due", label: "Due for confirmation" },
   { key: "unset", label: "No probation date set" },
   { key: "confirmed", label: "Confirmed" },
+  { key: "backfill", label: "Backfill confirmed" },
 ];
 
 const inputCls =
@@ -144,6 +145,82 @@ function UnsetRow({ row, onChanged }) {
   );
 }
 
+function BackfillPanel() {
+  const askConfirm = useConfirm();
+  const [days, setDays] = useState(126);
+  const [rows, setRows] = useState(null);
+  const [picked, setPicked] = useState(new Set());
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  const preview = async () => {
+    setBusy(true); setMsg("");
+    try {
+      const { data } = await api.get("/api/confirmations/backfill-preview", { params: { probation_days: days } });
+      setRows(data.rows);
+      setPicked(new Set(data.rows.map((r) => r.employee_id)));
+    } catch { setMsg("Could not load the preview. Try again."); } finally { setBusy(false); }
+  };
+  const toggle = (id) => setPicked((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const apply = async () => {
+    if (!(await askConfirm(`Record a confirmation date for ${picked.size} people? Each gets the date shown in the table.`, { confirmLabel: "Confirm them" }))) return;
+    setBusy(true);
+    try {
+      const { data } = await api.post("/api/confirmations/backfill", { employee_ids: [...picked], probation_days: days });
+      setMsg(`Confirmed ${data.confirmed} people${data.skipped ? `, ${data.skipped} no longer eligible` : ""}.`);
+      await preview();
+    } catch (e) { setMsg(e?.response?.data?.detail || "Could not save. Nothing was changed for the failed rows, reload and try again."); setBusy(false); }
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-ink/70 bg-manila border-l-2 border-ochre-700 px-4 py-2.5">
+        For people who joined long ago and were never given a confirmation date, so they still show as On Probation
+        everywhere. The date is proposed from the recorded probation end, or from joining date plus the days below.
+        The offer letter sets the real date per person, so check the list. Nothing is saved until you press Confirm.
+      </p>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="text-xs text-ink/70">Probation length (calendar days)
+          <input type="number" min={30} max={730} value={days} onChange={(e) => setDays(Number(e.target.value) || 126)} className={`${inputCls} block w-28 mt-1`} />
+        </label>
+        <button onClick={preview} disabled={busy} className="rounded-sm bg-jade-500 text-white px-4 py-2 text-sm disabled:opacity-50">{rows ? "Refresh preview" : "Preview"}</button>
+        {rows && picked.size > 0 && (
+          <button onClick={apply} disabled={busy} className="rounded-sm bg-ledger-900 text-manila px-4 py-2 text-sm disabled:opacity-50">Confirm {picked.size} selected</button>
+        )}
+        {msg && <span className="text-sm text-ink">{msg}</span>}
+      </div>
+      {rows && (
+        <div className="bg-paper rounded-sm shadow-card overflow-x-auto">
+          <table className="w-full text-sm tabular-nums">
+            <thead className="text-left"><tr className="border-b-2 border-ink/10">
+              <th className="px-4 py-3"><input type="checkbox" aria-label="Select all" className="accent-jade-600"
+                checked={rows.length > 0 && picked.size === rows.length}
+                onChange={(e) => setPicked(e.target.checked ? new Set(rows.map((r) => r.employee_id)) : new Set())} /></th>
+              {["Employee", "Type", "Joined", "Will be confirmed on", "Based on"].map((h) => (
+                <th key={h} className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>
+              {rows.length === 0 && <tr><td colSpan={6} className="px-5 py-10 text-center text-ink/70">Nobody needs backfilling at this probation length.</td></tr>}
+              {rows.map((r) => (
+                <tr key={r.employee_id} className="border-b border-ink/[0.06] last:border-0">
+                  <td className="px-4 py-3"><input type="checkbox" className="accent-jade-600" checked={picked.has(r.employee_id)} onChange={() => toggle(r.employee_id)} aria-label={`Select ${r.name}`} /></td>
+                  <td className="px-4 py-3"><Link to={`/admin/employees/${r.employee_id}`} className="text-ink font-medium hover:text-jade-600">{r.name}</Link>
+                    <div className="text-xs text-ink/70 font-nums">{r.employee_code} · {r.department || "—"}</div></td>
+                  <td className="px-4 py-3 text-ink/70">{r.employee_type || "—"}</td>
+                  <td className="px-4 py-3 text-ink/70">{formatDate(r.date_of_joining)}</td>
+                  <td className="px-4 py-3 text-jade-700">{formatDate(r.proposed_confirmation_date)}</td>
+                  <td className="px-4 py-3 text-xs text-ink/60">{r.basis}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Confirmations() {
   const [tab, setTab] = useState("due");
   const [rows, setRows] = useState([]);
@@ -156,12 +233,13 @@ export default function Confirmations() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, [tab]);
+  useEffect(() => { if (tab !== "backfill") load(); }, [tab]);
 
   const headers = {
     due: ["Employee", "Joined", "Probation ends", "Extend probation", ""],
     unset: ["Employee", "Joined", "Type", "Set probation completion date"],
     confirmed: ["Employee", "Joined", "Probation ended", "Confirmed on"],
+    backfill: [],
   }[tab];
 
   return (
@@ -187,6 +265,7 @@ export default function Confirmations() {
         </p>
       )}
 
+      {tab === "backfill" ? <BackfillPanel /> : (
       <div className="bg-paper rounded-sm shadow-card overflow-x-auto">
         <table className="w-full text-sm tabular-nums">
           <thead className="text-left">
@@ -231,6 +310,7 @@ export default function Confirmations() {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }

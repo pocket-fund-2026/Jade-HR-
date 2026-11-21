@@ -14,9 +14,10 @@ employees.manage permission, so there's no second write path to keep in
 step with it.
 """
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 
 from auth import require_permission
 from database import supabase
@@ -106,3 +107,79 @@ def list_confirmations(
     else:
         rows.sort(key=lambda r: r["probation_completion_date"])
     return rows
+
+
+# ---- Backfill: confirm long-tenured people who were never given a date -------
+# 90 working days is ~18 weeks. The offer letter sets the real date per person, so
+# this is a proposal HR reviews and applies, never something that runs on its own.
+DEFAULT_PROBATION_DAYS = 126
+
+
+def _backfill_candidates(probation_days: int) -> list[dict]:
+    today = date.today()
+    employees = (
+        supabase.table("hr_employees")
+        .select("id,employee_code,first_name,last_name,department,designation,location,date_of_joining,is_active")
+        .eq("is_active", True).execute().data
+    ) or []
+    profiles = {
+        p["employee_id"]: p for p in (
+            supabase.table("hr_employee_profile")
+            .select("employee_id,probation_completion_date,confirmation_date,employee_status,employee_type")
+            .execute().data
+        ) or []
+    }
+    rows = []
+    for e in employees:
+        p = profiles.get(e["id"]) or {}
+        if p.get("confirmation_date") or p.get("employee_status") in ("Exited", "On Notice", "Absconded", "Terminated"):
+            continue
+        doj = e.get("date_of_joining")
+        if not doj:
+            continue
+        recorded = p.get("probation_completion_date")
+        proposed = recorded or (date.fromisoformat(doj) + timedelta(days=probation_days)).isoformat()
+        if proposed > today.isoformat():
+            continue  # still genuinely on probation: belongs to the Due queue, not here
+        rows.append({
+            "employee_id": e["id"], "employee_code": e["employee_code"],
+            "name": f"{e['first_name']} {e.get('last_name') or ''}".strip(),
+            "department": e.get("department"), "designation": e.get("designation"),
+            "location": e.get("location"), "employee_type": p.get("employee_type"),
+            "date_of_joining": doj, "probation_completion_date": recorded,
+            "proposed_confirmation_date": proposed,
+            "basis": "recorded probation end" if recorded else f"joining date + {probation_days} days",
+        })
+    rows.sort(key=lambda r: r["date_of_joining"])
+    return rows
+
+
+@router.get("/backfill-preview")
+def backfill_preview(
+    probation_days: int = Query(default=DEFAULT_PROBATION_DAYS, ge=30, le=730),
+    user: dict = Depends(require_permission("employees.manage")),
+):
+    rows = _backfill_candidates(probation_days)
+    return {"probation_days": probation_days, "count": len(rows), "rows": rows}
+
+
+class BackfillApply(BaseModel):
+    employee_ids: list[str] = Field(min_length=1, max_length=500)
+    probation_days: int = Field(default=DEFAULT_PROBATION_DAYS, ge=30, le=730)
+
+
+@router.post("/backfill")
+def backfill_apply(body: BackfillApply, user: dict = Depends(require_permission("employees.manage"))):
+    """Dates are recomputed here from the same rule as the preview; the client only
+    says WHO to confirm, so a tampered request cannot write arbitrary dates."""
+    wanted = set(body.employee_ids)
+    todo = [r for r in _backfill_candidates(body.probation_days) if r["employee_id"] in wanted]
+    if not todo:
+        raise HTTPException(status_code=400, detail="None of the selected people are eligible any more. Reload the preview.")
+    now = datetime.now(timezone.utc).isoformat()
+    for r in todo:
+        upd = {"employee_id": r["employee_id"], "confirmation_date": r["proposed_confirmation_date"], "updated_at": now}
+        if not r["probation_completion_date"]:
+            upd["probation_completion_date"] = r["proposed_confirmation_date"]
+        supabase.table("hr_employee_profile").upsert(upd, on_conflict="employee_id").execute()
+    return {"confirmed": len(todo), "skipped": len(wanted) - len(todo)}
