@@ -53,3 +53,20 @@ test("HR-typed remark overrides the computed one, including on missed punches", 
   assert.equal(dayRemark({ status: "present", first_in: "2026-10-22T05:39:49+00:00", last_out: null, remark_manual: " Left at 4pm " }), "Left at 4pm");
   assert.equal(dayRemark({ ...P, status: "present", remark_manual: "  " }), "1");
 });
+
+test("remarks are numbers in exports; typed numbers count towards the total", async () => {
+  const { dayRemarkValue, remarkNote, parseRemarkNumber, totalPaidDays } = await import("./attendanceExport.js");
+  assert.equal(dayRemarkValue({ ...P, status: "present", lop_days: 0.25 }), 0.75);
+  assert.equal(dayRemarkValue({ status: "absent" }), 0);
+  assert.equal(parseRemarkNumber(" 0,5 "), 0.5);
+  assert.equal(parseRemarkNumber(".75"), 0.75);
+  assert.equal(parseRemarkNumber("Left at 4pm"), null);
+  // Missed punch with HR's typed 0.5: the cell is 0.5 and the total includes it.
+  const missed = { status: "present", first_in: "2026-10-22T05:39:49+00:00", last_out: null, remark_manual: "0.5" };
+  assert.equal(dayRemarkValue(missed), 0.5);
+  assert.equal(totalPaidDays([missed, { status: "weekoff" }]), 1.5);
+  // Old free-text remark: number stays in the cell, text goes to the note.
+  const text = { ...P, status: "present", lop_days: 0.25, remark_manual: "Forgot to punch out" };
+  assert.equal(dayRemarkValue(text), 0.75);
+  assert.equal(remarkNote(text), "Forgot to punch out");
+});

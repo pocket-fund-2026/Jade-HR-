@@ -161,3 +161,27 @@ test("WOP with a single punch: row is yellow, Status/Shift stay orange", async (
   }));
   assert.ok(found);
 });
+
+test("Remarks cells are real numbers in all three exports, so Excel can SUM them", async () => {
+  // Wide: day remarks 1, 0.75, 0, 1, 0.5 for every person; old text remark kept as a note.
+  const withText = rows.map((r, i) => (i === 0 ? { ...r, daily: r.daily.map((d, j) => (j === 0 ? { ...d, remark_manual: "Came via site visit" } : d)) } : r));
+  let wb = await workbookFrom(() => exportAttendanceExcel(withText, 2026, 11));
+  let ws = wb.worksheets[0];
+  const header = ws.getRow(2).values.slice(1);
+  const cols = header.map((h, i) => (String(h).endsWith("Remarks") ? i + 1 : 0)).filter(Boolean);
+  const first = cols.map((c) => ws.getRow(3).getCell(c).value);
+  assert.deepEqual(first, [1, 0.75, 0, 1, 0.5]);
+  assert.ok(first.every((v) => typeof v === "number"));
+  const note = ws.getRow(3).getCell(cols[0]).note;
+  assert.ok(JSON.stringify(note).includes("Came via site visit"));
+
+  wb = await workbookFrom(() => exportAttendanceTimingsExcel(rows, 2026, 11));
+  ws = wb.worksheets[0];
+  let nums = 0;
+  ws.eachRow((row) => { const v = row.getCell(11).value; if (typeof v === "number") nums += 1; else if (row.getCell(3).value && /\d{4}/.test(String(row.getCell(3).value))) assert.fail(`text remark: ${v}`); });
+  assert.ok(nums >= 15);
+
+  wb = await workbookFrom(() => exportDailyAttendanceExcel(rows[0].daily, { employeeCode: "1001", name: "Emp" }));
+  ws = wb.worksheets[0];
+  assert.deepEqual([4, 5, 6, 7, 8].map((r) => ws.getRow(r).getCell(7).value), [1, 0.75, 0, 1, 0.5]);
+});

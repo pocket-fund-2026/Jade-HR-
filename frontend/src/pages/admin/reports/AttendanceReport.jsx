@@ -8,7 +8,7 @@ import MonthPicker from "../../../components/MonthPicker.jsx";
 import api from "../../../lib/api.js";
 import { useAuth } from "../../../lib/auth.jsx";
 import { LEAVE_LABELS } from "../../../lib/leaveTypes.js";
-import { dayCode, dayNumber, dayRemark, totalPaidDays, exportAttendanceExcel, isWop, missedPunch, exportAttendanceTimingsExcel, statusColorKey, summarize } from "../../../lib/attendanceExport.js";
+import { dayCode, dayNumber, dayRemark, parseRemarkNumber, totalPaidDays, exportAttendanceExcel, isWop, missedPunch, exportAttendanceTimingsExcel, statusColorKey, summarize } from "../../../lib/attendanceExport.js";
 import { formatHoursMins, formatTime } from "../../../lib/format.js";
 
 const today = new Date();
@@ -75,6 +75,11 @@ function EditCellModal({ employee, day, onClose, onSaved, canCorrect }) {
 
   const saveRemark = async () => {
     setError("");
+    const n = parseRemarkNumber(remark);
+    if (remark.trim() && (n === null || n > 1)) {
+      setError("Remark must be the day earned as a number from 0 to 1 — e.g. 1, 0.75, 0.5, 0.25 or 0");
+      return;
+    }
     setRemarkBusy(true);
     try {
       await api.put(`/api/reports/attendance-remark/${employee.employee_id}`, { date: day.date, remark });
@@ -128,9 +133,9 @@ function EditCellModal({ employee, day, onClose, onSaved, canCorrect }) {
           </>)}
           <div className={canCorrect ? "border-t border-ink/10 pt-3" : ""}>
             <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">
-              Remark <span className="normal-case font-normal">(shown in the exported sheet; sheet value: {dayRemark(day) || "blank"})</span>
+              Remark — day earned <span className="normal-case font-normal">(a number, 0 to 1; exported as a number so it can be totalled; sheet value: {dayRemark(day) || "blank"})</span>
             </label>
-            <input value={remark} onChange={(e) => setRemark(e.target.value)} maxLength={500} placeholder="Type a remark — leave empty to clear"
+            <input value={remark} onChange={(e) => setRemark(e.target.value)} maxLength={10} inputMode="decimal" placeholder="e.g. 1, 0.75, 0.5 — leave empty to clear"
               className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
             <button type="button" onClick={saveRemark} disabled={remarkBusy || busy}
               className="mt-2 bg-jade-600 text-white px-4 py-2 rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors">

@@ -44,7 +44,34 @@ def test_set_remark_503_when_verify_read_fails(monkeypatch):
             return Q(fail=calls["n"] > 1)  # write ok, verify read fails
 
     monkeypatch.setattr(reports, "supabase", SB())
-    body = reports.AttendanceRemarkSet(date=date(2026, 10, 22), remark="x")
+    body = reports.AttendanceRemarkSet(date=date(2026, 10, 22), remark="0.5")
     with pytest.raises(HTTPException) as e:
         reports.set_attendance_remark("e1", body, user={"id": "u"})
     assert e.value.status_code == 503
+
+
+def test_set_remark_only_accepts_day_earned_number(monkeypatch):
+    import pytest
+    from fastapi import HTTPException
+
+    writes = []
+
+    class Q:
+        def upsert(self, row, **k): writes.append(row["remark"]); return self
+        def select(self, *a, **k): return self
+        def eq(self, *a, **k): return self
+        def limit(self, *a, **k): return self
+        def execute(self): return type("R", (), {"data": [{"remark": writes[-1] if writes else ""}]})()
+
+    monkeypatch.setattr(reports, "supabase", type("SB", (), {"table": lambda self, n: Q()})())
+    for bad in ("Left at 4pm", "1.5", "-0.5", "1/2", "0.5 day"):
+        with pytest.raises(HTTPException) as e:
+            reports.set_attendance_remark("e1", reports.AttendanceRemarkSet(date=date(2026, 10, 22), remark=bad), user={"id": "u"})
+        assert e.value.status_code == 422, bad
+    assert writes == []
+    for good, stored in (("0.5", "0.5"), (" 1 ", "1"), ("0,75", "0.75"), (".25", ".25"), ("0", "0")):
+        try:
+            reports.set_attendance_remark("e1", reports.AttendanceRemarkSet(date=date(2026, 10, 22), remark=good), user={"id": "u"})
+        except HTTPException as exc:
+            assert exc.status_code != 422, good
+        assert writes[-1] == stored

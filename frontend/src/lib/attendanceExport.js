@@ -202,6 +202,43 @@ function paintMissed(row, fromCol, toCol) {
   }
 }
 
+// HR's typed remark as a number ("0.5", " 1 ", ".75", "0,5"), or null when it
+// is not one. Remarks are a pay fraction HR sums in Excel (HR, 21 Nov 2026),
+// so the exports must write them as real numbers, never text.
+export function parseRemarkNumber(raw) {
+  if (raw === null || raw === undefined) return null;
+  const t = String(raw).trim().replace(",", ".");
+  if (!/^\d*\.?\d+$/.test(t)) return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
+}
+
+// What goes IN the Remarks cell of an export: always a number (or blank when
+// nothing can be told), so Excel can SUM it. An older non-numeric typed remark
+// is not lost: it rides along as the cell's comment (see remarkNote).
+export function dayRemarkValue(d) {
+  try {
+    const paid = dayPaidFraction(d || {});
+    return paid === null ? "" : paid;
+  } catch {
+    return "";
+  }
+}
+
+// HR's typed remark when it is free text rather than a number, else "".
+export function remarkNote(d) {
+  const m = d && typeof d.remark_manual === "string" ? d.remark_manual.trim() : "";
+  return m && parseRemarkNumber(m) === null ? m : "";
+}
+
+// Writes a Remarks cell: numeric value, 0.## format, free-text remark as note.
+function setRemarkCell(cell, d) {
+  cell.value = dayRemarkValue(d);
+  if (typeof cell.value === "number") cell.numFmt = "0.##";
+  const note = remarkNote(d);
+  if (note) cell.note = note;
+}
+
 function buildRemark(d) {
   // HR's typed Remarks (Attendance Sheet) always win over the computed value.
   if (typeof d.remark_manual === "string" && d.remark_manual.trim()) return d.remark_manual.trim();
@@ -212,9 +249,12 @@ function buildRemark(d) {
 
 // What fraction of the day's pay is paid. 1 = full day, 0.75 / 0.5 / 0.25 =
 // partial, 0 = nothing (absent, unpaid leave). null when it can't be told
-// (future day, or a one-punch day HR must fill in by hand). Ignores HR's
-// typed remark: that is free text, this is the number the Total adds up.
+// (future day, or a one-punch day HR must fill in by hand). A NUMBER HR
+// typed wins; a free-text remark is ignored. This is what the Total adds up.
 export function dayPaidFraction(d) {
+  // A number HR typed for the day (e.g. 0.5 on a missed punch) is the value.
+  const typed = d ? parseRemarkNumber(d.remark_manual) : null;
+  if (typed !== null) return typed;
   if (!d || d.status === "future" || !d.status || missedPunch(d)) return null;
   let deducted = Number(d.lop_days) || 0;
   if (d.status === "absent" || (d.status === "leave" && d.leave_type === "unpaid")) deducted += 1;
@@ -328,7 +368,7 @@ export async function exportAttendanceExcel(rows, year, month, rangeLabel) {
         d.first_in ? formatTime(d.first_in) : "",
         d.last_out ? formatTime(d.last_out) : "",
         dayCode(d),
-        dayRemark(d),
+        dayRemarkValue(d),
       );
     }
     const s = summarize((r.daily || []));
@@ -337,6 +377,7 @@ export async function exportAttendanceExcel(rows, year, month, rangeLabel) {
 
     (r.daily || []).forEach((d, i) => {
       const col = 4 + i * 4; // 1-indexed — Employee Code/Name/Department occupy 1-3
+      setRemarkCell(row.getCell(col + 3), d);
       colorRowByStatus(row, statusColorKey(d), col, col + 2);
       // col is the "In" cell of the group — grade it by lateness severity,
       // overriding just that cell's fill+font (Out/Status keep their normal
@@ -445,9 +486,10 @@ function writeTimingsSheet(ws, rows) {
         formatDurationHHMM(d.ot_hours),
         formatDurationHHMM(d.hours_worked),
         status,
-        dayRemark(d),
+        dayRemarkValue(d),
       ]);
       dataRow.eachCell((cell) => { cell.font = BLOCK_FONT; cell.alignment = { horizontal: "left", vertical: "top" }; });
+      setRemarkCell(dataRow.getCell(11), d);
       // Cell 5 is "A. InTime" — grade it by lateness severity, same tiers
       // and colors as the wide export's In column.
       const tier = lateTier(d);
@@ -547,8 +589,9 @@ export async function exportDailyAttendanceExcel(daily, { employeeCode, name, ra
       formatDurationHHMM(d.hours_worked),
       formatDurationHHMM(d.ot_hours),
       dayCode(d),
-      dayRemark(d),
+      dayRemarkValue(d),
     ]);
+    setRemarkCell(row.getCell(7), d);
     colorRowByStatus(row, statusColorKey(d), 1, 6);
     const tier = lateTier(d);
     if (tier) applyLateTier(row.getCell(2), tier, {});

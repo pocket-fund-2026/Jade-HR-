@@ -1,3 +1,4 @@
+import re
 from collections import defaultdict
 from datetime import date, datetime, timezone
 
@@ -62,6 +63,17 @@ def set_attendance_remark(
     """HR types (or clears) the Remarks for one employee-day on the Attendance
     Sheet. An empty remark removes it."""
     remark = (body.remark or "").strip()[:500]
+    if remark:
+        # Remarks are the day earned and HR sums them in Excel, so only a
+        # number from 0 to 1 is accepted (HR, 21 Nov 2026).
+        normalised = remark.replace(",", ".")
+        try:
+            value = float(normalised)
+        except ValueError:
+            value = None
+        if value is None or not (0 <= value <= 1) or not re.fullmatch(r"\d*\.?\d+", normalised):
+            raise HTTPException(status_code=422, detail="Remark must be the day earned as a number from 0 to 1, e.g. 1, 0.75, 0.5, 0.25 or 0")
+        remark = normalised
     try:
         if remark:
             supabase.table("hr_attendance_remarks").upsert(
