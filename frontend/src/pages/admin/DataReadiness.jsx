@@ -1,5 +1,6 @@
-import { AlertTriangle, CheckCircle2, RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { AlertTriangle, CheckCircle2, ChevronDown, RefreshCw } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 
 import api from "../../lib/api.js";
 
@@ -29,6 +30,105 @@ function Stat({ label, value, tone }) {
   );
 }
 
+// Dropdown listing everyone a check flagged: name + employee code, each
+// linking to the record so HR can fill the missing detail in.
+function PeopleDropdown({ people, label }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const shown = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    if (!t) return people;
+    return people.filter((p) => `${p.name} ${p.code}`.toLowerCase().includes(t));
+  }, [people, q]);
+  if (!people?.length) return null;
+  return (
+    <div className="mt-1.5">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
+        className="inline-flex items-center gap-1 text-xs font-semibold text-jade-700 hover:underline">
+        <ChevronDown size={13} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+        {open ? "Hide" : "View"} {label || `${people.length} employee${people.length === 1 ? "" : "s"}`}
+      </button>
+      {open && (
+        <div className="mt-2 border border-ink/10 rounded-sm bg-ink/[0.02]">
+          {people.length > 8 && (
+            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name or code"
+              className="w-full border-b border-ink/10 bg-paper px-2 py-1.5 text-xs text-ink focus:outline-none" />
+          )}
+          <div className="max-h-64 overflow-y-auto">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-paper">
+                <tr className="text-left text-[10px] uppercase tracking-wider text-ink/60">
+                  <th className="px-2 py-1.5 w-24">Emp code</th><th className="px-2 py-1.5">Employee name</th>
+                  {people[0]?.missing && <th className="px-2 py-1.5">Not updated</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((p) => (
+                  <tr key={p.id || p.code} className="border-t border-ink/10 align-top">
+                    <td className="px-2 py-1.5 font-mono text-ink/80">{p.code || "—"}</td>
+                    <td className="px-2 py-1.5">
+                      {p.id ? <Link to={`/admin/employees/${p.id}`} className="text-ink hover:text-jade-700 hover:underline">{p.name || "(no name)"}</Link> : (p.name || "(no name)")}
+                    </td>
+                    {p.missing && <td className="px-2 py-1.5 text-ink/70">{p.missing.join(", ")}</td>}
+                  </tr>
+                ))}
+                {!shown.length && <tr><td colSpan={3} className="px-2 py-2 text-ink/60">No match.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Short labels for the "what's missing" column of the combined list.
+const MISSING_LABEL = {
+  blank_time_slot: "Time Slot",
+  unknown_time_slot: "Time Slot (unrecognised)",
+  no_leave_approver: "Reporting manager",
+  no_email: "Email",
+  no_joining_date: "Date of joining",
+  no_dob: "Date of birth",
+  no_pan: "PAN",
+  no_aadhar: "Aadhar",
+  no_bank: "Bank account / IFSC",
+  no_salary_figures: "Salary figures",
+};
+
+// One row per employee across every completeness check, with what is missing.
+function NotUpdatedPanel({ checks }) {
+  const people = useMemo(() => {
+    const byId = new Map();
+    for (const c of checks) {
+      if (!MISSING_LABEL[c.key]) continue;
+      for (const p of c.people || []) {
+        const k = p.id || p.code;
+        if (!byId.has(k)) byId.set(k, { ...p, missing: [] });
+        byId.get(k).missing.push(MISSING_LABEL[c.key]);
+      }
+    }
+    return [...byId.values()].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  }, [checks]);
+  return (
+    <section className="mb-8">
+      <h3 className="font-display text-lg text-ink mb-2">Employees whose details are not updated</h3>
+      <div className="bg-paper rounded-sm shadow-card p-4">
+        {people.length ? (
+          <>
+            <p className="text-sm text-ink">
+              <span className="font-semibold text-ochre-700">{people.length}</span> active employee{people.length === 1 ? " has" : "s have"} at least one detail missing.
+            </p>
+            <PeopleDropdown people={people} label={`all ${people.length} with what is missing`} />
+          </>
+        ) : (
+          <p className="text-sm text-jade-700">Every active employee's details are complete.</p>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function CheckRow({ c }) {
   const bad = c.severity !== "ok";
   return (
@@ -47,6 +147,7 @@ function CheckRow({ c }) {
               {c.sample.join(", ")}{c.count > c.sample.length && c.key !== "hr_default_permissions" ? ` and ${c.count - c.sample.length} more` : ""}
             </p>
           )}
+          {bad && <PeopleDropdown people={c.people} />}
         </div>
       </div>
     </li>
@@ -169,6 +270,8 @@ export default function DataReadiness() {
           </tbody>
         </table>
       </div>
+
+      <NotUpdatedPanel checks={data.checks} />
 
       {Object.entries(DIMENSIONS).map(([dim, title]) => {
         const rows = data.checks.filter((c) => c.dimension === dim);

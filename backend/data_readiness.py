@@ -46,6 +46,11 @@ def _blank(value) -> bool:
     return value is None or str(value).strip() == ""
 
 
+def _person(emp: dict) -> dict:
+    full = f"{emp.get('first_name') or ''} {emp.get('last_name') or ''}".strip()
+    return {"id": emp.get("id"), "code": emp.get("employee_code"), "name": full}
+
+
 def _check(key, dimension, title, flagged, total, severity_if_any, control, why="") -> dict:
     count = len(flagged)
     return {
@@ -58,6 +63,9 @@ def _check(key, dimension, title, flagged, total, severity_if_any, control, why=
         "severity": severity_if_any if count else OK,
         "control": control if count else "",
         "sample": [_name(e) for e in flagged[:SAMPLE_SIZE]],
+        # Everyone flagged, so HR can see the whole list (not just the sample)
+        # in the page's dropdown and open each record.
+        "people": sorted((_person(e) for e in flagged), key=lambda p: (p["name"].lower(), str(p["code"]))),
     }
 
 

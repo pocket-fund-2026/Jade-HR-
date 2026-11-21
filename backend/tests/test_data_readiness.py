@@ -105,3 +105,11 @@ def test_leave_definitions_come_from_the_leave_engine():
     assert d["paid_leave_annual_days"] == leave.PAID_LEAVE_ANNUAL_CAP
     assert d["comp_off_validity_days"] == leave.COMP_OFF_VALIDITY_DAYS
     assert "comp_off" in d["blocked_during_red_card"]
+
+
+def test_check_lists_every_flagged_person_not_just_the_sample():
+    emps = [emp(i, email="") for i in range(1, dr.SAMPLE_SIZE + 4)]
+    c = by_key(dr.quality_checks(emps, {}))["no_email"]
+    assert len(c["sample"]) == dr.SAMPLE_SIZE
+    assert len(c["people"]) == c["count"] == len(emps)
+    assert {"id": "e1", "code": "C1", "name": "A 1"} in c["people"]
