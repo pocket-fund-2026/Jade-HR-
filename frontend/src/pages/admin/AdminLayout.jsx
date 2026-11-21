@@ -1,4 +1,4 @@
-import { GraduationCap, Briefcase, Gauge, BookOpen, CalendarCheck, CalendarClock, CalendarDays, CalendarPlus, CheckSquare, ClipboardList, DoorOpen, FileBarChart, FileText, Flag, GitBranch, HelpCircle, Home, KeyRound, LayoutDashboard, LogOut, Mail, ReceiptText, MapPin, Menu, Network, Plane, Receipt, Search, Shield, ShieldAlert, ShieldCheck, Stamp, UserPlus, Users, Users2, Wallet, X } from "lucide-react";
+import { ChevronDown, GraduationCap, Briefcase, Gauge, BookOpen, CalendarCheck, CalendarClock, CalendarDays, CalendarPlus, CheckSquare, ClipboardList, DoorOpen, FileBarChart, FileText, Flag, GitBranch, HelpCircle, Home, KeyRound, LayoutDashboard, LogOut, Mail, ReceiptText, MapPin, Menu, Network, Plane, Receipt, Search, Shield, ShieldAlert, ShieldCheck, Stamp, UserPlus, Users, Users2, Wallet, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 
@@ -21,42 +21,42 @@ const navItems = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
 
   // People — headcount, hiring, absence
-  { to: "/admin/employees", label: "Employees", icon: Users, permission: "employees.view" },
-  { to: "/admin/org-chart", label: "Org Chart", icon: Network, permission: "employees.view" },
-  { to: "/admin/reporting-managers", label: "Reporting Managers", icon: GitBranch, permission: "employees.manage" },
-  { to: "/admin/onboarding", label: "Onboarding", icon: UserPlus, badgeKey: "onboarding", permission: "onboarding.manage" },
-  { to: "/admin/careers", label: "Careers", icon: Users2, badgeKey: "careers", permission: "careers.manage" },
-  { to: "/admin/work-absence", label: "Work Absence", icon: Briefcase, badgeKey: "workAbsence", permission: "absence.manage" },
-  { to: "/admin/confirmations", label: "Confirmations", icon: CalendarCheck, permission: "employees.manage" },
-  { to: "/admin/exit", label: "Exit Procedure", icon: DoorOpen, badgeKey: "accessRevoke", permission: "exit.manage" },
+  { to: "/admin/employees", label: "Employees", icon: Users, permission: "employees.view", group: "People" },
+  { to: "/admin/org-chart", label: "Org Chart", icon: Network, permission: "employees.view", group: "People" },
+  { to: "/admin/reporting-managers", label: "Reporting Managers", icon: GitBranch, permission: "employees.manage", group: "People" },
+  { to: "/admin/onboarding", label: "Onboarding", icon: UserPlus, badgeKey: "onboarding", permission: "onboarding.manage", group: "People" },
+  { to: "/admin/careers", label: "Careers", icon: Users2, badgeKey: "careers", permission: "careers.manage", group: "People" },
+  { to: "/admin/work-absence", label: "Work Absence", icon: Briefcase, badgeKey: "workAbsence", permission: "absence.manage", group: "People" },
+  { to: "/admin/confirmations", label: "Confirmations", icon: CalendarCheck, permission: "employees.manage", group: "People" },
+  { to: "/admin/exit", label: "Exit Procedure", icon: DoorOpen, badgeKey: "accessRevoke", permission: "exit.manage", group: "People" },
 
   // Time & Leave — requests, tracking, policy
-  { to: "/admin/leave", label: "Leave", icon: Plane, badgeKey: "leave", permission: "leave.manage", sectionBreak: true },
-  { to: "/admin/all-requests", label: "All Requests", icon: ClipboardList, nimitOnly: true, sectionBreak: true },
-  { to: "/admin/leave-entry", label: "Leave Entry", icon: ClipboardList, permission: "leave.manage" },
-  { to: "/admin/wfh-requests", label: "WFH Requests", icon: Home, badgeKey: "wfh", permission: ["leave.manage", "wfh.approve"] },
-  { to: "/admin/market-visits", label: "Market Visits", icon: MapPin, badgeKey: "marketVisits", permission: "market_visits.review" },
-  { to: "/admin/comp-off", label: "Comp-Off", icon: CalendarClock, permission: ["employees.manage", "policy.manage", "comp_off.manage"] },
-  { to: "/admin/aip", label: "AIP", icon: ShieldAlert, permission: "leave.manage" },
-  { to: "/admin/policy", label: "Leave Policy", icon: CalendarDays, permission: ["employees.manage", "policy.manage"] },
+  { to: "/admin/leave", label: "Leave", icon: Plane, badgeKey: "leave", permission: "leave.manage", sectionBreak: true, group: "Time & Leave" },
+  { to: "/admin/all-requests", label: "All Requests", icon: ClipboardList, nimitOnly: true, sectionBreak: true, group: "Time & Leave" },
+  { to: "/admin/leave-entry", label: "Leave Entry", icon: ClipboardList, permission: "leave.manage", group: "Time & Leave" },
+  { to: "/admin/wfh-requests", label: "WFH Requests", icon: Home, badgeKey: "wfh", permission: ["leave.manage", "wfh.approve"], group: "Time & Leave" },
+  { to: "/admin/market-visits", label: "Market Visits", icon: MapPin, badgeKey: "marketVisits", permission: "market_visits.review", group: "Time & Leave" },
+  { to: "/admin/comp-off", label: "Comp-Off", icon: CalendarClock, permission: ["employees.manage", "policy.manage", "comp_off.manage"], group: "Time & Leave" },
+  { to: "/admin/aip", label: "AIP", icon: ShieldAlert, permission: "leave.manage", group: "Time & Leave" },
+  { to: "/admin/policy", label: "Leave Policy", icon: CalendarDays, permission: ["employees.manage", "policy.manage"], group: "Time & Leave" },
 
   // Payroll & Finance
-  { to: "/admin/payroll", label: "Payroll & OT", icon: Receipt, permission: "payroll.view", sectionBreak: true },
-  { to: "/admin/payslip-approvals", label: "Payslip Approvals", icon: Stamp, badgeKey: "payslipApprovals", permission: "payslip_approvals.manage" },
-  { to: "/admin/reports", label: "Reports", icon: FileBarChart, permission: ["payroll.view", "attendance.restricted_reports"] },
-  { to: "/admin/loans", label: "Loan Requests", icon: Wallet, badgeKey: "loans", permission: "loans.manage" },
+  { to: "/admin/payroll", label: "Payroll & OT", icon: Receipt, permission: "payroll.view", sectionBreak: true, group: "Payroll & Finance" },
+  { to: "/admin/payslip-approvals", label: "Payslip Approvals", icon: Stamp, badgeKey: "payslipApprovals", permission: "payslip_approvals.manage", group: "Payroll & Finance" },
+  { to: "/admin/reports", label: "Reports", icon: FileBarChart, permission: ["payroll.view", "attendance.restricted_reports"], group: "Payroll & Finance" },
+  { to: "/admin/loans", label: "Loan Requests", icon: Wallet, badgeKey: "loans", permission: "loans.manage", group: "Payroll & Finance" },
 
   // Documents & Compliance
-  { to: "/admin/invoices", label: "Invoices", icon: ReceiptText, permission: ["invoices.view", "invoices.reconcile"] },
-  { to: "/admin/letters", label: "Letters", icon: FileText, permission: ["letters.generate", "letters.manage"], sectionBreak: true },
-  { to: "/admin/data-readiness", label: "Data Readiness", icon: Gauge, permission: "data_readiness.view" },
-  { to: "/admin/email-log", label: "Email Log", icon: Mail, permission: "email_log.view" },
-  { to: "/admin/disputes", label: "Disputes", icon: Flag, badgeKey: "disputes", permission: "disputes.manage" },
-  { to: "/admin/policy-document", label: "Company Policy", icon: BookOpen },
-  { to: "/admin/policy-acknowledgements", label: "Policy Sign-off", icon: ShieldCheck, permission: "policy.acknowledgements.view" },
+  { to: "/admin/invoices", label: "Invoices", icon: ReceiptText, permission: ["invoices.view", "invoices.reconcile"], group: "Payroll & Finance" },
+  { to: "/admin/letters", label: "Letters", icon: FileText, permission: ["letters.generate", "letters.manage"], sectionBreak: true, group: "Documents" },
+  { to: "/admin/data-readiness", label: "Data Readiness", icon: Gauge, permission: "data_readiness.view", group: "Documents" },
+  { to: "/admin/email-log", label: "Email Log", icon: Mail, permission: "email_log.view", group: "Documents" },
+  { to: "/admin/disputes", label: "Disputes", icon: Flag, badgeKey: "disputes", permission: "disputes.manage", group: "Documents" },
+  { to: "/admin/policy-document", label: "Company Policy", icon: BookOpen, group: "Documents" },
+  { to: "/admin/policy-acknowledgements", label: "Policy Sign-off", icon: ShieldCheck, permission: "policy.acknowledgements.view", group: "Documents" },
 
   // HR-team-internal
-  { to: "/admin/hr-tasks", label: "HR Tasks", icon: CheckSquare, hrOnly: true, sectionBreak: true },
+  { to: "/admin/hr-tasks", label: "HR Tasks", icon: CheckSquare, hrOnly: true, sectionBreak: true, group: "HR team" },
 
   // Personal / self-service
   // requiresApprover items only show for a login who is actually someone's
@@ -66,17 +66,17 @@ const navItems = [
   // login, has no /employee/* console to see that team in — these reuse the
   // exact same pages (My Team / Team Leave / Team WFH / Team Market Visits)
   // under /admin/* instead, so that assignment actually works.
-  { to: "/admin/my-team", label: "My Team", icon: Users2, requiresApprover: true, sectionBreak: true },
-  { to: "/admin/team-leave", label: "Team Leave", icon: Plane, requiresApprover: true },
-  { to: "/admin/team-wfh", label: "Team WFH", icon: Home, requiresApprover: true },
-  { to: "/admin/team-disputes", label: "Team Disputes", icon: ShieldAlert, requiresApprover: true },
-  { to: "/admin/team-market-visits", label: "Team Market Visits", icon: MapPin, requiresApprover: true },
-  { to: "/admin/my-leave", label: "My Leave", icon: CalendarPlus },
-  { to: "/admin/my-payslip", label: "My Payslip", icon: Receipt },
-  { to: "/admin/help", label: "Help", icon: HelpCircle },
+  { to: "/admin/my-team", label: "My Team", icon: Users2, requiresApprover: true, sectionBreak: true, group: "My account & team" },
+  { to: "/admin/team-leave", label: "Team Leave", icon: Plane, requiresApprover: true, group: "My account & team" },
+  { to: "/admin/team-wfh", label: "Team WFH", icon: Home, requiresApprover: true, group: "My account & team" },
+  { to: "/admin/team-disputes", label: "Team Disputes", icon: ShieldAlert, requiresApprover: true, group: "My account & team" },
+  { to: "/admin/team-market-visits", label: "Team Market Visits", icon: MapPin, requiresApprover: true, group: "My account & team" },
+  { to: "/admin/my-leave", label: "My Leave", icon: CalendarPlus, group: "My account & team" },
+  { to: "/admin/my-payslip", label: "My Payslip", icon: Receipt, group: "My account & team" },
+  { to: "/admin/help", label: "Help", icon: HelpCircle, group: "My account & team" },
 
   // Console administration
-  { to: "/admin/team-access", label: "Team Access", icon: Shield, permission: ["permissions.manage", "roles.manage"], sectionBreak: true },
+  { to: "/admin/team-access", label: "Team Access", icon: Shield, permission: ["permissions.manage", "roles.manage"], sectionBreak: true, group: "Admin" },
 ];
 
 // Every navigable section — top-level nav items plus each Reports sub-page
@@ -203,6 +203,23 @@ function SidebarContent({ user, can, logout, pendingCounts, onNavigate, bell }) 
     return permission ? can(...[].concat(permission)) : true;
   });
   const [showPw, setShowPw] = useState(false);
+  const { pathname } = useLocation();
+  // Sidebar sections can be folded; the choice is remembered per browser. A section holding the
+  // page you are on always stays open.
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("jadehr.nav.collapsed") || "[]"); } catch { return []; }
+  });
+  const toggleGroup = (name) => setCollapsed((c) => {
+    const next = c.includes(name) ? c.filter((x) => x !== name) : [...c, name];
+    try { localStorage.setItem("jadehr.nav.collapsed", JSON.stringify(next)); } catch { /* private mode */ }
+    return next;
+  });
+  const groups = [];
+  for (const item of visibleItems) {
+    const name = item.group || "";
+    const last = groups[groups.length - 1];
+    if (last && last.name === name) last.items.push(item); else groups.push({ name, items: [item] });
+  }
   return (
     <>
       <div className="px-6 py-6 relative flex items-center gap-3">
@@ -217,30 +234,51 @@ function SidebarContent({ user, can, logout, pendingCounts, onNavigate, bell }) 
       </div>
       <SidebarSearch user={user} can={can} onNavigate={onNavigate} />
       <nav className="flex-1 px-3 py-2 space-y-0.5 relative overflow-y-auto nav-scroll overscroll-contain">
-        {visibleItems.map(({ to, label, icon: Icon, end, badgeKey, sectionBreak }) => (
-          <div key={to} className={sectionBreak ? "mt-4 pt-4 border-t border-manila/10" : ""}>
-            <NavLink
-              to={to}
-              end={end}
-              onClick={onNavigate}
-              className={({ isActive }) =>
-                `group relative flex items-center gap-3 px-3 py-2.5 min-h-[44px] md:min-h-0 rounded-md text-sm font-medium transition-all duration-150 ${
-                  isActive
-                    ? "bg-manila text-ledger-900 shadow-sm before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-r before:bg-jade-500"
-                    : "text-manila/75 hover:bg-manila/10 hover:text-manila hover:translate-x-0.5"
-                }`
-              }
-            >
-              <Icon size={17} strokeWidth={2} className="flex-shrink-0 opacity-90 group-hover:opacity-100" />
-              <span className="truncate">{label}</span>
-              {badgeKey && pendingCounts[badgeKey] > 0 && (
-                <span key={pendingCounts[badgeKey]} className="t-pop ml-auto bg-ochre-500 text-ledger-900 text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                  {pendingCounts[badgeKey]}
-                </span>
+        {groups.map(({ name, items }) => {
+          const hasActive = items.some((i) => (i.end ? pathname === i.to : pathname.startsWith(i.to)));
+          const isOpen = !name || !collapsed.includes(name) || hasActive;
+          const groupBadge = items.reduce((n, i) => n + (i.badgeKey ? pendingCounts[i.badgeKey] || 0 : 0), 0);
+          return (
+            <div key={name || "top"} className={name ? "mt-3 pt-3 border-t border-manila/10" : ""}>
+              {name && (
+                <button
+                  type="button" aria-expanded={isOpen} onClick={() => toggleGroup(name)}
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-manila/60 hover:text-manila"
+                >
+                  <ChevronDown size={12} className={`transition-transform ${isOpen ? "" : "-rotate-90"}`} />
+                  <span>{name}</span>
+                  {!isOpen && groupBadge > 0 && (
+                    <span className="ml-auto bg-ochre-500 text-ledger-900 text-[10px] font-bold rounded-full min-w-5 h-5 px-1 flex items-center justify-center">{groupBadge}</span>
+                  )}
+                </button>
               )}
-            </NavLink>
-          </div>
-        ))}
+              {isOpen && items.map(({ to, label, icon: Icon, end, badgeKey }) => (
+                <div key={to}>
+                  <NavLink
+                    to={to}
+                    end={end}
+                    onClick={onNavigate}
+                    className={({ isActive }) =>
+                      `group relative flex items-center gap-3 px-3 py-2.5 min-h-[44px] md:min-h-0 rounded-md text-sm font-medium transition-all duration-150 ${
+                        isActive
+                          ? "bg-manila text-ledger-900 shadow-sm before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-r before:bg-jade-500"
+                          : "text-manila/75 hover:bg-manila/10 hover:text-manila hover:translate-x-0.5"
+                      }`
+                    }
+                  >
+                    <Icon size={17} strokeWidth={2} className="flex-shrink-0 opacity-90 group-hover:opacity-100" />
+                    <span className="truncate">{label}</span>
+                    {badgeKey && pendingCounts[badgeKey] > 0 && (
+                      <span key={pendingCounts[badgeKey]} className="t-pop ml-auto bg-ochre-500 text-ledger-900 text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                        {pendingCounts[badgeKey]}
+                      </span>
+                    )}
+                  </NavLink>
+                </div>
+              ))}
+            </div>
+          );
+        })}
       </nav>
       <div className="px-3 py-4 relative">
         <div className="border-t border-manila/10 pt-4">
