@@ -119,7 +119,7 @@ function SidebarSearch({ user, can, onNavigate }) {
   const sectionMatches = q
     ? SECTION_INDEX.filter(({ label, permission, hrOnly, requiresApprover, nimitOnly }) => {
         if (hrOnly && !canSeeHrTasks(user)) return false;
-        if (nimitOnly && user?.employee_code !== "14456") return false;
+        if (nimitOnly && !(user?.employee_code === "14456" || can("requests.view_all"))) return false;
         if (requiresApprover && !user?.is_leave_approver) return false;
         if (permission && !can(...[].concat(permission))) return false;
         return label.toLowerCase().includes(q);
@@ -198,7 +198,7 @@ function SidebarSearch({ user, can, onNavigate }) {
 function SidebarContent({ user, can, logout, pendingCounts, onNavigate, bell }) {
   const visibleItems = navItems.filter(({ permission, hrOnly, requiresApprover, nimitOnly }) => {
     if (hrOnly) return canSeeHrTasks(user);
-    if (nimitOnly && user?.employee_code !== "14456") return false;
+    if (nimitOnly && !(user?.employee_code === "14456" || can("requests.view_all"))) return false;
     if (requiresApprover && !user?.is_leave_approver) return false;
     return permission ? can(...[].concat(permission)) : true;
   });

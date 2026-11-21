@@ -7,7 +7,8 @@ const dateLabel = (v) => v ? new Date(`${v.slice(0, 10)}T12:00:00`).toLocaleDate
 const employeeName = (r) => `${r.hr_employees?.first_name || r.employee_name || "Employee"} ${r.hr_employees?.last_name || ""}`.trim();
 
 export default function NimitRequests() {
-  const { user } = useAuth();
+  const { user, can } = useAuth();
+  const allowed = user?.employee_code === "14456" || can("requests.view_all");
   const [tab, setTab] = useState("leave");
   const [filter, setFilter] = useState("pending");
   const [query, setQuery] = useState("");
@@ -56,19 +57,19 @@ export default function NimitRequests() {
     }
   };
   useEffect(() => {
-    if (user?.employee_code !== "14456") return;
+    if (!allowed) return;
     let cancelled = false;
     api.get("/api/nimit/requests").then(({ data: result }) => { if (!cancelled) setData(result); })
       .catch(() => { if (!cancelled) setError("Could not load requests. Please refresh to try again."); });
     return () => { cancelled = true; };
-  }, [user?.employee_code]);
+  }, [allowed]);
   const rows = useMemo(() => (data?.[tab] || []).filter((row) => {
     if (filter !== "all" && row.status !== filter) return false;
     return [employeeName(row), row.hr_employees?.employee_code, row.hr_employees?.location,
       row.hr_employees?.reporting_manager, row.leave_type, row.issue_type, row.reason, row.details]
       .join(" ").toLowerCase().includes(query.trim().toLowerCase());
   }), [data, tab, filter, query]);
-  if (user?.employee_code !== "14456") return <p className="text-ink/70">This section is available to Nimit.</p>;
+  if (!allowed) return <p className="text-ink/70">You do not have access to this section.</p>;
   return <div className="space-y-5">
     <div><p className="text-xs font-semibold uppercase tracking-widest text-jade-600">Company-wide visibility</p>
       <h1 className="font-display text-3xl text-ink mt-1">All Requests</h1>
