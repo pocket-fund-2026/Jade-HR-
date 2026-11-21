@@ -8,7 +8,7 @@ import MonthPicker from "../../../components/MonthPicker.jsx";
 import api from "../../../lib/api.js";
 import { useAuth } from "../../../lib/auth.jsx";
 import { LEAVE_LABELS } from "../../../lib/leaveTypes.js";
-import { dayCode, dayNumber, dayRemark, exportAttendanceExcel, isWop, missedPunch, exportAttendanceTimingsExcel, statusColorKey, summarize } from "../../../lib/attendanceExport.js";
+import { dayCode, dayNumber, dayRemark, totalPaidDays, exportAttendanceExcel, isWop, missedPunch, exportAttendanceTimingsExcel, statusColorKey, summarize } from "../../../lib/attendanceExport.js";
 import { formatHoursMins, formatTime } from "../../../lib/format.js";
 
 const today = new Date();
@@ -291,13 +291,14 @@ export default function AttendanceReport() {
               <th className="px-2 py-2 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-center">A</th>
               <th className="px-2 py-2 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-center">L</th>
               <th className="px-2 py-2 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-center">Late</th>
+              <th className="px-2 py-2 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-center">Total</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={days.length + 5}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
+              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={days.length + 6}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : rows.length === 0 ? (
-              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={days.length + 5}>No employees found.</td></tr>
+              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={days.length + 6}>No employees found.</td></tr>
             ) : (
               rows.map((r) => {
                 const s = summarize(r.daily);
@@ -312,7 +313,7 @@ export default function AttendanceReport() {
                       return (
                         <td
                           key={d.date}
-                          title={`${cellTitle(d)}${d.remark_manual ? ` — Remark: ${d.remark_manual}` : ""}${editable ? (canEdit ? " — click to edit" : " — click to add a remark") : ""}`}
+                          title={`${cellTitle(d)}${dayRemark(d) ? ` — Remark: ${dayRemark(d)}` : ""}${editable ? (canEdit ? " — click to edit" : " — click to add a remark") : ""}`}
                           onClick={editable ? () => setEditing({ employee: r, day: d }) : undefined}
                           className={`p-0.5 text-center align-top ${missedPunch(d) ? "bg-[#FFE066]" : isWop(d) ? "bg-[#FFE0B2]" : ""} ${editable ? "cursor-pointer hover:ring-1 hover:ring-jade-500 hover:ring-inset" : ""}`}
                         >
@@ -338,6 +339,11 @@ export default function AttendanceReport() {
                                 {formatTime(d.last_out)}
                               </span>
                             )}
+                            {dayRemark(d) && (
+                              <span className="block max-w-[3.25rem] truncate text-[9px] leading-none font-semibold text-ochre-700 font-nums" title={dayRemark(d)}>
+                                {dayRemark(d)}
+                              </span>
+                            )}
                           </div>
                         </td>
                       );
@@ -346,6 +352,7 @@ export default function AttendanceReport() {
                     <td className="px-2 py-2 font-nums text-center">{s.absent}</td>
                     <td className="px-2 py-2 font-nums text-center">{s.leave}</td>
                     <td className="px-2 py-2 font-nums text-center text-rust-600">{s.late}</td>
+                    <td className="px-2 py-2 font-nums text-center font-semibold text-ink">{totalPaidDays(r.daily)}</td>
                   </tr>
                 );
               })

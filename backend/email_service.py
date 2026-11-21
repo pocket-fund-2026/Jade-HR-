@@ -648,6 +648,26 @@ def notify_access_revocation(
     return ok
 
 
+def notify_exit_signoff_request(
+    signer_email: str, signer_name: str, employee_name: str, employee_code: str,
+    last_working_day: str, rows: list[str], link: str = "",
+) -> bool:
+    """Same-day request to one sign-off owner: the clearance rows on a new exit
+    that are theirs to sign. They also pop up on the owner's JADE HR dashboard."""
+    if not signer_email:
+        return False
+    listed = "\n".join(f"  - {r}" for r in rows)
+    subject = f"Exit clearance sign-off needed — {employee_name} ({employee_code})"
+    body = (
+        f"Dear {signer_name or 'colleague'},\n\n"
+        f"An exit has been initiated for {employee_name} ({employee_code}); last working day {last_working_day}.\n\n"
+        f"Your sign-off is needed on:\n{listed}\n\n"
+        f"Open this link, tick the box and press Sign off. No login or typing needed:\n{link or 'https://jade-hr.vercel.app/admin'}\n\n"
+        f"(It also appears as a pop-up on your JADE HR dashboard.)\n"
+    )
+    return bool(send_email(signer_email, subject, body, kind="exit_signoff_request"))
+
+
 def notify_exit_initiated(
     employee_name: str, employee_code: str, resignation_date: str, last_working_day: str, hr_email: str,
 ) -> None:

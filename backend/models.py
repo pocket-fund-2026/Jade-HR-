@@ -756,6 +756,13 @@ class ExitInitiate(BaseModel):
     employee_id: str
     resignation_date: date
     last_working_day: date
+    # Per-exit sign-off owners chosen by HR: [{"row_department": "Admin", "owner": "14027 or name@jadecouture.com"}].
+    # A row left out keeps its standing owner.
+    signers: list[dict] = []
+
+
+class ExitSignersUpdate(BaseModel):
+    signers: list[dict] = []  # same shape; an empty "owner" puts that row back to its standing owner
 
 
 class LeaverAlert(BaseModel):
@@ -943,7 +950,7 @@ class ReconcileConfirm(BaseModel):
 
 
 class ExitSignoff(BaseModel):
-    typed_name: str
+    typed_name: str = ""
     confirm: bool = False
     notes: str = ""
 

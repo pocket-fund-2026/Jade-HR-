@@ -5,6 +5,11 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+// Static, not a dynamic import(): it was fetched lazily at send time, and a
+// stale/renamed chunk after a deploy made every "Send email" fail with "Failed
+// to fetch dynamically imported module". Letters is itself a lazy route chunk,
+// so this costs nothing for other pages.
+import html2pdf from "html2pdf.js/dist/html2pdf.bundle.min.js";
 
 import { useConfirm } from "../../components/ConfirmDialog.jsx";
 import SortableList from "../../components/SortableList.jsx";
@@ -139,7 +144,8 @@ const WORK_LOCATION = "Jade Lifestyles India, Madhu Estate, 2nd Floor B wing, Pa
 function defaultsFor(letterType, todayLabel, signatoryName, employeeName) {
   const common = {
     company_name: "JADE Lifestyles India",
-    signatory_name: signatoryName || "",
+    // Every letter is e-signed by Head-HR, so default to that signatory rather than whoever is logged in.
+    signatory_name: "Nimit Bavishi",
     signatory_title: "Head - HR",
     letter_date: todayLabel,
   };
@@ -276,7 +282,6 @@ function printSheet(el, title) {
 // async function or awaited directly — that "resolves" it to undefined and
 // .save()/.outputPdf() are lost. Run the final step here instead.
 async function sheetToPdf(el, filename, output = "save") {
-  const html2pdf = (await import("html2pdf.js")).default;
   const worker = html2pdf()
     .set({
       margin: [12, 0, 14, 0],
@@ -632,6 +637,7 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null, subm
     api.get(`/api/careers/applications/${candidateId}`).then(({ data }) => {
       const a = data.application || {}, job = data.job || {};
       setFieldValues((prev) => ({ ...prev, employee_name: a.full_name || "", designation: job.title || "", department: job.department || "", email: a.email || "", address: prev.address || "" }));
+      setEditedHtml(null); // never keep a hand-edit snapshot taken before these details arrived
     }).catch(() => {});
   }, [candidateId]);
 
@@ -651,6 +657,9 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null, subm
         ...defaultsFor(template.letter_type, todayLabel, user?.name),
         ...autofillFromSubmission(data),
       }));
+      // A "whole letter" edit snapshot taken before these details loaded still has them
+      // blank, and issuing it sent the blanks out. Follow the form again instead.
+      setEditedHtml(null);
     } catch {
       setError("Could not load that joining form");
     }
@@ -670,6 +679,8 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null, subm
       ...defaultsFor(template.letter_type, todayLabel, user?.name, `${employee.first_name} ${employee.last_name || ""}`.trim()),
       ...autofillFromEmployee(employee, profile),
     }));
+    // Same as applySubmission: drop a stale hand-edit snapshot so the filled details show.
+    setEditedHtml(null);
   };
 
   const setField = (key, value) => setFieldValues((prev) => ({ ...prev, [key]: value }));
@@ -1045,19 +1056,23 @@ function formatStamp(iso) {
 }
 
 const APPROVAL_LABELS = {
-  awaiting_approval: "Waiting for approver",
-  awaiting_candidate: "Approved, waiting for candidate to sign",
+  awaiting_approval: "Waiting for the approver's e-signature",
+  awaiting_candidate: "Signed by the approver. Signature of the offered candidate is remaining",
   accepted: "Signed and accepted",
+  signed: "Signed by approver and sent to the recipient",
 };
 
 function ApprovalPanel({ letter, onChange }) {
-  const [approver, setApprover] = useState(letter.approver_email || "nimit.b@jadecouture.com");
+  const [approver, setApprover] = useState(letter.approver_email && letter.approver_email !== "nimit.b@jadecouture.com" ? letter.approver_email : ""); // blank = Nimit (default)
+  const [warning, setWarning] = useState("");
+  const [signLink, setSignLink] = useState("");
   const [candidate, setCandidate] = useState(letter.candidate_email || letter.employee_email || "");
   const [notify, setNotify] = useState((letter.notify_recipients || []).join(", "));
   const [includeAccounts, setIncludeAccounts] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const locked = letter.approval_status === "awaiting_candidate" || letter.approval_status === "accepted";
+  const locked = ["awaiting_candidate", "accepted", "signed"].includes(letter.approval_status);
+  const isOffer = letter.letter_type?.startsWith("offer");
 
   const send = async () => {
     setBusy(true);
@@ -1068,6 +1083,9 @@ function ApprovalPanel({ letter, onChange }) {
         notify: notify.split(/[,;\s]+/).filter(Boolean),
       });
       onChange({ approval_status: data.approval_status, approver_email: data.approver_email, candidate_email: candidate });
+      setWarning(data.warning || "");
+      setSignLink(data.warning ? data.sign_link || "" : "");
+      if (data.signatory_name) onChange({ approval_status: data.approval_status, approver_email: data.approver_email, candidate_email: candidate, signatory_name: data.signatory_name, refresh: true });
     } catch (err) {
       setError(err.response?.data?.detail || err.message || "Could not send for approval");
     } finally {
@@ -1079,19 +1097,22 @@ function ApprovalPanel({ letter, onChange }) {
     <div className="bg-paper rounded-sm shadow-card p-5 space-y-3 mb-4">
       <div className="flex items-center gap-2">
         <FileSignature size={16} className="text-jade-600" />
-        <p className="font-display text-lg text-ink">Approval and signature</p>
+        <p className="font-display text-lg text-ink">{isOffer ? "Approval and signature" : "E-signature"}</p>
       </div>
       {letter.approval_status && (
         <p className="text-sm text-jade-700 flex items-center gap-1.5"><CheckCircle2 size={14} /> {APPROVAL_LABELS[letter.approval_status]}
           {letter.approver_initials ? ` (initials ${letter.approver_initials})` : ""}</p>
       )}
-      <p className="text-xs text-ink/60">The approver gets a link to add initials and approve. Then the candidate gets a link to sign. The signed copy goes to the candidate, {HR_CONTACT} and the recipients below.</p>
+      <p className="text-xs text-ink/60">{isOffer
+        ? `The approver gets a link to e-sign with their full name. Then the candidate gets a link to sign. The signed copy goes to the candidate, ${HR_CONTACT} and the recipients below.`
+        : `The approver gets a link to e-sign with their full name. The signed letter then goes to the recipient, ${HR_CONTACT} and the recipients below.`}</p>
       <div>
-        <label className={labelCls}>Approver email</label>
-        <input value={approver} onChange={(e) => setApprover(e.target.value)} className={inputCls} disabled={locked} />
+        <label className={labelCls}>First signee from Team JADE (employee ID or email)</label>
+        <input value={approver} onChange={(e) => setApprover(e.target.value)} placeholder="nimit.b@jadecouture.com (default)" className={inputCls} disabled={locked} />
+        <p className="text-[11px] text-ink/50 mt-1">Leave blank for Nimit. Name someone else by employee ID or work email; their name and designation then replace the signatory on the letter.</p>
       </div>
       <div>
-        <label className={labelCls}>Candidate email</label>
+        <label className={labelCls}>{isOffer ? "Candidate email" : "Recipient email"}</label>
         <input value={candidate} onChange={(e) => setCandidate(e.target.value)} className={inputCls} disabled={locked} />
       </div>
       <div>
@@ -1103,9 +1124,14 @@ function ApprovalPanel({ letter, onChange }) {
         <input type="checkbox" checked={includeAccounts} onChange={(e) => setIncludeAccounts(e.target.checked)} disabled={locked} /> Include the accounts team
       </label>
       {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
+      {warning && (
+        <p className="text-sm text-ochre-600 border-l-2 border-ochre-500 pl-2.5 py-0.5">
+          {warning}{signLink && <> <button type="button" className="underline font-semibold" onClick={() => navigator.clipboard?.writeText(signLink)}>Copy link</button></>}
+        </p>
+      )}
       {!locked && (
-        <button onClick={send} disabled={busy || !approver.includes("@") || !candidate.includes("@")} className={`${primaryBtn} w-full`}>
-          <Send size={15} /> {busy ? "Sending…" : letter.approval_status ? "Resend to approver" : "Send for approval"}
+        <button onClick={send} disabled={busy || !candidate.includes("@")} className={`${primaryBtn} w-full`}>
+          <Send size={15} /> {busy ? "Sending…" : letter.approval_status ? "Resend to approver" : isOffer ? "Send for approval" : "Send for e-signing"}
         </button>
       )}
     </div>
@@ -1113,6 +1139,7 @@ function ApprovalPanel({ letter, onChange }) {
 }
 
 function IssuedLetter({ letterId, onClose }) {
+  const confirm = useConfirm();
   const sheetRef = useRef(null);
   const [letter, setLetter] = useState(null);
   const [error, setError] = useState("");
@@ -1164,6 +1191,16 @@ function IssuedLetter({ letterId, onClose }) {
           </p>
         </div>
         <div className="flex gap-2">
+          {!letter.approval_status && draft === null && (
+            <button
+              onClick={async () => {
+                if (!(await confirm("Re-fill this letter from the details saved with it? This replaces any manual edits.", { confirmLabel: "Re-fill" }))) return;
+                try { const { data } = await api.post(`/api/letters/history/${letter.id}/refill`); setLetter((l) => ({ ...l, ...data })); }
+                catch (err) { setError(err.response?.data?.detail || "Could not re-fill this letter"); }
+              }}
+              className={secondaryBtn}
+            ><RotateCcw size={15} /> Re-fill details</button>
+          )}
           {canEdit && draft === null && (
             <button onClick={() => setDraft(letter.rendered_body)} className={secondaryBtn}><Pencil size={15} /> Edit letter</button>
           )}
@@ -1173,9 +1210,7 @@ function IssuedLetter({ letterId, onClose }) {
       </div>
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(320px,380px)_1fr] gap-6 items-start">
         <div className="xl:sticky xl:top-4">
-          {letter.letter_type?.startsWith("offer") && (
-            <ApprovalPanel letter={letter} onChange={(d) => setLetter((l) => ({ ...l, ...d }))} />
-          )}
+          <ApprovalPanel letter={letter} onChange={(d) => { setLetter((l) => ({ ...l, ...d })); if (d.refresh) api.get(`/api/letters/history/${letter.id}`).then(({ data }) => setLetter(data)).catch(() => {}); }} />
           <EmailPanel letter={letter} sheetRef={sheetRef} onSent={(d) => setLetter((l) => ({ ...l, ...d }))} />
         </div>
         <div>
@@ -1236,6 +1271,7 @@ function IssuedLettersTable({ onOpen }) {
                 <th className="px-4 py-2.5 font-semibold">Letter</th>
                 <th className="px-4 py-2.5 font-semibold">For</th>
                 <th className="px-4 py-2.5 font-semibold">Email</th>
+                <th className="px-4 py-2.5 font-semibold">Signature</th>
                 <th className="px-4 py-2.5" />
               </tr>
             </thead>
@@ -1256,6 +1292,13 @@ function IssuedLettersTable({ onOpen }) {
                     ) : (
                       <span className="text-xs text-ink/50">Not sent</span>
                     )}
+                  </td>
+                  <td className="px-4 py-2.5 text-xs">
+                    {r.approval_status === "awaiting_approval" && <span className="text-ochre-600 font-semibold">Waiting for approver's e-signature</span>}
+                    {r.approval_status === "awaiting_candidate" && <span className="text-rust-500 font-semibold">Candidate's signature remaining</span>}
+                    {r.approval_status === "accepted" && <span className="text-jade-700 font-semibold">Signed by both</span>}
+                    {r.approval_status === "signed" && <span className="text-jade-700 font-semibold">Signed</span>}
+                    {!r.approval_status && <span className="text-ink/40">Not sent for signing</span>}
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     <button onClick={() => onOpen(r.id)} className="text-xs font-semibold text-jade-700 hover:underline">Open</button>
@@ -1392,6 +1435,8 @@ export default function Letters() {
   }, [templates]);
 
   const openIssued = (id) => { setIssuedId(id); setView("issued"); };
+  const wantOpen = params.get("open");
+  useEffect(() => { if (wantOpen) { setIssuedId(wantOpen); setView("issued"); } }, [wantOpen]);
 
   if (view === "new") {
     return (

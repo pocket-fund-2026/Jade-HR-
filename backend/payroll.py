@@ -119,6 +119,10 @@ MIDNIGHT_GRACE = time(12, 0)          # ran past midnight -> next day 12:00 PM
 # is 10 AM) — it's the tail of the PRIOR day's overnight finish.
 MIDNIGHT_TAIL_CUTOFF = time(6, 0)
 
+# Declared half-days (10 AM-3 PM only) on which NO Comp-Off is earned even
+# though the day is a holiday (HR, 19 Nov 2026: 25 Sep 2026).
+COMP_OFF_EXCLUDED_DATES = {date(2026, 9, 25)}
+
 # Non-OT employees on this time slot have a shortened Saturday. OT-eligible
 # employees work their usual assigned shift on Saturdays as on weekdays.
 SATURDAY_SHIFT_HOURS = {
@@ -668,7 +672,7 @@ def compute_daily_attendance(
             # comp-off — it extends the NEXT day's grace to 12 PM instead
             # (v1.1 section 4, handled in _extended_grace_for), so there is
             # deliberately no midnight branch here.
-            if hours_worked > 0 and (d.weekday() == weekly_off_day or d in holidays):
+            if hours_worked > 0 and d not in COMP_OFF_EXCLUDED_DATES and (d.weekday() == weekly_off_day or d in holidays):
                 row["comp_off_eligible"] = True
                 row["comp_off_units"] = 0.5 if hours_worked <= 4 else 1.0
             # ── Policy v3 (LIVE from 23 Aug 2026 — see LATE_POLICY_V3_EFFECTIVE)

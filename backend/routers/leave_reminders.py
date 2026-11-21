@@ -68,6 +68,32 @@ def _line(r: dict, today) -> str:
     )
 
 
+def _open_wfh_requests(today) -> list[dict]:
+    """WFH requests that need someone: pending (Senior Management / HR Head
+    approval) and approved ones whose dates are over but whose completion the
+    reporting manager has not yet confirmed (doc §25)."""
+    rows = (
+        supabase.table("hr_wfh_requests")
+        .select("*, hr_employees!hr_wfh_requests_employee_id_fkey(first_name,last_name,employee_code,leave_approver_id)")
+        .in_("status", ["pending", "approved"]).order("created_at").execute().data
+    ) or []
+    return [
+        w for w in rows
+        if w["status"] == "pending" or (w.get("work_completed") is None and w["end_date"] <= today.isoformat())
+    ]
+
+
+def _wfh_line(w: dict, today) -> str:
+    e = w.get("hr_employees") or {}
+    days = (datetime.fromisoformat(w["end_date"]) - datetime.fromisoformat(w["start_date"])).days + 1
+    waited = _waiting_days(w, today)
+    flag = f"  [waiting {waited} days]" if waited > OVERDUE_DAYS else ""
+    return (
+        f"  • {_full_name(e)} ({e.get('employee_code', '')}): {w['start_date']} to {w['end_date']} "
+        f"({days} day{'s' if days != 1 else ''}){flag}"
+    )
+
+
 def _no_manager_summary() -> dict:
     """Same buckets as the Reporting Managers page (routers.employees.
     list_reporting_managers), so the weekly email and the page agree."""
@@ -100,9 +126,10 @@ def leave_reminder_digest(
         .data
     ) or []
     _attach_reporting_manager(pending)
+    wfh_open = _open_wfh_requests(today)
 
     # Approvers per request: linked reporting manager + leave approver.
-    emp_ids = list({r["employee_id"] for r in pending})
+    emp_ids = list({r["employee_id"] for r in pending} | {w["employee_id"] for w in wfh_open})
     profiles = {
         p["employee_id"]: p for p in (
             supabase.table("hr_employee_profile").select("employee_id,reporting_to_id,reporting_to_email")
@@ -110,7 +137,7 @@ def leave_reminder_digest(
         ) or []
     }
     approver_ids = {
-        i for r in pending for i in (
+        i for r in [*pending, *wfh_open] for i in (
             profiles.get(r["employee_id"], {}).get("reporting_to_id"), (r.get("hr_employees") or {}).get("leave_approver_id"),
         ) if i
     }
@@ -128,21 +155,32 @@ def leave_reminder_digest(
             supabase.table("hr_employees").select("first_name,last_name,email,role").eq("is_active", True).execute().data or []
         ) if a.get("email")
     }
-    by_recipient: dict[str, dict] = {}
-    unreachable = 0
-    for r in pending:
+    def recipients_for(r: dict) -> dict[str, tuple[str, str]]:
         p = profiles.get(r["employee_id"], {})
         targets = [approvers.get(i) for i in (p.get("reporting_to_id"), (r.get("hr_employees") or {}).get("leave_approver_id"))]
         recipients = {a["email"].lower(): (_full_name(a), a.get("role")) for a in targets if a}
         if not recipients and p.get("reporting_to_email"):
             known = people_by_email.get(p["reporting_to_email"].lower())
             recipients[p["reporting_to_email"].lower()] = (
-                (_full_name(known) if known else r["hr_employees"].get("reporting_manager")) or "", (known or {}).get("role", "employee"),
+                (_full_name(known) if known else (r.get("hr_employees") or {}).get("reporting_manager")) or "", (known or {}).get("role", "employee"),
             )
+        return recipients
+
+    by_recipient: dict[str, dict] = {}
+    unreachable = 0
+    for r in pending:
+        recipients = recipients_for(r)
         if not recipients:
             unreachable += 1
         for email, (name, role) in recipients.items():
             by_recipient.setdefault(email, {"name": name, "role": role, "requests": []})["requests"].append(r)
+    wfh_by_recipient: dict[str, dict] = {}
+    for w in wfh_open:
+        for email, (name, role) in recipients_for(w).items():
+            wfh_by_recipient.setdefault(email, {"name": name, "role": role, "requests": []})["requests"].append(w)
+    all_recipients = {**wfh_by_recipient, **by_recipient}
+    for email, info in wfh_by_recipient.items():
+        all_recipients[email] = {**info, "requests": by_recipient.get(email, {}).get("requests", [])}
 
     overdue = [r for r in pending if _waiting_days(r, today) > OVERDUE_DAYS]
     past = [r for r in pending if r["end_date"] < today.isoformat()]
@@ -151,30 +189,58 @@ def leave_reminder_digest(
     no_mgr_count = no_mgr["missing"] + no_mgr["suggested"] + no_mgr["ambiguous"]
 
     results = []
-    if pending:
-        for email, info in sorted(by_recipient.items()):
-            reqs = info["requests"]
-            n = len(reqs)
-            link = f"{CONSOLE}/{'admin' if info['role'] in ('hr', 'accounts') else 'employee'}/team-leave"
-            lines = [
-                f"Hi {info['name'].split(' ')[0] or 'there'},", "",
+    for email, info in sorted(all_recipients.items()):
+        reqs = info["requests"]
+        n = len(reqs)
+        wfh_reqs = wfh_by_recipient.get(email, {}).get("requests", [])
+        if not n and not wfh_reqs:
+            continue
+        base = f"{CONSOLE}/{'admin' if info['role'] in ('hr', 'accounts') else 'employee'}"
+        lines = [f"Hi {info['name'].split(' ')[0] or 'there'},", ""]
+        if n:
+            lines += [
                 f"{n} leave request{'s' if n != 1 else ''} from your team {'are' if n != 1 else 'is'} waiting for a decision, oldest first:", "",
                 *(_line(r, today) for r in reqs), "",
                 "Please approve or reject them so attendance and payroll stay correct.",
-                f"Review them here: {link}",
+                f"Review them here: {base}/team-leave", "",
             ]
-            subject = f"{n} leave request{'s' if n != 1 else ''} waiting for you"
-            ok, err = (None, "dry_run") if dry_run else email_service.send_email_detailed(
-                email, subject, "\n".join(lines), kind="leave_reminder",
-            )
-            results.append({"recipient": email, "name": info["name"], "count": n, "emailed": ok, "email_error": err})
+        if wfh_reqs:
+            to_confirm = [w for w in wfh_reqs if w["status"] == "approved"]
+            waiting = [w for w in wfh_reqs if w["status"] == "pending"]
+            if to_confirm:
+                lines += [
+                    f"{len(to_confirm)} work-from-home request{'s' if len(to_confirm) != 1 else ''} from your team "
+                    f"{'are' if len(to_confirm) != 1 else 'is'} approved and waiting for YOU to confirm the work was done "
+                    "(unconfirmed days fall back to normal attendance rules in payroll):", "",
+                    *(_wfh_line(w, today) for w in to_confirm), "",
+                    f"Confirm here: {base}/team-wfh", "",
+                ]
+            if waiting:
+                lines += [
+                    f"{len(waiting)} work-from-home request{'s' if len(waiting) != 1 else ''} from your team "
+                    f"{'are' if len(waiting) != 1 else 'is'} still waiting for Senior Management / HR Head approval "
+                    "(no action needed from you yet; you confirm completion once approved):", "",
+                    *(_wfh_line(w, today) for w in waiting), "",
+                ]
+        parts = []
+        if n:
+            parts.append(f"{n} leave request{'s' if n != 1 else ''}")
+        if wfh_reqs:
+            parts.append(f"{len(wfh_reqs)} WFH request{'s' if len(wfh_reqs) != 1 else ''}")
+        subject = f"{' and '.join(parts)} waiting for you"
+        ok, err = (None, "dry_run") if dry_run else email_service.send_email_detailed(
+            email, subject, "\n".join(lines), kind="leave_reminder",
+        )
+        results.append({"recipient": email, "name": info["name"], "count": n, "wfh_count": len(wfh_reqs), "emailed": ok, "email_error": err})
 
     hr_lines = [
         f"Pending leave as of {today.isoformat()}: {len(pending)} request{'s' if len(pending) != 1 else ''}.",
         f"  • Waiting more than {OVERDUE_DAYS} days: {len(overdue)}",
         f"  • Dates already passed, still not approved or rejected: {len(past)}",
         f"  • No approver with an email to remind: {unreachable}",
-        f"  • Reminders sent to {len(by_recipient)} approver{'s' if len(by_recipient) != 1 else ''}",
+        f"  • Reminders sent to {len(all_recipients)} approver{'s' if len(all_recipients) != 1 else ''}",
+        f"  • WFH requests open: {sum(w['status'] == 'pending' for w in wfh_open)} awaiting Senior Management / HR Head approval, "
+        f"{sum(w['status'] == 'approved' for w in wfh_open)} approved and awaiting the reporting manager's completion confirmation",
         "", "By reporting manager:",
         *(f"  • {name}: {n}" for name, n in per_manager.most_common()),
     ]
@@ -192,7 +258,7 @@ def leave_reminder_digest(
         ]
     hr_lines += ["", f"Leave requests: {CONSOLE}/admin/leave"]
     hr_emailed, hr_error = False, "empty_list"
-    if pending or (include_weekly and no_mgr_count):
+    if pending or wfh_open or (include_weekly and no_mgr_count):
         hr_subject = f"Pending leave: {len(pending)} waiting, {len(past)} past-date"
         hr_emailed, hr_error = (None, "dry_run") if dry_run else email_service.send_email_detailed(
             email_service.HR_NOTIFY_EMAIL, hr_subject, "\n".join(hr_lines), kind="leave_reminder_hr",

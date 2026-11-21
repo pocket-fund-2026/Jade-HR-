@@ -1,9 +1,12 @@
-import { Briefcase, Gauge, BookOpen, CalendarCheck, CalendarClock, CalendarDays, CalendarPlus, CheckSquare, ClipboardList, DoorOpen, FileBarChart, FileText, Flag, GitBranch, HelpCircle, Home, KeyRound, LayoutDashboard, LogOut, Mail, ReceiptText, MapPin, Menu, Network, Plane, Receipt, Search, Shield, ShieldAlert, ShieldCheck, Stamp, UserPlus, Users, Users2, Wallet, X } from "lucide-react";
+import { GraduationCap, Briefcase, Gauge, BookOpen, CalendarCheck, CalendarClock, CalendarDays, CalendarPlus, CheckSquare, ClipboardList, DoorOpen, FileBarChart, FileText, Flag, GitBranch, HelpCircle, Home, KeyRound, LayoutDashboard, LogOut, Mail, ReceiptText, MapPin, Menu, Network, Plane, Receipt, Search, Shield, ShieldAlert, ShieldCheck, Stamp, UserPlus, Users, Users2, Wallet, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import Avatar from "../../components/Avatar.jsx";
 import ChangePasswordModal from "../../components/ChangePasswordModal.jsx";
+import { hasUnseenSignoff } from "../../lib/exitPopup.js";
+import ExitSignoffModal from "../../components/ExitSignoffModal.jsx";
+import PendingSignaturesModal from "../../components/PendingSignaturesModal.jsx";
 import NotificationBell, { NotificationToasts } from "../../components/NotificationCenter.jsx";
 import { ConfirmProvider } from "../../components/ConfirmDialog.jsx";
 import api from "../../lib/api.js";
@@ -269,6 +272,38 @@ function SidebarContent({ user, can, logout, pendingCounts, onNavigate, bell }) 
   );
 }
 
+// Exit-clearance e-sign prompt for console users (e.g. Head-HR) who are a
+// named sign-off owner — same list the employee dashboard shows.
+function ExitSignoffPrompt({ user }) {
+  const [items, setItems] = useState([]);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const poll = () => api.get("/api/me/exit-signoffs").then(({ data }) => {
+      setItems(data);
+      if (hasUnseenSignoff(data)) setOpen(true);
+    }).catch(() => {});
+    poll();
+    const t = setInterval(poll, 60000); // a sign-off HR assigns mid-session pops up within a minute
+    return () => clearInterval(t);
+  }, []);
+  if (!items.length) return null;
+  return (
+    <>
+      <div className="bg-rust-50 border border-rust-500/40 rounded-sm px-4 py-3 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="text-sm text-ink/80">
+          <strong className="text-ink">Exit clearance</strong> — {items.length === 1 ? `${items[0].employee_name} is leaving and` : `${items.length} people are leaving and`} needs your e-sign.
+        </div>
+        <button onClick={() => setOpen(true)} className="bg-ledger-800 text-manila px-3 py-2 rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors whitespace-nowrap self-start sm:self-auto">
+          Review &amp; sign
+        </button>
+      </div>
+      {open && (
+        <ExitSignoffModal items={items} fullName={user?.name || ""} onClose={() => setOpen(false)} onChanged={(left) => { setItems(left); if (!left.length) setOpen(false); }} />
+      )}
+    </>
+  );
+}
+
 export default function AdminLayout() {
   const { user, can, logout } = useAuth();
   const location = useLocation();
@@ -404,6 +439,7 @@ export default function AdminLayout() {
 
       <main className="flex-1 p-4 pt-20 md:p-8 md:pt-8 overflow-y-auto overflow-x-hidden max-w-[1400px]">
         <ConfirmProvider>
+          <ExitSignoffPrompt user={user} />
           <div key={location.pathname} className="page-transition">
           <Outlet
             context={{
@@ -412,6 +448,7 @@ export default function AdminLayout() {
             }}
           />
           </div>
+          <PendingSignaturesModal />
         </ConfirmProvider>
       </main>
     </div>

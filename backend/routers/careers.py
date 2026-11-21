@@ -172,6 +172,23 @@ def inbox_list(q: str = "", matched: str = "", user: dict = _gate):
     return _proxy("GET", "/api/admin/inbox", user=user, params={"q": q, "matched": matched})
 
 
+@router.get("/internships")
+def internships_list(user: dict = _gate):
+    """Intern applicants (private Internship pool + any intern-titled role) with the email they came from."""
+    return _proxy("GET", "/api/admin/internships", user=user)
+
+
+@router.post("/internships/backfill")
+def internships_backfill(user: dict = _gate):
+    """Start a background search of the whole careers@ mailbox for internship mail; poll the GET for progress."""
+    return _proxy("POST", "/api/admin/internships/backfill", user=user, json={}, timeout=30)
+
+
+@router.get("/internships/backfill")
+def internships_backfill_status(user: dict = _gate):
+    return _proxy("GET", "/api/admin/internships/backfill", user=user)
+
+
 @router.get("/inbox/status")
 def inbox_status(user: dict = _gate):
     return _proxy("GET", "/api/admin/inbox/status", user=user)

@@ -108,6 +108,11 @@ export default function Disputes() {
   const [disputes, setDisputes] = useState(() => (hasLayoutData ? layoutPendingDisputes : []));
   const [loading, setLoading] = useState(!hasLayoutData);
   const [location, setLocation] = useState("all");
+  const [search, setSearch] = useState("");
+  const [department, setDepartment] = useState("all");
+  const [issueType, setIssueType] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const skipNextLoad = useRef(hasLayoutData);
 
   const load = (silent) => {
@@ -130,10 +135,27 @@ export default function Disputes() {
     () => [...new Set(disputes.map((d) => d.hr_employees?.location).filter(Boolean))].sort(),
     [disputes],
   );
-  const filtered = useMemo(
-    () => (location === "all" ? disputes : disputes.filter((d) => d.hr_employees?.location === location)),
-    [disputes, location],
+  const departments = useMemo(
+    () => [...new Set(disputes.map((d) => d.hr_employees?.department).filter(Boolean))].sort(),
+    [disputes],
   );
+  const issueTypes = useMemo(() => [...new Set(disputes.map((d) => d.issue_type).filter(Boolean))].sort(), [disputes]);
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return disputes.filter((d) => {
+      const e = d.hr_employees || {};
+      if (location !== "all" && e.location !== location) return false;
+      if (department !== "all" && e.department !== department) return false;
+      if (issueType !== "all" && d.issue_type !== issueType) return false;
+      if (dateFrom && d.date < dateFrom) return false;
+      if (dateTo && d.date > dateTo) return false;
+      if (q && !`${e.first_name || ""} ${e.last_name || ""} ${e.employee_code || ""}`.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [disputes, location, department, issueType, dateFrom, dateTo, search]);
+  const hasFilters = search || location !== "all" || department !== "all" || issueType !== "all" || dateFrom || dateTo;
+  const clearFilters = () => { setSearch(""); setLocation("all"); setDepartment("all"); setIssueType("all"); setDateFrom(""); setDateTo(""); };
+  const inputCls = "rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
 
   return (
     <div>
@@ -142,20 +164,29 @@ export default function Disputes() {
           <h2 className="font-display text-2xl text-ink">Attendance Disputes</h2>
           <p className="text-xs text-ink/70 font-nums mt-0.5">Employee-reported missed punches</p>
         </div>
-        <select
-          aria-label="Filter by location"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-          className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
-        >
-          <option value="all">All locations</option>
-          {locations.map((loc) => (
-            <option key={loc} value={loc}>{loc}</option>
-          ))}
-        </select>
       </div>
 
       <SlidingTabs tabs={TABS} value={tab} onChange={setTab} className="flex gap-1 mb-4" />
+
+      <div className="flex flex-wrap items-end gap-3 mb-4">
+        <input type="search" aria-label="Search employee" placeholder="Search name or employee code" value={search}
+          onChange={(e) => setSearch(e.target.value)} className={`${inputCls} w-64`} />
+        <select aria-label="Filter by department" value={department} onChange={(e) => setDepartment(e.target.value)} className={inputCls}>
+          <option value="all">All departments</option>
+          {departments.map((x) => <option key={x} value={x}>{x}</option>)}
+        </select>
+        <select aria-label="Filter by location" value={location} onChange={(e) => setLocation(e.target.value)} className={inputCls}>
+          <option value="all">All locations</option>
+          {locations.map((x) => <option key={x} value={x}>{x}</option>)}
+        </select>
+        <select aria-label="Filter by issue" value={issueType} onChange={(e) => setIssueType(e.target.value)} className={inputCls}>
+          <option value="all">All issues</option>
+          {issueTypes.map((x) => <option key={x} value={x}>{x.replace(/_/g, " ")}</option>)}
+        </select>
+        <label className="text-xs text-ink/70">From <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className={`${inputCls} ml-1`} /></label>
+        <label className="text-xs text-ink/70">To <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={`${inputCls} ml-1`} /></label>
+        {hasFilters && <button onClick={clearFilters} className="text-sm text-jade-700 hover:underline pb-2">Clear filters</button>}
+      </div>
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm tabular-nums">
@@ -174,7 +205,7 @@ export default function Disputes() {
             {loading ? (
               <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={6}>Loading ledger…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={6}>No {tab} disputes.</td></tr>
+              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={6}>{hasFilters ? "No disputes match these filters." : `No ${tab} disputes.`}</td></tr>
             ) : tab === "pending" ? (
               filtered.map((d) => <ResolveRow key={d.id} dispute={d} onResolved={load} />)
             ) : (

@@ -164,6 +164,60 @@ def comp_off_accrual_scan(
     }
 
 
+@router.post("/remove-day")
+def remove_comp_off_day(
+    earned_date: date = Query(..., description="Day worked whose credits to withdraw"),
+    dry_run: bool = Query(default=True),
+    user: dict = Depends(require_accounts),
+):
+    """Accounts-only: withdraw every UNUSED credit for a day that earns no
+    Comp-Off (e.g. a declared half day). Credits already used against an
+    approved leave are never deleted: they are returned for HR to settle."""
+    rows = (supabase.table("hr_comp_off_ledger").select("id,employee_id,units,status,used_in_leave_request_id")
+            .eq("earned_date", earned_date.isoformat()).execute().data) or []
+    used = [r for r in rows if r["status"] == "used" or r.get("used_in_leave_request_id")]
+    unused = [r for r in rows if r not in used]
+    if not dry_run and unused:
+        (supabase.table("hr_comp_off_ledger").delete()
+         .eq("earned_date", earned_date.isoformat()).neq("status", "used")
+         .is_("used_in_leave_request_id", "null").execute())
+    return {
+        "earned_date": earned_date.isoformat(), "dry_run": dry_run,
+        "rows_for_day": len(rows), "withdrawn": len(unused),
+        "kept_because_used": [{"id": r["id"], "employee_id": r["employee_id"],
+                               "leave_request_id": r.get("used_in_leave_request_id")} for r in used],
+        "changed_by": user.get("email") or user.get("id"),
+    }
+
+
+@router.post("/adjust-units")
+def adjust_comp_off_units(
+    earned_date: date = Query(..., description="Day worked whose credits to correct"),
+    units: float = Query(..., description="0.5 or 1"),
+    dry_run: bool = Query(default=True),
+    user: dict = Depends(require_accounts),
+):
+    """Accounts-only correction of the units credited for one day worked, e.g.
+    when the day was declared a half day but accrual credited a full day.
+    Dry-run by default. Used credits are corrected too (their leave requests
+    are untouched). Returns the before/after so the change is auditable."""
+    if units not in (0.5, 1.0):
+        raise HTTPException(status_code=400, detail="units must be 0.5 or 1")
+    rows = (supabase.table("hr_comp_off_ledger").select("id,employee_id,units,status")
+            .eq("earned_date", earned_date.isoformat()).execute().data) or []
+    changes = [r for r in rows if float(r["units"]) != units]
+    if not dry_run and changes:
+        (supabase.table("hr_comp_off_ledger").update({"units": units})
+         .eq("earned_date", earned_date.isoformat()).neq("units", units).execute())
+    return {
+        "earned_date": earned_date.isoformat(), "new_units": units, "dry_run": dry_run,
+        "rows_for_day": len(rows), "rows_changed": len(changes),
+        "used_rows_changed": sum(r["status"] == "used" for r in changes),
+        "changed_by": user.get("email") or user.get("id"),
+        "before": [{"id": r["id"], "units": float(r["units"]), "status": r["status"]} for r in changes],
+    }
+
+
 @me_router.get("")
 def my_comp_off(user: dict = Depends(get_current_user)):
     """The signed-in employee's own comp-off balance and where it came from —
@@ -216,13 +270,27 @@ def list_all_comp_off(
             .data
         ) or []
     } if rows else {}
+    leave_ids = list({r["used_in_leave_request_id"] for r in rows if r.get("used_in_leave_request_id")})
+    leaves = {
+        l["id"]: l for l in (
+            supabase.table("hr_leave_requests")
+            .select("id,start_date,end_date,status")
+            .in_("id", leave_ids)
+            .execute()
+            .data
+        ) or []
+    } if leave_ids else {}
     today = datetime.now(IST).date()
     out = []
     for r in rows:
         e = employees.get(r["employee_id"], {})
         expiry = date.fromisoformat(r["expiry_date"])
+        lv = leaves.get(r.get("used_in_leave_request_id")) or {}
         out.append({
             **r,
+            "used_start_date": lv.get("start_date"),
+            "used_end_date": lv.get("end_date"),
+            "used_leave_status": lv.get("status"),
             "employee_code": e.get("employee_code"),
             "name": f"{e.get('first_name', '')} {e.get('last_name') or ''}".strip(),
             "department": e.get("department"),

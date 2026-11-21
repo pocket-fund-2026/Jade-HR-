@@ -67,19 +67,16 @@ def test_nobody_else_gets_a_popup(monkeypatch):
     assert ep.pending_signoffs_for({"id": "SOMEONE"}) == []
 
 
-def test_sign_requires_exact_name_and_confirm(monkeypatch):
+def test_sign_requires_confirm_and_own_row(monkeypatch):
     db = _setup(monkeypatch, [{"row_department": "Costing/Purchase", "employee_id": "SIYAL", "scope_department": None}])
     user = {"id": "SIYAL", "first_name": "Siyal", "last_name": "Jain"}
     with pytest.raises(HTTPException) as e:
-        ep.sign_my_signoff("i1", ep.ExitSignoff(typed_name="Siyal", confirm=True), user)
-    assert e.value.status_code == 400
-    with pytest.raises(HTTPException) as e:
-        ep.sign_my_signoff("i1", ep.ExitSignoff(typed_name="Siyal Jain", confirm=False), user)
+        ep.sign_my_signoff("i1", ep.ExitSignoff(confirm=False), user)
     assert e.value.status_code == 400
     with pytest.raises(HTTPException) as e:  # a row that is not hers
-        ep.sign_my_signoff("i2", ep.ExitSignoff(typed_name="Siyal Jain", confirm=True), user)
+        ep.sign_my_signoff("i2", ep.ExitSignoff(confirm=True), user)
     assert e.value.status_code == 403
-    assert ep.sign_my_signoff("i1", ep.ExitSignoff(typed_name="  siyal   JAIN ", confirm=True), user) == {"ok": True}
+    assert ep.sign_my_signoff("i1", ep.ExitSignoff(confirm=True), user) == {"ok": True}
     row = [u for n, u in db.updates if n == "hr_exit_checklist_items"][0]
     assert row["status"] == "completed" and row["signed_by"] == "Siyal Jain (e-signed)"
 
@@ -91,3 +88,16 @@ def test_leaver_password_required(monkeypatch):
         ep.submit_my_exit_assets(ep.ExitAssetSubmit(system_no="", system_password="   "), {"id": "L1"})
     assert e.value.status_code == 400
     assert ep.submit_my_exit_assets(ep.ExitAssetSubmit(system_no="", system_password="pw"), {"id": "L1"}) == {"ok": True}
+
+
+def test_per_exit_owner_replaces_standing_owner_for_that_exit_only(monkeypatch):
+    _setup(monkeypatch, [
+        {"row_department": "Accounts", "employee_id": "SIYAL", "scope_department": None},
+        {"row_department": "Accounts", "employee_id": "NEW", "scope_department": "exit:X1"},
+    ])
+    # on exit X1 the custom owner signs Accounts and the standing owner no longer does
+    assert [g["item_id"] for g in ep.pending_signoffs_for({"id": "NEW"})] == ["i2"]
+    assert ep.pending_signoffs_for({"id": "SIYAL"}) == []
+    # another exit is untouched
+    rows = ep._rows_for_exit(ep._signer_rows(), "OTHER", "Sampling")
+    assert ("Accounts", "SIYAL", None) in rows and not any(r[1] == "NEW" for r in rows)

@@ -3,6 +3,8 @@ import { useParams } from "react-router-dom";
 import { CheckCircle2 } from "lucide-react";
 import axios from "axios";
 
+import { SIGNATURE_FONT_STACK, signatureImage } from "../lib/signature.js";
+
 // Public page behind the emailed offer links: the approver adds initials,
 // the candidate types their name to sign. No login; the token is the key.
 const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || "" });
@@ -24,11 +26,13 @@ export default function SignLetter() {
   if (!data) return <p className="p-8 text-center text-ink/70"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>;
 
   const isApprover = data.role === "approver";
+  const isOffer = data.is_offer !== false;
+  const noun = isOffer ? "offer" : "letter";
   const submit = async () => {
     setBusy(true);
     setError("");
     try {
-      await api.post(`/api/offers/sign/${token}`, isApprover ? { initials: value, confirm } : { signature: value, confirm });
+      await api.post(`/api/offers/sign/${token}`, { signature: value.trim(), signature_image: await signatureImage(value), confirm });
       setDone(true);
     } catch (e) {
       setError(e.response?.data?.detail || "Could not submit");
@@ -51,27 +55,30 @@ export default function SignLetter() {
 
         <div className="bg-paper rounded-sm shadow-card p-5 mt-5 space-y-3">
           {done ? (
-            <p className="flex items-center gap-2 text-jade-700"><CheckCircle2 size={18} /> {isApprover ? "Approved. The offer has been sent to the candidate to sign." : "Thank you. Your acceptance is recorded and a signed copy is on its way to your email."}</p>
+            <p className="flex items-center gap-2 text-jade-700"><CheckCircle2 size={18} /> {isApprover ? (isOffer ? "Approved. The offer has been sent to the candidate to sign." : "Signed. The signed letter has been sent to the recipient and HR.") : "Thank you. Your acceptance is recorded and a signed copy is on its way to your email."}</p>
           ) : !data.can_act ? (
-            <p className="text-ink/70 text-sm">{data.status === "accepted" ? "This offer has been signed." : isApprover ? "This offer has already been approved." : "This offer is not ready to sign yet."}</p>
+            <p className="text-ink/70 text-sm">{data.status === "accepted" || data.status === "signed" ? `This ${noun} has been signed.` : isApprover ? `This ${noun} has already been signed.` : `This ${noun} is not ready to sign yet.`}</p>
           ) : (
             <>
-              <p className="font-display text-lg text-ink">{isApprover ? `Approve offer for ${data.candidate_name}` : "Accept this offer"}</p>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70">{isApprover ? "Your initials" : "Type your full name to sign"}</label>
+              <p className="font-display text-lg text-ink">{isApprover ? (isOffer ? `Approve offer for ${data.candidate_name}` : `Sign letter for ${data.candidate_name}`) : "Accept this offer"}</p>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70">Type your full name to sign</label>
               <input
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
-                maxLength={isApprover ? 6 : 80}
-                className={`w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 ${isApprover ? "uppercase tracking-widest" : ""}`}
-                style={{ fontFamily: "Georgia, serif", fontStyle: "italic", fontSize: 20 }}
+                maxLength={80}
+                placeholder="First and last name"
+                className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
               />
+              <div className="border-b border-ink/40 min-h-[64px] flex items-end px-2 pb-1" aria-label="Signature preview">
+                <span style={{ fontFamily: SIGNATURE_FONT_STACK, fontSize: 40, color: "#1a2a6c", lineHeight: 1.2 }}>{value || <span className="text-ink/25 text-base" style={{ fontFamily: "inherit" }}>Your signature appears here</span>}</span>
+              </div>
               <label className="flex items-start gap-2 text-sm text-ink">
                 <input type="checkbox" className="mt-1" checked={confirm} onChange={(e) => setConfirm(e.target.checked)} />
-                {isApprover ? "I approve this offer letter." : "I have read and understood the terms of this offer and accept them."}
+                {isApprover ? (isOffer ? "I approve this offer letter." : "I approve and sign this letter.") : "I have read and understood the terms of this offer and accept them."}
               </label>
               {error && <p className="text-sm text-rust-500">{error}</p>}
               <button onClick={submit} disabled={busy || !value.trim() || !confirm} className="w-full bg-jade-600 text-white rounded-sm px-4 py-2.5 text-sm font-semibold disabled:opacity-50">
-                {busy ? "Submitting…" : isApprover ? "Approve offer" : "Sign and accept"}
+                {busy ? "Submitting…" : isApprover ? (isOffer ? "Approve offer" : "Sign letter") : "Sign and accept"}
               </button>
             </>
           )}

@@ -142,6 +142,7 @@ const CareersDashboard = lazyWithReload(() => import("./pages/admin/CareersDashb
 const CareersPipeline = lazyWithReload(() => import("./pages/admin/CareersPipeline.jsx"));
 const CareersScreening = lazyWithReload(() => import("./pages/admin/CareersScreening.jsx"));
 const CareersInbox = lazyWithReload(() => import("./pages/admin/CareersInbox.jsx"));
+const CareersInternships = lazyWithReload(() => import("./pages/admin/CareersInternships.jsx"));
 const CareersSlots = lazyWithReload(() => import("./pages/admin/CareersSlots.jsx"));
 const CareersAgents = lazyWithReload(() => import("./pages/admin/CareersAgents.jsx"));
 const PunctualityReport = lazyWithReload(() => import("./pages/admin/reports/PunctualityReport.jsx"));
@@ -156,6 +157,7 @@ const TaxDeclaration = lazyWithReload(() => import("./pages/employee/TaxDeclarat
 const EmployeeMyPayslip = lazyWithReload(() => import("./pages/employee/MyPayslip.jsx"));
 const EmployeeMyOnboarding = lazyWithReload(() => import("./pages/employee/MyOnboarding.jsx"));
 const SignLetter = lazyWithReload(() => import("./pages/SignLetter.jsx"));
+const ExitSignoffLink = lazyWithReload(() => import("./pages/ExitSignoffLink.jsx"));
 const TeamDisputes = lazyWithReload(() => import("./pages/employee/TeamDisputes.jsx"));
 const Help = lazyWithReload(() => import("./pages/Help.jsx"));
 
@@ -240,6 +242,7 @@ export default function App() {
           <Route path="/onboarding/new" element={<Onboarding />} />
           <Route path="/invoices/submit" element={<InvoiceSubmit />} />
           <Route path="/sign/:token" element={<SignLetter />} />
+          <Route path="/exit-signoff/:token" element={<ExitSignoffLink />} />
 
           <Route
             path="/admin"
@@ -318,6 +321,7 @@ export default function App() {
             <Route path="careers/:id/edit" element={<RequirePermission anyOf={["careers.manage"]}><CareersJobForm /></RequirePermission>} />
             <Route path="careers/dashboard" element={<RequirePermission anyOf={["careers.manage"]}><CareersDashboard /></RequirePermission>} />
             <Route path="careers/pipeline" element={<RequirePermission anyOf={["careers.manage"]}><CareersPipeline /></RequirePermission>} />
+            <Route path="careers/internships" element={<RequirePermission anyOf={["careers.manage"]}><CareersInternships /></RequirePermission>} />
             <Route path="careers/slots" element={<RequirePermission anyOf={["careers.manage"]}><CareersSlots /></RequirePermission>} />
             <Route path="careers/agents" element={<RequirePermission anyOf={["careers.manage"]}><CareersAgents /></RequirePermission>} />
             <Route path="careers/inbox" element={<RequirePermission anyOf={["careers.manage"]}><CareersInbox /></RequirePermission>} />

@@ -362,6 +362,15 @@ def generate_letter(body: LetterGenerateRequest, user: dict = Depends(require_pe
         if not body.rendered_body.strip():
             raise HTTPException(status_code=400, detail="The letter is empty")
         rendered = sanitize_letter_html(body.rendered_body)  # HR edited the whole letter
+        # Guard against a stale hand-edit snapshot (taken before the employee's
+        # details loaded): if most of the filled-in values are missing from the
+        # text, the details would vanish from the issued letter, so render from
+        # the template and the form instead.
+        filled = [html.escape(v.strip()) for k, v in body.field_values.items()
+                  if isinstance(v, str) and v.strip() and k not in MULTILINE_TOKENS and len(v.strip()) > 2]
+        missing = [v for v in filled if v not in rendered]
+        if filled and len(missing) >= max(2, (len(filled) + 1) // 2):
+            rendered = _substitute(place_clauses(template["body"], render_clauses(clauses)), body.field_values)
     else:
         rendered = _substitute(place_clauses(template["body"], render_clauses(clauses)), body.field_values)
 
@@ -422,6 +431,57 @@ def letter_history(
     return _with_people(query.execute().data or [])
 
 
+@router.get("/internships")
+def internship_mail(
+    limit: int = Query(default=300, ge=1, le=1000),
+    user: dict = Depends(require_permission("letters.generate", "letters.manage")),
+):
+    """Every internship letter and every email that went out about it (the
+    letter itself, the e-sign links, the signed copy), newest first, with the
+    delivery status Resend reported. Feeds the Internships section."""
+    letters = (
+        supabase.table("hr_generated_letters").select("*").ilike("letter_type", "%intern%")
+        .order("created_at", desc=True).limit(limit).execute().data or []
+    )
+    ids = [r["id"] for r in letters]
+    attempts: dict[str, list[dict]] = {}
+    if ids:
+        try:
+            logs = (
+                supabase.table("hr_email_log").select("letter_id,kind,to_email,status,error,last_event,created_at")
+                .in_("letter_id", ids).order("created_at", desc=True).execute().data or []
+            )
+        except Exception:
+            logs = []  # the log is an audit aid; the section must still load without it
+        for l in logs:
+            attempts.setdefault(l["letter_id"], []).append({
+                "kind": l.get("kind"), "to": l.get("to_email"), "status": l.get("status"),
+                "error": l.get("error"), "delivery": l.get("last_event"), "at": l.get("created_at"),
+            })
+    out = []
+    for r in letters:
+        fv = r.get("field_values") or {}
+        mails = attempts.get(r["id"], [])
+        out.append({
+            "id": r["id"],
+            "intern_name": fv.get("employee_name") or "",
+            "intern_email": r.get("candidate_email") or r.get("emailed_to") or fv.get("email") or "",
+            "role": fv.get("internship_role") or fv.get("designation") or "",
+            "department": fv.get("department") or "",
+            "duration": fv.get("duration") or "",
+            "stipend": fv.get("stipend") or "",
+            "start_date": fv.get("start_date") or fv.get("joining_date") or "",
+            "created_at": r.get("created_at"),
+            "emailed_to": r.get("emailed_to"), "emailed_at": r.get("emailed_at"),
+            "approval_status": r.get("approval_status"), "approver_email": r.get("approver_email"),
+            "candidate_signed_at": r.get("candidate_signed_at"),
+            "mails": mails,
+            "mails_sent": sum(1 for m in mails if m["status"] == "sent"),
+            "mails_failed": sum(1 for m in mails if m["status"] == "failed"),
+        })
+    return out
+
+
 @router.get("/history/{letter_id}")
 def get_generated_letter(letter_id: str, user: dict = Depends(require_permission("letters.generate", "letters.manage"))):
     row = maybe_single_data(supabase.table("hr_generated_letters").select("*").eq("id", letter_id).maybe_single().execute())
@@ -442,6 +502,33 @@ def edit_generated_letter(letter_id: str, body: LetterBodyEdit, user: dict = Dep
     if not body.rendered_body.strip():
         raise HTTPException(status_code=400, detail="The letter is empty")
     updated = supabase.table("hr_generated_letters").update({"rendered_body": sanitize_letter_html(body.rendered_body)}).eq("id", letter_id).execute()
+    return _with_people(updated.data)[0]
+
+
+@router.post("/history/{letter_id}/refill")
+def refill_generated_letter(letter_id: str, user: dict = Depends(require_permission("letters.generate"))):
+    """Re-render an issued letter from its template and the details saved with
+    it. Repairs letters saved with blank fields (a hand-edit snapshot taken
+    before the employee's details loaded). Replaces any manual edits, and is
+    refused once the letter is out for signature or signed."""
+    row = maybe_single_data(supabase.table("hr_generated_letters").select("*").eq("id", letter_id).maybe_single().execute())
+    if not row:
+        raise HTTPException(status_code=404, detail="Letter not found")
+    if row.get("approval_status"):
+        raise HTTPException(status_code=409, detail="This letter is already out for signature, so it cannot be re-filled.")
+    template = maybe_single_data(
+        supabase.table("hr_letter_templates").select("body").eq("letter_type", row["letter_type"]).maybe_single().execute()
+    )
+    if not template:
+        raise HTTPException(status_code=404, detail="The template for this letter no longer exists")
+    fv = dict(row.get("field_values") or {})
+    try:
+        clauses = _clean_clauses(json.loads(fv.get("_clauses") or "[]"))
+    except Exception:
+        clauses = []
+    values = {k: v for k, v in fv.items() if k != "_clauses"}
+    rendered = _substitute(place_clauses(template["body"], render_clauses(clauses)), values)
+    updated = supabase.table("hr_generated_letters").update({"rendered_body": rendered}).eq("id", letter_id).execute()
     return _with_people(updated.data)[0]
 
 

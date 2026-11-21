@@ -216,17 +216,18 @@ export default function CompOff() {
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Day worked</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Units</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Expires</th>
+              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Used on</th>
               <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Status</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={5}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
+              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={6}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : error ? (
-              <tr><td colSpan={5} className="p-8 text-center text-rust-500">Ledger unavailable. Retry above.</td></tr>
+              <tr><td colSpan={6} className="p-8 text-center text-rust-500">Ledger unavailable. Retry above.</td></tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={5}>
+                <td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={6}>
                   {hasFilters ? "No entries match these filters. Adjust or clear filters to see more." : `No ${tab || "Comp-Off"} entries. Eligible work appears after nightly accrual or a verified manual grant.`}
                 </td>
               </tr>
@@ -246,6 +247,13 @@ export default function CompOff() {
                     {r.effective_status === "available" && r.days_to_expiry <= 30 && (
                       <span className="ml-1.5 text-xs font-semibold text-ochre-700">{r.days_to_expiry}d left</span>
                     )}
+                  </td>
+                  <td className="px-5 py-3.5 font-nums text-ink/70">
+                    {r.used_start_date
+                      ? (r.used_end_date && r.used_end_date !== r.used_start_date
+                          ? `${formatDate(r.used_start_date)} – ${formatDate(r.used_end_date)}`
+                          : formatDate(r.used_start_date))
+                      : "—"}
                   </td>
                   <td className="px-5 py-3.5">
                     <StampBadge status={

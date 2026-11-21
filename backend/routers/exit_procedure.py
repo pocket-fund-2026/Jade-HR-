@@ -20,17 +20,20 @@ rows (ID Card Return, Email/OMS/TDS Deactivation) were added on top of the
 paper form's original 9.
 """
 
+import hashlib
+import hmac
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 import email_service
+from config import JWT_SECRET
 from auth import get_current_user, require_permission
 from database import maybe_single_data, supabase
 from workflow_log import record_step
 from models import (
     LeaverAlert, ExitAssetUpdate, ExitAssetSubmit, ExitChecklistItemUpdate, ExitInitiate, ExitInterviewSubmit,
-    ExitSignerCreate, ExitSignoff,
+    ExitSignerCreate, ExitSignersUpdate, ExitSignoff,
 )
 
 router = APIRouter(prefix="/api/exit-records", tags=["exit-procedure"])
@@ -172,7 +175,69 @@ def initiate_exit(body: ExitInitiate, user: dict = Depends(require_permission("e
         email_service.HR_NOTIFY_EMAIL,
     )
 
+    if body.signers:
+        try:
+            _apply_exit_signers(record["id"], body.signers, body.employee_id)
+        except HTTPException:
+            pass  # the exit itself is already created; HR can fix the owners from the exit page
+    # Every sign-off owner is told the same day the exit starts, not whenever
+    # they next open the console. Never allowed to fail the initiation itself.
+    try:
+        send_signoff_requests(record["id"], employee, body.last_working_day.isoformat())
+    except Exception:
+        pass
+
     return _hydrate(record)
+
+
+def send_signoff_requests(exit_id: str, leaver: dict, last_working_day: str, only: set[str] | None = None) -> int:
+    """Email each named sign-off owner the checklist rows of this exit that are
+    theirs. Returns how many owners were emailed."""
+    rows = _rows_for_exit(_signer_rows(), exit_id, leaver.get("department"))
+    if not rows:
+        return 0
+    items = supabase.table("hr_exit_checklist_items").select("department,item_label").eq("exit_id", exit_id).execute().data or []
+    by_signer: dict[str, list[str]] = {}
+    for it in items:
+        if it["department"] in RETIRED_DEPARTMENTS:
+            continue
+        for _, emp_id, _scope in rows:
+            if emp_id != leaver.get("id") and (only is None or emp_id in only) and _is_signer(emp_id, it["department"], leaver.get("department"), rows):
+                label = f"{it['department']}: {it['item_label']}"
+                if label not in by_signer.setdefault(emp_id, []):
+                    by_signer[emp_id].append(label)
+    if not by_signer:
+        return 0
+    people = {
+        e["id"]: e for e in (
+            supabase.table("hr_employees").select("id,first_name,last_name,email").in_("id", list(by_signer)).execute().data or []
+        )
+    }
+    leaver_name = f"{leaver.get('first_name', '')} {leaver.get('last_name') or ''}".strip()
+    sent = 0
+    for emp_id, labels in by_signer.items():
+        person = people.get(emp_id) or {}
+        name = f"{person.get('first_name', '')} {person.get('last_name') or ''}".strip()
+        try:  # one bad address or provider error must never stop the other owners being told
+            if email_service.notify_exit_signoff_request(
+                (person.get("email") or "").strip(), name, leaver_name, leaver.get("employee_code", ""), last_working_day, labels,
+                link=f"https://jade-hr.vercel.app/exit-signoff/{_signoff_token(exit_id, emp_id)}",
+            ):
+                sent += 1
+        except Exception:
+            continue
+    return sent
+
+
+@router.post("/{exit_id}/send-signoff-requests")
+def resend_signoff_requests(exit_id: str, user: dict = Depends(require_permission("exit.manage"))):
+    """(Re)send the sign-off emails for an exit already in progress — e.g. one
+    started before owners were set up. Pending rows only."""
+    record = maybe_single_data(supabase.table("hr_exit_records").select("*").eq("id", exit_id).maybe_single().execute())
+    if not record or record["status"] != "in_progress":
+        raise HTTPException(status_code=404, detail="No exit in progress with that id")
+    employee = _employee_brief(record["employee_id"])
+    return {"emailed": send_signoff_requests(exit_id, employee, record["last_working_day"])}
 
 
 def send_access_revocation_if_new(employee_id: str, last_working_day: str, stage: str) -> bool:
@@ -325,11 +390,106 @@ def _is_signer(user_id: str, item_department: str, leaver_department: str | None
     return False
 
 
+# Per-exit owners. HR can name a different owner for any row of ONE exit; that
+# is stored in hr_exit_signers itself with scope_department = "exit:<exit id>"
+# (no schema change), and for that exit it replaces the row's standing owners.
+EXIT_SCOPE = "exit:"
+
+
+def _rows_for_exit(all_rows, exit_id: str, leaver_department: str | None):
+    scope = f"{EXIT_SCOPE}{exit_id}"
+    custom = [r for r in all_rows if (r[2] or "") == scope]
+    standing = [r for r in all_rows if not (r[2] or "").startswith(EXIT_SCOPE)]
+    custom_rows = {c[0] for c in custom}
+    return [r for r in standing if r[0] not in custom_rows] + [(d, e, leaver_department) for d, e, _ in custom]
+
+
+def _find_person(ref: str) -> dict | None:
+    ref = (ref or "").strip()
+    if not ref:
+        return None
+    q = supabase.table("hr_employees").select("id,employee_code,first_name,last_name,email,is_active")
+    if "@" in ref:
+        found = q.ilike("email", ref.replace("%", "").replace("_", r"\_")).eq("is_active", True).limit(1).execute().data
+    else:
+        found = q.eq("employee_code", ref).limit(1).execute().data
+    return (found or [None])[0]
+
+
+def _owner_view(emp: dict) -> dict:
+    return {"id": emp["id"], "code": emp.get("employee_code", ""), "email": emp.get("email") or "",
+            "name": f"{emp.get('first_name', '')} {emp.get('last_name') or ''}".strip()}
+
+
+def _effective_owners(exit_id: str | None, leaver_department: str | None, leaver_id: str | None = None) -> list[dict]:
+    """For each checklist row: who signs it (standing owners, or this exit's custom owners)."""
+    all_rows = _signer_rows()
+    rows = _rows_for_exit(all_rows, exit_id, leaver_department) if exit_id else [
+        (d, e, s_) for d, e, s_ in all_rows if not (s_ or "").startswith(EXIT_SCOPE)
+    ]
+    custom_depts = {r[0] for r in all_rows if exit_id and (r[2] or "") == f"{EXIT_SCOPE}{exit_id}"}
+    ids = list({r[1] for r in rows})
+    people = {e["id"]: e for e in (
+        supabase.table("hr_employees").select("id,employee_code,first_name,last_name,email").in_("id", ids).execute().data or []
+    )} if ids else {}
+    out = []
+    for dept in dict.fromkeys(d for d, _ in CHECKLIST_TEMPLATE):
+        owners = []
+        for d, emp_id, scope in rows:
+            if d != dept or emp_id not in people or emp_id == leaver_id:
+                continue  # leaver_id as owner = "nobody signs this row on this exit"
+            if dept == DEPARTMENT_HEAD_ROW and not (exit_id and dept in custom_depts) and not (scope and _norm(scope) == _norm(leaver_department)):
+                continue
+            owners.append(_owner_view(people[emp_id]))
+        out.append({"row_department": dept, "owners": owners, "custom": dept in custom_depts})
+    return out
+
+
+def _apply_exit_signers(exit_id: str, assignments: list[dict], leaver_id: str | None = None) -> set[str]:
+    """Set this exit's custom owners, per row. Each assignment is
+    {"row_department", "owners": [employee id or email, ...]} — the list REPLACES
+    that row's owners for this exit (add or remove as many as needed; an empty
+    list means nobody signs the row and HR ticks it by hand), or
+    {"row_department", "revert": true} to go back to the standing owners.
+    ("owner": "x" still works as a one-person list.) Returns the employee ids
+    newly named."""
+    valid_rows = {d for d, _ in CHECKLIST_TEMPLATE}
+    scope = f"{EXIT_SCOPE}{exit_id}"
+    named: set[str] = set()
+    for a in assignments:
+        dept = (a.get("row_department") or "").strip()
+        if dept not in valid_rows:
+            raise HTTPException(status_code=400, detail=f"Unknown checklist row '{dept}'")
+        if a.get("revert"):
+            supabase.table("hr_exit_signers").delete().eq("row_department", dept).eq("scope_department", scope).execute()
+            continue
+        refs = a.get("owners")
+        if refs is None:
+            refs = [a.get("owner")] if (a.get("owner") or "").strip() else None
+        if refs is None:  # blank single owner = back to standing
+            supabase.table("hr_exit_signers").delete().eq("row_department", dept).eq("scope_department", scope).execute()
+            continue
+        people = []
+        for ref in dict.fromkeys(str(r).strip() for r in refs if str(r).strip()):
+            person = _find_person(ref)
+            if not person:
+                raise HTTPException(status_code=400, detail=f"No active employee found for '{ref}' ({dept}). Use their employee ID or work email.")
+            people.append(person)
+        supabase.table("hr_exit_signers").delete().eq("row_department", dept).eq("scope_department", scope).execute()
+        if people:
+            for person in people:
+                supabase.table("hr_exit_signers").insert({"row_department": dept, "employee_id": person["id"], "scope_department": scope}).execute()
+                named.add(person["id"])
+        elif leaver_id:  # nobody: a row owned by the leaver is never shown or emailed
+            supabase.table("hr_exit_signers").insert({"row_department": dept, "employee_id": leaver_id, "scope_department": scope}).execute()
+    return named
+
+
 def pending_signoffs_for(user: dict) -> list[dict]:
     """Checklist rows on other people's open exits that this user is the named
     signer for and that are still pending — what the HOD popup lists."""
-    rows = [r for r in _signer_rows() if r[1] == user["id"]]
-    if not rows:
+    all_rows = _signer_rows()
+    if not any(r[1] == user["id"] for r in all_rows):
         return []
     exits = [
         e for e in (supabase.table("hr_exit_records").select("id,employee_id,last_working_day").eq("status", "in_progress").execute().data or [])
@@ -354,7 +514,7 @@ def pending_signoffs_for(user: dict) -> list[dict]:
             continue
         ex = by_exit[it["exit_id"]]
         lv = leavers.get(ex["employee_id"], {})
-        if _is_signer(user["id"], it["department"], lv.get("department"), rows):
+        if _is_signer(user["id"], it["department"], lv.get("department"), _rows_for_exit(all_rows, it["exit_id"], lv.get("department"))):
             out.append({
                 "item_id": it["id"], "exit_id": it["exit_id"], "row_department": it["department"], "item_label": it["item_label"],
                 "employee_name": f"{lv.get('first_name', '')} {lv.get('last_name') or ''}".strip(),
@@ -369,7 +529,8 @@ def pending_signoffs_for(user: dict) -> list[dict]:
 def list_signers(user: dict = Depends(require_permission("exit.manage"))):
     rows = []
     try:
-        rows = supabase.table("hr_exit_signers").select("*").execute().data or []
+        rows = [r for r in (supabase.table("hr_exit_signers").select("*").execute().data or [])
+                if not (r.get("scope_department") or "").startswith(EXIT_SCOPE)]
     except Exception:
         pass
     ids = list({r["employee_id"] for r in rows})
@@ -415,6 +576,41 @@ def remove_signer(signer_id: str, user: dict = Depends(require_permission("exit.
     if not resp.data:
         raise HTTPException(status_code=404, detail="Not found")
     return {"ok": True}
+
+
+@router.get("/signers/preview")
+def signers_preview(employee_id: str, user: dict = Depends(require_permission("exit.manage"))):
+    """Who would sign each row for a leaver in this person's department — the
+    defaults the Initiate Exit form shows before HR customises them."""
+    leaver = _employee_brief(employee_id)
+    return {"rows": _effective_owners(None, leaver.get("department"))}
+
+
+@router.get("/{exit_id}/signers")
+def exit_signers(exit_id: str, user: dict = Depends(require_permission("exit.manage"))):
+    record = maybe_single_data(supabase.table("hr_exit_records").select("*").eq("id", exit_id).maybe_single().execute())
+    if not record:
+        raise HTTPException(status_code=404, detail="Exit record not found")
+    leaver = _employee_brief(record["employee_id"])
+    return {"rows": _effective_owners(exit_id, leaver.get("department"), record["employee_id"])}
+
+
+@router.put("/{exit_id}/signers")
+def set_exit_signers(exit_id: str, body: ExitSignersUpdate, user: dict = Depends(require_permission("exit.manage"))):
+    """Change who signs which row of THIS exit. Anyone newly named is emailed
+    straight away and the sign-off appears in their console with a pop-up."""
+    record = maybe_single_data(supabase.table("hr_exit_records").select("*").eq("id", exit_id).maybe_single().execute())
+    if not record or record["status"] != "in_progress":
+        raise HTTPException(status_code=404, detail="No exit in progress with that id")
+    named = _apply_exit_signers(exit_id, body.signers, record["employee_id"])
+    leaver = _employee_brief(record["employee_id"])
+    emailed = 0
+    try:
+        emailed = send_signoff_requests(exit_id, leaver, record["last_working_day"], only=named) if named else 0
+    except Exception:
+        pass
+    record_step("exit", exit_id, "signers_changed", user, basis={"rows": [a.get("row_department") for a in body.signers]})
+    return {"rows": _effective_owners(exit_id, leaver.get("department"), record["employee_id"]), "emailed": emailed}
 
 
 @router.get("/{exit_id}")
@@ -568,6 +764,86 @@ def submit_my_exit_interview(body: ExitInterviewSubmit, user: dict = Depends(get
     return _upsert_interview(record["id"], body, user["id"])
 
 
+# --- One-tap sign-off link (no login) ---------------------------------------
+# Each named owner gets an emailed link to a plain page: who is leaving, which
+# rows are theirs, one tick and one button. The link is a stateless HMAC of
+# (exit, signer), so no table is needed and it cannot be guessed or reused for
+# anyone else's rows.
+public_router = APIRouter(prefix="/api/exit-sign", tags=["exit-procedure"])
+
+
+def _signoff_token(exit_id: str, signer_id: str) -> str:
+    mac = hmac.new(JWT_SECRET.encode(), f"exit-signoff:{exit_id}:{signer_id}".encode(), hashlib.sha256).hexdigest()[:32]
+    return f"{exit_id}.{signer_id}.{mac}"
+
+
+def _open_token(token: str) -> tuple[str, str]:
+    try:
+        exit_id, signer_id, mac = token.split(".")
+    except ValueError:
+        raise HTTPException(status_code=404, detail="This link is not valid. Ask HR to send a fresh one.")
+    if not hmac.compare_digest(_signoff_token(exit_id, signer_id), token):
+        raise HTTPException(status_code=404, detail="This link is not valid. Ask HR to send a fresh one.")
+    return exit_id, signer_id
+
+
+def _my_rows_for_exit(exit_id: str, signer_id: str) -> tuple[dict, dict, dict, list[dict]]:
+    record = maybe_single_data(supabase.table("hr_exit_records").select("*").eq("id", exit_id).maybe_single().execute())
+    if not record:
+        raise HTTPException(status_code=404, detail="This exit no longer exists.")
+    leaver = _employee_brief(record["employee_id"])
+    signer = _employee_brief(signer_id)
+    rows = _rows_for_exit(_signer_rows(), exit_id, leaver.get("department"))
+    items = [
+        i for i in (supabase.table("hr_exit_checklist_items").select("id,department,item_label,status,signed_at").eq("exit_id", exit_id).execute().data or [])
+        if i["department"] not in RETIRED_DEPARTMENTS and signer_id != leaver.get("id")
+        and _is_signer(signer_id, i["department"], leaver.get("department"), rows)
+    ]
+    return record, leaver, signer, items
+
+
+@public_router.get("/{token}")
+def view_signoff(token: str):
+    exit_id, signer_id = _open_token(token)
+    record, leaver, signer, items = _my_rows_for_exit(exit_id, signer_id)
+    return {
+        "signer_name": f"{signer.get('first_name', '')} {signer.get('last_name') or ''}".strip(),
+        "leaver": {
+            "name": f"{leaver.get('first_name', '')} {leaver.get('last_name') or ''}".strip(),
+            "code": leaver.get("employee_code", ""), "department": leaver.get("department") or "",
+            "last_working_day": record["last_working_day"],
+        },
+        "exit_open": record["status"] == "in_progress",
+        "items": [{"row": i["department"], "label": i["item_label"], "done": i["status"] == "completed"} for i in items],
+        "pending": sum(1 for i in items if i["status"] != "completed"),
+    }
+
+
+@public_router.post("/{token}/sign")
+def do_signoff(token: str, body: ExitSignoff):
+    exit_id, signer_id = _open_token(token)
+    record, leaver, signer, items = _my_rows_for_exit(exit_id, signer_id)
+    if record["status"] != "in_progress":
+        raise HTTPException(status_code=409, detail="This exit is already closed.")
+    pending = [i for i in items if i["status"] != "completed"]
+    if not pending:
+        raise HTTPException(status_code=409, detail="You have already signed off everything for this person.")
+    if not body.confirm:
+        raise HTTPException(status_code=400, detail="Tick the box to confirm the clearance")
+    full_name = f"{signer.get('first_name', '')} {signer.get('last_name') or ''}".strip()
+    now = datetime.now(timezone.utc).isoformat()
+    for i in pending:
+        supabase.table("hr_exit_checklist_items").update({
+            "status": "completed", "signed_by": f"{full_name} (e-signed)", "notes": (body.notes or "").strip(),
+            "signed_at": now, "updated_at": now,
+        }).eq("id", i["id"]).eq("status", "pending").execute()
+        record_step(
+            "exit", exit_id, "step_esigned", {"id": signer_id, "role": "signer"},
+            basis={"item_id": i["id"], "row": i["department"], "signed_by": full_name, "via": "email link"},
+        )
+    return {"ok": True, "signed": len(pending)}
+
+
 # --- HOD e-sign popup ---------------------------------------------------------
 signoff_router = APIRouter(prefix="/api/me/exit-signoffs", tags=["exit-procedure"])
 
@@ -586,8 +862,6 @@ def sign_my_signoff(item_id: str, body: ExitSignoff, user: dict = Depends(get_cu
     full_name = f"{user.get('first_name', '')} {user.get('last_name') or ''}".strip()
     if not body.confirm:
         raise HTTPException(status_code=400, detail="Tick the box to confirm your clearance")
-    if _norm(body.typed_name) != _norm(full_name):
-        raise HTTPException(status_code=400, detail=f"Type your full name exactly as: {full_name}")
     now = datetime.now(timezone.utc).isoformat()
     supabase.table("hr_exit_checklist_items").update({
         "status": "completed", "signed_by": f"{full_name} (e-signed)", "notes": body.notes.strip(),

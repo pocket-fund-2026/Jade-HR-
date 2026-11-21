@@ -25,6 +25,10 @@ PY = "python3"
 LOG = "/var/log"
 
 
+# MAIL OFF (user request 2026-11-10): email-sending jobs disabled. Re-enable by removing enabled=MAIL_ENABLED / setting MAIL_ENABLED=True.
+MAIL_ENABLED = True
+
+
 def _every(start_h, end_h, step_min):
     """HH:MM slots every step_min minutes from start_h:00 through end_h:59."""
     return [f"{m // 60:02d}:{m % 60:02d}" for m in range(start_h * 60, end_h * 60 + 60, step_min)]
@@ -54,15 +58,15 @@ JOBS = {
     "late_digest": dict(
         cmd=[PY, f"{ROOT}/late_digest_notify.py"], slots=["06:15"], window_min=360, gate="attendance", idempotent=False,
         max_attempts=12, timeout_s=180, retry_min=5, success_re=r"late-digest run finished", log=f"{LOG}/jade-hr-late-digest.log",
-        after={"topic": "attendance_synced", "within_min": 120}, parse=[r"(?P<late>\d+) late on (?P<date>[\d-]+), emailed=(?P<emailed>\w+)"]),
+        after={"topic": "attendance_synced", "within_min": 120}, parse=[r"(?P<late>\d+) late on (?P<date>[\d-]+), emailed=(?P<emailed>\w+)"], enabled=MAIL_ENABLED),
     "leave_reminders": dict(
         cmd=[PY, f"{ROOT}/leave_reminder_notify.py"], slots=["04:00"], dow={1, 2, 3, 4, 5, 6}, window_min=360, gate=None,
         idempotent=False, max_attempts=6, timeout_s=180, retry_min=10, success_re=r"leave-reminder run finished",
-        log=f"{LOG}/jade-hr-leave-reminders.log", parse=[r"(?P<pending>\d+) pending, (?P<sent>\d+)/(?P<managers>\d+) manager reminders sent, hr_emailed=(?P<hr_emailed>\w+)"]),
+        log=f"{LOG}/jade-hr-leave-reminders.log", parse=[r"(?P<pending>\d+) pending, (?P<sent>\d+)/(?P<managers>\d+) manager reminders sent, hr_emailed=(?P<hr_emailed>\w+)"], enabled=MAIL_ENABLED),
     "clocks_digest": dict(
         cmd=[PY, f"{ROOT}/clocks_digest_notify.py"], slots=["08:05"], window_min=360, gate="attendance", idempotent=False,
         max_attempts=6, timeout_s=180, retry_min=10, success_re=None, log=f"{LOG}/jade-hr-clocks-digest.log",
-        parse=[r"clocks-digest: \{'aip': (?P<aip>\d+), 'probation': (?P<probation>\d+), 'notice': (?P<notice>\d+)\} on [\d-]+, emailed=(?P<emailed>\w+)"]),
+        parse=[r"clocks-digest: \{'aip': (?P<aip>\d+), 'probation': (?P<probation>\d+), 'notice': (?P<notice>\d+)\} on [\d-]+, emailed=(?P<emailed>\w+)"], enabled=MAIL_ENABLED),
     "comp_off_accrual": dict(
         cmd=[PY, f"{ROOT}/comp_off_accrual.py"], slots=["08:10"], window_min=360, gate="attendance", idempotent=True,
         max_attempts=6, timeout_s=180, retry_min=10, success_re=None, log=f"{LOG}/jade-hr-comp-off.log",
@@ -78,7 +82,7 @@ JOBS = {
         cmd=[PY, f"{ROOT}/quarter_red_card_notify.py"], preview=[PY, f"{ROOT}/quarter_red_card_notify.py", "--dry-run"],
         slots=["09:00"], months={3, 6, 9, 12}, dom={23}, window_min=900, gate="attendance_roster", idempotent=False,
         max_attempts=6, timeout_s=240, retry_min=30, success_re=r"quarter-red-cards:", log=f"{LOG}/jade-hr-quarter-red-card.log",
-        after={"topic": "attendance_synced", "within_min": 360}, parse=[r"quarter-red-cards: (?P<quarter>.+?) — (?P<qualifying>\d+) qualifying, (?P<applied>\d+) actioned"]),
+        after={"topic": "attendance_synced", "within_min": 360}, parse=[r"quarter-red-cards: (?P<quarter>.+?) — (?P<qualifying>\d+) qualifying, (?P<applied>\d+) actioned"], enabled=MAIL_ENABLED),
 }
 
 ENV_FILES = ["/etc/jade-hr-sync.env"]          # credentials for the scripts (never printed)

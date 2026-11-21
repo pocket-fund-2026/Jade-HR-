@@ -4,6 +4,7 @@ const TABS = [
   { to: "/admin/careers/dashboard", label: "Dashboard" },
   { to: "/admin/careers/applicants", label: "Applicants" },
   { to: "/admin/careers/pipeline", label: "Pipeline" },
+  { to: "/admin/careers/internships", label: "Internships" },
   { to: "/admin/careers/inbox", label: "Inbox" },
   { to: "/admin/careers/slots", label: "Interview Slots" },
   { to: "/admin/careers/agents", label: "Agents" },

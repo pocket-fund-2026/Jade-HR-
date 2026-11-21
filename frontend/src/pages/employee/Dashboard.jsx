@@ -7,6 +7,7 @@ import AbsenceRequestModal from "../../components/AbsenceRequestModal.jsx";
 import DisputeModal from "../../components/DisputeModal.jsx";
 import ExitAssetsModal from "../../components/ExitAssetsModal.jsx";
 import ExitInterviewModal from "../../components/ExitInterviewModal.jsx";
+import { hasUnseenSignoff } from "../../lib/exitPopup.js";
 import ExitSignoffModal from "../../components/ExitSignoffModal.jsx";
 import LeaveRequestModal from "../../components/LeaveRequestModal.jsx";
 import LoanRequestModal from "../../components/LoanRequestModal.jsx";
@@ -78,16 +79,15 @@ export default function Dashboard() {
     api.get("/api/me/exit-assets").then(({ data }) => setMyAssets(data)).catch(() => setMyAssets(null));
     api.get("/api/me/exit-signoffs").then(({ data }) => {
       setSignoffs(data);
-      // Pop up once per browser session; the banner below stays until everything is signed.
-      let seen = false;
-      try { seen = sessionStorage.getItem("exitSignoffPopup") === "1"; } catch { /* storage unavailable */ }
-      if (data.length && !seen) {
-        setShowSignoffs(true);
-        try { sessionStorage.setItem("exitSignoffPopup", "1"); } catch { /* ignore */ }
-      }
+      // Pops up for each newly assigned sign-off; the banner below stays until everything is signed.
+      if (hasUnseenSignoff(data)) setShowSignoffs(true);
     }).catch(() => setSignoffs([]));
   };
-  useEffect(loadExitExtras, []);
+  useEffect(() => {
+    loadExitExtras();
+    const t = setInterval(() => api.get("/api/me/exit-signoffs").then(({ data }) => { setSignoffs(data); if (hasUnseenSignoff(data)) setShowSignoffs(true); }).catch(() => {}), 60000);
+    return () => clearInterval(t);
+  }, []);
 
   const load = () => {
     setLoading(true);

@@ -3,12 +3,12 @@ import { useState } from "react";
 
 import api from "../lib/api.js";
 import { formatDate } from "../lib/format.js";
+import { SIGNATURE_FONT_STACK } from "../lib/signature.js";
 
 const inputCls =
   "w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
 
 function SignRow({ item, fullName, onSigned }) {
-  const [typed, setTyped] = useState("");
   const [notes, setNotes] = useState("");
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -19,7 +19,7 @@ function SignRow({ item, fullName, onSigned }) {
     setError("");
     setBusy(true);
     try {
-      await api.post(`/api/me/exit-signoffs/${item.item_id}/sign`, { typed_name: typed, confirm, notes });
+      await api.post(`/api/me/exit-signoffs/${item.item_id}/sign`, { confirm, notes });
       onSigned(item.item_id);
     } catch (err) {
       setError(err.response?.data?.detail || "Could not sign — try again");
@@ -42,15 +42,17 @@ function SignRow({ item, fullName, onSigned }) {
         </p>
       </div>
       <input className={inputCls} placeholder="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
-      <input className={inputCls} placeholder={`Type your full name: ${fullName}`} value={typed} onChange={(e) => setTyped(e.target.value)} />
+      <div className="border-b border-ink/40 min-h-[48px] flex items-end px-2 pb-1" aria-label="Your signature">
+        <span style={{ fontFamily: SIGNATURE_FONT_STACK, fontSize: 32, color: "#1a2a6c", lineHeight: 1.2 }}>{fullName}</span>
+      </div>
       <label className="flex items-start gap-2 text-xs text-ink/80 cursor-pointer">
         <input type="checkbox" checked={confirm} onChange={(e) => setConfirm(e.target.checked)} className="mt-0.5 rounded border-ink/30 text-jade-600 focus:ring-jade-500" />
         I confirm that everything under my department is cleared for this person and I am signing on its behalf.
       </label>
       {error && <p className="text-xs text-rust-500 border-l-2 border-rust-500 pl-2">{error}</p>}
       <div className="flex justify-end">
-        <button type="submit" disabled={busy || !typed.trim() || !confirm} className="bg-jade-600 text-white px-4 py-2 rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-40 transition-colors">
-          {busy ? "Signing…" : "E-sign"}
+        <button type="submit" disabled={busy || !confirm} className="bg-jade-600 text-white px-4 py-2 rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-40 transition-colors">
+          {busy ? "Signing…" : "Sign off"}
         </button>
       </div>
     </form>

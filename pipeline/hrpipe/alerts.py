@@ -33,6 +33,8 @@ def send(subject, text, dry_run=False):
     log(f"{'DRY-RUN (not sent) ' if dry_run else ''}ALERT {subject} :: {text[:300]}")
     if dry_run:
         return False
+    log("alert email disabled (MAIL OFF 2026-11-10); WhatsApp hourly summary covers status")
+    return False
     env = _env()
     to = [x.strip() for x in env.get("ALERT_EMAIL", "").split(",") if x.strip()]
     if not to or not env.get("RESEND_API_KEY") or not env.get("ALERT_FROM"):

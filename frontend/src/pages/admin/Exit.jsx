@@ -159,6 +159,103 @@ function InterviewSection({ record }) {
   );
 }
 
+// Who signs each row of THIS exit. Each row lists its owners as chips: remove
+// any, add anyone by employee ID or work email, or reset the row to its standing
+// owners. `edits` holds only the rows HR touched: an array of {ref,label}
+// (replaces that row's owners; empty = nobody, HR ticks it by hand) or "reset".
+function ownersOf(row) {
+  return row.owners.map((o) => ({ ref: o.code || o.email, label: `${o.name} (${o.code || o.email})` }));
+}
+
+function OwnerRow({ row, edit, onEdit }) {
+  const [draft, setDraft] = useState("");
+  const list = Array.isArray(edit) ? edit : ownersOf(row);
+  const add = () => {
+    const ref = draft.trim();
+    if (!ref || list.some((o) => o.ref.toLowerCase() === ref.toLowerCase())) { setDraft(""); return; }
+    onEdit([...list, { ref, label: ref }]);
+    setDraft("");
+  };
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-[150px_1fr] gap-x-3 gap-y-1.5 items-start border-b border-ink/[0.06] pb-2.5 last:border-0">
+      <span className="text-xs font-semibold text-ink pt-1.5">{row.row_department}</span>
+      <div>
+        <div className="flex flex-wrap gap-1.5 mb-1.5">
+          {list.length === 0 && <span className="text-xs text-ink/50 pt-1">No signer — HR ticks this row by hand.</span>}
+          {list.map((o) => (
+            <span key={o.ref} className="inline-flex items-center gap-1 bg-jade-50 border border-jade-500/30 text-xs text-ink rounded-sm pl-2 pr-1 py-0.5">
+              {o.label}
+              <button type="button" onClick={() => onEdit(list.filter((x) => x.ref !== o.ref))} aria-label={`Remove ${o.label}`} className="text-ink/50 hover:text-rust-500 px-1">×</button>
+            </span>
+          ))}
+        </div>
+        <div className="flex gap-1.5">
+          <input
+            value={draft} onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
+            placeholder="Add: employee ID or work email" className={inputCls}
+          />
+          <button type="button" onClick={add} disabled={!draft.trim()} className="bg-ledger-800 text-manila px-3 rounded-sm text-xs font-semibold disabled:opacity-40 whitespace-nowrap">Add</button>
+          {(edit !== undefined || row.custom) && (
+            <button type="button" onClick={() => onEdit(edit === "reset" ? undefined : "reset")} className="text-xs text-ink/60 hover:text-ink whitespace-nowrap px-1">
+              {edit === "reset" ? "Undo reset" : "Reset"}
+            </button>
+          )}
+        </div>
+        {edit === "reset" && <p className="text-[11px] text-ink/50 mt-0.5">Goes back to the standing owners when you save.</p>}
+      </div>
+    </div>
+  );
+}
+
+function OwnersEditor({ rows, values, onChange }) {
+  return (
+    <div className="space-y-2.5">
+      {rows.map((r) => (
+        <OwnerRow
+          key={r.row_department} row={r} edit={values[r.row_department]}
+          onEdit={(v) => { const next = { ...values }; if (v === undefined) delete next[r.row_department]; else next[r.row_department] = v; onChange(next); }}
+        />
+      ))}
+    </div>
+  );
+}
+
+const ownersPayload = (values) =>
+  Object.entries(values).map(([row_department, v]) =>
+    v === "reset" ? { row_department, revert: true } : { row_department, owners: v.map((o) => o.ref) });
+
+function SignoffOwnersSection({ exitId }) {
+  const [rows, setRows] = useState(null);
+  const [values, setValues] = useState({});
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+  const load = () => api.get(`/api/exit-records/${exitId}/signers`).then(({ data }) => { setRows(data.rows); setValues({}); }).catch(() => setRows([]));
+  useEffect(() => { load(); }, [exitId]);
+  if (!rows) return null;
+  const save = async () => {
+    setBusy(true); setMsg("");
+    try {
+      const { data } = await api.put(`/api/exit-records/${exitId}/signers`, { signers: ownersPayload(values) });
+      setRows(data.rows); setValues({});
+      setMsg(data.emailed ? `Saved. ${data.emailed} newly named signer(s) emailed; it now shows in their console with a pop-up.` : "Saved.");
+    } catch (err) {
+      setMsg(err.response?.data?.detail || "Could not save");
+    } finally { setBusy(false); }
+  };
+  return (
+    <div className="bg-paper rounded-sm shadow-card p-5 mb-6">
+      <p className="font-display text-lg text-ink mb-1">Who signs off this exit</p>
+      <p className="text-xs text-ink/60 mb-4">Add or remove signers for any row of this exit only. Anyone newly added is emailed straight away and the sign-off appears in their console with a pop-up.</p>
+      <OwnersEditor rows={rows} values={values} onChange={setValues} />
+      <div className="flex items-center gap-3 mt-4">
+        <button onClick={save} disabled={busy || !Object.keys(values).length} className="bg-ledger-800 text-manila px-4 py-2 rounded-sm text-xs font-semibold hover:bg-ledger-700 disabled:opacity-40">{busy ? "Saving…" : "Save sign-off owners"}</button>
+        {msg && <span className="text-xs text-ink/70">{msg}</span>}
+      </div>
+    </div>
+  );
+}
+
 function ExitDetail({ id }) {
   const confirm = useConfirm();
   const [record, setRecord] = useState(null);
@@ -236,6 +333,7 @@ function ExitDetail({ id }) {
         </table>
       </div>
 
+      {record.status !== "completed" && <SignoffOwnersSection exitId={record.id} />}
       <AssetSection record={record} onUpdated={(updated) => setRecord(updated)} />
       <InterviewSection record={record} />
 
@@ -275,6 +373,12 @@ function InitiateExitModal({ onClose, onCreated, initial = null }) {
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [ownerRows, setOwnerRows] = useState([]);
+  const [ownerValues, setOwnerValues] = useState({});
+  useEffect(() => {
+    if (!employeeId) { setOwnerRows([]); return; }
+    api.get("/api/exit-records/signers/preview", { params: { employee_id: employeeId } }).then(({ data }) => { setOwnerRows(data.rows); setOwnerValues({}); }).catch(() => setOwnerRows([]));
+  }, [employeeId]);
 
   useEffect(() => {
     api.get("/api/employees", { params: { lite: true } }).then(({ data }) => {
@@ -301,6 +405,7 @@ function InitiateExitModal({ onClose, onCreated, initial = null }) {
     try {
       const { data } = await api.post("/api/exit-records", {
         employee_id: employeeId, resignation_date: resignationDate, last_working_day: lastWorkingDay,
+        signers: ownersPayload(ownerValues),
       });
       onCreated(data.id);
     } catch (err) {
@@ -312,7 +417,7 @@ function InitiateExitModal({ onClose, onCreated, initial = null }) {
 
   return (
     <div className="fixed inset-0 bg-ledger-900/60 flex items-center justify-center px-4 z-50">
-      <div className="bg-paper rounded-sm shadow-stamp w-full max-w-md p-6 border-t-4 border-jade-500">
+      <div className="bg-paper rounded-sm shadow-stamp w-full max-w-xl max-h-[92vh] overflow-y-auto p-6 border-t-4 border-jade-500">
         <p className="font-display text-lg text-ink mb-5">Initiate Exit</p>
         <form onSubmit={submit} className="space-y-4">
           <div>
@@ -354,6 +459,13 @@ function InitiateExitModal({ onClose, onCreated, initial = null }) {
               <input type="date" required className={`${inputCls} font-nums`} value={lastWorkingDay} onChange={(e) => setLastWorkingDay(e.target.value)} />
             </div>
           </div>
+          {ownerRows.length > 0 && (
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Who signs off each row</label>
+              <p className="text-[11px] text-ink/55 mb-2">Prefilled with the standing owners. Remove anyone or add others by employee ID or work email, for this exit only. They are emailed today and it appears in their console.</p>
+              <div className="max-h-56 overflow-y-auto pr-1"><OwnersEditor rows={ownerRows} values={ownerValues} onChange={setOwnerValues} /></div>
+            </div>
+          )}
           {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
           <div className="flex justify-end gap-3 pt-1">
             <button type="button" onClick={onClose} className="text-sm text-ink/70 hover:text-ink px-2">Cancel</button>

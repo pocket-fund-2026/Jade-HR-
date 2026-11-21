@@ -206,13 +206,27 @@ function buildRemark(d) {
   // HR's typed Remarks (Attendance Sheet) always win over the computed value.
   if (typeof d.remark_manual === "string" && d.remark_manual.trim()) return d.remark_manual.trim();
   if (missedPunch(d)) return ""; // entered manually
-  if (d.status === "future" || !d.status) return "";
-  // Just the number: what fraction of the day's pay is paid. 1 = full day,
-  // 0.75 / 0.5 / 0.25 = partial, 0 = nothing (absent, unpaid leave).
+  const paid = dayPaidFraction(d);
+  return paid === null ? "" : String(paid);
+}
+
+// What fraction of the day's pay is paid. 1 = full day, 0.75 / 0.5 / 0.25 =
+// partial, 0 = nothing (absent, unpaid leave). null when it can't be told
+// (future day, or a one-punch day HR must fill in by hand). Ignores HR's
+// typed remark: that is free text, this is the number the Total adds up.
+export function dayPaidFraction(d) {
+  if (!d || d.status === "future" || !d.status || missedPunch(d)) return null;
   let deducted = Number(d.lop_days) || 0;
   if (d.status === "absent" || (d.status === "leave" && d.leave_type === "unpaid")) deducted += 1;
   else if (d.status === "half_day" || d.status === "wfh") deducted += 0.5;
-  return String(Number(Math.min(1, Math.max(0, 1 - deducted)).toFixed(2)));
+  return Number(Math.min(1, Math.max(0, 1 - deducted)).toFixed(2));
+}
+
+// Total attendance for the row: the paid fractions of every day, summed
+// (weekoffs and holidays count as 1, like their per-day remark).
+export function totalPaidDays(daily) {
+  const total = (daily || []).reduce((sum, d) => sum + (dayPaidFraction(d) ?? 0), 0);
+  return Number(total.toFixed(2));
 }
 
 export function dayNumber(iso) {
@@ -304,7 +318,7 @@ export async function exportAttendanceExcel(rows, year, month, rangeLabel) {
     const n = dayNumber(d.date);
     header.push(`${n} In`, `${n} Out`, `${n} Status`, `${n} Remarks`);
   }
-  header.push("Present", "Absent", "Leave", "Weekoff", "Holiday", "Late");
+  header.push("Present", "Absent", "Leave", "Weekoff", "Holiday", "Late", "Total Attendance");
   styleHeaderRow(ws.addRow(header));
 
   for (const r of rows) {
@@ -318,7 +332,7 @@ export async function exportAttendanceExcel(rows, year, month, rangeLabel) {
       );
     }
     const s = summarize((r.daily || []));
-    values.push(s.present, s.absent, s.leave, s.weekoff, s.holiday, s.late);
+    values.push(s.present, s.absent, s.leave, s.weekoff, s.holiday, s.late, totalPaidDays(r.daily));
     const row = ws.addRow(values);
 
     (r.daily || []).forEach((d, i) => {

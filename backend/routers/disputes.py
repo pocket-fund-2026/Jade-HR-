@@ -90,7 +90,7 @@ def my_disputes(user: dict = Depends(get_current_user)):
 @router.get("/disputes")
 def list_disputes(status: str | None = Query(None), admin: dict = Depends(require_permission("disputes.manage"))):
     query = supabase.table("hr_attendance_disputes").select(
-        "*, hr_employees!hr_attendance_disputes_employee_id_fkey(first_name,last_name,employee_code,location)"
+        "*, hr_employees!hr_attendance_disputes_employee_id_fkey(first_name,last_name,employee_code,location,department)"
     )
     if status:
         query = query.eq("status", status)
@@ -184,7 +184,7 @@ def team_disputes(status: str | None = Query(None), user: dict = Depends(get_cur
     if not report_ids:
         return []
     query = supabase.table("hr_attendance_disputes").select(
-        "*, hr_employees!hr_attendance_disputes_employee_id_fkey(first_name,last_name,employee_code,location)"
+        "*, hr_employees!hr_attendance_disputes_employee_id_fkey(first_name,last_name,employee_code,location,department)"
     ).in_("employee_id", report_ids)
     if status:
         query = query.eq("status", status)

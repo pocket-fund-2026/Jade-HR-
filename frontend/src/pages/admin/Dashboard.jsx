@@ -1,3 +1,4 @@
+import LettersAwaitingSignature from "../../components/LettersAwaitingSignature.jsx";
 import { Award, Cake, CalendarPlus, Clock, FileSpreadsheet, LogOut, ShieldAlert, UserCheck, X } from "lucide-react";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
@@ -328,6 +329,7 @@ export default function Dashboard() {
   return (
     <div>
       <OfferNotices />
+      <LettersAwaitingSignature />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-1">
         <h2 className="font-display text-2xl text-ink">Dashboard</h2>
         <div className="flex flex-wrap items-center gap-3">
