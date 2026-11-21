@@ -1,4 +1,4 @@
-import { Network, RefreshCw, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
+import { Copy, Network, RefreshCw, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
@@ -64,6 +64,38 @@ const CHART_CSS = `
 .oc-foot{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-top:6px}
 .oc-tog{position:absolute;left:50%;bottom:-11px;transform:translateX(-50%);width:22px;height:22px;border-radius:50%;border:1.5px solid rgba(60,60,60,.35);background:#fff;font-size:10px;font-weight:600;cursor:pointer;z-index:2;line-height:1}
 `;
+
+// Mermaid export in the org-chart skill format: solid = reports to, dotted = leave approver who is not the manager.
+function toMermaid(rows) {
+  const ids = new Set(rows.map((r) => r.employee_id));
+  const clean = (s) => String(s || "").replace(/[^A-Za-z0-9 .&\/-]/g, "").trim();
+  const nid = (id) => "n" + String(id).replace(/[^A-Za-z0-9]/g, "").slice(0, 12);
+  const out = ["flowchart TD", "    CH[Nehal Sir - Chairman]"];
+  const unplaced = [];
+  for (const r of rows) out.push(`    ${nid(r.employee_id)}[${clean(r.name)}${r.designation ? " - " + clean(r.designation) : ""}]`);
+  for (const r of rows) {
+    const me = nid(r.employee_id);
+    if (r.reporting_manager_id && ids.has(r.reporting_manager_id)) out.push(`    ${nid(r.reporting_manager_id)} --> ${me}`);
+    else if (r.top_of_org) out.push(`    CH --> ${me}`);
+    else unplaced.push(r.name);
+    if (r.leave_approver_id && ids.has(r.leave_approver_id) && r.leave_approver_id !== r.reporting_manager_id && r.leave_approver_id !== r.employee_id)
+      out.push(`    ${nid(r.leave_approver_id)} -.leave approver.-> ${me}`);
+  }
+  if (unplaced.length) out.push(`    %% ${unplaced.length} people have no linked manager and are not drawn as reports`);
+  return out.join("\n");
+}
+
+function insights(rows) {
+  const ids = new Set(rows.map((r) => r.employee_id));
+  const team = {};
+  for (const r of rows) if (r.reporting_manager_id && ids.has(r.reporting_manager_id)) (team[r.reporting_manager_id] ||= []).push(r);
+  const by = Object.fromEntries(rows.map((r) => [r.employee_id, r]));
+  const spans = Object.entries(team).map(([id, t]) => ({ name: by[id].name, n: t.length })).sort((a, b) => b.n - a.n);
+  const managers = spans.length;
+  const unplaced = rows.filter((r) => !r.reporting_manager_id && !r.top_of_org && !r.reporting_manager).length;
+  const matrix = rows.filter((r) => r.leave_approver_id && r.leave_approver_id !== r.reporting_manager_id && ids.has(r.leave_approver_id)).length;
+  return { spans, managers, unplaced, matrix, avg: managers ? (rows.filter((r) => r.reporting_manager_id && ids.has(r.reporting_manager_id)).length / managers).toFixed(1) : 0 };
+}
 
 function Card({ row, count, open, onToggle }) {
   const chair = row.chair;
@@ -219,6 +251,14 @@ export default function OrgChart() {
     return () => window.removeEventListener("resize", measure);
   }, [collapsed, kids, view, fit, rows]);
 
+  const ins = useMemo(() => insights(rows), [rows]);
+  const [copied, setCopied] = useState(false);
+  const copyMermaid = async () => {
+    await navigator.clipboard.writeText("```mermaid\n" + toMermaid(rows) + "\n```");
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const downloadGaps = () => {
     const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
     const gaps = rows.filter((r) => (!r.reporting_manager && !r.top_of_org) || !r.designation || r.name_pending);
@@ -274,6 +314,9 @@ export default function OrgChart() {
               </button>
             </div>
           )}
+          <button onClick={copyMermaid} className={`${selectCls} flex items-center gap-1`} title="Copy the chart as Mermaid (solid = reports to, dotted = leave approver)">
+            <Copy size={14} /> {copied ? "Copied" : "Mermaid"}
+          </button>
           <button onClick={load} className={`${selectCls} flex items-center gap-1`} title="Refresh"><RefreshCw size={14} className={loading ? "animate-spin" : ""} /></button>
         </div>
       </div>
@@ -290,6 +333,15 @@ export default function OrgChart() {
           <button onClick={downloadGaps} className="underline mr-2">Download missing-data list</button>
           Gaps in this view: {data.data_gaps.name_pending} still named by biometric code only, {data.data_gaps.no_reporting_manager} without a reporting manager, {data.data_gaps.manager_not_linked} with a manager name that isn't linked to an employee record, {data.data_gaps.no_designation} without a designation.
         </p>
+      )}
+
+      {rows.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-4 text-sm">
+          <div className="bg-paper rounded-sm shadow-card p-3"><div className="text-xs text-ink/50">Managers</div><b className="text-lg">{ins.managers}</b> <span className="text-ink/60">avg span {ins.avg}</span></div>
+          <div className="bg-paper rounded-sm shadow-card p-3"><div className="text-xs text-ink/50">Widest spans</div>{ins.spans.slice(0, 3).map((s) => <div key={s.name} className={s.n > 15 ? "text-rust-500" : ""}>{s.name} · {s.n}</div>)}</div>
+          <div className="bg-paper rounded-sm shadow-card p-3"><div className="text-xs text-ink/50">No manager on record</div><b className="text-lg">{ins.unplaced}</b> <span className="text-ink/60">grouped by location</span></div>
+          <div className="bg-paper rounded-sm shadow-card p-3"><div className="text-xs text-ink/50">Dotted line (leave approver differs)</div><b className="text-lg">{ins.matrix}</b></div>
+        </div>
       )}
 
       <div className="bg-paper rounded-sm shadow-card p-5 overflow-x-auto">

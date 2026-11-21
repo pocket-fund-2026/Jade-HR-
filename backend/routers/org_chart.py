@@ -151,6 +151,7 @@ def org_chart(
             "location": e.get("location") or "",
             "reporting_manager_id": manager_id,
             "reporting_manager": manager_name,
+            "leave_approver_id": e.get("leave_approver_id"),
             "status": status,
             "confirmation_date": p.get("confirmation_date"),
             "resignation_date": resignation_date,
