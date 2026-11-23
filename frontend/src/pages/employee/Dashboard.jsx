@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import AbsenceRequestModal from "../../components/AbsenceRequestModal.jsx";
+import AppealModal from "../../components/AppealModal.jsx";
 import DisputeModal from "../../components/DisputeModal.jsx";
 import ExitAssetsModal from "../../components/ExitAssetsModal.jsx";
 import ExitInterviewModal from "../../components/ExitInterviewModal.jsx";
@@ -55,6 +56,7 @@ export default function Dashboard() {
   const [holidays, setHolidays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [disputeDate, setDisputeDate] = useState(null);
+  const [appealing, setAppealing] = useState(null);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showAbsenceModal, setShowAbsenceModal] = useState(false);
   const [showWfhModal, setShowWfhModal] = useState(false);
@@ -433,6 +435,7 @@ export default function Dashboard() {
                     <tr key={d.id} className="border-t border-ink/[0.06]">
                       <td className="px-5 py-3 font-nums text-ink/70 w-28">{formatDate(d.date)}</td>
                       <td className="px-5 py-3 text-ink/70">
+                        {d.appeal_of && <span className="mr-1.5 text-[10px] font-semibold uppercase tracking-wide text-ochre-700">Appeal</span>}
                         {d.reason}
                         {d.photo_url && (
                           <a href={d.photo_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-jade-700 hover:underline mt-1">
@@ -443,6 +446,9 @@ export default function Dashboard() {
                       <td className="px-5 py-3">
                         <StampBadge status={d.status}>{d.status}</StampBadge>
                         {d.admin_note && <div className="text-xs text-ink/70 mt-1">{d.admin_note}</div>}
+                        {d.status === "rejected" && !d.appeal_of && !disputes.some((x) => x.appeal_of === d.id) && (
+                          <button onClick={() => setAppealing(d)} className="block text-xs font-semibold text-jade-700 hover:underline mt-1">Appeal</button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -544,6 +550,7 @@ export default function Dashboard() {
         </div>
       )}
 
+      {appealing && <AppealModal dispute={appealing} onClose={() => setAppealing(null)} onSubmitted={() => { setAppealing(null); load(); }} />}
       {disputeDate && (
         <DisputeModal
           date={disputeDate}

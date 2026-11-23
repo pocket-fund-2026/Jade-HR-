@@ -2,6 +2,7 @@ import base64
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 
 from idempotency import find_recent_duplicate
 from auth import get_current_user, my_report_ids, require_permission
@@ -75,6 +76,61 @@ def create_dispute(body: DisputeCreate, user: dict = Depends(get_current_user)):
     return inserted.data[0]
 
 
+class AppealCreate(BaseModel):
+    reason: str
+
+
+@router.post("/me/disputes/{dispute_id}/appeal")
+def appeal_dispute(dispute_id: str, body: AppealCreate, user: dict = Depends(get_current_user)):
+    """One appeal per rejected dispute, raised by the employee who filed it —
+    available to every login (employee, manager, HR, accounts). It becomes a
+    new pending dispute for the same day, linked by appeal_of, and must be
+    settled by someone other than whoever rejected the original (see _settle)."""
+    if not body.reason.strip():
+        raise HTTPException(status_code=400, detail="Please explain why you are appealing")
+    original = maybe_single_data(
+        supabase.table("hr_attendance_disputes").select("*").eq("id", dispute_id).maybe_single().execute()
+    )
+    if not original or original["employee_id"] != user["id"]:
+        raise HTTPException(status_code=404, detail="Dispute not found")
+    if original.get("appeal_of"):
+        raise HTTPException(status_code=400, detail="An appeal cannot itself be appealed")
+    if original["status"] != "rejected":
+        raise HTTPException(status_code=400, detail="Only a rejected dispute can be appealed")
+    existing = supabase.table("hr_attendance_disputes").select("id").eq("appeal_of", dispute_id).limit(1).execute().data
+    if existing:
+        raise HTTPException(status_code=409, detail="You have already appealed this dispute")
+    inserted = supabase.table("hr_attendance_disputes").insert({
+        "employee_id": user["id"],
+        "date": original["date"],
+        "issue_type": original["issue_type"],
+        "claimed_in": original.get("claimed_in"),
+        "claimed_out": original.get("claimed_out"),
+        "reason": body.reason.strip(),
+        "photo_path": original.get("photo_path"),
+        "photo_filename": original.get("photo_filename"),
+        "appeal_of": dispute_id,
+    }).execute()
+    record_step("dispute", inserted.data[0]["id"], "appealed", user, employee_id=user["id"],
+                basis={"date": original["date"], "appeal_of": dispute_id}, note=body.reason.strip())
+    return inserted.data[0]
+
+
+def _attach_appeal_context(rows: list[dict]) -> None:
+    """For appeal rows, attach the original rejection's note and who rejected it."""
+    ids = list({r["appeal_of"] for r in rows if r.get("appeal_of")})
+    if not ids:
+        return
+    originals = supabase.table("hr_attendance_disputes").select("id,admin_note,resolved_by_role,reason").in_("id", ids).execute().data
+    by_id = {o["id"]: o for o in originals}
+    for r in rows:
+        o = by_id.get(r.get("appeal_of"))
+        if o:
+            r["appeal_original_note"] = o.get("admin_note")
+            r["appeal_original_by"] = o.get("resolved_by_role")
+            r["appeal_original_reason"] = o.get("reason")
+
+
 @router.get("/me/disputes")
 def my_disputes(user: dict = Depends(get_current_user)):
     resp = (
@@ -101,6 +157,7 @@ def list_disputes(status: str | None = Query(None), admin: dict = Depends(requir
     urls = _signed_urls([r.get("photo_path") for r in resp.data])
     for r in resp.data:
         r["photo_url"] = urls.get(r.get("photo_path"))
+    _attach_appeal_context(resp.data)
     return resp.data
 
 
@@ -113,6 +170,14 @@ def _settle(dispute_id: str, body: DisputeResolve, actor: dict, role: str, allow
     dispute = maybe_single_data(supabase.table("hr_attendance_disputes").select("*").eq("id", dispute_id).maybe_single().execute())
     if not dispute:
         raise HTTPException(status_code=404, detail="Dispute not found")
+    if dispute["employee_id"] == actor["id"]:
+        raise HTTPException(status_code=403, detail="You cannot settle your own dispute — another reviewer must")
+    if dispute.get("appeal_of"):
+        original = maybe_single_data(
+            supabase.table("hr_attendance_disputes").select("resolved_by").eq("id", dispute["appeal_of"]).maybe_single().execute()
+        ) or {}
+        if original.get("resolved_by") == actor["id"]:
+            raise HTTPException(status_code=403, detail="An appeal must be reviewed by someone other than who rejected the original")
     if allowed_employee_ids is not None and (dispute["employee_id"] not in allowed_employee_ids or dispute["employee_id"] == actor["id"]):
         raise HTTPException(status_code=403, detail="This dispute is not from someone who reports to you")
     if body.action not in ("approve", "reject"):
@@ -197,6 +262,7 @@ def team_disputes(status: str | None = Query(None), user: dict = Depends(get_cur
     urls = _signed_urls([r.get("photo_path") for r in rows])
     for r in rows:
         r["photo_url"] = urls.get(r.get("photo_path"))
+    _attach_appeal_context(rows)
     return rows
 
 
@@ -231,6 +297,21 @@ def upsert_attendance_override(
         basis={"date": override_row["date"], "status_override": body.status_override,
                "source": body.verification_source},
         note=body.note or "",
+    )
+    return {"ok": True}
+
+
+@router.delete("/attendance-overrides/{employee_id}/{day}")
+def delete_attendance_override(
+    employee_id: str, day: str, admin: dict = Depends(require_permission("disputes.manage"))
+):
+    """Clears a manual correction so the day reverts to biometric/leave data —
+    used when HR applies a Comp-Off from the Attendance Sheet (an override
+    would otherwise outrank the approved leave)."""
+    supabase.table("hr_attendance_overrides").delete().eq("employee_id", employee_id).eq("date", day).execute()
+    record_step(
+        "attendance_override", f"{employee_id}:{day}", "cleared", admin, employee_id=employee_id,
+        basis={"date": day}, note="Correction cleared to apply Comp-Off",
     )
     return {"ok": True}
 

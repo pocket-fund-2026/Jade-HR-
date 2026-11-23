@@ -38,6 +38,7 @@ function cellTitle(d) {
 }
 
 function EditCellModal({ employee, day, onClose, onSaved, canCorrect }) {
+  const { can } = useAuth();
   const [remark, setRemark] = useState(day.remark_manual || "");
   const [remarkBusy, setRemarkBusy] = useState(false);
   const [statusOverride, setStatusOverride] = useState(day.status === "absent" || day.status === "half_day" ? day.status : "present");
@@ -59,6 +60,27 @@ function EditCellModal({ employee, day, onClose, onSaved, canCorrect }) {
     setError("");
     setBusy(true);
     try {
+      if (statusOverride === "comp_off") {
+        // Clear any manual correction first (it would outrank the leave), then
+        // file the Comp-Off for this person and approve it in one step, so it
+        // draws down their comp-off balance and shows as CO on the sheet.
+        await api.delete(`/api/attendance-overrides/${employee.employee_id}/${day.date}`);
+        const { data: created } = await api.post("/api/me/leave-requests", {
+          employee_id: employee.employee_id, leave_type: "comp_off",
+          start_date: day.date, end_date: day.date,
+          reason: note || "Comp-Off applied from the Attendance Sheet",
+        });
+        try {
+          await api.put(`/api/leave-requests/${created.id}`, { action: "approve", admin_note: note });
+        } catch (err) {
+          setError(`Comp-Off filed but not approved yet — approve it on the Leave page. ${err.response?.data?.detail || ""}`);
+          setBusy(false);
+          onSaved();
+          return;
+        }
+        onSaved();
+        return;
+      }
       await api.put(`/api/attendance-overrides/${employee.employee_id}`, {
         date: day.date,
         status_override: statusOverride,
@@ -110,6 +132,7 @@ function EditCellModal({ employee, day, onClose, onSaved, canCorrect }) {
               <option value="present">Present</option>
               <option value="half_day">Half Day</option>
               <option value="absent">Absent</option>
+              {can("leave.manage") && <option value="comp_off">Comp-Off (uses their comp-off balance)</option>}
             </select>
           </div>
           {statusOverride === "present" && (

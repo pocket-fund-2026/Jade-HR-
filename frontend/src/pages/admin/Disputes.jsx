@@ -2,6 +2,7 @@ import { Check, Paperclip, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 
+import { useAuth } from "../../lib/auth.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
 import { formatDate } from "../../lib/format.js";
@@ -39,6 +40,8 @@ function ResolveRow({ dispute, onResolved }) {
   };
 
   const employee = dispute.hr_employees;
+  const { user } = useAuth();
+  const isOwn = dispute.employee_id === user?.id;
 
   return (
     <tr className="border-b border-ink/[0.06] last:border-0 align-top">
@@ -51,6 +54,9 @@ function ResolveRow({ dispute, onResolved }) {
       <td className="px-5 py-3.5 max-w-xs">
         <p className="text-ink/70">{dispute.reason}</p>
         <p className="text-xs text-ink/70 mt-0.5 uppercase tracking-wide">{dispute.issue_type.replace(/_/g, " ")}</p>
+        {dispute.appeal_of && (
+          <p className="text-xs text-ochre-700 mt-1"><strong>APPEAL</strong> of a rejection{dispute.appeal_original_by ? ` by ${dispute.appeal_original_by}` : ""}{dispute.appeal_original_note ? `: "${dispute.appeal_original_note}"` : ""}</p>
+        )}
         {dispute.photo_url && (
           <a href={dispute.photo_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-jade-700 hover:underline mt-1">
             <Paperclip size={11} /> {dispute.photo_filename || "Photo"}
@@ -76,6 +82,9 @@ function ResolveRow({ dispute, onResolved }) {
         </div>
       </td>
       <td className="px-5 py-3.5">
+        {isOwn ? (
+          <p className="text-xs text-ink/70 max-w-[11rem]">Your own dispute. Another reviewer has to settle it.</p>
+        ) : (
         <div className="flex gap-2">
           <button
             disabled={busy}
@@ -92,6 +101,7 @@ function ResolveRow({ dispute, onResolved }) {
             <X size={13} /> Reject
           </button>
         </div>
+        )}
       </td>
     </tr>
   );

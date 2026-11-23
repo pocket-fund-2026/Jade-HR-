@@ -50,6 +50,9 @@ function ResolveRow({ dispute, onResolved }) {
       <td className="px-5 py-3.5 max-w-xs">
         <p className="text-ink/70">{dispute.reason}</p>
         <p className="text-xs text-ink/70 mt-0.5 uppercase tracking-wide">{dispute.issue_type.replace(/_/g, " ")}</p>
+        {dispute.appeal_of && (
+          <p className="text-xs text-ochre-700 mt-1"><strong>APPEAL</strong> of a rejection{dispute.appeal_original_by ? ` by ${dispute.appeal_original_by}` : ""}{dispute.appeal_original_note ? `: "${dispute.appeal_original_note}"` : ""}</p>
+        )}
         {dispute.photo_url && (
           <a href={dispute.photo_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-jade-700 hover:underline mt-1">
             <Paperclip size={11} /> {dispute.photo_filename || "Photo"}

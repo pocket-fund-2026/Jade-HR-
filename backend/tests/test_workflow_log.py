@@ -191,3 +191,39 @@ def test_already_applied_quarter_card_is_not_logged_twice(monkeypatch):
     row = {"employee_id": "e1", "name": "A", "employee_code": "C1", "months": []}
     out = late_policy._forfeit_paid_leave(row, "2026-27", 3, date(2026, 12, 22), {"id": "h1", "role": "hr"})
     assert out["status"] == "already_applied" and db.events == []
+
+
+def _dispute_db(monkeypatch, row, extra=None):
+    from routers import disputes
+
+    db = RecordingDB({"hr_attendance_disputes": row, **(extra or {})})
+    monkeypatch.setattr(disputes, "supabase", db)
+    monkeypatch.setattr(workflow_log, "supabase", db)
+    return disputes
+
+
+def test_nobody_can_settle_their_own_dispute(monkeypatch):
+    import pytest
+    from fastapi import HTTPException
+
+    row = {"id": "D1", "employee_id": "laki", "date": "2026-11-10", "issue_type": "late_coming",
+           "reason": "r", "status": "pending"}
+    disputes = _dispute_db(monkeypatch, row)
+    with pytest.raises(HTTPException) as e:
+        disputes._settle("D1", disputes.DisputeResolve(action="approve"), {"id": "laki", "role": "hr"}, "hr")
+    assert e.value.status_code == 403
+
+
+def test_appeal_cannot_be_settled_by_who_rejected_the_original(monkeypatch):
+    import pytest
+    from fastapi import HTTPException
+
+    row = {"id": "A1", "employee_id": "laki", "date": "2026-11-10", "issue_type": "late_coming",
+           "reason": "appeal", "status": "pending", "appeal_of": "D1"}
+    disputes = _dispute_db(monkeypatch, row)
+    # Same fake returns `row` for every select, so give it the original's resolver too.
+    row["resolved_by"] = "hr1"
+    with pytest.raises(HTTPException) as e:
+        disputes._settle("A1", disputes.DisputeResolve(action="approve"), {"id": "hr1", "role": "hr"}, "hr")
+    assert e.value.status_code == 403
+    disputes._settle("A1", disputes.DisputeResolve(action="reject", admin_note="x"), {"id": "hr2", "role": "hr"}, "hr")

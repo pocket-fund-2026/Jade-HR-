@@ -85,6 +85,7 @@ const Leave = lazyWithReload(() => import("./pages/admin/Leave.jsx"));
 const LeaveEntry = lazyWithReload(() => import("./pages/admin/LeaveEntry.jsx"));
 const MyLeave = lazyWithReload(() => import("./pages/admin/MyLeave.jsx"));
 const MyPayslip = lazyWithReload(() => import("./pages/admin/MyPayslip.jsx"));
+const MyAttendance = lazyWithReload(() => import("./pages/admin/MyAttendance.jsx"));
 const PayslipApprovals = lazyWithReload(() => import("./pages/admin/PayslipApprovals.jsx"));
 const Letters = lazyWithReload(() => import("./pages/admin/Letters.jsx"));
 const EmailLog = lazyWithReload(() => import("./pages/admin/EmailLog.jsx"));
@@ -303,6 +304,7 @@ export default function App() {
             <Route path="team-disputes" element={<TeamDisputes />} />
             <Route path="team-market-visits" element={<TeamMarketVisits />} />
             <Route path="my-leave" element={<MyLeave />} />
+            <Route path="my-attendance" element={<MyAttendance />} />
             <Route path="my-payslip" element={<MyPayslip />} />
             <Route path="payslip-approvals" element={<RequirePermission anyOf={["payslip_approvals.manage"]}><PayslipApprovals /></RequirePermission>} />
             <Route path="letters" element={<RequirePermission anyOf={["letters.generate", "letters.manage"]}><Letters /></RequirePermission>} />
