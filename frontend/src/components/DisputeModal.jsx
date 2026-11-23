@@ -9,11 +9,13 @@ const ISSUE_LABELS = {
   missed_clock_in: "Forgot to clock in",
   missed_clock_out: "Forgot to clock out",
   both: "Forgot to clock in and out",
+  late_coming: "Dispute my late mark",
+  weekly_off: "Dispute Sunday marked absent",
   other: "Something else",
 };
 
-export default function DisputeModal({ date, onClose, onSubmitted }) {
-  const [issueType, setIssueType] = useState("missed_clock_out");
+export default function DisputeModal({ date, onClose, onSubmitted, defaultIssue }) {
+  const [issueType, setIssueType] = useState(defaultIssue || "missed_clock_out");
   const [claimedIn, setClaimedIn] = useState("");
   const [claimedOut, setClaimedOut] = useState("");
   const [reason, setReason] = useState("");
@@ -21,20 +23,24 @@ export default function DisputeModal({ date, onClose, onSubmitted }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const needsIn = issueType === "missed_clock_in" || issueType === "both";
+  const photoOptional = issueType === "late_coming" || issueType === "weekly_off";
+  const needsIn = issueType === "missed_clock_in" || issueType === "both" || issueType === "late_coming";
   const needsOut = issueType === "missed_clock_out" || issueType === "both";
 
   const submit = async (e) => {
     e.preventDefault();
     setError("");
-    if (!photo) {
+    if (!photo && !photoOptional) {
       setError("Please attach a photo of the attendance register as supporting evidence");
       return;
     }
     setBusy(true);
     try {
-      const prepared = await prepareUpload(photo);
-      const { data: uploaded } = await api.post("/api/disputes/upload", prepared);
+      let uploaded = { path: "", filename: null };
+      if (photo) {
+        const prepared = await prepareUpload(photo);
+        uploaded = (await api.post("/api/disputes/upload", prepared)).data;
+      }
       await api.post("/api/me/disputes", {
         date,
         issue_type: issueType,
@@ -76,7 +82,7 @@ export default function DisputeModal({ date, onClose, onSubmitted }) {
             </select>
           </div>
 
-          {(needsIn || needsOut) && (
+          {(needsIn || needsOut) && issueType !== "weekly_off" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {needsIn && (
                 <div>
@@ -118,7 +124,7 @@ export default function DisputeModal({ date, onClose, onSubmitted }) {
 
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">
-              Photo of attendance register <span className="text-rust-500 normal-case font-normal">*Required</span>
+              Photo of attendance register <span className="text-rust-500 normal-case font-normal">{photoOptional ? "(optional)" : "*Required"}</span>
             </label>
             <label className="flex items-center gap-2 w-full rounded-sm border border-dashed border-ink/20 bg-manila/40 px-3 py-2.5 text-sm text-ink/70 cursor-pointer hover:bg-manila/60 transition-colors">
               <Paperclip size={14} />

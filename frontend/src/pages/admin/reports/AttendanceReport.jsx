@@ -33,6 +33,7 @@ function cellTitle(d) {
   }
   if (d.status === "holiday") return d.holiday_description || "Holiday";
   if (d.status === "leave") return `${LEAVE_LABELS[d.leave_type] || "Leave"}${d.leave_type === "comp_off" ? " (from a day already worked)" : ""}`;
+  if (d.weekoff_forfeited) return `Sunday — weekly off not earned (only ${d.weekoff_days_attended ?? 0} day(s) in office the 6 days before; 3 needed)`;
   return d.status;
 }
 
@@ -324,7 +325,7 @@ export default function AttendanceReport() {
                         >
                           <div className="flex flex-col items-center gap-0.5">
                             <span
-                              className={`relative inline-flex items-center justify-center w-7 h-5 rounded-sm font-semibold ${STATUS_CLASS[statusColorKey(d)] || ""}`}
+                              className={`relative inline-flex items-center justify-center min-w-[1.75rem] px-1 whitespace-nowrap h-5 rounded-sm font-semibold ${STATUS_CLASS[statusColorKey(d)] || ""}`}
                             >
                               {dayCode(d)}
                               {d.comp_off_eligible && (

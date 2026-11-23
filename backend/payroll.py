@@ -441,7 +441,7 @@ def _apply_weekly_off_earning_rule(rows: list[dict]) -> None:
     """
     by_date = {date.fromisoformat(r["date"]): r for r in rows}
     for d, row in by_date.items():
-        if row["status"] != "weekoff" or row.get("register_credit") is not None:
+        if row["status"] != "weekoff" or row.get("register_credit") is not None or row.get("corrected"):
             continue
         week_days = [d - timedelta(days=i) for i in range(1, 7)]
         week_rows = [by_date[wd] for wd in week_days if wd in by_date]
@@ -455,6 +455,11 @@ def _apply_weekly_off_earning_rule(rows: list[dict]) -> None:
             continue
         else:
             row["status"] = "absent"
+            # Lets every screen print "Sunday" beside the absent mark so it is
+            # clear this is the unearned weekly off (fewer than 3 days in the
+            # office that week), not an ordinary absence — and disputable.
+            row["weekoff_forfeited"] = True
+            row["weekoff_days_attended"] = sum(1 for r in week_rows if r["status"] in ("present", "wfh"))
 
 
 NOON = time(12, 0)

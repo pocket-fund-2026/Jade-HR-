@@ -401,7 +401,7 @@ export default function Dashboard() {
                           ? `${LEAVE_LABELS[d.leave_type]} leave`
                           : d.status === "holiday"
                           ? d.holiday_description || "holiday"
-                          : d.corrected ? `${d.status} · corrected` : d.status}
+                          : d.weekoff_forfeited ? "absent · Sunday" : d.corrected ? `${d.status} · corrected` : d.status}
                       </StampBadge>
                     </td>
                     <td className="px-5 py-2.5">
@@ -413,7 +413,7 @@ export default function Dashboard() {
                             onClick={() => setDisputeDate(d.date)}
                             className="text-xs text-ink/70 hover:text-ochre-700 flex items-center gap-1 transition-colors"
                           >
-                            <Flag size={12} /> Report issue
+                            <Flag size={12} /> {d.weekoff_forfeited ? "Dispute Sunday" : d.late ? "Dispute late" : "Report issue"}
                           </button>
                         )
                       )}
@@ -547,6 +547,7 @@ export default function Dashboard() {
       {disputeDate && (
         <DisputeModal
           date={disputeDate}
+          defaultIssue={(() => { const x = summary?.daily?.find((r) => r.date === disputeDate); return x?.weekoff_forfeited ? "weekly_off" : x?.late ? "late_coming" : undefined; })()}
           onClose={() => setDisputeDate(null)}
           onSubmitted={() => { setDisputeDate(null); load(); }}
         />

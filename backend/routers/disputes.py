@@ -15,6 +15,7 @@ BUCKET = "dispute-photos"
 # Same limit as the absence/onboarding uploads — comfortably under Vercel's
 # serverless function request-body size limit once base64 inflation is accounted for.
 MAX_UPLOAD_BYTES = 4 * 1024 * 1024
+ISSUE_TYPES = {"missed_clock_in", "missed_clock_out", "both", "late_coming", "weekly_off", "other"}
 
 
 @router.post("/disputes/upload")
@@ -52,6 +53,8 @@ def _signed_urls(paths: list[str | None]) -> dict[str, str | None]:
 
 @router.post("/me/disputes")
 def create_dispute(body: DisputeCreate, user: dict = Depends(get_current_user)):
+    if body.issue_type not in ISSUE_TYPES:
+        raise HTTPException(status_code=400, detail=f"issue_type must be one of {sorted(ISSUE_TYPES)}")
     row = {
         "employee_id": user["id"],
         "date": body.date.isoformat(),
@@ -114,6 +117,8 @@ def _settle(dispute_id: str, body: DisputeResolve, actor: dict, role: str, allow
         raise HTTPException(status_code=403, detail="This dispute is not from someone who reports to you")
     if body.action not in ("approve", "reject"):
         raise HTTPException(status_code=400, detail="action must be 'approve' or 'reject'")
+    if body.status_override not in ("present", "absent", "half_day", "weekoff"):
+        raise HTTPException(status_code=400, detail="status_override must be present, absent, half_day or weekoff")
 
     now = datetime.now(timezone.utc).isoformat()
     claimed = (

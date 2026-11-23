@@ -98,7 +98,7 @@ class BiometricPunch(BaseModel):
 
 class DisputeCreate(BaseModel):
     date: date
-    issue_type: str  # missed_clock_in | missed_clock_out | both | other
+    issue_type: str  # missed_clock_in | missed_clock_out | both | late_coming | weekly_off | other
     claimed_in: Optional[time] = None
     claimed_out: Optional[time] = None
     reason: str
@@ -121,7 +121,7 @@ class DisputeResolve(BaseModel):
     # Admin can adjust the claimed times before approving.
     first_in: Optional[time] = None
     last_out: Optional[time] = None
-    status_override: str = "present"  # present | absent | half_day
+    status_override: str = "present"  # present | absent | half_day | weekoff
 
 
 class AttendanceOverrideUpsert(BaseModel):
@@ -143,7 +143,7 @@ class AttendanceOverrideUpsert(BaseModel):
 class AttendanceImportRow(BaseModel):
     employee_code: str
     date: date
-    status_override: str = "present"  # present | absent | half_day
+    status_override: str = "present"  # present | absent | half_day | weekoff
     first_in: Optional[time] = None
     last_out: Optional[time] = None
     note: str = "Bulk import"

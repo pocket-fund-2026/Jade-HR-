@@ -208,6 +208,8 @@ def test_weekly_off_only_paid_if_earned():
     rows = compute_daily_attendance(2026, 1, [], 8, weekly_off_day=6)
     sunday_row = next(r for r in rows if r["date"] == "2026-01-04")
     assert sunday_row["status"] == "absent"
+    assert sunday_row["weekoff_forfeited"] is True
+    assert sunday_row["weekoff_days_attended"] == 0
 
     # A non-Sunday day with no punches falls back to absent regardless.
     monday_row = next(r for r in rows if r["date"] == "2025-12-29")
@@ -811,3 +813,13 @@ def test_one_bad_employee_does_not_break_whole_payroll(monkeypatch):
     assert "calc_error" not in out[0] and out[0]["basic_rate"] > 0
     assert out[1]["calc_error"] and out[1]["total_payable"] == 0
     assert all(f in out[1] for f in rp.RANGE_SUM_FIELDS)
+
+
+def test_approved_weekoff_override_is_not_forfeited_again():
+    # An approved "Sunday" dispute writes a weekoff override; the earning
+    # rule must not flip it back to absent.
+    overrides = {date(2026, 1, 4): {"status_override": "weekoff", "first_in": None, "last_out": None}}
+    rows = compute_daily_attendance(2026, 1, [], 8, overrides=overrides, weekly_off_day=6)
+    row = next(r for r in rows if r["date"] == "2026-01-04")
+    assert row["status"] == "weekoff"
+    assert not row.get("weekoff_forfeited")

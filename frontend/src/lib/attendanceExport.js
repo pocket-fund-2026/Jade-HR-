@@ -27,6 +27,8 @@ export const LEAVE_TYPE_CODE = {
 export function dayCode(d) {
   if (d.status === "leave") return LEAVE_TYPE_CODE[d.leave_type] || STATUS_CODE.leave;
   if (d.status === "present" && d.worked_on_weekly_off) return "WOP";
+  // Unearned Sunday (<3 days in office that week): absent, but labelled so it is not mistaken for a normal absence.
+  if (d.status === "absent" && d.weekoff_forfeited) return "A (Sun)";
   return STATUS_CODE[d.status] ?? d.status;
 }
 
@@ -348,7 +350,25 @@ async function downloadWorkbook(wb, filename) {
 export async function exportAttendanceExcel(rows, year, month, rangeLabel) {
   const ExcelJS = await loadExcelJS();
   const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet("Attendance");
+  // Master tab with everyone, then one tab per store/location team.
+  const used = new Set();
+  writeAttendanceSheet(wb.addWorksheet(safeSheetName("Master", used)), rows);
+  const byLocation = new Map();
+  for (const r of rows) {
+    const key = (r.location || "").trim() || "Unassigned";
+    if (!byLocation.has(key)) byLocation.set(key, []);
+    byLocation.get(key).push(r);
+  }
+  if (byLocation.size > 1) {
+    for (const key of [...byLocation.keys()].sort((x, y) => x.localeCompare(y))) {
+      writeAttendanceSheet(wb.addWorksheet(safeSheetName(key, used)), byLocation.get(key));
+    }
+  }
+
+  await downloadWorkbook(wb, `jade-hr-attendance-${rangeLabel || `${MONTH_NAMES[month - 1]}-${year}`}.xlsx`);
+}
+
+function writeAttendanceSheet(ws, rows) {
   const days = rows[0]?.daily ?? [];
 
   addLateLegend(ws, { size: 10 }, days);
@@ -405,8 +425,6 @@ export async function exportAttendanceExcel(rows, year, month, rangeLabel) {
   // Freeze the legend + header rows and employee identity columns so all
   // stay in view while scanning across a month's worth of day-groups.
   ws.views = [{ state: "frozen", xSplit: 3, ySplit: 2 }];
-
-  await downloadWorkbook(wb, `jade-hr-attendance-${rangeLabel || `${MONTH_NAMES[month - 1]}-${year}`}.xlsx`);
 }
 
 // 24-hour zero-padded "HH:MM", IST — the biometric-export convention this

@@ -27,7 +27,7 @@ function ResolveRow({ dispute, onResolved }) {
         admin_note: note,
         first_in: firstIn ? `${firstIn}:00` : null,
         last_out: lastOut ? `${lastOut}:00` : null,
-        status_override: "present",
+        status_override: dispute.issue_type === "weekly_off" ? "weekoff" : "present",
       });
       onResolved();
     } catch (err) {
