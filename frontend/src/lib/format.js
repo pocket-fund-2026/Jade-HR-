@@ -122,3 +122,24 @@ export function nextAnniversary(isoDate) {
   if (next < today) next = new Date(today.getFullYear() + 1, month - 1, day);
   return { days: Math.round((next - today) / 86400000), years: next.getFullYear() - joinYear };
 }
+
+// Extra-hours late allowance (2 extra hours earn 1 hour of late arrival the
+// next day). Returns { text, used } for a daily row, or null when the day has
+// no allowance. `used` = they arrived inside it, so no late mark was given.
+export function lateAllowanceInfo(d) {
+  if (!d || !d.late_allowance_minutes) return null;
+  const [h, m] = String(d.late_allowance_until || "").split(":").map(Number);
+  const until = Number.isFinite(h)
+    ? `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h >= 12 ? "pm" : "am"}`
+    : "";
+  const mins = d.late_allowance_minutes;
+  const span = mins >= 60 ? `${Math.floor(mins / 60)}h${mins % 60 ? ` ${mins % 60}m` : ""}` : `${mins}m`;
+  const used = !!d.late_excused_by_extra_hours;
+  return {
+    used,
+    text: used
+      ? `Late allowed (${d.late_minutes_excused} min) — extra hours worked yesterday earned ${span}, until ${until}`
+      : `Extra hours yesterday earn ${span} late allowance, until ${until}`,
+    short: used ? "Allowed · extra hrs" : `Allowed till ${until}`,
+  };
+}

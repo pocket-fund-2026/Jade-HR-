@@ -9,7 +9,7 @@ import api from "../../../lib/api.js";
 import { useAuth } from "../../../lib/auth.jsx";
 import { LEAVE_LABELS } from "../../../lib/leaveTypes.js";
 import { dayCode, dayNumber, dayRemark, parseRemarkNumber, totalPaidDays, exportAttendanceExcel, isWop, missedPunch, exportAttendanceTimingsExcel, statusColorKey, summarize } from "../../../lib/attendanceExport.js";
-import { formatHoursMins, formatTime } from "../../../lib/format.js";
+import { formatHoursMins, formatTime, lateAllowanceInfo } from "../../../lib/format.js";
 
 const today = new Date();
 
@@ -25,7 +25,8 @@ const STATUS_CLASS = {
 
 function cellTitle(d) {
   if (d.status === "present") {
-    const late = d.late ? " (late)" : "";
+    const la = lateAllowanceInfo(d);
+    const late = d.late ? " (late)" : la ? ` (${la.text})` : "";
     const wop = d.worked_on_weekly_off
       ? ` — worked their weekly off${d.comp_off_eligible ? " (Comp-Off eligible)" : ""}`
       : "";
@@ -353,6 +354,9 @@ export default function AttendanceReport() {
                               {dayCode(d)}
                               {d.comp_off_eligible && (
                                 <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-jade-500 ring-1 ring-paper" />
+                              )}
+                              {lateAllowanceInfo(d) && (
+                                <span title={lateAllowanceInfo(d).text} className={`absolute -top-1 -left-1 w-2 h-2 rounded-full ring-1 ring-paper ${lateAllowanceInfo(d).used ? "bg-jade-600" : "bg-ochre-500"}`} />
                               )}
                               {d.remark_manual && (
                                 <span className="absolute -bottom-1 -right-1 w-2 h-2 rounded-full bg-ochre-500 ring-1 ring-paper" />

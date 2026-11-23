@@ -355,6 +355,32 @@ def _apply_override(
     }
 
 
+# Extra-hours late allowance (HR, 23 Nov 2026): working past the shift one day
+# buys time the next morning at 2:1 — every 2 hours of extra work allows 1 hour
+# of late arrival. 2h30m extra -> 1h15m allowed. It is not banked: it covers
+# only the very next working day, and a late arrival inside it is not a late
+# mark. Arriving later than the allowance still counts as late as usual.
+EXTRA_HOURS_PER_ALLOWED_HOUR = 2.0
+
+
+def _extra_hours_late_allowance_minutes(
+    prev_row: dict | None, d: date, weekly_off_day: int, time_slot: str | None, holidays: dict,
+) -> int:
+    # Only for an assigned shift: its extra time is counted from the shift end.
+    # With no/unknown slot, "OT" is measured against a generic 8h day and would
+    # hand out phantom allowances to anyone working a normal 9h day.
+    if time_slot == FLEXIBLE_TIME_SLOT or _slot_times(time_slot) is None or d.weekday() == weekly_off_day:
+        return 0
+    if not prev_row or prev_row.get("date") != (d - timedelta(days=1)).isoformat():
+        return 0
+    if prev_row.get("status") != "present" or prev_row.get("worked_on_weekly_off"):
+        return 0
+    if (d - timedelta(days=1)) in holidays:
+        return 0
+    extra = float(prev_row.get("ot_hours") or 0.0)
+    return int(extra * 60 / EXTRA_HOURS_PER_ALLOWED_HOUR)
+
+
 def _midnight_crossing_dates(by_day: dict[date, list[datetime]]) -> set[date]:
     """Dates whose shift extended past midnight into the next calendar
     date's punch bucket — detected via the NEXT day's first punch landing
@@ -666,6 +692,21 @@ def compute_daily_attendance(
             # plain Present with no indication it was their weekoff at all.
             "worked_on_weekly_off": d.weekday() == weekly_off_day,
         }
+        allowance = _extra_hours_late_allowance_minutes(rows[-1] if rows else None, d, weekly_off_day, time_slot, holidays)
+        excused = False
+        if allowance:
+            shift_start = SHIFT_START_BY_TIME_SLOT.get(time_slot, DEFAULT_SHIFT_START)
+            allowed_until = (datetime.combine(d, shift_start) + timedelta(minutes=allowance)).time()
+            row["late_allowance_minutes"] = allowance
+            row["late_allowance_until"] = allowed_until.strftime("%H:%M")
+            row["late_allowance_extra_hours"] = rows[-1]["ot_hours"]
+            if row["late"] and first_in_local <= allowed_until:
+                row["late"] = False
+                row["late_excused_by_extra_hours"] = True
+                row["late_minutes_excused"] = int(
+                    (datetime.combine(d, first_in_local) - datetime.combine(d, shift_start)).total_seconds() // 60
+                )
+                excused = True
         if is_corporate:
             row["after_noon"] = first_in_local > NOON
             # v2's ½-day tier (11:00 AM onwards) — flagged here alongside
@@ -692,6 +733,9 @@ def compute_daily_attendance(
                 row["midnight_tail_punch_time"] = tail_time.isoformat() if tail_time else None
                 # Revised SOP: late-night work alone never earns Comp-Off.
                 row["comp_off_eligible_v3"] = False
+        if excused and is_corporate:
+            row["after_noon"] = False
+            row["late_half_day_tier"] = False
         rows.append(row)
         d += timedelta(days=1)
 

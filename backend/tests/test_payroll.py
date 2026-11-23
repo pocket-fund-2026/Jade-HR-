@@ -823,3 +823,53 @@ def test_approved_weekoff_override_is_not_forfeited_again():
     row = next(r for r in rows if r["date"] == "2026-01-04")
     assert row["status"] == "weekoff"
     assert not row.get("weekoff_forfeited")
+
+
+SLOT = "10:00 AM – 7:00 PM"
+
+
+def _two_day_punches(day1_out, day2_in):
+    return [
+        datetime(2026, 1, 5, 10, 0, tzinfo=IST), datetime(2026, 1, 5, *day1_out, tzinfo=IST),
+        datetime(2026, 1, 6, *day2_in, tzinfo=IST), datetime(2026, 1, 6, 19, 0, tzinfo=IST),
+    ]
+
+
+def _day2(punches, **kw):
+    rows = compute_daily_attendance(2026, 1, punches, 8, weekly_off_day=6, time_slot=SLOT, **kw)
+    return next(r for r in rows if r["date"] == "2026-01-06")
+
+
+def test_extra_hours_buy_late_allowance_at_two_to_one():
+    # Shift ends 7 PM; out 9:30 PM = 2h30 extra -> 1h15 allowed -> until 11:15
+    # (beyond the 11:00 stay-back grace on its own).
+    r = _day2(_two_day_punches((21, 30), (11, 10)), is_corporate=True)
+    assert r["late"] is False
+    assert r["late_excused_by_extra_hours"] is True
+    assert r["late_allowance_minutes"] == 75 and r["late_allowance_until"] == "11:15"
+    assert r["after_noon"] is False and r["late_half_day_tier"] is False
+
+
+def test_arriving_past_the_allowance_is_still_late():
+    r = _day2(_two_day_punches((21, 30), (11, 20)), is_corporate=True)
+    assert r["late"] is True
+    assert not r.get("late_excused_by_extra_hours")
+    assert r["late_allowance_minutes"] == 75  # still highlighted as earned
+
+
+def test_small_extra_gives_a_small_allowance():
+    # Out 8:30 PM = 1h30 extra -> 45 min -> until 10:45; 10:40 is excused.
+    r = _day2(_two_day_punches((20, 30), (10, 40)))
+    assert r["late"] is False and r["late_minutes_excused"] == 40
+
+
+def test_no_allowance_without_extra_hours():
+    r = _day2(_two_day_punches((19, 0), (10, 45)))
+    assert r["late"] is True
+    assert "late_allowance_minutes" not in r
+
+
+def test_no_allowance_without_an_assigned_shift():
+    rows = compute_daily_attendance(2026, 1, _two_day_punches((21, 30), (11, 10)), 8, weekly_off_day=6)
+    r = next(r for r in rows if r["date"] == "2026-01-06")
+    assert "late_allowance_minutes" not in r

@@ -20,7 +20,7 @@ import StampBadge from "../../components/StampBadge.jsx";
 import WFHRequestModal from "../../components/WFHRequestModal.jsx";
 import api from "../../lib/api.js";
 import { useAuth } from "../../lib/auth.jsx";
-import { currentPayPeriod, formatDate, formatHolidayDate, formatHoursMins, formatTime } from "../../lib/format.js";
+import { currentPayPeriod, formatDate, formatHolidayDate, formatHoursMins, formatTime, lateAllowanceInfo } from "../../lib/format.js";
 import { LEAVE_LABELS } from "../../lib/leaveTypes.js";
 import AnimatedNumber from "../../components/AnimatedNumber.jsx";
 
@@ -389,6 +389,11 @@ export default function Dashboard() {
                     <td className="px-5 py-2.5 font-nums text-ink/70">
                       {formatTime(d.first_in)}
                       {d.late && <span className="ml-1.5 text-[10px] font-sans font-semibold text-rust-500 uppercase tracking-wide">Late</span>}
+                      {lateAllowanceInfo(d) && (
+                      <span title={lateAllowanceInfo(d).text} className={`ml-1.5 text-[10px] font-sans font-semibold uppercase tracking-wide ${lateAllowanceInfo(d).used ? "text-jade-600" : "text-ochre-700"}`}>
+                        {lateAllowanceInfo(d).short}
+                      </span>
+              )}
                       {d.lop_days > 0 && (
                         <span className="ml-1.5 text-[10px] font-sans font-semibold text-rust-500 uppercase tracking-wide">
                           ½ LOP

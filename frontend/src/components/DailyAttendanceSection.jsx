@@ -7,7 +7,7 @@ import DateRangePicker from "./DateRangePicker.jsx";
 import StampBadge from "./StampBadge.jsx";
 import api from "../lib/api.js";
 import { exportDailyAttendanceExcel } from "../lib/attendanceExport.js";
-import { formatDate, formatHoursMins, formatTime } from "../lib/format.js";
+import { formatDate, formatHoursMins, formatTime, lateAllowanceInfo } from "../lib/format.js";
 
 // Daily attendance table on My Payslip / an admin's payroll detail view.
 // Defaults to the pay period's own `daily` rows (passed down from the
@@ -105,6 +105,11 @@ export default function DailyAttendanceSection({ monthDaily, employeeId, employe
               <td className="px-5 py-2 font-nums text-ink/70">
                 {formatTime(d.first_in)}
                 {d.late && <span className="ml-1.5 text-[10px] font-sans font-semibold text-rust-500 uppercase tracking-wide">Late</span>}
+                {lateAllowanceInfo(d) && (
+                <span title={lateAllowanceInfo(d).text} className={`ml-1.5 text-[10px] font-sans font-semibold uppercase tracking-wide ${lateAllowanceInfo(d).used ? "text-jade-600" : "text-ochre-700"}`}>
+                  {lateAllowanceInfo(d).short}
+                </span>
+              )}
               </td>
               <td className="px-5 py-2 font-nums text-ink/70">{formatTime(d.last_out)}</td>
               <td className="px-5 py-2 font-nums">{d.hours_worked ? formatHoursMins(d.hours_worked) : "—"}</td>
