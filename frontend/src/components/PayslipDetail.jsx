@@ -347,7 +347,7 @@ function PayslipPrintFormat({ summary }) {
   );
 }
 
-export default function PayslipDetail({ summary, showDailyAttendance = true }) {
+export default function PayslipDetail({ summary, showDailyAttendance = true, selfService = false }) {
   if (!summary) return null;
 
   // The OT panel's divisor always uses the full monthly rate, not the
@@ -479,6 +479,7 @@ export default function PayslipDetail({ summary, showDailyAttendance = true }) {
           employeeCode={summary.employee_code}
           name={summary.name}
           rangeLabel={payPeriodLabel(summary.year, summary.month)}
+          selfService={selfService}
         />
       )}
     </div>

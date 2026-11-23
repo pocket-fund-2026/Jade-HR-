@@ -35,7 +35,7 @@ export default function MyPayslip() {
         <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
       </div>
 
-      {loading || !summary ? <p className="text-ink/70">Loading ledger…</p> : <PayslipDetail summary={summary} />}
+      {loading || !summary ? <p className="text-ink/70">Loading ledger…</p> : <PayslipDetail summary={summary} selfService />}
     </div>
   );
 }

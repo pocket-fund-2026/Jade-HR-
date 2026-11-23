@@ -87,7 +87,7 @@ export default function MyPayslip() {
         </div>
       )}
 
-      {loading || !summary ? <p className="text-ink/70">Loading ledger…</p> : <PayslipDetail summary={summary} />}
+      {loading || !summary ? <p className="text-ink/70">Loading ledger…</p> : <PayslipDetail summary={summary} selfService />}
     </div>
   );
 }
