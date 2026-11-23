@@ -75,7 +75,7 @@ function ResolveRow({ request, onResolved, canApprove }) {
 
 export default function WFHRequests() {
   const { can } = useAuth();
-  const canApprove = can("wfh.approve");
+  const canApprove = can("leave.manage", "wfh.approve");
   const [tab, setTab] = useState("pending");
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);

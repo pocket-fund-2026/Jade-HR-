@@ -114,8 +114,9 @@ def my_team_wfh_requests(status: str | None = None, user: dict = Depends(get_cur
 
 
 @router.post("/{request_id}/resolve")
-def resolve_wfh_request(request_id: str, body: WFHResolve, user: dict = Depends(require_permission("wfh.approve"))):
-    """Senior Management / HR Head approval step (doc §24)."""
+def resolve_wfh_request(request_id: str, body: WFHResolve, user: dict = Depends(require_permission("leave.manage", "wfh.approve"))):
+    """Approval step (doc §24). The HR team (`leave.manage`) can approve as well
+    as anyone explicitly granted `wfh.approve` (HR request, 2026-11-23)."""
     if body.action not in ("approve", "reject"):
         raise HTTPException(status_code=400, detail="action must be 'approve' or 'reject'")
     existing = supabase.table("hr_wfh_requests").select("*").eq("id", request_id).maybe_single().execute()
