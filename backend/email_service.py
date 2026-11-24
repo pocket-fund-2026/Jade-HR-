@@ -159,6 +159,24 @@ def send_email(to: str, subject: str, body: str, kind: str = "general") -> bool:
     return ok
 
 
+_ADDR_RE = re.compile(r"^[A-Za-z0-9._%+'\-]+@([A-Za-z0-9\-]+\.)+[A-Za-z]{2,}$")
+# Domains that can never receive mail (placeholders) plus the usual typos of big providers.
+_DEAD_DOMAINS = re.compile(r"@(example\.(com|org|net)|[^@]*\.(invalid|test|localhost|local)|"
+                           r"gmial\.com|gmai\.com|gamil\.com|gmail\.co|gmail\.con|gmail\.in|gnail\.com|"
+                           r"hotmial\.com|hotmal\.com|yahooo\.com|yaho\.com|yahoo\.con|outlok\.com|outlook\.con)$", re.I)
+
+
+def bad_address_reason(addr: str) -> str | None:
+    """Why this address would bounce, or None if it looks deliverable. Catches blanks,
+    spaces, several addresses in one field, placeholder domains and common typos."""
+    a = (addr or "").strip()
+    if not a or not _ADDR_RE.match(a) or ".." in a:
+        return "invalid_address"
+    if _DEAD_DOMAINS.search(a):
+        return "undeliverable_domain"
+    return None
+
+
 def send_email_detailed(
     to: str, subject: str, body: str, *, kind: str = "general", html: str | None = None,
     cc: list[str] | None = None, reply_to: str | None = None, letter_id: str | None = None,
@@ -175,6 +193,13 @@ def send_email_detailed(
     if not to:
         log_attempt(kind, "", subject, "skipped", "no_recipient", cc=cc, letter_id=letter_id)
         return False, "no_recipient"
+    to = to.strip()
+    bad = bad_address_reason(to)
+    if bad:  # never send to an address that will bounce; HR sees it in the Email Log
+        logger.warning("Not sending to %r: %s", to, bad)
+        log_attempt(kind, to, subject, "skipped", bad, cc=cc, letter_id=letter_id)
+        return False, bad
+    cc = [c.strip() for c in cc if not bad_address_reason(c)]
     if not is_configured():
         logger.info("Email not configured — skipping send to %s: %s", to, subject)
         log_attempt(kind, to, subject, "skipped", "not_configured", cc=cc, letter_id=letter_id)

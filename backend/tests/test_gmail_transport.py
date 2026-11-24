@@ -65,3 +65,13 @@ def test_gmail_failure_falls_back_to_resend(monkeypatch):
 def test_default_transport_is_resend_only(monkeypatch):
     _setup(monkeypatch, transport="resend", resend="")
     assert es.is_configured() is False
+
+
+def test_bounce_prevention_skips_bad_addresses(monkeypatch):
+    _setup(monkeypatch); logged.clear()
+    with mock.patch("urllib.request.urlopen", side_effect=AssertionError("must not send")):
+        for addr in ["", "no-at-sign", "a b@x.com", "a@x.com, b@y.com", "me@gmial.com", "me@example.com", "x@@y.com"]:
+            ok, err = es.send_email_detailed(addr, "S", "b")
+            assert not ok and err in ("no_recipient", "invalid_address", "undeliverable_domain"), (addr, err)
+    assert es.bad_address_reason("sanjaydarji808@gmail.com") is None
+    assert es.bad_address_reason("nimit.b@jadecouture.com") is None
