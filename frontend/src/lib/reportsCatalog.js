@@ -13,7 +13,7 @@ export const REPORT_CATEGORIES = [
       { to: "/admin/reports/salary-sheet", label: "Salary Sheet", desc: "Full monthly earnings/deductions breakdown, all employees", icon: FileSpreadsheet, permission: "payroll.view" },
       { to: "/admin/reports/salary-components", label: "Employee Salary Components", desc: "Basic/HRA/Conv/Other Allow/Monthly Bonus/Retention/Incentive per employee — Excel in the EmployeeSalary layout", icon: FileSpreadsheet, permission: "payroll.view" },
       { to: "/admin/reports/yearly-salary", label: "Yearly / Cumulative Salary Details", desc: "Salary Sheet summed across a From–To range of pay periods", icon: TrendingUp, permission: "payroll.view" },
-      { to: "/admin/reports/arrears", label: "Arrear Details", desc: "Every one-off arrear payment on file, quick-entry or via Salary Structure", icon: ScrollText, permission: "payroll.view" },
+      { to: "/admin/reports/arrears", label: "Arrears", desc: "Add, approve and track arrears — approved ones are paid in the chosen month's payroll", icon: ScrollText, permission: "payroll.view" },
       { to: "/admin/reports/salary-paid", label: "Salary Paid Report", desc: "Monthly checklist — mark each employee paid, add an arrear if a past month was missed", icon: CheckSquare, permission: "payroll.view" },
       { to: "/admin/reports/lumpsum", label: "Lumpsum Report", desc: "Arrear/Bonus/Leave Encash/PLP/Loan Interest/OtherDed/Advance/PF Arrear, editable per pay period", icon: Coins, permission: "payroll.view" },
       { to: "/admin/reports/full-and-final", label: "Payslip Full & Final", desc: "Exit settlement: last payslip + leave encashment + gratuity", icon: BookOpen, permission: "payroll.view" },

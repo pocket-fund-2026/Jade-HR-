@@ -1,10 +1,19 @@
-import { ArrowLeft, FileSpreadsheet, Plus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowLeft, Check, FileSpreadsheet, Plus, Search, Ban } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
-import AddArrearModal from "../../../components/AddArrearModal.jsx";
+import AddArrearModal, { ARREAR_REASONS, MONTHS } from "../../../components/AddArrearModal.jsx";
 import api from "../../../lib/api.js";
+import { useAuth } from "../../../lib/auth.jsx";
 import { formatFullDate, formatINR } from "../../../lib/format.js";
+
+const STATUS_STYLE = {
+  pending: "bg-ochre-500/15 text-ochre-700",
+  approved: "bg-jade-500/15 text-jade-700",
+  cancelled: "bg-ink/10 text-ink/60 line-through",
+};
+const th = "px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70";
+const sel = "rounded-sm border border-ink/15 bg-manila/40 px-2 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
 
 async function exportExcel(rows) {
   const XLSX = await import("xlsx");
@@ -12,38 +21,76 @@ async function exportExcel(rows) {
     "Employee Code": r.employee_code,
     "Name": r.name,
     "Location": r.location,
-    "Effective Date": r.effective_date,
+    "Pay Month": `${MONTHS[r.pay_month - 1]} ${r.pay_year}`,
+    "Reason": ARREAR_REASONS[r.reason] || r.reason,
+    "Relates From": r.period_from || "",
+    "Relates To": r.period_to || "",
     "Arrear Amount": r.arrear_amount,
-    "Total (incl. Arrear)": r.total_arrear,
+    "TDS": r.tds_amount,
+    "Net Payable": r.net_effect,
+    "Status": r.status,
     "Remarks": r.remarks,
+    "Entered By": r.created_by_name,
+    "Approved By": r.approved_by_name,
+    "Approved At": r.approved_at ? r.approved_at.slice(0, 10) : "",
   }));
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Arrear Details");
-  XLSX.writeFile(wb, `jade-hr-arrear-details-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  XLSX.utils.book_append_sheet(wb, ws, "Arrears");
+  XLSX.writeFile(wb, `jade-hr-arrears-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
 export default function ArrearDetailsReport() {
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const { can } = useAuth();
+  const canEdit = can("salary.edit");
+  const [payYear, setPayYear] = useState("");
+  const [payMonth, setPayMonth] = useState("");
+  const [status, setStatus] = useState("");
+  const [search, setSearch] = useState("");
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState([]);
   const [showAdd, setShowAdd] = useState(false);
+  const [error, setError] = useState("");
 
   const load = () => {
     setLoading(true);
-    api.get("/api/reports/arrears", { params: { from_date: fromDate || undefined, to_date: toDate || undefined } })
+    api.get("/api/arrears", { params: { pay_year: payYear || undefined, pay_month: payMonth || undefined, status: status || undefined } })
       .then(({ data }) => setRows(data))
+      .catch(() => setError("Could not load arrears"))
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, [fromDate, toDate]);
+  useEffect(load, [payYear, payMonth, status]);
   useEffect(() => {
     api.get("/api/employees", { params: { lite: true } }).then(({ data }) => setEmployees(data)).catch(() => {});
   }, []);
 
-  const total = rows.reduce((s, r) => s + r.arrear_amount, 0);
+  const shown = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return q ? rows.filter((r) => `${r.name} ${r.employee_code}`.toLowerCase().includes(q)) : rows;
+  }, [rows, search]);
+
+  const sum = (st) => shown.filter((r) => r.status === st).reduce((s, r) => s + r.net_effect, 0);
+  const count = (st) => shown.filter((r) => r.status === st).length;
+
+  const act = async (r, action) => {
+    setError("");
+    let body = {};
+    if (action === "cancel") {
+      const reason = window.prompt(`Cancel the ${formatINR(r.arrear_amount)} arrear for ${r.name}? Reason (optional):`);
+      if (reason === null) return;
+      body = { reason };
+    }
+    try {
+      await api.post(`/api/arrears/${r.id}/${action}`, body);
+      load();
+    } catch (err) {
+      setError(err.response?.data?.detail || "Action failed");
+    }
+  };
+
+  const years = [new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1];
 
   return (
     <div>
@@ -51,65 +98,119 @@ export default function ArrearDetailsReport() {
         <ArrowLeft size={13} /> Back to Reports
       </Link>
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mt-2 mb-6">
-        <h2 className="font-display text-2xl text-ink">Arrear Details</h2>
+        <div>
+          <h2 className="font-display text-2xl text-ink">Arrears</h2>
+          <p className="text-xs text-ink/70 mt-1 max-w-xl">
+            Only <b>approved</b> arrears are paid — in the chosen pay month's payroll (net pay, payslip, bank transfer). Pending ones wait for approval.
+          </p>
+        </div>
         <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={() => setShowAdd(true)}
-            className="flex items-center gap-2 bg-ledger-800 text-manila px-3 py-2 rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
-          >
-            <Plus size={15} /> Add Arrear
-          </button>
-          <button
-            onClick={() => exportExcel(rows)}
-            disabled={!rows.length}
-            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
-          >
+          {canEdit && (
+            <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 bg-ledger-800 text-manila px-3 py-2 rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors">
+              <Plus size={15} /> Add Arrear
+            </button>
+          )}
+          <button onClick={() => exportExcel(shown)} disabled={!shown.length} className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors">
             <FileSpreadsheet size={15} /> Export Excel
           </button>
-          <label className="flex items-center gap-2 bg-paper rounded-sm shadow-card px-3 py-2">
-            <span className="text-xs text-ink/70 font-medium">From</span>
-            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="rounded-sm border border-ink/15 bg-manila/40 px-2 py-1 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
-            <span className="text-xs text-ink/70 font-medium">To</span>
-            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="rounded-sm border border-ink/15 bg-manila/40 px-2 py-1 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
-          </label>
         </div>
       </div>
 
-      <div className="bg-ledger-800 rounded-sm shadow-card p-6 relative overflow-hidden mb-6">
-        <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
-        <div className="relative flex justify-between items-baseline">
-          <span className="font-display text-manila text-lg">Total Arrears ({rows.length} entries)</span>
-          <span className="font-nums font-semibold text-3xl text-manila">{formatINR(total)}</span>
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <label className="flex items-center gap-2 bg-paper rounded-sm shadow-card px-3 py-2 text-xs text-ink/70 font-medium">
+          Pay month
+          <select value={payMonth} onChange={(e) => setPayMonth(e.target.value)} className={sel}>
+            <option value="">All</option>
+            {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+          </select>
+          <select value={payYear} onChange={(e) => setPayYear(e.target.value)} className={sel}>
+            <option value="">All years</option>
+            {years.map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </label>
+        <label className="flex items-center gap-2 bg-paper rounded-sm shadow-card px-3 py-2 text-xs text-ink/70 font-medium">
+          Status
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className={sel}>
+            <option value="">All</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-2 bg-paper rounded-sm shadow-card px-3 py-2">
+          <Search size={14} className="text-ink/50" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Name or code…" className="bg-transparent text-sm focus:outline-none" />
+        </label>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        <div className="bg-ledger-800 rounded-sm shadow-card p-5 relative overflow-hidden">
+          <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
+          <p className="relative text-manila/80 text-xs uppercase tracking-wider">Approved — payable ({count("approved")})</p>
+          <p className="relative font-nums font-semibold text-3xl text-manila">{formatINR(sum("approved"))}</p>
+        </div>
+        <div className="bg-paper rounded-sm shadow-card p-5 border-l-4 border-ochre-500">
+          <p className="text-ink/70 text-xs uppercase tracking-wider">Pending approval ({count("pending")})</p>
+          <p className="font-nums font-semibold text-3xl text-ink">{formatINR(sum("pending"))}</p>
         </div>
       </div>
+
+      {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5 mb-3">{error}</p>}
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm tabular-nums">
           <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
             <tr className="border-b-2 border-ink/10">
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Effective Date</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Arrear Amount</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Total (incl. Arrear)</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Remarks</th>
+              <th className={th}>Employee</th>
+              <th className={th}>Pay month</th>
+              <th className={th}>Reason</th>
+              <th className={`${th} text-right`}>Arrear</th>
+              <th className={`${th} text-right`}>TDS</th>
+              <th className={`${th} text-right`}>Net</th>
+              <th className={th}>Status</th>
+              <th className={th}>Audit</th>
+              {canEdit && <th className={th}></th>}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={5}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
-            ) : rows.length === 0 ? (
-              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={5}>No arrears recorded{fromDate || toDate ? " for this range" : ""}.</td></tr>
+              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={9}>Loading…</td></tr>
+            ) : shown.length === 0 ? (
+              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={9}>No arrears match these filters.</td></tr>
             ) : (
-              rows.map((r) => (
-                <tr key={`${r.employee_id}-${r.effective_date}`} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
+              shown.map((r) => (
+                <tr key={r.id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors align-top">
                   <td className="px-4 py-3">
                     <span className="text-ink font-medium">{r.name}</span>
                     <div className="text-xs text-ink/70 font-nums">{r.employee_code} · {r.location}</div>
                   </td>
-                  <td className="px-4 py-3 font-nums text-ink/70">{formatFullDate(r.effective_date)}</td>
-                  <td className="px-4 py-3 font-nums font-semibold text-jade-700">{formatINR(r.arrear_amount)}</td>
-                  <td className="px-4 py-3 font-nums">{formatINR(r.total_arrear)}</td>
-                  <td className="px-4 py-3 text-ink/70">{r.remarks || "—"}</td>
+                  <td className="px-4 py-3 font-nums">{MONTHS[r.pay_month - 1]} {r.pay_year}</td>
+                  <td className="px-4 py-3">
+                    {ARREAR_REASONS[r.reason] || r.reason}
+                    {r.period_from && <div className="text-xs text-ink/60">for {formatFullDate(r.period_from)}{r.period_to ? ` – ${formatFullDate(r.period_to)}` : ""}</div>}
+                    {r.remarks && <div className="text-xs text-ink/60">{r.remarks}</div>}
+                  </td>
+                  <td className="px-4 py-3 text-right font-nums font-semibold">{formatINR(r.arrear_amount)}</td>
+                  <td className="px-4 py-3 text-right font-nums text-ink/70">{r.tds_amount ? formatINR(r.tds_amount) : "—"}</td>
+                  <td className="px-4 py-3 text-right font-nums font-semibold text-jade-700">{formatINR(r.net_effect)}</td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-block px-2 py-0.5 rounded-sm text-xs font-semibold capitalize ${STATUS_STYLE[r.status]}`}>{r.status}</span>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-ink/60">
+                    {r.created_by_name && <div>Entered: {r.created_by_name}</div>}
+                    {r.approved_by_name && <div>Approved: {r.approved_by_name}</div>}
+                    {r.cancelled_by_name && <div>Cancelled: {r.cancelled_by_name}{r.cancel_reason ? ` — ${r.cancel_reason}` : ""}</div>}
+                  </td>
+                  {canEdit && (
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {r.status === "pending" && (
+                        <button onClick={() => act(r, "approve")} className="inline-flex items-center gap-1 text-jade-700 hover:underline text-xs font-semibold mr-3"><Check size={13} /> Approve</button>
+                      )}
+                      {r.status !== "cancelled" && (
+                        <button onClick={() => act(r, "cancel")} className="inline-flex items-center gap-1 text-rust-500 hover:underline text-xs font-semibold"><Ban size={13} /> Cancel</button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))
             )}
@@ -118,11 +219,7 @@ export default function ArrearDetailsReport() {
       </div>
 
       {showAdd && (
-        <AddArrearModal
-          employees={employees}
-          onClose={() => setShowAdd(false)}
-          onSaved={() => { setShowAdd(false); load(); }}
-        />
+        <AddArrearModal employees={employees} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load(); }} />
       )}
     </div>
   );

@@ -7,7 +7,9 @@ from database import maybe_single_data, supabase
 from paging import ContextThreadPoolExecutor
 from workflow_log import record_step
 from models import PayslipApprovalCreate, PayslipApprovalResolve
+from arrears_calc import apply_arrears
 from payroll import compute_monthly_summary
+from routers.arrears import fetch_approved_arrears
 from routers.leave import fetch_approved_leaves
 from routers.payroll import _fetch_compliance_profile, _fetch_holidays, _fetch_overrides, _fetch_punch_times
 from routers.wfh import fetch_confirmed_wfh
@@ -76,6 +78,7 @@ def _net_salary_for(employee_id: str, period_year: int, period_month: int, holid
     summary = compute_monthly_summary(
         employee, period_year, period_month, punches, overrides, leaves, holidays, wfh_days=wfh_days,
     )
+    apply_arrears(summary, fetch_approved_arrears(period_year, period_month, employee_id).get(employee_id, []), period_year, period_month)
     return summary["total_payable"]
 
 

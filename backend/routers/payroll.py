@@ -4,6 +4,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 import email_service
+from arrears_calc import apply_arrears
 from auth import CONSOLE_ROLES, get_current_user, my_report_ids, require_console, require_permission, user_can
 from config import IST
 from database import maybe_single_data, supabase
@@ -13,6 +14,7 @@ from payroll import (
     FLEXIBLE_TIME_SLOT, WEEKOFF_LOOKBACK_DAYS, compute_attendance_for_range, compute_monthly_summary,
     fy_label_for_month, pay_period_bounds,
 )
+from routers.arrears import fetch_approved_arrears
 from routers.leave import (
     fetch_all_approved_leaves_by_employee, fetch_approved_leaves, pl_ledger_for_period, pl_ledger_for_period_bulk,
 )
@@ -337,19 +339,6 @@ def _fetch_all_arrears_by_employee(year: int, month: int) -> dict[str, dict]:
         for f in SALARY_STRUCTURE_PERIOD_FIELDS:
             agg[f] += float(r[f] or 0)
 
-    # Standalone quick-entry arrears (hr_arrears — see sql/051) fold into the
-    # same "earn_arrear" figure additively, since they're the same kind of
-    # one-off line item, just entered without a full CTC revision.
-    standalone = (
-        supabase.table("hr_arrears")
-        .select("employee_id,arrear_amount")
-        .gte("effective_date", start.isoformat())
-        .lte("effective_date", end.isoformat())
-        .execute()
-    )
-    for r in standalone.data:
-        agg = by_employee.setdefault(r["employee_id"], {f: 0.0 for f in SALARY_STRUCTURE_PERIOD_FIELDS})
-        agg["earn_arrear"] += float(r["arrear_amount"] or 0)
     return by_employee
 
 
@@ -444,11 +433,15 @@ def _all_summaries_for_month(
         leaves_future = pool.submit(fetch_all_approved_leaves_by_employee, year, month, calendar_month)
         wfh_future = pool.submit(fetch_all_confirmed_wfh_by_employee, year, month, calendar_month)
         declarations_future = pool.submit(_fetch_all_tax_declarations, fy_label_for_month(year, month))
+        # Approved arrears paid this period. Pay-period only: the calendar-month
+        # (ESIC) view must not see them. Money: failure propagates, never skipped.
+        arrears_future = None if calendar_month else pool.submit(fetch_approved_arrears, year, month)
         punches_by_employee = punches_future.result()
         overrides_by_employee = overrides_future.result()
         leaves_by_employee = leaves_future.result()
         wfh_by_employee = wfh_future.result()
         declarations_by_employee = declarations_future.result()
+        approved_arrears = arrears_future.result() if arrears_future else {}
     summaries = []
     for employee in employees:
         try:
@@ -462,6 +455,8 @@ def _all_summaries_for_month(
             # Surface a clearly-flagged zero row instead of a 500 for all.
             logger.exception("payroll calc failed for %s (%s-%02d)", employee.get("employee_code"), year, month)
             summary = _failed_summary(employee, year, month, exc)
+        if not calendar_month:
+            apply_arrears(summary, approved_arrears.get(employee["id"], []), year, month)
         if not keep_daily:
             summary.pop("daily", None)
         summaries.append(summary)
@@ -502,7 +497,9 @@ def payroll_for_month(
     for employee, summary in zip(employees, summaries):
         summary["pl_ledger"] = ledgers_by_employee.get(employee["id"])
         period_items = arrears_by_employee.get(employee["id"], {})
-        summary["arrear"] = round(period_items.get("earn_arrear", 0), 2)
+        # approved hr_arrears already folded in by apply_arrears; add the
+        # legacy salary-structure revision arrear on top.
+        summary["arrear"] = round(summary.get("arrear", 0) + period_items.get("earn_arrear", 0), 2)
         for field in SALARY_STRUCTURE_PERIOD_FIELDS:
             if field != "earn_arrear":
                 summary[field] = round(period_items.get(field, 0), 2)
@@ -1022,6 +1019,7 @@ def payroll_for_employee(
     summary = compute_monthly_summary(
         employee, year, month, punches, overrides, leaves, holidays, monthly_tds, wfh_days=wfh_days,
     )
+    apply_arrears(summary, fetch_approved_arrears(year, month, employee["id"]).get(employee["id"], []), year, month)
     summary["pl_ledger"] = pl_ledger
     return summary
 
@@ -1097,5 +1095,6 @@ def my_payroll(
     summary = compute_monthly_summary(
         employee, year, month, punches, overrides, leaves, holidays, monthly_tds, wfh_days=wfh_days,
     )
+    apply_arrears(summary, fetch_approved_arrears(year, month, employee["id"]).get(employee["id"], []), year, month)
     summary["pl_ledger"] = pl_ledger
     return summary

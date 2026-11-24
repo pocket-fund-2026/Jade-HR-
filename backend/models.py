@@ -211,6 +211,10 @@ class LeaveRequestCreate(BaseModel):
     # employee's own self-service submission is blocked in that case.
     # Omitted/None for the normal self-service path.
     employee_id: str | None = None
+    # Optional proof of approval (e.g. a screenshot of the manager's OK).
+    # Uploaded first via POST /api/leave-requests/upload; never required.
+    attachment_path: str | None = None
+    attachment_filename: str | None = None
 
 
 class LeaveResolve(BaseModel):
@@ -872,15 +876,32 @@ class PolicyQuizSubmit(BaseModel):
 
 
 class ArrearCreate(BaseModel):
-    # Standalone one-off arrear line item (hr_arrears) — deliberately NOT the
-    # same table as hr_salary_structure's earn_arrear, which only exists on a
-    # full versioned CTC revision. Most employees have no salary structure
-    # revision on file at all, so requiring one just to log "pay them ₹X for
-    # a month we missed" was blocking arrears from ever being usable.
+    # Standalone arrear (hr_arrears) — deliberately NOT hr_salary_structure's
+    # earn_arrear, which needs a full versioned CTC revision per employee.
+    # `pay_year/pay_month` is the payroll period it is PAID in; `period_from/
+    # period_to` is the (optional) period it RELATES to. Only approved rows
+    # reach net pay.
     employee_id: str
-    effective_date: date
+    pay_year: int
+    pay_month: int = Field(ge=1, le=12)
     arrear_amount: float
+    tds_amount: float = Field(default=0, ge=0)
+    reason: str = "other"
+    period_from: date | None = None
+    period_to: date | None = None
     remarks: str = ""
+    approve_now: bool = False
+
+
+class ArrearCancel(BaseModel):
+    reason: str = ""
+
+
+class ArrearCalcRequest(BaseModel):
+    old_monthly: float = Field(ge=0)
+    new_monthly: float = Field(ge=0)
+    from_date: date
+    to_date: date
 
 
 class SalaryPaidUpdate(BaseModel):

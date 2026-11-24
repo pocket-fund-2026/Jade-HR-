@@ -37,19 +37,22 @@ def salary_paid_status(
     )
     paid_by_employee = {r["employee_id"]: r for r in paid_rows}
 
-    start = date(year, month, 1)
-    end = date(year, month, monthrange(year, month)[1])
+    # Arrears are keyed by the pay period they are paid in; cancelled ones don't count.
     arrear_rows = (
         supabase.table("hr_arrears")
-        .select("employee_id,arrear_amount")
-        .gte("effective_date", start.isoformat())
-        .lte("effective_date", end.isoformat())
+        .select("employee_id,arrear_amount,status")
+        .eq("pay_year", year)
+        .eq("pay_month", month)
+        .neq("status", "cancelled")
         .execute()
         .data
     )
     arrears_by_employee: dict[str, float] = {}
+    pending_by_employee: dict[str, int] = {}
     for r in arrear_rows:
         arrears_by_employee[r["employee_id"]] = arrears_by_employee.get(r["employee_id"], 0) + float(r["arrear_amount"] or 0)
+        if r["status"] == "pending":
+            pending_by_employee[r["employee_id"]] = pending_by_employee.get(r["employee_id"], 0) + 1
 
     result = []
     for e in sorted(employees, key=lambda e: (e.get("location") or "", e["first_name"])):
@@ -62,6 +65,7 @@ def salary_paid_status(
             "paid": bool(status["paid"]) if status else False,
             "marked_at": status["marked_at"] if status else None,
             "arrear_this_month": round(arrears_by_employee.get(e["id"], 0), 2),
+            "arrears_pending": pending_by_employee.get(e["id"], 0),
         })
     return result
 

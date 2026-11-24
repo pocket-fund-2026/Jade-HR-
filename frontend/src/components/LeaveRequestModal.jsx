@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import api from "../lib/api.js";
 import { useAuth } from "../lib/auth.jsx";
+import LeaveProofField, { uploadLeaveProof } from "./LeaveProofField.jsx";
 import { LEAVE_LABELS, selectableLeaveTypes } from "../lib/leaveTypes.js";
 
 function daysBetween(start, end) {
@@ -42,6 +43,7 @@ export default function LeaveRequestModal({ onClose, onSubmitted, onBehalfOf }) 
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [reason, setReason] = useState("");
+  const [proof, setProof] = useState(null);
   const [session, setSession] = useState("first");
   const isHalf = leaveType === "half_day";
   const [error, setError] = useState("");
@@ -69,7 +71,9 @@ export default function LeaveRequestModal({ onClose, onSubmitted, onBehalfOf }) 
     }
     setBusy(true);
     try {
+      const proofFields = await uploadLeaveProof(proof);
       await api.post("/api/me/leave-requests", {
+        ...proofFields,
         leave_type: leaveType,
         start_date: startDate,
         end_date: isHalf ? startDate : endDate,
@@ -167,6 +171,7 @@ export default function LeaveRequestModal({ onClose, onSubmitted, onBehalfOf }) 
                 value={reason} onChange={(e) => setReason(e.target.value)}
               />
             </Field>
+            <LeaveProofField file={proof} onChange={setProof} />
           </div>
 
           <div className="space-y-3">

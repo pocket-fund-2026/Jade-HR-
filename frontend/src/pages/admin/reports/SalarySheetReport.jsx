@@ -28,7 +28,7 @@ function totalErn(r) {
 function totalDed(r) {
   return (
     r.ded_pf + r.ded_pt + r.ded_esic + r.ded_tds + (r.ded_loan || 0) + (r.ded_loan_int || 0)
-    + (r.ded_lwf || 0) + (r.ded_other_ded || 0)
+    + (r.ded_lwf || 0) + (r.ded_other_ded || 0) + (r.arrear_tds || 0)
   );
 }
 function netSalary(r) {

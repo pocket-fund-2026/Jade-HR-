@@ -359,10 +359,25 @@ export async function exportAttendanceExcel(rows, year, month, rangeLabel) {
     if (!byLocation.has(key)) byLocation.set(key, []);
     byLocation.get(key).push(r);
   }
-  if (byLocation.size > 1) {
-    for (const key of [...byLocation.keys()].sort((x, y) => x.localeCompare(y))) {
-      writeAttendanceSheet(wb.addWorksheet(safeSheetName(key, used)), byLocation.get(key));
-    }
+  // One tab per shift time slot (same grouping as the old Timings export:
+  // a Flexible employee with a reference slot goes on that slot's tab).
+  const bySlot = new Map();
+  for (const r of rows) {
+    const key = (r.time_slot === "Flexible" && r.flexible_reference_time_slot) || r.time_slot || "Unassigned";
+    if (!bySlot.has(key)) bySlot.set(key, []);
+    bySlot.get(key).push(r);
+  }
+  const slotRank = (k) => (k === "Flexible" || k === "Unassigned" ? 1 : 0);
+  const slotKeys = [...bySlot.keys()].sort((a, b) => slotRank(a) - slotRank(b) || a.localeCompare(b));
+  for (const key of slotKeys) {
+    writeTimingsSheet(wb.addWorksheet(safeSheetName(key, used)), bySlot.get(key));
+  }
+
+  // Then one tab per store, named exactly the store, holding that store's datewise
+  // In/Out timings — all in this single workbook (Master = wide month grid).
+  const storeKeys = [...byLocation.keys()].sort((x, y) => x.localeCompare(y));
+  for (const key of storeKeys) {
+    writeTimingsSheet(wb.addWorksheet(safeSheetName(key, used)), byLocation.get(key));
   }
 
   await downloadWorkbook(wb, `jade-hr-attendance-${rangeLabel || `${MONTH_NAMES[month - 1]}-${year}`}.xlsx`);
@@ -459,7 +474,7 @@ const BLOCK_FONT = { name: "Arial", size: 8 };
 // PM") trips all three, so it's sanitized and de-duped here rather than
 // passed straight to addWorksheet.
 function safeSheetName(label, used) {
-  let name = (label || "Unassigned").replace(/[:\\/?*[\]]/g, "").trim().slice(0, 31) || "Unassigned";
+  let name = (label || "Unassigned").replace(/:/g, ".").replace(/[:\\/?*[\]]/g, "").trim().slice(0, 31) || "Unassigned";
   let unique = name;
   let n = 2;
   while (used.has(unique)) {
@@ -477,7 +492,7 @@ function writeTimingsSheet(ws, rows) {
   // One flat table: Employee Code and Employee Name lead EVERY row (HR,
   // 17 Nov 2026), then the day's columns, so the sheet can be filtered/sorted.
   const colHeaderRow = ws.addRow([
-    "Employee Code", "Employee Name", "AttendanceDate", "Shift", "A. InTime", "A.OutTime",
+    "Employee Code", "Employee Name", "Store", "AttendanceDate", "Shift", "A. InTime", "A.OutTime",
     "W. Duration", "OT", "T Duration", "Status", "Remarks",
   ]);
   colHeaderRow.eachCell((cell) => { cell.font = { ...BLOCK_FONT, bold: true }; cell.alignment = { horizontal: "left", vertical: "top" }; });
@@ -496,6 +511,7 @@ function writeTimingsSheet(ws, rows) {
       const dataRow = ws.addRow([
         r.employee_code,
         r.name,
+        (r.location || "").trim() || "Unassigned",
         formatBlockDate(d.date),
         status,
         formatClockHHMM(d.first_in),
@@ -507,34 +523,24 @@ function writeTimingsSheet(ws, rows) {
         dayRemarkValue(d),
       ]);
       dataRow.eachCell((cell) => { cell.font = BLOCK_FONT; cell.alignment = { horizontal: "left", vertical: "top" }; });
-      setRemarkCell(dataRow.getCell(11), d);
-      // Cell 5 is "A. InTime" — grade it by lateness severity, same tiers
+      setRemarkCell(dataRow.getCell(12), d);
+      // Cell 6 is "A. InTime" — grade it by lateness severity, same tiers
       // and colors as the wide export's In column.
       const tier = lateTier(d);
       if (tier) {
-        applyLateTier(dataRow.getCell(5), tier, BLOCK_FONT);
-        dataRow.getCell(5).alignment = { horizontal: "left", vertical: "top" };
+        applyLateTier(dataRow.getCell(6), tier, BLOCK_FONT);
+        dataRow.getCell(6).alignment = { horizontal: "left", vertical: "top" };
       }
-      if (isWop(d)) paintWop(dataRow, 1, 11);
+      if (isWop(d)) paintWop(dataRow, 1, 12);
       if (missedPunch(d)) {
-        paintMissed(dataRow, 1, 11);
-        if (isWop(d)) { paintWop(dataRow, 4, 4); paintWop(dataRow, 10, 10); }
+        paintMissed(dataRow, 1, 12);
+        if (isWop(d)) { paintWop(dataRow, 5, 5); paintWop(dataRow, 11, 11); }
       }
     }
     ws.addRow([]); // one blank row between employees
   }
 
-  ws.getColumn(1).width = 14;
-  ws.getColumn(2).width = 24;
-  ws.getColumn(3).width = 14;
-  ws.getColumn(4).width = 7;
-  ws.getColumn(5).width = 10;
-  ws.getColumn(6).width = 10;
-  ws.getColumn(7).width = 11;
-  ws.getColumn(8).width = 7;
-  ws.getColumn(9).width = 10;
-  ws.getColumn(10).width = 8;
-  ws.getColumn(11).width = 30;
+  [14, 24, 16, 14, 7, 10, 10, 11, 7, 10, 8, 30].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
   ws.views = [{ state: "frozen", xSplit: 2, ySplit: headerRowNumber }];
 }
 
@@ -576,6 +582,16 @@ export async function exportAttendanceTimingsExcel(rows, year, month, rangeLabel
   for (const slot of slots) {
     const ws = wb.addWorksheet(safeSheetName(slot, used));
     writeTimingsSheet(ws, bySlot.get(slot));
+  }
+  // Then one tab per store, named exactly the store.
+  const byStore = new Map();
+  for (const r of rows) {
+    const key = (r.location || "").trim() || "Unassigned";
+    if (!byStore.has(key)) byStore.set(key, []);
+    byStore.get(key).push(r);
+  }
+  for (const key of [...byStore.keys()].sort((x, y) => x.localeCompare(y))) {
+    writeTimingsSheet(wb.addWorksheet(safeSheetName(key, used)), byStore.get(key));
   }
 
   await downloadWorkbook(wb, `jade-hr-attendance-timings-${rangeLabel || `${MONTH_NAMES[month - 1]}-${year}`}.xlsx`);

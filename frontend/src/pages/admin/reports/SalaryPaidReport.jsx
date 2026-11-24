@@ -65,7 +65,7 @@ export default function SalaryPaidReport() {
             <tr className="border-b-2 border-ink/10">
               <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
               <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Location</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Arrear logged this month</th>
+              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Arrear this pay month</th>
               <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Marked</th>
               <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-center">Paid</th>
               <th></th>
@@ -121,6 +121,7 @@ export default function SalaryPaidReport() {
       {arrearFor && (
         <AddArrearModal
           employee={arrearFor}
+          defaultPeriod={{ year, month }}
           onClose={() => setArrearFor(null)}
           onSaved={() => { setArrearFor(null); load(); }}
         />

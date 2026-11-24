@@ -1,4 +1,5 @@
 import { Check, X } from "lucide-react";
+import { LeaveProofLink } from "../../components/LeaveProofField.jsx";
 import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 
@@ -41,7 +42,7 @@ function ResolveRow({ request, onResolved }) {
         {formatDate(request.start_date)}–{formatDate(request.end_date)}
         <div className="text-xs text-ink/70">{days} day{days > 1 ? "s" : ""}</div>
       </td>
-      <td className="px-5 py-3.5 max-w-xs text-ink/70">{request.reason}</td>
+      <td className="px-5 py-3.5 max-w-xs text-ink/70">{request.reason}<LeaveProofLink request={request} /></td>
       <td className="px-5 py-3.5">
         <input
           value={note}
@@ -139,7 +140,7 @@ export default function TeamLeave() {
                   </td>
                   <td className="px-5 py-3.5 text-ink/70">{LEAVE_LABELS[r.leave_type] || r.leave_type}</td>
                   <td className="px-5 py-3.5 font-nums text-ink/70">{formatDate(r.start_date)}–{formatDate(r.end_date)}</td>
-                  <td className="px-5 py-3.5 text-ink/70 max-w-xs">{r.reason}</td>
+                  <td className="px-5 py-3.5 text-ink/70 max-w-xs">{r.reason}<LeaveProofLink request={r} /></td>
                   <td className="px-5 py-3.5"><StampBadge status={r.status}>{r.status}</StampBadge></td>
                 </tr>
               ))

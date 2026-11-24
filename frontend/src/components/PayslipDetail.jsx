@@ -189,6 +189,7 @@ function PayslipPrintFormat({ summary }) {
     { label: "Retention", rate: summary.retention_rate, value: summary.retention },
     { label: "Incentive", rate: summary.incentive_rate, value: summary.incentive },
     { label: "OT Amount", rate: null, value: summary.ot_amount },
+    { label: "Arrear", rate: null, value: summary.arrear_in_net ? summary.arrear : 0 },
   ].filter((r) => r.always || r.value > 0);
 
   const deductionsRows = [
@@ -198,6 +199,7 @@ function PayslipPrintFormat({ summary }) {
     { label: "Labour Welfare Fund (LWF)", value: summary.ded_lwf },
     { label: "TDS", value: summary.ded_tds },
     { label: "Loan EMI", value: summary.ded_standing_loan },
+    { label: "TDS on Arrear", value: summary.arrear_in_net ? summary.arrear_tds : 0 },
   ].filter((r) => r.value > 0);
 
   const pl = summary.pl_ledger;
@@ -364,6 +366,7 @@ export default function PayslipDetail({ summary, showDailyAttendance = true, sel
     { label: "Retention", value: summary.retention, always: true },
     { label: "Incentive", value: summary.incentive, always: true },
     { label: "OT Amount", value: summary.ot_amount, always: true },
+    ...(summary.arrear_in_net ? [{ label: "Arrear", value: summary.arrear, always: true }] : []),
   ];
 
   const deductionsRows = [
@@ -372,6 +375,7 @@ export default function PayslipDetail({ summary, showDailyAttendance = true, sel
     { label: "PT (Professional Tax)", value: summary.ded_pt },
     { label: "LWF (Labour Welfare Fund)", value: summary.ded_lwf },
     { label: "TDS (Income Tax)", value: summary.ded_tds },
+    ...(summary.arrear_in_net && summary.arrear_tds > 0 ? [{ label: "TDS on Arrear", value: summary.arrear_tds }] : []),
   ];
 
   const pl = summary.pl_ledger;

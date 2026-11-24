@@ -278,6 +278,43 @@ def _holidays_for_employee(all_holidays: list[dict], employee_location: str | No
     }
 
 
+# Stores whose staff ALL follow the store's holiday calendar (HR, 24 Nov 2026,
+# Pedder Road): a "closed" day is a paid H for everyone there — retail staff
+# included, and even if they punched or HR corrected the day — and on an
+# "open till 4pm" day staff who did not work lose half a day. Everywhere else
+# closed holidays still apply to the corporate roster only (see
+# is_closed_holiday below). Matched as a substring of hr_employees.location.
+HOLIDAY_ALL_STAFF_LOCATIONS = ("pedder road",)
+
+
+def holiday_applies_to_all_staff(employee_location: str | None) -> bool:
+    loc = (employee_location or "").lower()
+    return any(name in loc for name in HOLIDAY_ALL_STAFF_LOCATIONS)
+
+
+def _fill_override_from_punches(override: dict, punches: list[datetime]) -> dict:
+    """An approved "forgot to clock in/out" correction carries only the side the
+    employee claimed, and the override replaces the whole day — so the real
+    punch on the other side used to vanish from the sheet (and from lateness /
+    hours / OT). Keep it: when exactly one side of a present-day correction is
+    missing, take it from the day's raw biometric punches, if they have one on
+    the sensible side of the corrected time."""
+    if override.get("register") or override.get("status_override") != "present" or not punches:
+        return override
+    first_in, last_out = override.get("first_in"), override.get("last_out")
+    if first_in and last_out or not (first_in or last_out):
+        return override
+    if last_out and not first_in:
+        raw = punches[0].astimezone(IST).time()
+        if raw < last_out:
+            return {**override, "first_in": raw}
+    elif first_in and not last_out:
+        raw = punches[-1].astimezone(IST).time()
+        if raw > first_in:
+            return {**override, "last_out": raw}
+    return override
+
+
 def _apply_override(
     d: date, override: dict, standard_hours_per_day: float,
     time_slot: str | None = None, ot_eligible: bool = True,
@@ -512,6 +549,7 @@ def compute_daily_attendance(
     date_range: tuple[date, date] | None = None,
     ot_eligible: bool = True,
     wfh_days: dict[date, dict] | None = None,
+    holiday_all_staff: bool = False,
 ) -> list[dict]:
     """One row per day in the pay period (23rd of prior month - 22nd of this month),
     or per day in `date_range` (start, end) when given — an arbitrary span
@@ -569,8 +607,30 @@ def compute_daily_attendance(
     rows = []
     d = fetch_start
     while d <= end:
+        store_holiday = holidays.get(d) if holiday_all_staff else None
+        is_register_day = bool(overrides.get(d, {}).get("register"))  # imported register is authoritative
+        if store_holiday and not is_register_day and store_holiday.get("day_type") in ("closed", "day_off"):
+            # Store closed: paid holiday for every employee of this store,
+            # whatever they punched and whatever was corrected.
+            rows.append({
+                "date": d.isoformat(),
+                "first_in": None,
+                "last_out": None,
+                "hours_worked": 0.0,
+                "ot_hours": 0.0,
+                "status": "future" if d > today else "holiday",
+                "late": False,
+                **({"holiday_description": store_holiday["description"]} if d <= today else {}),
+            })
+            d += timedelta(days=1)
+            continue
+
         if d in overrides:
-            rows.append(_apply_override(d, overrides[d], standard_hours_per_day, time_slot, ot_eligible))
+            day_punches = by_day.get(d, [])
+            if day_punches and day_punches[0].astimezone(IST).time() < MIDNIGHT_TAIL_CUTOFF:
+                day_punches = day_punches[1:]  # tail of yesterday's shift, same rule as raw days below
+            override = _fill_override_from_punches(overrides[d], day_punches)
+            rows.append(_apply_override(d, override, standard_hours_per_day, time_slot, ot_eligible))
             d += timedelta(days=1)
             continue
 
@@ -645,6 +705,11 @@ def compute_daily_attendance(
                 status = "holiday"
             elif d.weekday() == weekly_off_day:
                 status = "weekoff"
+            elif holiday_all_staff and holidays.get(d, {}).get("day_type") == "open_till_4pm":
+                # Store trades half a day: the company pays the day in full to
+                # whoever worked it; anyone who did not (and has no approved
+                # leave — that branch ran earlier) loses half a day.
+                status = "half_day"
             else:
                 status = "absent"
             row = {
@@ -658,6 +723,9 @@ def compute_daily_attendance(
             }
             if status == "holiday":
                 row["holiday_description"] = holidays[d]["description"]
+            elif status == "half_day":
+                row["holiday_description"] = holidays[d]["description"]
+                row["half_day_holiday"] = True
             rows.append(row)
             d += timedelta(days=1)
             continue
@@ -951,6 +1019,8 @@ def apply_late_coming_policy_v3(daily: list[dict], time_slot: str | None) -> dic
         if r.get("worked_on_weekly_off"):
             continue  # WOP: no Yellow Card, band or deduction on a day off
         arrival = datetime.fromisoformat(r["first_in"]).astimezone(IST).time()
+        if r.get("late_excused_by_extra_hours"):
+            continue  # arrival fell inside the allowance earned by yesterday's extra hours: not late, no card
         grace_until = r.get("stay_back_grace_until_v3")
         if grace_until and arrival <= time.fromisoformat(grace_until):
             continue
@@ -1072,6 +1142,7 @@ def compute_attendance_for_range(
         start.year, start.month, punch_times, standard_hours, overrides, leaves, weekly_off_day,
         holidays=holidays_for_employee, is_corporate=is_corporate, time_slot=time_slot,
         date_range=(start, end), ot_eligible=_is_ot_eligible(employee), wfh_days=wfh_days,
+        holiday_all_staff=holiday_applies_to_all_staff(employee.get("location")),
     )
 
 
@@ -1099,7 +1170,7 @@ def compute_monthly_summary(
         year, month, punch_times, standard_hours, overrides, leaves, weekly_off_day,
         holidays=holidays_for_employee, is_corporate=is_corporate, time_slot=time_slot,
         calendar_month=calendar_month, ot_eligible=_is_ot_eligible(employee),
-        wfh_days=wfh_days,
+        wfh_days=wfh_days, holiday_all_staff=holiday_applies_to_all_staff(employee.get("location")),
     )
 
     _, period_end_for_v3 = pay_period_bounds(year, month, calendar_month)

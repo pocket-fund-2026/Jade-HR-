@@ -1,3 +1,4 @@
+import base64
 import logging
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
@@ -11,7 +12,7 @@ from database import maybe_single_data, supabase
 from paging import fetch_all_paged
 from workflow_log import record_step
 from config import IST
-from models import CompOffGrant, LeaveRequestCreate, LeaveResolve
+from models import AbsenceUpload, CompOffGrant, LeaveRequestCreate, LeaveResolve
 from payroll import WEEKOFF_LOOKBACK_DAYS, _holidays_for_employee, apply_late_coming_policy, compute_daily_attendance, pay_period_bounds
 
 router = APIRouter(prefix="/api", tags=["leave"])
@@ -391,6 +392,50 @@ def _resolve_manager_id(name: str | None, email: str | None) -> str | None:
     return None
 
 
+# Proof-of-approval attachments reuse the existing private "absence-attachments"
+# bucket (under a leave/ prefix) so no new bucket is needed on either database.
+LEAVE_ATTACH_BUCKET = "absence-attachments"
+LEAVE_ATTACH_MAX_BYTES = 4 * 1024 * 1024
+
+
+@router.post("/leave-requests/upload")
+def upload_leave_proof(body: AbsenceUpload, user: dict = Depends(get_current_user)):
+    try:
+        file_bytes = base64.b64decode(body.content_base64.split(",", 1)[-1])
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid file data")
+    if len(file_bytes) > LEAVE_ATTACH_MAX_BYTES:
+        raise HTTPException(status_code=400, detail="File too large — please use a file under 4MB")
+    now = datetime.now(timezone.utc)
+    safe_name = body.filename.replace("/", "_").replace("\\", "_") or "file"
+    path = f"leave/{user['id']}/{now.strftime('%Y%m%d_%H%M%S')}_{now.microsecond}_{safe_name}"
+    try:
+        supabase.storage.from_(LEAVE_ATTACH_BUCKET).upload(path, file_bytes, {"content-type": body.content_type})
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Upload failed: {e}")
+    return {"path": path, "filename": body.filename}
+
+
+def _attach_proof_urls(rows: list[dict]) -> list[dict]:
+    """Adds attachment_url (1h signed link) to rows that have a proof file —
+    one batched Storage call; a failure just leaves the link off."""
+    paths = [r["attachment_path"] for r in rows if r.get("attachment_path")]
+    if not paths:
+        return rows
+    try:
+        signed = {
+            x["path"]: (x.get("signedURL") or x.get("signedUrl"))
+            for x in supabase.storage.from_(LEAVE_ATTACH_BUCKET).create_signed_urls(list(dict.fromkeys(paths)), 3600)
+            if not x.get("error")
+        }
+    except Exception:
+        signed = {}
+    for r in rows:
+        if r.get("attachment_path"):
+            r["attachment_url"] = signed.get(r["attachment_path"])
+    return rows
+
+
 @router.post("/me/leave-requests")
 def create_leave_request(body: LeaveRequestCreate, user: dict = Depends(get_current_user)):
     if body.end_date < body.start_date:
@@ -479,6 +524,14 @@ def create_leave_request(body: LeaveRequestCreate, user: dict = Depends(get_curr
     }
     if body.leave_type == "half_day":
         row["half_day_session"] = body.half_day_session
+    if body.attachment_path:
+        # Only the uploader's own leave/<id>/ folder is accepted — a request
+        # can't point at someone else's file. Columns are only written when a
+        # proof was attached, so requests without one never touch them.
+        if not body.attachment_path.startswith(f"leave/{user['id']}/"):
+            raise HTTPException(status_code=400, detail="Invalid attachment")
+        row["attachment_path"] = body.attachment_path
+        row["attachment_filename"] = body.attachment_filename
     dup = find_recent_duplicate("hr_leave_requests", {
         "employee_id": row["employee_id"], "leave_type": row["leave_type"],
         "start_date": row["start_date"], "end_date": row["end_date"], "reason": row["reason"],
@@ -542,7 +595,7 @@ def my_leave_requests(user: dict = Depends(get_current_user)):
     unseen_resolved = [r["id"] for r in resp.data if r["status"] != "pending" and not r["seen_by_employee"]]
     if unseen_resolved:
         supabase.table("hr_leave_requests").update({"seen_by_employee": True}).in_("id", unseen_resolved).execute()
-    return resp.data
+    return _attach_proof_urls(resp.data)
 
 
 def _carried_forward_bulk(employees: list[dict], year: int) -> dict[str, float]:
@@ -774,7 +827,7 @@ def list_leave_requests(status: str | None = Query(None), admin: dict = Depends(
     if status:
         query = query.eq("status", status)
     resp = query.order("created_at", desc=True).execute()
-    return _attach_reporting_manager(resp.data or [])
+    return _attach_proof_urls(_attach_reporting_manager(resp.data or []))
 
 
 def _attach_reporting_manager(requests: list[dict]) -> list[dict]:
@@ -838,7 +891,7 @@ def my_team_leave_requests(status: str | None = Query(None), user: dict = Depend
     if status:
         query = query.eq("status", status)
     resp = query.order("created_at", desc=True).execute()
-    return resp.data
+    return _attach_proof_urls(resp.data)
 
 
 @router.get("/me/team-members")

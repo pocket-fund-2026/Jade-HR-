@@ -2,6 +2,7 @@ from datetime import date, datetime, time, timezone
 
 from config import IST
 from payroll import (
+    apply_late_coming_policy_v3,
     FLEXIBLE_TIME_SLOT,
     LATE_POLICY_V2_EFFECTIVE,
     apply_late_coming_policy,
@@ -806,6 +807,7 @@ def test_one_bad_employee_does_not_break_whole_payroll(monkeypatch):
     monkeypatch.setattr(rp, "fetch_all_approved_leaves_by_employee", lambda *a, **k: {})
     monkeypatch.setattr(rp, "fetch_all_confirmed_wfh_by_employee", lambda *a, **k: {})
     monkeypatch.setattr(rp, "_fetch_all_tax_declarations", lambda *a, **k: {})
+    monkeypatch.setattr(rp, "fetch_approved_arrears", lambda *a, **k: {})
     good = {**CORPORATE_EMPLOYEE, "id": "g", "employee_code": "G1"}
     bad = {**CORPORATE_EMPLOYEE, "id": "b", "employee_code": "B1", "basic": "not-a-number"}
     out = rp._all_summaries_for_month([good, bad, good], {}, [], 2026, 9)
@@ -873,3 +875,133 @@ def test_no_allowance_without_an_assigned_shift():
     rows = compute_daily_attendance(2026, 1, _two_day_punches((21, 30), (11, 10)), 8, weekly_off_day=6)
     r = next(r for r in rows if r["date"] == "2026-01-06")
     assert "late_allowance_minutes" not in r
+
+
+def test_approved_arrears_reach_net_pay_from_go_live_period(monkeypatch):
+    import routers.payroll as rp
+    for name in ("_fetch_all_punches_by_employee", "_fetch_all_overrides_by_employee",
+                 "fetch_all_approved_leaves_by_employee", "fetch_all_confirmed_wfh_by_employee",
+                 "_fetch_all_tax_declarations"):
+        monkeypatch.setattr(rp, name, lambda *a, **k: {})
+    monkeypatch.setattr(rp, "fetch_approved_arrears", lambda y, m, *a: {"e1": [{"arrear_amount": 1000, "tds_amount": 100}]})
+    monkeypatch.setattr(rp, "_summary_for_employee", lambda *a, **k: {"total_payable": 5000.0})
+    emp = {"id": "e1", "employee_code": "E1"}
+    old = rp._all_summaries_for_month([emp], {}, {}, 2026, 11)[0]
+    new = rp._all_summaries_for_month([emp], {}, {}, 2026, 12)[0]
+    assert old["total_payable"] == 5000.0 and old["arrear"] == 1000
+    assert new["total_payable"] == 5900.0
+    # ESIC-style calendar-month view must never see pay-period arrears
+    cal = rp._all_summaries_for_month([emp], {}, {}, 2026, 12, calendar_month=True)[0]
+    assert cal["total_payable"] == 5000.0 and "arrear" not in cal
+
+
+def test_v3_does_not_deduct_a_day_excused_by_extra_hours():
+    # Regression: attendance marked the day "late_excused_by_extra_hours" (arrival
+    # inside the allowance earned by the previous evening's stay-back) but the v3
+    # banding re-read raw first_in and still charged a Yellow Card + LOP.
+    punches = [
+        datetime(2026, 11, 5, 10, 0, tzinfo=IST), datetime(2026, 11, 5, 21, 30, tzinfo=IST),   # 2h30 extra after 7 PM
+        datetime(2026, 11, 6, 11, 10, tzinfo=IST), datetime(2026, 11, 6, 19, 0, tzinfo=IST),   # inside 1h15 allowance
+    ]
+    emp = {**CORPORATE_EMPLOYEE, "time_slot": "10:00 AM – 7:00 PM"}
+    rows = compute_daily_attendance(2026, 11, punches, 8, weekly_off_day=6, time_slot="10:00 AM – 7:00 PM", is_corporate=True)
+    day = next(r for r in rows if r["date"] == "2026-11-06")
+    assert day["late_excused_by_extra_hours"] is True
+    summary = apply_late_coming_policy_v3(rows, "10:00 AM – 7:00 PM")
+    assert summary["yellow_card_count"] == 0
+    assert not day.get("late_band_v3") and not day.get("lop_days")
+
+
+# ── Store-calendar staff (Pedder Road): closed days are a paid H for everyone,
+# "open till 4pm" days cost half a day to anyone who did not work them.
+
+def _store_rows(punches, holidays, overrides=None, leaves=None, location="Pedder Road, Mumbai"):
+    from payroll import compute_daily_attendance, holiday_applies_to_all_staff
+    return {
+        r["date"]: r for r in compute_daily_attendance(
+            2026, 11, punches, 8, overrides, leaves, 6, holidays=holidays, is_corporate=False,
+            holiday_all_staff=holiday_applies_to_all_staff(location),
+        )
+    }
+
+
+def _hol(d, day_type, desc="Diwali"):
+    return {date.fromisoformat(d): {"holiday_date": d, "description": desc, "day_type": day_type}}
+
+
+def test_closed_holiday_is_paid_h_for_retail_even_if_punched_or_corrected():
+    hol = _hol("2026-11-09", "closed", "Govardhan Puja")
+    punches = [datetime(2026, 11, 9, 10, 0, tzinfo=IST), datetime(2026, 11, 9, 19, 0, tzinfo=IST)]
+    rows = _store_rows(punches, hol)
+    assert rows["2026-11-09"]["status"] == "holiday"
+    assert rows["2026-11-09"]["holiday_description"] == "Govardhan Puja"
+    corrected = {date(2026, 11, 9): {"status_override": "present", "first_in": None, "last_out": None}}
+    assert _store_rows([], hol, overrides=corrected)["2026-11-09"]["status"] == "holiday"
+    assert _store_rows([], hol)["2026-11-09"]["status"] == "holiday"  # no punch: was "absent" before
+
+
+def test_other_stores_retail_still_get_no_closed_holiday():
+    hol = _hol("2026-11-09", "closed")
+    rows = _store_rows([], hol, location="Madhu Estate, Mumbai")
+    assert rows["2026-11-09"]["status"] == "absent"
+
+
+def test_open_till_4pm_full_day_if_worked_half_day_lost_if_not():
+    hol = _hol("2026-11-07", "open_till_4pm", "Choti Diwali")
+    worked = [datetime(2026, 11, 7, 10, 0, tzinfo=IST), datetime(2026, 11, 7, 16, 30, tzinfo=IST)]
+    assert _store_rows(worked, hol)["2026-11-07"]["status"] == "present"
+    absent = _store_rows([], hol)["2026-11-07"]
+    assert absent["status"] == "half_day" and absent["half_day_holiday"] is True
+    # approved leave still follows the leave policy (its own branch), not the half-day rule
+    on_leave = _store_rows([], hol, leaves={date(2026, 11, 7): "paid"})["2026-11-07"]
+    assert on_leave["status"] == "leave"
+
+
+def test_pedder_road_monthly_pay_for_nov_7_and_9():
+    from payroll import compute_monthly_summary
+    emp = {**EMPLOYEE, "employee_category": "factory_retail", "location": "Pedder Road, Mumbai", "basic": 30000.0}
+    hol = [
+        {"holiday_date": "2026-11-07", "description": "Choti Diwali", "day_type": "open_till_4pm", "location": "Pedder Road"},
+        {"holiday_date": "2026-11-09", "description": "Govardhan Puja", "day_type": "closed", "location": "Mumbai"},
+    ]
+    s = compute_monthly_summary(emp, 2026, 11, [], holidays=hol)
+    daily = {r["date"]: r for r in s["daily"]}
+    assert daily["2026-11-09"]["status"] == "holiday"
+    assert daily["2026-11-07"]["status"] == "half_day"
+    # Same month at another retail store (no store-calendar rule): Nov 7 and 9 are plain absences.
+    other = compute_monthly_summary({**emp, "location": "Madhu Estate, Mumbai"}, 2026, 11, [], holidays=hol)
+    assert round(s["paid_days"] - other["paid_days"], 1) == 1.5  # Nov 9 paid H (1) + Nov 7 half day (0.5)
+    assert round(other["without_pay_days"] - s["without_pay_days"], 1) == 1.5
+
+
+def test_missed_clock_out_correction_keeps_the_real_punch_in():
+    # HR approved "I left at 19:40" (claimed_out only). The raw 10:05 punch-in
+    # must still show, with real hours — it used to vanish, leaving In = blank.
+    from payroll import compute_daily_attendance
+    punches = [datetime(2026, 11, 2, 10, 5, tzinfo=IST)]
+    overrides = {date(2026, 11, 2): {"status_override": "present", "first_in": None, "last_out": time(19, 40)}}
+    rows = {r["date"]: r for r in compute_daily_attendance(2026, 11, punches, 8, overrides, None, 6, time_slot="10:00 AM – 7:00 PM")}
+    r = rows["2026-11-02"]
+    assert r["first_in"].startswith("2026-11-02T10:05") and r["last_out"].startswith("2026-11-02T19:40")
+    assert round(r["hours_worked"], 2) == 9.58 and r["status"] == "present"
+
+
+def test_correction_with_both_sides_or_no_raw_punch_is_untouched():
+    from payroll import compute_daily_attendance
+    ov = {date(2026, 11, 2): {"status_override": "present", "first_in": None, "last_out": time(19, 40)}}
+    r = {x["date"]: x for x in compute_daily_attendance(2026, 11, [], 8, ov, None, 6)}["2026-11-02"]
+    assert r["first_in"] is None  # nothing to recover
+    both = {date(2026, 11, 2): {"status_override": "present", "first_in": time(9, 0), "last_out": time(18, 0)}}
+    punches = [datetime(2026, 11, 2, 10, 5, tzinfo=IST)]
+    r = {x["date"]: x for x in compute_daily_attendance(2026, 11, punches, 8, both, None, 6)}["2026-11-02"]
+    assert r["first_in"].startswith("2026-11-02T09:00")
+
+
+def test_store_holiday_rule_never_overrides_an_imported_register_day():
+    from payroll import compute_daily_attendance
+    reg = {"status_override": "present", "first_in": time(10, 0), "last_out": time(19, 0),
+           "register": {"credit": 1.0, "work_hours": 9.0, "ot_hours": 0.0, "late_count": None, "shift_code": "G"}}
+    hol = _hol("2026-11-09", "closed", "Govardhan Puja")
+    rows = {r["date"]: r for r in compute_daily_attendance(
+        2026, 11, [], 8, {date(2026, 11, 9): reg}, None, 6, holidays=hol, holiday_all_staff=True)}
+    assert rows["2026-11-09"]["register_credit"] == 1.0 and rows["2026-11-09"]["status"] == "present"

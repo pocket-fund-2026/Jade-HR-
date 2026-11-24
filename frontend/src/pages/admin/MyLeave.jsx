@@ -1,4 +1,5 @@
 import { CalendarPlus } from "lucide-react";
+import LeaveProofField, { LeaveProofLink, uploadLeaveProof } from "../../components/LeaveProofField.jsx";
 import { useEffect, useState } from "react";
 
 import StampBadge from "../../components/StampBadge.jsx";
@@ -18,6 +19,7 @@ export default function MyLeave() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [reason, setReason] = useState("");
+  const [proof, setProof] = useState(null);
   const [session, setSession] = useState("first");
   const isHalf = leaveType === "half_day";
   const [submitting, setSubmitting] = useState(false);
@@ -45,7 +47,8 @@ export default function MyLeave() {
     }
     setSubmitting(true);
     try {
-      await api.post("/api/me/leave-requests", { leave_type: leaveType, start_date: startDate, end_date: isHalf ? startDate : endDate, reason, ...(isHalf ? { half_day_session: session } : {}) });
+      const proofFields = await uploadLeaveProof(proof);
+      await api.post("/api/me/leave-requests", { ...proofFields, leave_type: leaveType, start_date: startDate, end_date: isHalf ? startDate : endDate, reason, ...(isHalf ? { half_day_session: session } : {}) });
       setStartDate(""); setEndDate(""); setReason("");
       load();
     } catch (err) {
@@ -112,6 +115,7 @@ export default function MyLeave() {
                 placeholder="Optional"
                 className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
             </div>
+            <div className="mt-4"><LeaveProofField file={proof} onChange={setProof} /></div>
             {error && <p className="text-sm text-rust-500 mt-3">{error}</p>}
             <div className="flex justify-end mt-4">
               <button type="submit" disabled={submitting}
@@ -133,6 +137,7 @@ export default function MyLeave() {
                       {formatDate(r.start_date)} – {formatDate(r.end_date)}
                       {r.reason && ` · ${r.reason}`}
                     </p>
+                    <LeaveProofLink request={r} />
                   </div>
                   <StampBadge status={r.status}>{r.status}</StampBadge>
                 </div>

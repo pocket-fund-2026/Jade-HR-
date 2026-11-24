@@ -396,7 +396,7 @@ export default function Dashboard() {
               )}
                       {d.lop_days > 0 && (
                         <span className="ml-1.5 text-[10px] font-sans font-semibold text-rust-500 uppercase tracking-wide">
-                          ½ LOP
+                          {{ 0.25: "¼", 0.5: "½", 0.75: "¾", 1: "1" }[Number(d.lop_days)] || Number(d.lop_days)} LOP
                         </span>
                       )}
                     </td>

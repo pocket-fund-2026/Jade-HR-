@@ -1,5 +1,5 @@
 import { ArrowLeft, FileSpreadsheet, Pencil, Upload } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import AttendanceImportModal from "../../../components/AttendanceImportModal.jsx";
@@ -196,6 +196,7 @@ export default function AttendanceReport() {
   const [rangeTo, setRangeTo] = useState("");
   const [appliedRange, setAppliedRange] = useState(null); // { from, to } once Apply is clicked
   const [rows, setRows] = useState([]);
+  const [store, setStore] = useState("");
   const [loading, setLoading] = useState(true);
   const [rangeError, setRangeError] = useState("");
   const [editing, setEditing] = useState(null); // { employee, day }
@@ -234,6 +235,15 @@ export default function AttendanceReport() {
   useEffect(() => { if (mode === "month") loadMonth(); }, [year, month, mode]);
 
   const days = rows[0]?.daily ?? [];
+  const storeOf = (r) => (r.location || "").trim() || "Unassigned";
+  const stores = useMemo(() => [...new Set(rows.map(storeOf))].sort((a, b) => a.localeCompare(b)), [rows]);
+  // Grouped by store (A–Z), employees A–Z inside each store; optional single-store filter.
+  const visibleRows = useMemo(
+    () => rows
+      .filter((r) => !store || storeOf(r) === store)
+      .sort((a, b) => storeOf(a).localeCompare(storeOf(b)) || (a.name || "").localeCompare(b.name || "")),
+    [rows, store],
+  );
   const exportLabel = mode === "range" && appliedRange ? `${appliedRange.from}_to_${appliedRange.to}` : undefined;
 
   return (
@@ -278,6 +288,15 @@ export default function AttendanceReport() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3 mb-4">
+        <select
+          value={store}
+          onChange={(e) => setStore(e.target.value)}
+          className="bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-xs font-semibold"
+          aria-label="Filter by store"
+        >
+          <option value="">All stores</option>
+          {stores.map((st) => <option key={st} value={st}>{st}</option>)}
+        </select>
         <div className="flex items-center gap-1 bg-paper rounded-sm shadow-card p-1">
           <button
             onClick={() => setMode("month")}
@@ -309,11 +328,11 @@ export default function AttendanceReport() {
         )}
       </div>
 
-      <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
+      <div className="bg-paper rounded-sm shadow-card overflow-auto max-h-[calc(100vh-15rem)] min-h-[320px]">
+        <table className="w-full min-w-max text-xs">
+          <thead className="text-left [&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-paper [&_th]:shadow-[0_1px_0_rgba(0,0,0,0.12)]">
             <tr className="border-b-2 border-ink/10">
-              <th className="px-3 py-2 font-semibold text-[11px] uppercase tracking-wider text-ink/70 sticky left-0 bg-paper">Employee</th>
+              <th className="px-3 py-2 font-semibold text-[11px] uppercase tracking-wider text-ink/70 !left-0 !z-20">Employee</th>
               {days.map((d) => (
                 <th key={d.date} className="px-1 py-2 font-semibold text-ink/70 text-center w-14">{dayNumber(d.date)}</th>
               ))}
@@ -330,13 +349,22 @@ export default function AttendanceReport() {
             ) : rows.length === 0 ? (
               <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={days.length + 6}>No employees found.</td></tr>
             ) : (
-              rows.map((r) => {
+              visibleRows.map((r, i) => {
                 const s = summarize(r.daily);
+                const showStoreHeader = i === 0 || storeOf(visibleRows[i - 1]) !== storeOf(r);
                 return (
-                  <tr key={r.employee_id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
-                    <td className="px-3 py-2 sticky left-0 bg-paper">
+                  <Fragment key={r.employee_id}>
+                  {showStoreHeader && (
+                    <tr className="bg-manila">
+                      <td colSpan={days.length + 6} className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink/70 sticky left-0">
+                        {storeOf(r)} <span className="font-nums normal-case text-ink/60">· {visibleRows.filter((x) => storeOf(x) === storeOf(r)).length}</span>
+                      </td>
+                    </tr>
+                  )}
+                  <tr className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
+                    <td className="px-3 py-2 sticky left-0 z-[5] bg-paper">
                       <span className="text-ink font-medium">{r.name}</span>
-                      <div className="text-ink/70 font-nums">{r.employee_code}</div>
+                      <div className="text-ink/70 font-nums">{r.employee_code} · {storeOf(r)}</div>
                     </td>
                     {r.daily.map((d) => {
                       const editable = d.status !== "future";
@@ -387,6 +415,7 @@ export default function AttendanceReport() {
                     <td className="px-2 py-2 font-nums text-center text-rust-600">{s.late}</td>
                     <td className="px-2 py-2 font-nums text-center font-semibold text-ink">{totalPaidDays(r.daily)}</td>
                   </tr>
+                  </Fragment>
                 );
               })
             )}
