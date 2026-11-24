@@ -755,8 +755,8 @@ def test_register_mode_uses_sheet_credits_exactly():
             "register": {"credit": credit, "late_count": late, "shift_code": "P", "work_hours": 8.0, "ot_hours": 0.0},
         }
     s = compute_monthly_summary(emp, 2026, 9, [], overrides, {}, [], 0.0)
-    assert s["paid_days"] == 29.8  # 29.75 shown to 1dp
-    assert s["without_pay_days"] == 1.2
+    assert s["paid_days"] == 29.75  # shown exactly, not rounded to 29.8
+    assert s["without_pay_days"] == 1.25
     assert s["late_mark_count"] == 1
     assert s["basic"] == round(31000 * 29.75 / 31, 2) == 29750.0
 
@@ -1005,3 +1005,61 @@ def test_store_holiday_rule_never_overrides_an_imported_register_day():
     rows = {r["date"]: r for r in compute_daily_attendance(
         2026, 11, [], 8, {date(2026, 11, 9): reg}, None, 6, holidays=hol, holiday_all_staff=True)}
     assert rows["2026-11-09"]["register_credit"] == 1.0 and rows["2026-11-09"]["status"] == "present"
+
+
+# ── Display consistency under Policy v3 (2026-11-24 audit) ──────────────────
+
+def test_v3_every_yellow_card_day_is_marked_late_and_counted():
+    # 10:05 (Daily Tolerance) and 10:15 (Extended Buffer) earn Yellow Cards
+    # under v3 although they sit inside v2's old 10:20 grace. The day must be
+    # flagged late (badge, dispute button, digest) and counted in late_days.
+    punches = _punch_at(2026, 9, 23, 10, 5) + _punch_at(2026, 9, 24, 10, 15) + _punch_at(2026, 9, 25, 9, 58)
+    summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 10, punches)
+    days = {r["date"]: r for r in summary["daily"]}
+    assert days["2026-09-23"]["late"] is True
+    assert days["2026-09-24"]["late"] is True
+    assert days["2026-09-25"]["late"] is False
+    assert summary["late_days"] == summary["late_mark_count"] == 2
+    assert summary["on_time_days"] == 1
+
+
+def test_v3_charged_day_is_never_shown_as_on_time():
+    late_days = [(2026, 9, 23), (2026, 9, 24), (2026, 9, 25), (2026, 9, 28)]
+    punches = [p for day in late_days for p in _punch_at(*day, 10, 15)]
+    summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 10, punches)
+    for r in summary["daily"]:
+        if r.get("lop_days"):
+            assert r["late"] is True
+
+
+def test_quarter_day_paid_days_keep_two_decimals():
+    # One ¼-day deduction: 25.75-style figures must not be rounded to 1 dp.
+    late_days = [(2026, 9, 23), (2026, 9, 24), (2026, 9, 25), (2026, 9, 28)]
+    punches = [p for day in late_days for p in _punch_at(*day, 10, 15)]
+    summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 10, punches)
+    assert summary["lop_days"] == 0.25
+    assert round(summary["paid_days"] * 100) % 25 == 0
+    assert round(summary["without_pay_days"] * 100) % 25 == 0
+
+
+def test_corrected_day_on_weekly_off_carries_no_late_or_card():
+    # Sun 27 Sept 2026 is the weekly off; an HR correction with an 11:30 in
+    # must still read as WOP, never a Yellow Card or deduction.
+    overrides = {date(2026, 9, 27): {"status_override": "present", "first_in": time(11, 30), "last_out": time(19, 0)}}
+    summary = compute_monthly_summary(CORPORATE_EMPLOYEE, 2026, 10, [], overrides=overrides)
+    day = next(r for r in summary["daily"] if r["date"] == "2026-09-27")
+    assert day["worked_on_weekly_off"] is True
+    assert day["late"] is False
+    assert "lop_days" not in day
+    assert summary["late_mark_count"] == 0
+
+
+def test_range_attendance_marks_v3_late_like_the_payslip():
+    from payroll import compute_attendance_for_range
+    punches = _punch_at(2026, 9, 23, 10, 5) + _punch_at(2026, 9, 24, 9, 55)
+    daily = compute_attendance_for_range(CORPORATE_EMPLOYEE, date(2026, 9, 23), date(2026, 9, 24), punches)
+    by = {r["date"]: r for r in daily}
+    assert by["2026-09-23"]["late"] is True
+    assert by["2026-09-23"]["late_band_v3"] == "daily_tolerance"
+    assert by["2026-09-24"]["late"] is False
+    assert all("lop_days" not in r for r in daily)

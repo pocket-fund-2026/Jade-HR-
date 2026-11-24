@@ -630,7 +630,14 @@ def compute_daily_attendance(
             if day_punches and day_punches[0].astimezone(IST).time() < MIDNIGHT_TAIL_CUTOFF:
                 day_punches = day_punches[1:]  # tail of yesterday's shift, same rule as raw days below
             override = _fill_override_from_punches(overrides[d], day_punches)
-            rows.append(_apply_override(d, override, standard_hours_per_day, time_slot, ot_eligible))
+            row = _apply_override(d, override, standard_hours_per_day, time_slot, ot_eligible)
+            if row["status"] == "present" and d.weekday() == weekly_off_day and not override.get("register"):
+                # A corrected day on the weekly off is still WOP: no late mark,
+                # Yellow Card or deduction (HR, 17 Nov 2026), same as a raw punch.
+                row["worked_on_weekly_off"] = True
+                row["late"] = False
+                row["late_half_day_tier"] = False
+            rows.append(row)
             d += timedelta(days=1)
             continue
 
@@ -1138,12 +1145,23 @@ def compute_attendance_for_range(
     time_slot = employee.get("time_slot")
     holidays = [h for h in (holidays or []) if h.get("day_type") != "anniversary"]
     holidays_for_employee = _holidays_for_employee(holidays, employee.get("location"))
-    return compute_daily_attendance(
+    daily = compute_daily_attendance(
         start.year, start.month, punch_times, standard_hours, overrides, leaves, weekly_off_day,
         holidays=holidays_for_employee, is_corporate=is_corporate, time_slot=time_slot,
         date_range=(start, end), ot_eligible=_is_ot_eligible(employee), wfh_days=wfh_days,
         holiday_all_staff=holiday_applies_to_all_staff(employee.get("location")),
     )
+    if is_corporate:
+        # Same "is this day late" answer as the payslip under Policy v3 (band
+        # from the shift start). The deduction is a per-cycle count, so a
+        # free-form range shows the band and Late mark but no lop_days.
+        v3_days = [r for r in daily if late_policy_v3_active(date.fromisoformat(r["date"]))]
+        apply_late_coming_policy_v3(v3_days, time_slot)
+        for r in v3_days:
+            r.pop("lop_days", None)
+            if r["status"] == "present":
+                r["late"] = bool(r.get("late_band_v3"))
+    return daily
 
 
 def compute_monthly_summary(
@@ -1180,6 +1198,16 @@ def compute_monthly_summary(
     register_mode = bool(daily) and all(r.get("register_credit") is not None for r in daily)
     v3_active = is_corporate and late_policy_v3_active(period_end_for_v3) and not register_mode
     v3_summary = apply_late_coming_policy_v3(daily, time_slot) if v3_active else None
+    if v3_active:
+        # Under v3 a day is late exactly when it earned a Yellow Card band
+        # (late from the shift start, not v2's 10:20 grace). The row's `late`
+        # flag drives the "Late" badge, the dispute button, the attendance
+        # sheet, the late digest and late_days/on_time_days — so it must agree
+        # with the Yellow Card count and the LOP, or an employee sees a ¼ LOP
+        # (or a Red Card) on days that are not marked late at all.
+        for r in daily:
+            if r["status"] == "present":
+                r["late"] = bool(r.get("late_band_v3"))
     if register_mode:
         late_mark_count, red_card = max((r["register_late_count"] for r in daily), default=0), False
     elif v3_active:
@@ -1325,7 +1353,8 @@ def compute_monthly_summary(
         "weekoff_days": weekoff_days,
         "wfh_days": wfh_day_count,
         "pl_days": pl_days,
-        "paid_days": round(paid_days, 1),
+        # 2 decimals: v3 deducts in ¼ days, so 25.25 must not show as 25.2.
+        "paid_days": round(paid_days, 2),
         "late_days": late_days,
         "on_time_days": on_time_days,
         "late_mark_count": late_mark_count,
@@ -1339,7 +1368,7 @@ def compute_monthly_summary(
         "late_policy_v3": v3_summary,
         "lop_days": late_lop_days,
         "lop_amount": round(lop_amount, 2),
-        "without_pay_days": round(without_pay_days, 1),
+        "without_pay_days": round(without_pay_days, 2),
         "total_hours_worked": total_hours_worked,
         "total_ot_hours": total_ot_hours,
         "basic": round(basic, 2),

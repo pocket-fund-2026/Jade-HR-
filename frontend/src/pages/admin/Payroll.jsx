@@ -160,12 +160,12 @@ export default function Payroll() {
                       </span>
                     ) : null}
                     {r.red_card ? (
-                      <span title={`${r.late_mark_count} late marks this cycle`}
+                      <span title={r.late_policy_version === 3 ? `${r.late_mark_count} Yellow Cards this cycle (7 = Red Card)` : `${r.late_mark_count} late marks this cycle`}
                         className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-rust-500 bg-rust-50 border border-rust-500/40 rounded-sm px-1.5 py-0.5">
                         Red Card
                       </span>
                     ) : r.yellow_card ? (
-                      <span title={`${r.late_mark_count} of 3 free late marks used`}
+                      <span title={r.late_policy_version === 3 ? `${r.late_mark_count} of 7 Yellow Cards (7 = Red Card)` : `${r.late_mark_count} of 3 free late marks used`}
                         className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-ink/70 bg-manila border border-ink/20 rounded-sm px-1.5 py-0.5">
                         Yellow
                       </span>

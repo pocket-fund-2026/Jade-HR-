@@ -45,7 +45,7 @@ MERGED_PAID_LEAVE_TYPES = ("paid",) + DEPRECATED_LEAVE_TYPES
 # earning days they were then refused when they tried to spend them.
 CORPORATE_ONLY_TYPES = {"paternity", "maternity", "compassionate"}
 PL_PROBATION_DAYS = 91  # ~3 months
-# Late-coming policy (revised Jul 2026): a Red Card month (5+ late marks)
+# Late-coming policy: a Red Card month (Policy v3: 7 Yellow Cards)
 # blocks new PL/Comp-Off requests entirely, not just the leave-day-becomes-
 # LOP consequence in payroll.py's apply_late_coming_policy. Management's
 # documented-exception override is the employee_id-on-behalf-of path below.
@@ -342,36 +342,31 @@ def _current_pay_period(today: date) -> tuple[int, int]:
 
 
 def _is_red_carded_current_cycle(employee: dict) -> bool:
-    """Whether `employee` has already hit 5+ late marks in the pay period
-    currently in progress — re-runs the same late-coming-policy computation
-    payroll.py uses for a real payslip, just for the partial period to date
-    (days after today compute as status "future" and never count as late)."""
+    """Whether `employee` already holds a Red Card in the pay period in
+    progress. Runs the exact payslip computation (compute_monthly_summary with
+    the same punches, HR corrections, approved leave, holidays and WFH the
+    payslip uses), so the leave block always matches the card the employee
+    sees on their payslip: under Policy v3 that is 7 Yellow Cards; a late mark
+    HR has corrected away no longer counts. Days after today are "future" and
+    never count."""
     if employee.get("employee_category") != "corporate":
         return False
-    year, month = _current_pay_period(date.today())
-    period_start, period_end = pay_period_bounds(year, month)
-    punches_resp = (
-        supabase.table("hr_biometric_punches")
-        .select("punch_time")
-        .eq("employee_code", employee["employee_code"])
-        .gte("punch_time", f"{period_start.isoformat()}T00:00:00+00:00")
-        .lte("punch_time", f"{period_end.isoformat()}T23:59:59+00:00")
-        .execute()
+    # Imported here: routers.payroll imports this module at load time.
+    from routers.payroll import _fetch_compliance_profile, _fetch_holidays, _fetch_overrides, _fetch_punch_times
+    from routers.wfh import fetch_confirmed_wfh
+    from payroll import compute_monthly_summary
+
+    year, month = _current_pay_period(datetime.now(IST).date())
+    full = {**employee, **_fetch_compliance_profile(employee["id"])}
+    summary = compute_monthly_summary(
+        full, year, month,
+        _fetch_punch_times(full["employee_code"], year, month),
+        _fetch_overrides(full["id"], year, month),
+        fetch_approved_leaves(full["id"], year, month),
+        _fetch_holidays(),
+        wfh_days=fetch_confirmed_wfh(full["id"], year, month),
     )
-    punches = [datetime.fromisoformat(r["punch_time"]) for r in punches_resp.data]
-    profile_resp = (
-        supabase.table("hr_employee_profile").select("time_slot").eq("employee_id", employee["id"]).maybe_single().execute()
-    )
-    time_slot = (maybe_single_data(profile_resp) or {}).get("time_slot")
-    standard_hours = float(employee.get("standard_hours_per_day") or 8)
-    weekly_off_day = int(employee.get("weekly_off_day") if employee.get("weekly_off_day") is not None else 6)
-    leaves = fetch_approved_leaves(employee["id"], year, month)
-    daily = compute_daily_attendance(
-        year, month, punches, standard_hours, leaves=leaves, weekly_off_day=weekly_off_day,
-        is_corporate=True, time_slot=time_slot,
-    )
-    _, red_card = apply_late_coming_policy(daily, standard_hours, time_slot)
-    return red_card
+    return bool(summary.get("red_card"))
 
 
 def _resolve_manager_id(name: str | None, email: str | None) -> str | None:
@@ -468,7 +463,7 @@ def create_leave_request(body: LeaveRequestCreate, user: dict = Depends(get_curr
         raise HTTPException(
             status_code=400,
             detail=(
-                "You've had 5 or more late arrivals this pay cycle (Red Card) — Paid Leave and Comp-Off "
+                "You have a Red Card this pay cycle (7 Yellow Cards for late arrival) — Paid Leave and Comp-Off "
                 "requests are blocked until the cycle resets on the 23rd. For a documented medical emergency "
                 "or an approved management exception, contact HR."
             ),
