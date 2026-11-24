@@ -3,7 +3,7 @@ from datetime import datetime, time
 from fastapi import APIRouter, Depends
 
 from auth import hash_password, require_console, require_permission
-from config import EXCLUDED_SERIALS, IST, SERIAL_TO_LOCATION
+from config import EXCLUDED_SERIAL_LABELS, IST, SERIAL_TO_LOCATION, serial_allowed
 from database import supabase
 from initial_passwords import initial_employee_password
 from models import BiometricPunch
@@ -68,7 +68,7 @@ def ingest(records: list[BiometricPunch], admin: dict = Depends(require_console)
         if not employee_code or not log_date:
             continue
         serial = r.SerialNumber.strip()
-        if serial in EXCLUDED_SERIALS:
+        if not serial_allowed(serial, employee_code):
             continue
         try:
             # SmartOffice's LogDate is IST wall-clock time with no offset —
@@ -82,7 +82,7 @@ def ingest(records: list[BiometricPunch], admin: dict = Depends(require_console)
             "punch_time": punch_dt.isoformat(),
             "serial_number": serial,
             "punch_direction": r.PunchDirection.strip(),
-            "device_location": SERIAL_TO_LOCATION.get(serial, "Unknown"),
+            "device_location": SERIAL_TO_LOCATION.get(serial) or EXCLUDED_SERIAL_LABELS.get(serial, "Unknown"),
         })
 
     auto_provisioned = _auto_provision_employees(rows)

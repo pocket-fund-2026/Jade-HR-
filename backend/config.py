@@ -53,3 +53,18 @@ SERIAL_TO_LOCATION = {
 # blank employee stubs the next time this serial's data syncs). Enforced in
 # routers/biometric.py's ingest() regardless of what biometric_sync.py sends.
 EXCLUDED_SERIALS = {"CK5O223960664"}
+
+# Named exceptions: JADE HR employees who punch on an excluded device. Only
+# these exact codes pass; every other code on that device stays rejected.
+# Per-device, because codes are reused across devices (Kolkata's "1" is not
+# Ahmedabad's "1"), so "any active employee" would mix two people's punches.
+# 14817 Surabhishah: on the JADE HR roster, punches only on the Kolkata
+# device (HR, 24 Nov 2026).
+EXCLUDED_SERIAL_ALLOWED_CODES = {"CK5O223960664": {"14817"}}
+EXCLUDED_SERIAL_LABELS = {"CK5O223960664": "Kolkata"}
+
+
+def serial_allowed(serial: str, employee_code: str) -> bool:
+    if serial not in EXCLUDED_SERIALS:
+        return True
+    return employee_code in EXCLUDED_SERIAL_ALLOWED_CODES.get(serial, set())

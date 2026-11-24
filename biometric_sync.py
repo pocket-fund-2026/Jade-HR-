@@ -49,6 +49,8 @@ ALL_JADE_SERIALS = ",".join([
     "C2600831C32B1034",  # Emporio, Delhi
     "C2625841D724172A",  # Ahmedabad
 ])
+# Keep in sync with backend/config.py's EXCLUDED_SERIAL_ALLOWED_CODES.
+EXCLUDED_SERIAL_ALLOWED_CODES = {"CK5O223960664": {"14817"}}
 DEVICE_SERIALS = set(filter(None, os.environ.get("DEVICE_SERIALS", ALL_JADE_SERIALS).split(",")))
 
 JADE_HR_URL = os.environ.get("JADE_HR_URL", "https://jade-hr.vercel.app")
@@ -147,7 +149,13 @@ def main():
         sys.exit(1)
 
     if DEVICE_SERIALS:
-        records = [r for r in records if r.get("SerialNumber", "") in DEVICE_SERIALS]
+        records = [
+            r for r in records
+            if r.get("SerialNumber", "") in DEVICE_SERIALS
+            # Named JADE HR employees who punch on an excluded device (the
+            # ingest endpoint enforces the same list, see backend/config.py).
+            or str(r.get("EmployeeCode", "")).strip() in EXCLUDED_SERIAL_ALLOWED_CODES.get(r.get("SerialNumber", ""), ())
+        ]
 
     print(f"  Got {len(records)} records")
     if not records:
