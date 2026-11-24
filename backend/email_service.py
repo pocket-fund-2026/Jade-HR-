@@ -20,13 +20,18 @@ Uses stdlib urllib only (no new dependency on requests/httpx) — a plain
 HTTPS POST to https://api.resend.com/emails.
 """
 
+import base64
 import html as html_lib
 import json
+import mimetypes
 import logging
 import os
 import re
+import time
 import urllib.error
+import urllib.parse
 import urllib.request
+from email.message import EmailMessage
 
 logger = logging.getLogger("jade_hr.email")
 
@@ -45,8 +50,85 @@ IT_NOTIFY_EMAIL = os.environ.get("IT_NOTIFY_EMAIL", "")
 SALARY_HOLD_NOTIFY_EMAIL = os.environ.get("SALARY_HOLD_NOTIFY_EMAIL", "rushikesh@jadecouture.com")
 
 
+# --- Gmail API transport (OAuth refresh token, scope gmail.send only) -------
+# EMAIL_TRANSPORT = "resend" (default) | "gmail" (Gmail first, Resend as fallback
+# if both are configured). HR_MAIL_TEST_ONLY redirects EVERY message to one inbox
+# (subject tagged "[Test for <real recipient>]") for rollout testing.
+GMAIL_CLIENT_ID = os.environ.get("GMAIL_CLIENT_ID", "")
+GMAIL_CLIENT_SECRET = os.environ.get("GMAIL_CLIENT_SECRET", "")
+GMAIL_REFRESH_TOKEN = os.environ.get("GMAIL_REFRESH_TOKEN", "")
+EMAIL_TRANSPORT = os.environ.get("EMAIL_TRANSPORT", "resend").strip().lower()
+HR_MAIL_TEST_ONLY = os.environ.get("HR_MAIL_TEST_ONLY", "").strip().lower()
+_GMAIL_TOKEN = {"value": None, "exp": 0.0}
+
+
+def gmail_configured() -> bool:
+    return bool(GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET and GMAIL_REFRESH_TOKEN)
+
+
 def is_configured() -> bool:
+    if EMAIL_TRANSPORT == "gmail" and gmail_configured():
+        return True
     return bool(RESEND_API_KEY)
+
+
+def _gmail_access_token() -> str:
+    if _GMAIL_TOKEN["value"] and time.time() < _GMAIL_TOKEN["exp"] - 60:
+        return _GMAIL_TOKEN["value"]
+    data = urllib.parse.urlencode({
+        "client_id": GMAIL_CLIENT_ID, "client_secret": GMAIL_CLIENT_SECRET,
+        "refresh_token": GMAIL_REFRESH_TOKEN, "grant_type": "refresh_token",
+    }).encode()
+    req = urllib.request.Request("https://oauth2.googleapis.com/token", data=data, method="POST")
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        j = json.loads(resp.read() or b"{}")
+    if not j.get("access_token"):
+        raise RuntimeError(f"Google token: {j.get('error_description') or j.get('error') or 'failed'}")
+    _GMAIL_TOKEN.update(value=j["access_token"], exp=time.time() + int(j.get("expires_in", 3600)))
+    return _GMAIL_TOKEN["value"]
+
+
+def _gmail_send(payload: dict) -> str:
+    """Send one message through the Gmail API; returns "gmail:<message id>".
+    payload uses the same keys as the Resend payload (from/to/cc/reply_to/subject/text/html/attachments)."""
+    msg = EmailMessage()
+    msg["From"] = payload["from"]
+    msg["To"] = ", ".join(payload["to"])
+    if payload.get("cc"):
+        msg["Cc"] = ", ".join(payload["cc"])
+    if payload.get("reply_to"):
+        msg["Reply-To"] = payload["reply_to"]
+    msg["Subject"] = payload["subject"]
+    msg.set_content(payload.get("text") or "")
+    if payload.get("html"):
+        msg.add_alternative(payload["html"], subtype="html")
+    for a in payload.get("attachments") or []:
+        ctype, _ = mimetypes.guess_type(a["filename"])
+        maintype, subtype = (ctype or "application/octet-stream").split("/", 1)
+        raw = a["content"]
+        raw = base64.b64decode(raw) if isinstance(raw, str) else bytes(raw)
+        msg.add_attachment(raw, maintype=maintype, subtype=subtype, filename=a["filename"])
+    body = json.dumps({"raw": base64.urlsafe_b64encode(msg.as_bytes()).decode().rstrip("=")}).encode()
+    req = urllib.request.Request(
+        "https://gmail.googleapis.com/gmail/v1/users/me/messages/send", data=body, method="POST",
+        headers={"Authorization": f"Bearer {_gmail_access_token()}", "Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return "gmail:" + (json.loads(resp.read() or b"{}").get("id") or "")
+
+
+def _resend_send(payload: dict) -> str | None:
+    req = urllib.request.Request(RESEND_API_URL, data=json.dumps(payload).encode(), headers=_resend_headers(), method="POST")
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        raw = resp.read()
+    try:
+        return json.loads(raw or b"{}").get("id")
+    except ValueError:
+        return None
+
+
+def _http_err(e: urllib.error.HTTPError) -> str:
+    return f"http_{e.code}:{e.read().decode(errors='replace')[:200]}"
 
 
 def log_attempt(
@@ -111,32 +193,33 @@ def send_email_detailed(
         payload["reply_to"] = reply_to
     if attachments:
         payload["attachments"] = attachments  # [{"filename": ..., "content": <base64>}]
-    req = urllib.request.Request(
-        RESEND_API_URL,
-        data=json.dumps(payload).encode(),
-        headers=_resend_headers(),
-        method="POST",
-    )
+    real_to = to
+    if HR_MAIL_TEST_ONLY:  # rollout safety: everything goes to one inbox, nothing reaches staff
+        payload["to"] = [HR_MAIL_TEST_ONLY]
+        payload.pop("cc", None)
+        if HR_MAIL_TEST_ONLY != to.strip().lower():
+            payload["subject"] = f"[Test for {real_to}] {subject}"
+        cc = []
 
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            raw = resp.read()
+    order = ["gmail", "resend"] if (EMAIL_TRANSPORT == "gmail" and gmail_configured()) else ["resend"]
+    if "resend" in order and not RESEND_API_KEY:
+        order.remove("resend")
+    errors: list[str] = []
+    for transport in order:
         try:
-            provider_id = json.loads(raw or b"{}").get("id")
-        except ValueError:
-            provider_id = None
-        log_attempt(kind, to, subject, "sent", provider_id=provider_id, cc=cc, letter_id=letter_id)
-        return True, None
-    except urllib.error.HTTPError as e:
-        detail = e.read().decode(errors="replace")
-        logger.error("Resend send to %s failed: HTTP %s %s", to, e.code, detail)
-        err = f"http_{e.code}:{detail[:200]}"
-        log_attempt(kind, to, subject, "failed", err, cc=cc, letter_id=letter_id)
-        return False, err
-    except Exception as e:
-        logger.exception("Failed to send email to %s", to)
-        log_attempt(kind, to, subject, "failed", f"exception:{e}", cc=cc, letter_id=letter_id)
-        return False, f"exception:{e}"
+            provider_id = _gmail_send(payload) if transport == "gmail" else _resend_send(payload)
+            log_attempt(kind, to, subject, "sent", provider_id=provider_id, cc=cc, letter_id=letter_id)
+            return True, None
+        except urllib.error.HTTPError as e:
+            err = _http_err(e)
+            logger.error("%s send to %s failed: %s", transport, to, err)
+            errors.append(f"{transport}:{err}")
+        except Exception as e:
+            logger.exception("%s send to %s failed", transport, to)
+            errors.append(f"{transport}:exception:{e}")
+    err = " | ".join(errors)[:1000] or "no_transport"
+    log_attempt(kind, to, subject, "failed", err, cc=cc, letter_id=letter_id)
+    return False, err
 
 
 _URL_RE = re.compile(r"https?://[^\s<]+")
@@ -214,7 +297,9 @@ def _resend_headers() -> dict:
 def fetch_delivery_status(provider_id: str) -> tuple[str | None, str | None]:
     """Resend's own view of a sent email: (last_event, error). last_event is
     e.g. "delivered", "bounced", "complained", "delivery_delayed", "sent"."""
-    if not is_configured():
+    if provider_id.startswith("gmail:"):
+        return "sent", None  # Gmail accepted it; the Gmail API reports no delivered/bounced events
+    if not RESEND_API_KEY:
         return None, "not_configured"
     req = urllib.request.Request(f"{RESEND_API_URL}/{provider_id}", headers=_resend_headers(), method="GET")
     try:
