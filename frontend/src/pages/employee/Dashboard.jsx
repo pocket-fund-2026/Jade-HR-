@@ -35,6 +35,8 @@ const DAY_TYPE_LABELS = {
   anniversary: "Anniversary (informational only)",
 };
 
+const SHORT_MONTHS_EMP = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [year, setYear] = useState(currentPayPeriod().year);
@@ -181,7 +183,7 @@ export default function Dashboard() {
       {loading || !summary ? (
         <p className="text-ink/70">Loading ledger…</p>
       ) : (
-        <div className="print-area">
+        <div className="print-area flex flex-col">
           {signoffs.length > 0 && (
             <div className="bg-rust-50 border border-rust-500/40 rounded-sm px-4 py-3 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
               <div className="text-sm text-ink/80">
@@ -262,7 +264,8 @@ export default function Dashboard() {
               later. More than 3 is a Red Card.
             </div>
           )}
-          <div className="mb-6">
+          <div className="mb-6 order-last mt-2">
+            <p className="text-xs font-semibold text-ink/70 mb-2 no-print">Your payslip for {SHORT_MONTHS_EMP[month - 1]} {year}</p>
             <PayslipDetail summary={summary} showDailyAttendance={false} />
           </div>
 
