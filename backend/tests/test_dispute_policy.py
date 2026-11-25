@@ -89,3 +89,14 @@ def test_delay_reason_required_and_must_be_detailed():
 
 def test_days_late_counts_from_filing_day():
     assert dp.days_late("2026-11-22", "2026-11-25T06:00:00+00:00") == 3
+
+
+def test_store_visit_claim_needs_a_geotag_checkin_when_enabled():
+    claim = d(reason="I was on a store visit that day and forgot to punch out")
+    assert dp.evaluate(claim, [], max_age_days=7, movement=[], geotag_enabled=True)["rule"] == "store_visit_unproven"
+    assert dp.evaluate(claim, [], max_age_days=7, movement=[{"status": "approved"}], geotag_enabled=True) is None
+    assert dp.evaluate(claim, [], max_age_days=7, movement=[{"status": "pending"}], geotag_enabled=True) is None
+    assert dp.evaluate(claim, [], max_age_days=7, movement=[{"status": "rejected"}], geotag_enabled=True)["rule"] == "store_visit_unproven"
+    # not enabled for this person: never rejected for it
+    assert dp.evaluate(claim, [], max_age_days=7, movement=[], geotag_enabled=False) is None
+    assert dp.evaluate(d(), [], max_age_days=7, movement=[], geotag_enabled=True) is None

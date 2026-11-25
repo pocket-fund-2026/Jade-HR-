@@ -82,8 +82,9 @@ def create_dispute(body: DisputeCreate, user: dict = Depends(get_current_user)):
     # First-pass policy check (dispute_policy.py): a dispute that plainly breaks a
     # written rule is filed already rejected, with the reason in its note. It still
     # shows in the employee's list and can be appealed once like any rejection.
-    verdict = _policy_verdict({**row, "created_at": None}, user["id"])
     delay_reason = (body.delay_reason or "").strip()
+    geotag_on = bool(user.get("market_visit_checkin_enabled") or user.get("market_visit_checkout_enabled"))
+    verdict = _policy_verdict({**row, "created_at": None, "delay_reason": delay_reason}, user["id"], geotag_on)
     if verdict:
         row.update(_auto_reject_fields(verdict))
     else:
@@ -113,12 +114,17 @@ def create_dispute(body: DisputeCreate, user: dict = Depends(get_current_user)):
     return created
 
 
-def _policy_verdict(dispute: dict, employee_id: str) -> dict | None:
+def _policy_verdict(dispute: dict, employee_id: str, geotag_enabled: bool = False) -> dict | None:
     others = (
         supabase.table("hr_attendance_disputes").select("id,date,status,appeal_of")
         .eq("employee_id", employee_id).eq("date", str(dispute["date"])[:10]).execute().data
     )
-    return dispute_policy.evaluate(dispute, others)
+    day = str(dispute["date"])[:10]
+    movement = []
+    if geotag_enabled:
+        from routers.market_visits import movement_for
+        movement = movement_for([employee_id], [day]).get((employee_id, day), [])
+    return dispute_policy.evaluate(dispute, others, movement=movement, geotag_enabled=geotag_enabled)
 
 
 def _auto_reject_fields(verdict: dict) -> dict:
@@ -151,11 +157,19 @@ def policy_sweep(dry_run: bool = Query(True), admin: dict = Depends(require_perm
     by_emp: dict[str, list[dict]] = {}
     for r in pending:
         by_emp.setdefault(r["employee_id"], []).append(r)
+    from routers.market_visits import movement_for
+    emp_flags = {
+        e["id"]: bool(e.get("market_visit_checkin_enabled") or e.get("market_visit_checkout_enabled"))
+        for e in supabase.table("hr_employees").select("id,market_visit_checkin_enabled,market_visit_checkout_enabled")
+        .in_("id", list(by_emp)).execute().data
+    } if by_emp else {}
+    moves = movement_for([i for i, on in emp_flags.items() if on], [str(r["date"])[:10] for r in pending])
     hits = []
     for r in pending:
         # Only an EARLIER pending dispute for the same day makes this one a duplicate.
         earlier = [o for o in by_emp[r["employee_id"]] if o["id"] != r["id"] and o["created_at"] < r["created_at"]]
-        verdict = dispute_policy.evaluate(r, earlier)
+        on = emp_flags.get(r["employee_id"], False)
+        verdict = dispute_policy.evaluate(r, earlier, movement=moves.get((r["employee_id"], str(r["date"])[:10]), []), geotag_enabled=on)
         if verdict:
             hits.append((r, verdict))
     if not dry_run:
@@ -425,6 +439,10 @@ def ai_queue(limit: int = Query(40, le=100), admin: dict = Depends(require_permi
             "claimed_in": r.get("claimed_in"), "claimed_out": r.get("claimed_out"), "reason": r.get("reason"),
             "delay_reason": r.get("delay_reason"), "filed_on": str(r.get("created_at"))[:10], "system_record_for_that_day": day,
         })
+    attach_movement(rows)
+    for o, r in zip(out, rows):
+        o["geotag_checkins_that_day"] = r.get("movement", [])
+        o["claims_store_visit"] = r.get("claims_store_visit", False)
     return out
 
 

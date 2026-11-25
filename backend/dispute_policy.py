@@ -44,7 +44,15 @@ _ALTERED_WORDS = re.compile(
     r"different handwriting|someone else wrote)\b", re.I,
 )
 
+# "I was at the store" style claims. When the person has geotag check-in switched on, such a claim must be
+# backed by a check-in made at the store that day (with the geolock, within 100 m). Onus on the employee.
+STORE_VISIT_RE = re.compile(
+    r"\b(store|showroom|boutique|outlet)\b.{0,30}\bvisit|\bvisit\w*\b.{0,30}\b(store|showroom|boutique|outlet)\b|\bat (the|our) (store|showroom|boutique|outlet)\b|\bstore visit\b|\bwent to (the )?(store|showroom|boutique|outlet)\b",
+    re.I,
+)
+
 RULES = {
+    "store_visit_unproven": "You said you were at a store, but there is no geotag check-in from that store for this day. When you visit a store, check in there with the photo and location (it only counts inside the store). Without that proof the dispute cannot be accepted.",
     "future_date": "This day has not happened yet.",
     "late_filing": "Attendance disputes must be raised within {days} days of the day they are about, so they are cleared weekly rather than at month end. This one was filed {gap} days after the date.",
     "duplicate": "You already have a dispute for this day that is pending or approved.",
@@ -77,7 +85,8 @@ def filed_on(created_at) -> date:
     return dt.astimezone(IST).date()
 
 
-def evaluate(dispute: dict, other_disputes: list[dict] | None = None, max_age_days: int | None = None) -> dict | None:
+def evaluate(dispute: dict, other_disputes: list[dict] | None = None, max_age_days: int | None = None,
+             movement: list[dict] | None = None, geotag_enabled: bool = False) -> dict | None:
     """None = no rule broken (leave it for a reviewer). Otherwise
     {"rule": key, "reason": text} for the FIRST rule broken. `dispute` needs
     date, issue_type, claimed_in/out, reason, appeal_of and created_at (absent
@@ -117,6 +126,9 @@ def evaluate(dispute: dict, other_disputes: list[dict] | None = None, max_age_da
     text = dispute.get("reason") or ""
     if _REGISTER_WORDS.search(text) and _ALTERED_WORDS.search(text):
         return {"rule": "register_entry", "reason": RULES["register_entry"]}
+    if geotag_enabled and STORE_VISIT_RE.search(f"{text} {dispute.get('delay_reason') or ''}"):
+        if not [m for m in (movement or []) if m.get("status") != "rejected"]:
+            return {"rule": "store_visit_unproven", "reason": RULES["store_visit_unproven"]}
     return None
 
 

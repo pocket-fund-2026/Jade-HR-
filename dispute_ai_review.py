@@ -28,6 +28,7 @@ POLICY = """ATTENDANCE DISPUTE POLICY (JADE Lifestyles India)
 - Manual register entries (illegible, overwritten, or changed) are not accepted as proof. Biometric punches are the source of truth.
 - A day with an approved leave, company holiday or weekly off does not need a missed-punch dispute.
 - If the system record for the day already shows the person present with punches that cover what they claim, the dispute is unnecessary.
+- A claim of being at a store or on a store visit must be backed by a geotag check-in that day (field geotag_checkins_that_day). No check-in on file for someone who claims a store visit is a reason to reject, but only if the claim is clearly about a store visit.
 - Someone who says they did not work, came late or left early by choice, but asks to be marked present with no valid reason, is out of policy."""
 
 PROMPT = """You are a strict first-pass reviewer of ONE attendance dispute. Decide only whether it should be REJECTED automatically.

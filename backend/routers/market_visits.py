@@ -18,6 +18,7 @@ from auth import get_current_user, my_report_ids, require_permission, user_can
 from database import supabase
 from workflow_log import record_step
 import geofence as geo
+import dispute_policy
 from models import MarketVisitCreate, MarketVisitResolve
 
 router = APIRouter(prefix="/api/market-visits", tags=["market-visits"])
@@ -57,7 +58,7 @@ def _is_reporting_manager_of(user_id: str, employee_id: str) -> bool:
 
 
 PLACE_TYPES = ("market", "store", "factory", "office", "other")
-STORE_VISIT_RE = re.compile(r"\b(store|showroom|boutique|outlet)\b.{0,30}\bvisit|\bvisit\w*\b.{0,30}\b(store|showroom|boutique|outlet)\b|\bat the store\b|\bstore visit\b", re.I)
+STORE_VISIT_RE = dispute_policy.STORE_VISIT_RE
 
 
 def movement_for(employee_ids: list[str], days: list[str]) -> dict[tuple[str, str], list[dict]]:

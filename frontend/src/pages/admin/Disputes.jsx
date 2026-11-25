@@ -127,6 +127,17 @@ function ResolveRow({ dispute, onResolved }) {
             <Paperclip size={11} /> {dispute.photo_filename || "Photo"}
           </a>
         )}
+        {dispute.claims_store_visit && (
+          <div className={`text-[11px] mt-1.5 font-semibold ${dispute.store_visit_verified ? "text-jade-700" : (dispute.movement || []).length ? "text-ochre-700" : "text-rust-500"}`}>
+            Claims a store visit: {dispute.store_visit_verified ? "backed by a verified geotag check-in" : (dispute.movement || []).length ? "a check-in exists but was not verified at the store" : "no geotag check-in that day"}
+          </div>
+        )}
+        {(dispute.movement || []).length > 0 && (
+          <div className="text-[11px] text-ink/70 mt-1 border-l-2 border-jade-500 pl-2">
+            <span className="font-semibold">Geotag check-ins that day:</span>{" "}
+            {dispute.movement.map((m) => `${m.visit_type === "check_out" ? "out" : "in"} ${m.place || m.place_type}${m.distance_m != null ? ` (${m.distance_m} m)` : ""}`).join(" · ")}
+          </div>
+        )}
         <DelayAndResponse dispute={dispute} />
         <RespondBox dispute={dispute} onDone={onResolved} />
       </td>
@@ -304,6 +315,11 @@ export default function Disputes() {
                   <td className="px-5 py-3.5 font-nums text-ink/70">{formatDate(d.date)}</td>
                   <td className="px-5 py-3.5 text-ink/70 max-w-xs">
                     {d.reason}
+                    {d.claims_store_visit && (
+                      <div className={`text-[11px] mt-1.5 font-semibold ${d.store_visit_verified ? "text-jade-700" : (d.movement || []).length ? "text-ochre-700" : "text-rust-500"}`}>
+                        Claims a store visit: {d.store_visit_verified ? "backed by a verified geotag check-in" : (d.movement || []).length ? "a check-in exists but was not verified at the store" : "no geotag check-in that day"}
+                      </div>
+                    )}
                     {(d.movement || []).length > 0 && (
                       <div className="text-[11px] text-ink/70 mt-1.5 border-l-2 border-jade-500 pl-2">
                         <span className="font-semibold">Geotag check-ins that day:</span>{" "}

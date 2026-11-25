@@ -177,6 +177,11 @@ export default function TeamDisputes() {
                     {d.reason}
                     {d.delay_reason && <p className="text-xs text-ochre-700 mt-1.5"><strong>Reason for delay:</strong> {d.delay_reason}</p>}
                     {d.hr_response && <p className="text-xs text-ink/80 mt-1.5 border-l-2 border-jade-500 pl-2"><strong>HR response:</strong> {d.hr_response}</p>}
+                    {d.claims_store_visit && (
+                      <div className={`text-[11px] mt-1.5 font-semibold ${d.store_visit_verified ? "text-jade-700" : (d.movement || []).length ? "text-ochre-700" : "text-rust-500"}`}>
+                        Claims a store visit: {d.store_visit_verified ? "backed by a verified geotag check-in" : (d.movement || []).length ? "a check-in exists but was not verified at the store" : "no geotag check-in that day"}
+                      </div>
+                    )}
                     {(d.movement || []).length > 0 && (
                       <div className="text-[11px] text-ink/70 mt-1.5 border-l-2 border-jade-500 pl-2">
                         <span className="font-semibold">Geotag check-ins that day:</span>{" "}
