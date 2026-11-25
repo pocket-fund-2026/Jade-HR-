@@ -1086,3 +1086,13 @@ def test_override_with_next_day_clock_out_counts_overnight_hours():
     r = _apply_override(_d(2026, 11, 20), {"status_override": "present", "first_in": _t(20, 0), "last_out": _t(2, 0), "last_out_date": "2026-11-21"}, 8)
     assert round(r["hours_worked"], 1) == 6.0
     assert r["last_out"].startswith("2026-11-21T02:00")
+
+
+def test_post_midnight_clock_out_is_recorded_on_the_shift_day_with_hours_and_ot():
+    day_in = datetime(2026, 1, 5, 10, 0, tzinfo=IST)
+    true_out = datetime(2026, 1, 6, 1, 0, tzinfo=IST)
+    rows = compute_daily_attendance(2026, 1, [day_in, true_out], 8, weekly_off_day=6, is_corporate=True)
+    r = next(x for x in rows if x["date"] == "2026-01-05")
+    assert r["last_out"] == true_out.isoformat() and r["last_out_next_day"] is True
+    assert r["hours_worked"] == 15.0
+    assert r["ot_hours"] > 0

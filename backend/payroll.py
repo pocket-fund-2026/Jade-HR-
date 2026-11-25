@@ -782,6 +782,19 @@ def compute_daily_attendance(
             # plain Present with no indication it was their weekoff at all.
             "worked_on_weekly_off": d.weekday() == weekly_off_day,
         }
+        # Night work: a clock-out after midnight is bucketed under the NEXT calendar day, so this shift looked
+        # like it ended at its last same-day punch. Take the real clock-out from the early-morning punches of the
+        # next day, so the sheet shows it and hours and overtime run to the true finish.
+        if d in midnight_tail_dates:
+            tail = [p for p in by_day.get(d + timedelta(days=1), []) if p.astimezone(IST).time() < MIDNIGHT_TAIL_CUTOFF]
+            if tail and max(tail) > first_in:
+                last_out = max(tail)
+                hours_worked = max(0.0, (last_out - first_in).total_seconds() / 3600.0)
+                ot_hours = _ot_hours(d, first_in, last_out, day_standard, time_slot)
+                row.update({
+                    "last_out": last_out.isoformat(), "hours_worked": round(hours_worked, 2), "ot_hours": round(ot_hours, 2),
+                    "last_out_next_day": True,
+                })
         allowance = _extra_hours_late_allowance_minutes(rows[-1] if rows else None, d, weekly_off_day, time_slot, holidays)
         excused = False
         if allowance:

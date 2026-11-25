@@ -129,7 +129,7 @@ export default function DailyAttendanceSection({ monthDaily, employeeId, employe
                 </span>
               )}
               </td>
-              <td className="px-5 py-2 font-nums text-ink/70">{formatTime(d.last_out)}</td>
+              <td className="px-5 py-2 font-nums text-ink/70">{formatTime(d.last_out)}{d.last_out_next_day && <span className="ml-1 text-[10px] font-sans font-semibold text-ochre-700">+1 day</span>}</td>
               <td className="px-5 py-2 font-nums">{d.hours_worked ? formatHoursMins(d.hours_worked) : "—"}</td>
               <td className="px-5 py-2 font-nums text-ochre-700">{d.ot_hours ? formatHoursMins(d.ot_hours) : "—"}</td>
               <td className="px-5 py-2">
