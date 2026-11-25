@@ -91,13 +91,32 @@ def create_absence_request(body: AbsenceRequestCreate, user: dict = Depends(get_
         "attachment_path": body.attachment_path,
         "attachment_filename": body.attachment_filename,
     }
+    punches = {
+        "punch_in_date": body.punch_in_date.isoformat() if body.punch_in_date else None,
+        "punch_in_time": body.punch_in_time.isoformat() if body.punch_in_time else None,
+        "punch_out_date": body.punch_out_date.isoformat() if body.punch_out_date else None,
+        "punch_out_time": body.punch_out_time.isoformat() if body.punch_out_time else None,
+    }
+    if body.punch_in_date and body.punch_out_date and body.punch_out_date < body.punch_in_date:
+        raise HTTPException(status_code=400, detail="Punch-out date cannot be before the punch-in date")
+    if body.punch_in_date and body.punch_out_date and body.punch_in_time and body.punch_out_time \
+            and body.punch_out_date == body.punch_in_date and body.punch_out_time <= body.punch_in_time:
+        raise HTTPException(status_code=400, detail="Punch-out must be after punch-in. For night work, set the punch-out date to the next day.")
     dup = find_recent_duplicate("hr_absence_requests", {
         "employee_id": row["employee_id"], "start_date": row["start_date"],
         "end_date": row["end_date"], "details": row["details"],
     })
     if dup:
         return dup
-    inserted = supabase.table("hr_absence_requests").insert(row).execute()
+    try:
+        inserted = supabase.table("hr_absence_requests").insert({**row, **{k: v for k, v in punches.items() if v}}).execute()
+    except Exception as e:
+        if "punch_" not in str(e):
+            raise
+        # sql/097 not applied: keep the punch details in the free-text details instead.
+        extra = ", ".join(f"{k.replace('_', ' ')}: {v}" for k, v in punches.items() if v)
+        row["details"] = f"{row['details']}\n\n({extra})" if extra else row["details"]
+        inserted = supabase.table("hr_absence_requests").insert(row).execute()
 
     if body.save_approver:
         supabase.table("hr_employee_profile").upsert(

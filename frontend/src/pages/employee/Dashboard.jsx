@@ -16,6 +16,7 @@ import MarketVisitCheckinCard from "../../components/MarketVisitCheckinCard.jsx"
 import EmptyState from "../../components/EmptyState.jsx";
 import MonthPicker from "../../components/MonthPicker.jsx";
 import PayslipDetail from "../../components/PayslipDetail.jsx";
+import DailyAttendanceSection from "../../components/DailyAttendanceSection.jsx";
 import SelfieCheckinCard from "../../components/SelfieCheckinCard.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import WFHRequestModal from "../../components/WFHRequestModal.jsx";
@@ -42,6 +43,8 @@ export default function Dashboard() {
   const [year, setYear] = useState(currentPayPeriod().year);
   const [month, setMonth] = useState(currentPayPeriod().month);
   const [summary, setSummary] = useState(null);
+  // Privacy: the payslip stays hidden until the person opens it, so salary is never on screen by default.
+  const [showPayslip, setShowPayslip] = useState(false);
   const [disputes, setDisputes] = useState([]);
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [leaveBalance, setLeaveBalance] = useState([]);
@@ -150,7 +153,7 @@ export default function Dashboard() {
         <h2 className="font-display text-2xl text-ink">My dashboard</h2>
         <div className="flex flex-wrap items-center gap-4">
           <button
-            onClick={() => window.print()}
+            onClick={() => { setShowPayslip(true); setTimeout(() => window.print(), 150); }}
             className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
           >
             <Printer size={15} /> Print payslip
@@ -264,9 +267,25 @@ export default function Dashboard() {
               later. More than 3 is a Red Card.
             </div>
           )}
+          <div className="mb-6 order-first">
+            <DailyAttendanceSection
+              monthDaily={summary.daily}
+              employeeId={summary.employee_id}
+              employeeCode={summary.employee_code}
+              name={summary.name}
+              rangeLabel={`${SHORT_MONTHS_EMP[month - 1]} ${year}`}
+              selfService
+            />
+          </div>
           <div className="mb-6 order-last mt-2">
-            <p className="text-xs font-semibold text-ink/70 mb-2 no-print">Your payslip for {SHORT_MONTHS_EMP[month - 1]} {year}</p>
-            <PayslipDetail summary={summary} showDailyAttendance={false} />
+            <div className="flex items-center justify-between gap-3 mb-2 no-print">
+              <p className="text-xs font-semibold text-ink/70">Your payslip for {SHORT_MONTHS_EMP[month - 1]} {year}</p>
+              <button type="button" onClick={() => setShowPayslip((v) => !v)}
+                className="bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:border-jade-500 transition-colors">
+                {showPayslip ? "Hide payslip" : "Show payslip"}
+              </button>
+            </div>
+            {showPayslip && <PayslipDetail summary={summary} showDailyAttendance={false} />}
           </div>
 
           <div className="bg-paper rounded-sm shadow-card p-5 mb-6">

@@ -109,7 +109,9 @@ def evaluate(dispute: dict, other_disputes: list[dict] | None = None, max_age_da
         return {"rule": "missing_times", "reason": RULES["missing_times"].format(what="clock-in time")}
     if issue in _NEEDS_OUT and not cout:
         return {"rule": "missing_times", "reason": RULES["missing_times"].format(what="clock-out time")}
-    if cin and cout and cout <= cin:
+    out_day = dispute.get("claimed_out_date")
+    next_day_out = bool(out_day) and _as_date(out_day) > day
+    if cin and cout and cout <= cin and not next_day_out:
         return {"rule": "times_reversed", "reason": RULES["times_reversed"]}
 
     text = dispute.get("reason") or ""

@@ -13,7 +13,7 @@ export default function useLeaveCutoff() {
 }
 
 export function cutoffHint(cutoff) {
-  if (!cutoff) return "";
+  if (!cutoff || !cutoff.earliest_date) return "";
   const soon = cutoff.days_to_cutoff <= 4 ? ` The pay cycle closes in ${cutoff.days_to_cutoff} day${cutoff.days_to_cutoff === 1 ? "" : "s"}.` : "";
   return `You can apply for days from ${cutoff.earliest_date} onward; earlier days are in a closed pay cycle and only HR can add them.${soon}`;
 }

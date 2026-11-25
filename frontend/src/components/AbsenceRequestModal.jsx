@@ -49,6 +49,10 @@ export default function AbsenceRequestModal({ onClose, onSubmitted }) {
   const [numberOfDays, setNumberOfDays] = useState(0);
   const [daysTouched, setDaysTouched] = useState(false);
   const [details, setDetails] = useState("");
+  const [inDate, setInDate] = useState("");
+  const [inTime, setInTime] = useState("");
+  const [outDate, setOutDate] = useState("");
+  const [outTime, setOutTime] = useState("");
   const [approverName, setApproverName] = useState("");
   const [approverEmail, setApproverEmail] = useState("");
   const [file, setFile] = useState(null);
@@ -94,6 +98,10 @@ export default function AbsenceRequestModal({ onClose, onSubmitted }) {
         end_date: endDate,
         number_of_days: Number(numberOfDays),
         details,
+        punch_in_date: inDate || null,
+        punch_in_time: inTime ? `${inTime}:00` : null,
+        punch_out_date: outDate || null,
+        punch_out_time: outTime ? `${outTime}:00` : null,
         approver_name: approverName,
         approver_email: approverEmail,
         attachment_path,
@@ -160,6 +168,21 @@ export default function AbsenceRequestModal({ onClose, onSubmitted }) {
                 onChange={(e) => { setDaysTouched(true); setNumberOfDays(e.target.value); }}
               />
             </Field>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Punch-in date">
+                <input type="date" className={`${inputCls} font-nums`} value={inDate} onChange={(e) => { setInDate(e.target.value); if (!outDate) setOutDate(e.target.value); }} />
+              </Field>
+              <Field label="Punch-in time (AM/PM)">
+                <input type="time" className={`${inputCls} font-nums`} value={inTime} onChange={(e) => setInTime(e.target.value)} />
+              </Field>
+              <Field label="Punch-out date">
+                <input type="date" min={inDate || undefined} className={`${inputCls} font-nums`} value={outDate} onChange={(e) => setOutDate(e.target.value)} />
+              </Field>
+              <Field label="Punch-out time (AM/PM)">
+                <input type="time" className={`${inputCls} font-nums`} value={outTime} onChange={(e) => setOutTime(e.target.value)} />
+              </Field>
+              <p className="sm:col-span-2 text-[11px] text-ink/60 -mt-2">For night work, set the punch-out date to the next day. Leave these blank if the absence has no punch times.</p>
+            </div>
             <Field label="Details" required>
               <textarea
                 required className={`${inputCls} min-h-[70px]`}

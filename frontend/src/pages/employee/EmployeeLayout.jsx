@@ -94,6 +94,18 @@ export default function EmployeeLayout() {
                 My team
               </NavLink>
             )}
+            {user?.is_dept_head && (
+              <NavLink
+                to="/employee/department"
+                className={({ isActive }) =>
+                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
+                    isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
+                  }`
+                }
+              >
+                Department decisions
+              </NavLink>
+            )}
             {interviewer && (
               <NavLink
                 to="/employee/interview-availability"

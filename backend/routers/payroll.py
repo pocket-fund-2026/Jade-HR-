@@ -196,6 +196,7 @@ def _fetch_all_overrides_by_employee_range(start: date, end: date) -> dict[str, 
             "status_override": r["status_override"],
             "first_in": _parse_time(r["first_in"]),
             "last_out": _parse_time(r["last_out"]),
+            "last_out_date": r.get("last_out_date"),
         }
     for r in _fetch_register_rows(start, end):
         by_employee.setdefault(r["employee_id"], {})[date.fromisoformat(r["date"])] = _register_override(r)
@@ -219,6 +220,7 @@ def _fetch_overrides(employee_id: str, year: int, month: int) -> dict[date, dict
             "status_override": r["status_override"],
             "first_in": _parse_time(r["first_in"]),
             "last_out": _parse_time(r["last_out"]),
+            "last_out_date": r.get("last_out_date"),
         }
         for r in resp.data
     }
@@ -244,6 +246,7 @@ def _fetch_overrides_range(employee_id: str, start: date, end: date) -> dict[dat
             "status_override": r["status_override"],
             "first_in": _parse_time(r["first_in"]),
             "last_out": _parse_time(r["last_out"]),
+            "last_out_date": r.get("last_out_date"),
         }
         for r in resp.data
     }
@@ -261,6 +264,7 @@ def _fetch_all_overrides_by_employee(year: int, month: int, calendar_month: bool
             "status_override": r["status_override"],
             "first_in": _parse_time(r["first_in"]),
             "last_out": _parse_time(r["last_out"]),
+            "last_out_date": r.get("last_out_date"),
         }
     for r in _fetch_register_rows(start, end):
         by_employee.setdefault(r["employee_id"], {})[date.fromisoformat(r["date"])] = _register_override(r)

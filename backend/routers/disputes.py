@@ -68,6 +68,11 @@ def create_dispute(body: DisputeCreate, user: dict = Depends(get_current_user)):
         "photo_path": body.photo_path,
         "photo_filename": body.photo_filename,
     }
+    if body.claimed_out_date:
+        if body.claimed_out_date < body.date or (body.claimed_out_date - body.date).days > 1:
+            raise HTTPException(status_code=400, detail="Clock-out date must be the same day as the clock-in or the next day")
+        if body.claimed_out_date != body.date:
+            row["claimed_out_date"] = body.claimed_out_date.isoformat()
     dup = find_recent_duplicate("hr_attendance_disputes", {
         "employee_id": row["employee_id"], "date": row["date"],
         "issue_type": row["issue_type"], "reason": row["reason"],
@@ -92,10 +97,13 @@ def create_dispute(body: DisputeCreate, user: dict = Depends(get_current_user)):
         inserted = supabase.table("hr_attendance_disputes").insert(row).execute()
     except Exception as e:
         # sql/095 not applied yet: keep the delay reason by folding it into the reason text.
-        if "delay_reason" not in str(e):
+        if "delay_reason" not in str(e) and "claimed_out_date" not in str(e):
             raise
         row.pop("delay_reason", None)
-        row["reason"] = f"{row['reason']}\n\nReason for delay: {delay_reason}"
+        if row.pop("claimed_out_date", None):
+            row["reason"] = f"{row['reason']}\n\nClock-out was on {body.claimed_out_date.isoformat()}"
+        if delay_reason:
+            row["reason"] = f"{row['reason']}\n\nReason for delay: {delay_reason}"
         inserted = supabase.table("hr_attendance_disputes").insert(row).execute()
     created = inserted.data[0]
     if verdict:
@@ -304,7 +312,7 @@ def _settle(dispute_id: str, body: DisputeResolve, actor: dict, role: str, allow
             "status_override": body.status_override if body.action == "approve" else None,
         }).execute()
         if body.action == "approve":
-            supabase.table("hr_attendance_overrides").upsert({
+            override_row = {
                 "employee_id": dispute["employee_id"],
                 "date": dispute["date"],
                 "status_override": body.status_override,
@@ -312,7 +320,17 @@ def _settle(dispute_id: str, body: DisputeResolve, actor: dict, role: str, allow
                 "last_out": iso(last_out),
                 "note": f"Approved dispute ({'manager' if role == 'manager' else 'HR'}): {dispute['reason']}",
                 "created_by": actor["id"],
-            }, on_conflict="employee_id,date").execute()
+            }
+            out_date = body.last_out_date.isoformat() if body.last_out_date else dispute.get("claimed_out_date")
+            if out_date and str(out_date)[:10] != str(dispute["date"])[:10]:
+                override_row["last_out_date"] = str(out_date)[:10]
+            try:
+                supabase.table("hr_attendance_overrides").upsert(override_row, on_conflict="employee_id,date").execute()
+            except Exception as e:
+                if "last_out_date" not in str(e):
+                    raise
+                override_row.pop("last_out_date", None)  # sql/097 not applied: same-day times only
+                supabase.table("hr_attendance_overrides").upsert(override_row, on_conflict="employee_id,date").execute()
     except Exception:
         # Put it back in the queue rather than leave a settled-looking dispute with no effect.
         supabase.table("hr_dispute_actions").delete().eq("dispute_id", dispute_id).execute()

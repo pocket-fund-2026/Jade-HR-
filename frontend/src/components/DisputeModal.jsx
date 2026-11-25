@@ -19,6 +19,9 @@ export default function DisputeModal({ date: initialDate, onClose, onSubmitted, 
   const [issueType, setIssueType] = useState(defaultIssue || "missed_clock_out");
   const [claimedIn, setClaimedIn] = useState("");
   const [claimedOut, setClaimedOut] = useState("");
+  const [outDate, setOutDate] = useState(initialDate);
+  useEffect(() => { setOutDate((o) => (o < date ? date : o)); }, [date]);
+  const nextDay = (d) => { const x = new Date(d + "T00:00:00"); x.setDate(x.getDate() + 1); return x.toISOString().slice(0, 10); };
   const [reason, setReason] = useState("");
   const [delayReason, setDelayReason] = useState("");
   const [photo, setPhoto] = useState(null);
@@ -63,6 +66,7 @@ export default function DisputeModal({ date: initialDate, onClose, onSubmitted, 
         issue_type: issueType,
         claimed_in: needsIn && claimedIn ? `${claimedIn}:00` : null,
         claimed_out: needsOut && claimedOut ? `${claimedOut}:00` : null,
+        claimed_out_date: needsOut && claimedOut && outDate !== date ? outDate : null,
         reason,
         delay_reason: needsDelay ? delayReason.trim() : "",
         photo_path: uploaded.path,
@@ -132,7 +136,8 @@ export default function DisputeModal({ date: initialDate, onClose, onSubmitted, 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {needsIn && (
                 <div>
-                  <label htmlFor="claimed_in" className="block text-xs font-semibold text-ink/70 mb-1.5">Actual clock-in</label>
+                  <p className="text-[11px] text-ink/60 mb-1.5">Clock-in date: {formatDate(date)}</p>
+                  <label htmlFor="claimed_in" className="block text-xs font-semibold text-ink/70 mb-1.5">Actual clock-in time (AM/PM)</label>
                   <input
                     id="claimed_in"
                     type="time"
@@ -144,7 +149,14 @@ export default function DisputeModal({ date: initialDate, onClose, onSubmitted, 
               )}
               {needsOut && (
                 <div>
-                  <label htmlFor="claimed_out" className="block text-xs font-semibold text-ink/70 mb-1.5">Actual clock-out</label>
+                  <label htmlFor="claimed_out_date" className="block text-xs font-semibold text-ink/70 mb-1.5">Clock-out date</label>
+                  <input
+                    id="claimed_out_date"
+                    type="date" min={date} max={nextDay(date)} value={outDate}
+                    onChange={(e) => e.target.value && setOutDate(e.target.value)}
+                    className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 mb-3"
+                  />
+                  <label htmlFor="claimed_out" className="block text-xs font-semibold text-ink/70 mb-1.5">Actual clock-out time (AM/PM)</label>
                   <input
                     id="claimed_out"
                     type="time"

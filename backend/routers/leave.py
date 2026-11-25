@@ -1,4 +1,5 @@
 import base64
+import os
 import logging
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
@@ -341,6 +342,11 @@ def _current_pay_period(today: date) -> tuple[int, int]:
     return year, month
 
 
+# Backdated leave is allowed (HR request 25 Nov 2026, while the system is being updated and people
+# regularise earlier dates). Set LEAVE_CUTOFF_ENABLED=on to close each pay cycle to self-service again.
+LEAVE_CUTOFF_ENABLED = os.environ.get("LEAVE_CUTOFF_ENABLED", "").strip().lower() in ("on", "1", "true", "yes")
+
+
 def current_cycle_start(today: date) -> date:
     """First day (a 23rd) of the pay cycle `today` is in. Leave for any day
     BEFORE this belongs to a cycle that has already closed and been paid."""
@@ -358,6 +364,8 @@ def leave_cutoff(user: dict = Depends(get_current_user)):
     today = datetime.now(IST).date()
     start = current_cycle_start(today)
     nxt = date(start.year + (start.month == 12), start.month % 12 + 1, 23)
+    if not LEAVE_CUTOFF_ENABLED:
+        return {"earliest_date": None, "next_cutoff": nxt.isoformat(), "days_to_cutoff": (nxt - today).days, "backdating": True}
     return {"earliest_date": start.isoformat(), "next_cutoff": nxt.isoformat(),
             "days_to_cutoff": (nxt - today).days}
 
@@ -471,7 +479,7 @@ def create_leave_request(body: LeaveRequestCreate, user: dict = Depends(get_curr
     # Leave applications close with the pay cycle: once the cycle has ended on the
     # 22nd, days inside it can no longer be applied for by the employee. HR can
     # still file on their behalf (filed_by_hr), which is the documented exception.
-    if not filed_by_hr:
+    if not filed_by_hr and LEAVE_CUTOFF_ENABLED:
         cycle_start = current_cycle_start(datetime.now(IST).date())
         if body.start_date < cycle_start:
             raise HTTPException(

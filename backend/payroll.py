@@ -355,7 +355,12 @@ def _apply_override(
     is_flexible = time_slot == FLEXIBLE_TIME_SLOT
     if status == "present" and first_in and last_out:
         start = datetime.combine(d, first_in, tzinfo=IST)
-        end = datetime.combine(d, last_out, tzinfo=IST)
+        out_day = d
+        if override.get("last_out_date"):
+            out_day = date.fromisoformat(str(override["last_out_date"])[:10])
+            if out_day < d:
+                out_day = d
+        end = datetime.combine(out_day, last_out, tzinfo=IST)
         hours_worked = max(0.0, (end - start).total_seconds() / 3600.0)
         ot_hours = _ot_hours(d, start, end, day_standard, time_slot)
         first_in_iso, last_out_iso = start.isoformat(), end.isoformat()

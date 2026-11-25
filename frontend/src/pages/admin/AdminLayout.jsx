@@ -72,6 +72,7 @@ const navItems = [
   { to: "/admin/team-wfh", label: "Team WFH", icon: Home, requiresApprover: true, group: "My account & team" },
   { to: "/admin/team-disputes", label: "Team disputes", icon: ShieldAlert, requiresApprover: true, group: "My account & team" },
   { to: "/admin/team-market-visits", label: "Team market visits", icon: MapPin, requiresApprover: true, group: "My account & team" },
+  { to: "/admin/department", label: "Department decisions", icon: ShieldAlert, requiresHead: true, group: "My account & team" },
   { to: "/admin/my-leave", label: "My leave", icon: CalendarPlus, group: "My account & team" },
   { to: "/admin/my-payslip", label: "My payslip", icon: Receipt, group: "My account & team" },
   { to: "/admin/help", label: "Help", icon: HelpCircle, group: "My account & team" },
@@ -84,7 +85,7 @@ const navItems = [
 // (which otherwise has no entry in the left panel at all, just a card on
 // the Reports hub) — searched by the sidebar box below.
 const SECTION_INDEX = [
-  ...navItems.map((n) => ({ to: n.to, label: n.label, permission: n.permission, hrOnly: n.hrOnly, requiresApprover: n.requiresApprover, nimitOnly: n.nimitOnly })),
+  ...navItems.map((n) => ({ to: n.to, label: n.label, permission: n.permission, hrOnly: n.hrOnly, requiresApprover: n.requiresApprover, requiresHead: n.requiresHead, nimitOnly: n.nimitOnly })),
   ...REPORT_CATEGORIES.flatMap((cat) =>
     cat.items.map((item) => ({ to: item.to, label: item.label, permission: item.permission, group: cat.title })),
   ),
@@ -118,10 +119,12 @@ function SidebarSearch({ user, can, onNavigate }) {
 
   const q = query.trim().toLowerCase();
   const sectionMatches = q
-    ? SECTION_INDEX.filter(({ label, permission, hrOnly, requiresApprover, nimitOnly }) => {
+    ? SECTION_INDEX.filter(({ label, permission, hrOnly, requiresApprover, requiresHead, nimitOnly }) => {
         if (hrOnly && !canSeeHrTasks(user)) return false;
         if (nimitOnly && !(user?.employee_code === "14456" || can("requests.view_all"))) return false;
         if (requiresApprover && !user?.is_leave_approver) return false;
+    if (requiresHead && !user?.is_dept_head) return false;
+        if (requiresHead && !user?.is_dept_head) return false;
         if (permission && !can(...[].concat(permission))) return false;
         return label.toLowerCase().includes(q);
       }).slice(0, 8)
@@ -197,7 +200,7 @@ function SidebarSearch({ user, can, onNavigate }) {
 }
 
 function SidebarContent({ user, can, logout, pendingCounts, onNavigate, bell }) {
-  const visibleItems = navItems.filter(({ permission, hrOnly, requiresApprover, nimitOnly }) => {
+  const visibleItems = navItems.filter(({ permission, hrOnly, requiresApprover, requiresHead, nimitOnly }) => {
     if (hrOnly) return canSeeHrTasks(user);
     if (nimitOnly && !(user?.employee_code === "14456" || can("requests.view_all"))) return false;
     if (requiresApprover && !user?.is_leave_approver) return false;

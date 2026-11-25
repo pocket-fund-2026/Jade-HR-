@@ -349,7 +349,10 @@ def me(user: dict = Depends(get_current_user)):
     # HOD-based reporting-manager lookup it was meant for was abandoned in
     # favor of reporting_to_id/reporting_to_email, see payroll.py's
     # _reporting_manager_emails — so it was a dead extra query on every call.)
-    with ContextThreadPoolExecutor(max_workers=2) as pool:
+    with ContextThreadPoolExecutor(max_workers=3) as pool:
+        head_future = pool.submit(
+            lambda: supabase.table("hr_employee_profile").select("head_of_department").eq("employee_id", user["id"]).limit(1).execute()
+        )
         direct_future = pool.submit(
             lambda: supabase.table("hr_employees").select("id").eq("leave_approver_id", user["id"]).limit(1).execute()
         )
@@ -359,6 +362,8 @@ def me(user: dict = Depends(get_current_user)):
         direct_resp = direct_future.result()
         reporting_resp = reporting_future.result()
     user["is_leave_approver"] = bool(direct_resp.data or reporting_resp.data)
+    head_rows = head_future.result().data
+    user["is_dept_head"] = bool(head_rows and head_rows[0].get("head_of_department")) or user.get("role") == "accounts"
     user["avatar_url"] = _avatar_url(user.get("avatar_path"))
     return user
 

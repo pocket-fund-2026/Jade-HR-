@@ -1078,3 +1078,11 @@ def test_midnight_finish_before_0030_earns_no_comp_off_and_non_corporate_never()
     assert "midnight_comp_off" not in next(r for r in rows if r["date"] == "2026-01-05")
     rows = compute_daily_attendance(2026, 1, [day1_in, late_out], 8, weekly_off_day=6, is_corporate=True)
     assert next(r for r in rows if r["date"] == "2026-01-05")["midnight_comp_off"] is True
+
+
+def test_override_with_next_day_clock_out_counts_overnight_hours():
+    from datetime import date as _d, time as _t
+    from payroll import _apply_override
+    r = _apply_override(_d(2026, 11, 20), {"status_override": "present", "first_in": _t(20, 0), "last_out": _t(2, 0), "last_out_date": "2026-11-21"}, 8)
+    assert round(r["hours_worked"], 1) == 6.0
+    assert r["last_out"].startswith("2026-11-21T02:00")

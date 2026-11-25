@@ -163,6 +163,7 @@ const SignLetter = lazyWithReload(() => import("./pages/SignLetter.jsx"));
 const ExitSignoffLink = lazyWithReload(() => import("./pages/ExitSignoffLink.jsx"));
 const TeamDisputes = lazyWithReload(() => import("./pages/employee/TeamDisputes.jsx"));
 const Help = lazyWithReload(() => import("./pages/Help.jsx"));
+const DeptHead = lazyWithReload(() => import("./pages/DeptHead.jsx"));
 
 const CONSOLE_ROLES = ["accounts", "hr"];
 
@@ -335,6 +336,7 @@ export default function App() {
             <Route path="careers/my-availability" element={<MyInterviewAvailability />} />
             <Route path="careers/applicants" element={<RequirePermission anyOf={["careers.manage"]}><CareersApplicants /></RequirePermission>} />
             <Route path="careers/applicants/:id" element={<RequirePermission anyOf={["careers.manage"]}><CareersApplicantDetail /></RequirePermission>} />
+            <Route path="department" element={<DeptHead />} />
             <Route path="help" element={<Help scope="admin" />} />
           </Route>
 
@@ -357,6 +359,7 @@ export default function App() {
             <Route path="my-payslip" element={<EmployeeMyPayslip />} />
             <Route path="my-onboarding" element={<EmployeeMyOnboarding />} />
             <Route path="policy" element={<PolicyDocument scope="employee" />} />
+            <Route path="department" element={<DeptHead />} />
             <Route path="help" element={<Help scope="employee" />} />
             <Route path="*" element={<Navigate to="/employee" replace />} />
           </Route>

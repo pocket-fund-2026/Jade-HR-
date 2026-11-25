@@ -109,6 +109,8 @@ class DisputeCreate(BaseModel):
     photo_filename: Optional[str] = None
     # Required, in detail, when the dispute is filed more than a day after the day it is about.
     delay_reason: str = ""
+    # Night work: the clock-out may fall on a later date than the clock-in (the dispute's own date).
+    claimed_out_date: Optional[date] = None
 
 
 class DisputePhotoUpload(BaseModel):
@@ -124,6 +126,7 @@ class DisputeResolve(BaseModel):
     first_in: Optional[time] = None
     last_out: Optional[time] = None
     status_override: str = "present"  # present | absent | half_day | weekoff
+    last_out_date: Optional[date] = None  # night work: clock-out date when later than the dispute's date
 
 
 class AttendanceOverrideUpsert(BaseModel):
@@ -748,6 +751,11 @@ class AbsenceRequestCreate(BaseModel):
     approver_email: str
     attachment_path: Optional[str] = None
     attachment_filename: Optional[str] = None
+    # Optional punch times for night work; the out date may be later than the in date.
+    punch_in_date: Optional[date] = None
+    punch_in_time: Optional[time] = None
+    punch_out_date: Optional[date] = None
+    punch_out_time: Optional[time] = None
     save_approver: bool = True  # persist approver_name/email onto the employee's profile for next time
 
 
