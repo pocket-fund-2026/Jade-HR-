@@ -10,6 +10,7 @@ const TABS = [
   { to: "/admin/careers/agents", label: "Agents" },
   { to: "/admin/careers", label: "Job Postings", end: true },
   { to: "/admin/careers/screening", label: "Screening Rules" },
+  { to: "/admin/careers/auto-reject", label: "Auto-reject Rules" },
 ];
 
 // Section tabs shared by every Careers page in the admin console.

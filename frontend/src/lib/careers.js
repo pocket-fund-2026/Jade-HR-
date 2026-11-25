@@ -4,7 +4,7 @@
 export const CAREERS_SITE_URL = "https://jade-careers.vercel.app";
 
 // Applicant statuses, in pipeline order. Auto-Rejected is set only by the screening rules.
-export const APPLICANT_STATUSES = ["New", "Assignment Submitted", "Shortlisted", "Interviewing", "Offered", "Hired", "Rejected", "Auto-Rejected"];
+export const APPLICANT_STATUSES = ["New", "Assignment Submitted", "Shortlisted", "Interviewing", "Offered", "Offer Accepted", "Hired", "Rejected", "Auto-Rejected"];
 export const VERDICT_LABEL = { shortlist: "Strong fit", review: "Review", reject: "Fails brief" };
 export const INTERVIEW_STATUSES = ["Scheduled", "Completed", "Cancelled", "No-show"];
 export const INTERVIEW_MODES = ["In person", "Video call", "Phone"];

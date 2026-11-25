@@ -1,4 +1,4 @@
-import { BookOpen, FileText, HelpCircle, Home, KeyRound, LogOut, MapPin, Receipt, ShieldAlert, UserPlus, Users } from "lucide-react";
+import { BookOpen, CalendarClock, FileText, HelpCircle, Home, KeyRound, LogOut, MapPin, Receipt, ShieldAlert, UserPlus, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
@@ -14,6 +14,12 @@ export default function EmployeeLayout() {
   const { user, logout } = useAuth();
   const [pendingTeamLeave, setPendingTeamLeave] = useState(0);
   const [showPw, setShowPw] = useState(false);
+  const [interviewer, setInterviewer] = useState(false);
+
+  // Reporting managers and store managers can interview candidates, so they get "Interviews" to manage their own slots.
+  useEffect(() => {
+    api.get("/api/careers/interviewers/me").then(({ data }) => setInterviewer(!!data.eligible)).catch(() => {});
+  }, []);
 
   const refetchPendingCount = () => {
     if (!user?.is_leave_approver) return;
@@ -86,6 +92,19 @@ export default function EmployeeLayout() {
               >
                 <Users size={14} />
                 My Team
+              </NavLink>
+            )}
+            {interviewer && (
+              <NavLink
+                to="/employee/interview-availability"
+                className={({ isActive }) =>
+                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-3 min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
+                    isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
+                  }`
+                }
+              >
+                <CalendarClock size={14} />
+                Interviews
               </NavLink>
             )}
             {user?.is_leave_approver && (

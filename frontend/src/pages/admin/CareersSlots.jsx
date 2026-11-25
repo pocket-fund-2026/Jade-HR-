@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 import CareersNav from "../../components/CareersNav.jsx";
 import api from "../../lib/api.js";
@@ -46,6 +47,7 @@ export default function CareersSlots() {
         <p className="text-xs text-ink/70 mt-0.5">Set when each interviewer can interview (IST). When you schedule or send the second mail, <strong>Suggest times</strong> fills in the next free slots, skipping other interviews and the interviewer's Google Calendar. You can still edit them before sending.</p>
       </div>
       <CareersNav />
+      <p className="text-xs text-ink/70 mb-3">Interviewers manage their own slots under <Link to="/admin/careers/my-availability" className="underline">My interview availability</Link> (reporting managers and store managers also see it as "Interviews" in their own app). Rows below are what is currently saved for everyone; you can still edit them here.</p>
       {!edit && <button type="button" onClick={() => open(null)} className="mb-4 px-3 py-1.5 rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700">+ Add interviewer availability</button>}
 
       {edit && (

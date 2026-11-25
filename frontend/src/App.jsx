@@ -144,6 +144,8 @@ const CareersScreening = lazyWithReload(() => import("./pages/admin/CareersScree
 const CareersInbox = lazyWithReload(() => import("./pages/admin/CareersInbox.jsx"));
 const CareersInternships = lazyWithReload(() => import("./pages/admin/CareersInternships.jsx"));
 const CareersSlots = lazyWithReload(() => import("./pages/admin/CareersSlots.jsx"));
+const CareersRules = lazyWithReload(() => import("./pages/admin/CareersRules.jsx"));
+const MyInterviewAvailability = lazyWithReload(() => import("./pages/MyInterviewAvailability.jsx"));
 const CareersAgents = lazyWithReload(() => import("./pages/admin/CareersAgents.jsx"));
 const PunctualityReport = lazyWithReload(() => import("./pages/admin/reports/PunctualityReport.jsx"));
 const LateNightSafetyReport = lazyWithReload(() => import("./pages/admin/reports/LateNightSafetyReport.jsx"));
@@ -298,6 +300,7 @@ export default function App() {
             <Route path="loans" element={<RequirePermission anyOf={["loans.manage"]}><Loans /></RequirePermission>} />
             <Route path="leave-entry" element={<RequirePermission anyOf={["leave.manage"]}><LeaveEntry /></RequirePermission>} />
             <Route path="my-team" element={<MyTeam />} />
+            <Route path="interview-availability" element={<MyInterviewAvailability />} />
             <Route path="team-leave" element={<TeamLeave />} />
             <Route path="team-wfh" element={<TeamWFH />} />
             <Route path="team-disputes" element={<TeamDisputes />} />
@@ -326,6 +329,8 @@ export default function App() {
             <Route path="careers/agents" element={<RequirePermission anyOf={["careers.manage"]}><CareersAgents /></RequirePermission>} />
             <Route path="careers/inbox" element={<RequirePermission anyOf={["careers.manage"]}><CareersInbox /></RequirePermission>} />
             <Route path="careers/screening" element={<RequirePermission anyOf={["careers.manage"]}><CareersScreening /></RequirePermission>} />
+            <Route path="careers/auto-reject" element={<RequirePermission anyOf={["careers.manage"]}><CareersRules /></RequirePermission>} />
+            <Route path="careers/my-availability" element={<MyInterviewAvailability />} />
             <Route path="careers/applicants" element={<RequirePermission anyOf={["careers.manage"]}><CareersApplicants /></RequirePermission>} />
             <Route path="careers/applicants/:id" element={<RequirePermission anyOf={["careers.manage"]}><CareersApplicantDetail /></RequirePermission>} />
             <Route path="help" element={<Help scope="admin" />} />
@@ -341,6 +346,7 @@ export default function App() {
           >
             <Route index element={<EmployeeDashboard />} />
             <Route path="my-team" element={<MyTeam />} />
+            <Route path="interview-availability" element={<MyInterviewAvailability />} />
             <Route path="team-leave" element={<TeamLeave />} />
             <Route path="team-wfh" element={<TeamWFH />} />
             <Route path="team-disputes" element={<TeamDisputes />} />
