@@ -157,6 +157,45 @@ def list_anniversaries(user: dict = Depends(require_permission("employees.view")
     ]
 
 
+@router.get("/celebrations")
+def todays_celebrations(user: dict = Depends(get_current_user)):
+    """Today's birthdays and work anniversaries, for the login popup shown to
+    EVERY logged-in user (employee, hr, accounts) — so it only needs a valid
+    login, not employees.view, and returns names + years of service only,
+    never a date of birth or joining date. Same HQ (Madhu Estate, Mumbai)
+    scope as /birthdays and /anniversaries. 'Today' is IST, computed here so
+    it doesn't depend on the viewer's device clock."""
+    from datetime import timedelta
+    today = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).date()
+    employees = (
+        supabase.table("hr_employees")
+        .select("id,first_name,last_name,date_of_joining")
+        .eq("location", "Madhu Estate, Mumbai")
+        .eq("is_active", True)
+        .execute()
+        .data
+    )
+    profiles = supabase.table("hr_employee_profile").select("employee_id,date_of_birth").execute().data
+    dob_by_employee = {p["employee_id"]: p["date_of_birth"] for p in profiles if p.get("date_of_birth")}
+
+    def on_today(iso):
+        try:
+            y, m, d = (int(x) for x in str(iso)[:10].split("-"))
+        except ValueError:
+            return None
+        return y if (m, d) == (today.month, today.day) else None
+
+    birthdays, anniversaries = [], []
+    for e in employees:
+        name = f"{e['first_name']} {e.get('last_name') or ''}".strip()
+        if on_today(dob_by_employee.get(e["id"], "")) is not None:
+            birthdays.append({"name": name})
+        join_year = on_today(e.get("date_of_joining") or "")
+        if join_year is not None and today.year - join_year >= 1:
+            anniversaries.append({"name": name, "years": today.year - join_year})
+    return {"birthdays": birthdays, "anniversaries": anniversaries}
+
+
 @router.post("/bulk-salary")
 def bulk_import_salary(body: SalaryImportRequest, user: dict = Depends(require_permission("salary.edit"))):
     """Set Basic/HRA/Conveyance/Other/Incentive for many employees at once,
