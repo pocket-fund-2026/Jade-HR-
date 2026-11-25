@@ -985,6 +985,8 @@ def resolve_leave_request(request_id: str, body: LeaveResolve, user: dict = Depe
         raise HTTPException(status_code=409, detail="Leave request already resolved")
     if body.action not in ("approve", "reject"):
         raise HTTPException(status_code=400, detail="action must be 'approve' or 'reject'")
+    if len((body.admin_note or "").strip()) < 5:
+        raise HTTPException(status_code=400, detail="A remark is required: write why you are approving or rejecting this leave")
 
     if body.action == "approve" and leave_request["leave_type"] == "comp_off":
         employee = maybe_single_data(supabase.table("hr_employees").select("*").eq("id", leave_request["employee_id"]).maybe_single().execute())

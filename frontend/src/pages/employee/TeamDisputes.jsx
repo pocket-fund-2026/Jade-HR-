@@ -79,16 +79,22 @@ function ResolveRow({ dispute, onResolved }) {
         </div>
       </td>
       <td className="px-5 py-3.5">
+        <input
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          aria-label="Remark (required)" placeholder="Remark (required, say why)"
+          className="w-56 mb-2 rounded-sm border border-ink/15 bg-manila/40 px-4 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-jade-500"
+        />
         <div className="flex gap-6">
           <button
-            disabled={busy}
+            disabled={busy || note.trim().length < 5}
             onClick={() => resolve("reject")}
             className="flex items-center justify-center gap-1.5 min-h-[44px] bg-paper border border-rust-500 text-rust-500 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-rust-50 disabled:opacity-50 transition-colors"
           >
             <X size={13} /> Reject dispute
           </button>
           <button
-            disabled={busy}
+            disabled={busy || note.trim().length < 5}
             onClick={() => resolve("approve")}
             className="flex items-center justify-center gap-1.5 min-h-[44px] bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
           >

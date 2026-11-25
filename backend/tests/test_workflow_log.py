@@ -210,7 +210,7 @@ def test_nobody_can_settle_their_own_dispute(monkeypatch):
            "reason": "r", "status": "pending"}
     disputes = _dispute_db(monkeypatch, row)
     with pytest.raises(HTTPException) as e:
-        disputes._settle("D1", disputes.DisputeResolve(action="approve"), {"id": "laki", "role": "hr"}, "hr")
+        disputes._settle("D1", disputes.DisputeResolve(action="approve", admin_note="checked and approved"), {"id": "laki", "role": "hr"}, "hr")
     assert e.value.status_code == 403
 
 
@@ -224,6 +224,6 @@ def test_appeal_cannot_be_settled_by_who_rejected_the_original(monkeypatch):
     # Same fake returns `row` for every select, so give it the original's resolver too.
     row["resolved_by"] = "hr1"
     with pytest.raises(HTTPException) as e:
-        disputes._settle("A1", disputes.DisputeResolve(action="approve"), {"id": "hr1", "role": "hr"}, "hr")
+        disputes._settle("A1", disputes.DisputeResolve(action="approve", admin_note="checked and approved"), {"id": "hr1", "role": "hr"}, "hr")
     assert e.value.status_code == 403
-    disputes._settle("A1", disputes.DisputeResolve(action="reject", admin_note="x"), {"id": "hr2", "role": "hr"}, "hr")
+    disputes._settle("A1", disputes.DisputeResolve(action="reject", admin_note="rejected on appeal"), {"id": "hr2", "role": "hr"}, "hr")

@@ -57,21 +57,23 @@ function ResolveRow({ request, onResolved }) {
         <input
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          aria-label="Note (optional)" placeholder="Note (optional)"
-          className="w-40 rounded-sm border border-ink/15 bg-manila/40 px-4 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-jade-500"
+          aria-label="Remark (required)" placeholder="Remark (required, say why)"
+          className="w-48 rounded-sm border border-ink/15 bg-manila/40 px-4 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-jade-500"
         />
       </td>
       <td className="px-5 py-3.5">
         <div className="flex gap-6">
           <button
-            disabled={busy}
+            disabled={busy || note.trim().length < 5}
+            title={note.trim().length < 5 ? "Write a remark first" : undefined}
             onClick={() => resolve("approve")}
             className="flex items-center gap-1 bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
           >
             <Check size={13} /> Approve absence
           </button>
           <button
-            disabled={busy}
+            disabled={busy || note.trim().length < 5}
+            title={note.trim().length < 5 ? "Write a remark first" : undefined}
             onClick={() => resolve("reject")}
             className="flex items-center gap-1 bg-paper border border-rust-500 text-rust-500 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-rust-50 disabled:opacity-50 transition-colors"
           >

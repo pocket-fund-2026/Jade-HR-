@@ -40,6 +40,19 @@ def _attach_manual_remarks(results: list[dict], start: date, end: date) -> None:
         logger.exception("could not read hr_attendance_remarks")
         return
     by_key = {(r["employee_id"], r["date"]): r["remark"] for r in rows}
+    try:
+        notes = fetch_all_paged(
+            "hr_attendance_employee_notes", "employee_id,date,note", ("employee_id", "date"),
+            lambda q: q.gte("date", start.isoformat()).lte("date", end.isoformat()),
+        )
+    except Exception:
+        notes = []  # sql/098 not applied yet
+    note_by_key = {(r["employee_id"], r["date"]): r["note"] for r in notes if r.get("note")}
+    for res in results:
+        for d in res.get("daily") or []:
+            n = note_by_key.get((res["employee_id"], d["date"]))
+            if n:
+                d["employee_note"] = n
     if not by_key:
         return
     for res in results:

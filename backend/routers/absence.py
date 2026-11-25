@@ -179,6 +179,8 @@ def resolve_absence_request(
         raise HTTPException(status_code=409, detail="Absence request already resolved")
     if body.action not in ("approve", "reject"):
         raise HTTPException(status_code=400, detail="action must be 'approve' or 'reject'")
+    if len((body.admin_note or "").strip()) < 5:
+        raise HTTPException(status_code=400, detail="A remark is required: write why you are approving or rejecting this absence")
 
     status = "approved" if body.action == "approve" else "rejected"
     supabase.table("hr_absence_requests").update({

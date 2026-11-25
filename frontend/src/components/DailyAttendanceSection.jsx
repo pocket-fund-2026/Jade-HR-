@@ -24,6 +24,9 @@ export default function DailyAttendanceSection({ monthDaily, employeeId, employe
   const [error, setError] = useState("");
   // Self-service (My Payslip): dispute a day, track disputes, appeal a rejection.
   const [disputes, setDisputes] = useState([]);
+  const [notes, setNotes] = useState({});
+  const [editNote, setEditNote] = useState(null); // { date, text }
+  const [noteErr, setNoteErr] = useState("");
   const [disputeDate, setDisputeDate] = useState(null);
   const [appealing, setAppealing] = useState(null);
   const loadDisputes = () => {
@@ -31,6 +34,21 @@ export default function DailyAttendanceSection({ monthDaily, employeeId, employe
   };
   useEffect(loadDisputes, [selfService]);
   const todayIso = new Date().toISOString().slice(0, 10);
+  useEffect(() => {
+    if (!selfService || !(monthDaily || []).length) return;
+    const ds = monthDaily.map((x) => x.date).sort();
+    api.get("/api/me/attendance-notes", { params: { from: ds[0], to: ds[ds.length - 1] } }).then(({ data }) => setNotes(data)).catch(() => {});
+  }, [selfService, monthDaily]);
+  const saveNote = async () => {
+    setNoteErr("");
+    try {
+      await api.put("/api/me/attendance-note", { date: editNote.date, note: editNote.text });
+      setNotes((n) => { const c = { ...n }; if (editNote.text.trim()) c[editNote.date] = editNote.text.trim(); else delete c[editNote.date]; return c; });
+      setEditNote(null);
+    } catch (err) {
+      setNoteErr(err.response?.data?.detail || "Could not save the note");
+    }
+  };
   const pendingDates = new Set(disputes.filter((x) => x.status === "pending").map((x) => x.date));
 
   const inRangeMode = rangeDaily !== null;
@@ -125,6 +143,23 @@ export default function DailyAttendanceSection({ monthDaily, employeeId, employe
                     ) : (
                       <button onClick={() => setDisputeDate(d.date)} className="text-xs text-ink/70 hover:text-ochre-700 flex items-center gap-1 transition-colors whitespace-nowrap">
                         <Flag size={12} /> {d.weekoff_forfeited ? "Dispute Sunday" : d.late ? "Dispute late" : "Report issue"}
+                      </button>
+                    )
+                  )}
+                  {d.status !== "future" && d.date <= todayIso && (
+                    editNote?.date === d.date ? (
+                      <div className="mt-1.5 space-y-1">
+                        <input aria-label="My note for this day" value={editNote.text} maxLength={300} onChange={(e) => setEditNote({ ...editNote, text: e.target.value })}
+                          placeholder="Your note for this day" className="w-48 rounded-sm border border-ink/15 bg-manila/40 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-jade-500" />
+                        {noteErr && <p className="text-[11px] text-rust-500">{noteErr}</p>}
+                        <div className="flex gap-3 text-xs">
+                          <button onClick={saveNote} className="font-semibold text-jade-700 hover:underline">Save</button>
+                          <button onClick={() => { setEditNote(null); setNoteErr(""); }} className="text-ink/70 hover:text-ink">Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button onClick={() => { setEditNote({ date: d.date, text: notes[d.date] || "" }); setNoteErr(""); }} className="block text-xs text-ink/60 hover:text-jade-700 mt-1 text-left">
+                        {notes[d.date] ? <>Note: {notes[d.date]} <span className="underline">edit</span></> : "Add note"}
                       </button>
                     )
                   )}

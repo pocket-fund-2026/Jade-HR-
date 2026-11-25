@@ -1,5 +1,5 @@
 import base64
-from datetime import datetime, timezone
+from datetime import date as date_type, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -279,6 +279,8 @@ def _settle(dispute_id: str, body: DisputeResolve, actor: dict, role: str, allow
         raise HTTPException(status_code=403, detail="This dispute is not from someone who reports to you")
     if body.action not in ("approve", "reject"):
         raise HTTPException(status_code=400, detail="action must be 'approve' or 'reject'")
+    if len((body.admin_note or "").strip()) < 5:
+        raise HTTPException(status_code=400, detail="A remark is required: write why you are approving or rejecting this dispute")
     if body.status_override not in ("present", "absent", "half_day", "weekoff"):
         raise HTTPException(status_code=400, detail="status_override must be present, absent, half_day or weekoff")
 
@@ -454,6 +456,47 @@ def ai_reject(dispute_id: str, body: AiReject, admin: dict = Depends(require_per
     record_step("dispute", dispute_id, "ai_rejected", None, employee_id=d["employee_id"],
                 basis={"date": str(d["date"])[:10], "confidence": body.confidence}, note=reason)
     return {"ok": True}
+
+
+NOTE_WINDOW_DAYS = 70  # about two pay cycles back
+
+
+class EmployeeNote(BaseModel):
+    date: date_type
+    note: str = ""
+
+
+@router.put("/me/attendance-note")
+def set_my_attendance_note(body: EmployeeNote, user: dict = Depends(get_current_user)):
+    """An employee's own note on one of THEIR attendance days (for example why a punch looks off), up to
+    about two pay cycles back. It is separate from HR's numeric Remark on the sheet, which employees never
+    touch. An empty note removes it."""
+    today = datetime.now(timezone.utc).astimezone(dispute_policy.IST).date()
+    if body.date > today:
+        raise HTTPException(status_code=400, detail="You cannot add a note to a future day")
+    if (today - body.date).days > NOTE_WINDOW_DAYS:
+        raise HTTPException(status_code=400, detail="That day is too old for a note. Raise it with HR.")
+    note = (body.note or "").strip()[:300]
+    try:
+        if note:
+            supabase.table("hr_attendance_employee_notes").upsert(
+                {"employee_id": user["id"], "date": body.date.isoformat(), "note": note, "updated_at": datetime.now(timezone.utc).isoformat()},
+                on_conflict="employee_id,date").execute()
+        else:
+            supabase.table("hr_attendance_employee_notes").delete().eq("employee_id", user["id"]).eq("date", body.date.isoformat()).execute()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Notes are not set up yet (sql/098 must be applied)") from exc
+    return {"date": body.date.isoformat(), "note": note}
+
+
+@router.get("/me/attendance-notes")
+def my_attendance_notes(from_date: date_type = Query(..., alias="from"), to_date: date_type = Query(..., alias="to"), user: dict = Depends(get_current_user)):
+    try:
+        rows = (supabase.table("hr_attendance_employee_notes").select("date,note").eq("employee_id", user["id"])
+                .gte("date", from_date.isoformat()).lte("date", to_date.isoformat()).execute().data)
+    except Exception:
+        return {}
+    return {r["date"]: r["note"] for r in rows}
 
 
 @router.get("/me/team-disputes")

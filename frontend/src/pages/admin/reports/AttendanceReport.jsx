@@ -157,6 +157,9 @@ function EditCellModal({ employee, day, onClose, onSaved, canCorrect }) {
               className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
           </div>
           </>)}
+          {day.employee_note && (
+            <p className="text-xs text-ink/80 border-l-2 border-ledger-800 pl-2 mb-3"><strong>Employee's note:</strong> {day.employee_note}</p>
+          )}
           <div className={canCorrect ? "border-t border-ink/10 pt-3" : ""}>
             <label htmlFor="fld-163" className="block text-xs font-semibold text-ink/70 mb-1.5">
               Remark — day earned <span className="normal-case font-normal">(a number, 0 to 1; exported as a number so it can be totalled; sheet value: {dayRemark(day) || "blank"})</span>
@@ -386,6 +389,9 @@ export default function AttendanceReport() {
                               )}
                               {lateAllowanceInfo(d) && (
                                 <span title={lateAllowanceInfo(d).text} className={`absolute -top-1 -left-1 w-2 h-2 rounded-full ring-1 ring-paper ${lateAllowanceInfo(d).used ? "bg-jade-600" : "bg-ochre-500"}`} />
+                              )}
+                              {d.employee_note && (
+                                <span title={`Employee's note: ${d.employee_note}`} className="absolute -bottom-1 -left-1 w-2 h-2 rounded-full bg-ledger-800 ring-1 ring-paper" />
                               )}
                               {d.remark_manual && (
                                 <span className="absolute -bottom-1 -right-1 w-2 h-2 rounded-full bg-ochre-500 ring-1 ring-paper" />
