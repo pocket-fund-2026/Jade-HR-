@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+import { useAuth } from "../lib/auth.jsx";
 
 import EmptyState from "../components/EmptyState.jsx";
 import SlidingTabs from "../components/SlidingTabs.jsx";
@@ -72,7 +74,49 @@ function Row({ kind, r, onDone }) {
   );
 }
 
+function HeadsManager() {
+  const [emps, setEmps] = useState([]);
+  const [heads, setHeads] = useState(new Set());
+  const [q, setQ] = useState("");
+  const [msg, setMsg] = useState("");
+  const load = () => {
+    api.get("/api/dept-head/proposals").then(({ data }) => setHeads(new Set(data.current_heads))).catch(() => {});
+    api.get("/api/employees", { params: { lite: true } }).then(({ data }) => setEmps(data.filter((e) => e.is_active))).catch(() => {});
+  };
+  useEffect(load, []);
+  const shown = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    const list = emps.filter((e) => heads.has(e.id) || (t && `${e.first_name} ${e.last_name} ${e.employee_code} ${e.department}`.toLowerCase().includes(t)));
+    return list.sort((a, b) => (heads.has(b.id) - heads.has(a.id)) || (a.department || "").localeCompare(b.department || "")).slice(0, 40);
+  }, [emps, heads, q]);
+  const toggle = async (e) => {
+    setMsg("");
+    try {
+      await api.post("/api/dept-head/set", { employee_ids: [e.id], head: !heads.has(e.id) });
+      load();
+    } catch (err) { setMsg(err.response?.data?.detail || "Could not change"); }
+  };
+  return (
+    <div className="bg-paper rounded-sm shadow-card p-5 mb-6">
+      <p className="text-xs font-semibold text-ink/70 mb-1">Department heads</p>
+      <p className="text-xs text-ink/60 mb-3">A head can change decisions for everyone whose department matches theirs exactly. Search a person to make them a head, or untick to remove.</p>
+      <input type="search" aria-label="Search employees" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, code or department"
+        className="w-72 rounded-sm border border-ink/15 bg-paper px-3 py-1.5 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-jade-500" />
+      {shown.map((e) => (
+        <label key={e.id} className="flex items-center gap-2 text-sm text-ink py-0.5">
+          <input type="checkbox" checked={heads.has(e.id)} onChange={() => toggle(e)} />
+          {e.first_name} {e.last_name} <span className="text-xs text-ink/60 font-nums">{e.employee_code}</span>
+          <span className="text-xs text-ink/60">· {e.department || "no department"}</span>
+        </label>
+      ))}
+      {!shown.length && <p className="text-xs text-ink/60">No heads set yet. Search to add one.</p>}
+      {msg && <p className="text-xs text-rust-500 mt-2">{msg}</p>}
+    </div>
+  );
+}
+
 export default function DeptHead() {
+  const { user } = useAuth() || {};
   const [kind, setKind] = useState("disputes");
   const [info, setInfo] = useState(null);
   const [rows, setRows] = useState(null);
@@ -90,6 +134,7 @@ export default function DeptHead() {
       <p className="text-xs text-ink/70 mt-0.5 mb-5">
         Disputes, leave and work absences that have already been approved or rejected, in the last 120 days. You can change an approval to a rejection, or a rejection to an approval, whenever it is needed. A reason is required and the person is told by email. Reporting managers see their team, department heads their department, HR and Accounts everyone.
       </p>
+      {(user?.role === "accounts" || user?.role === "hr") && <HeadsManager />}
       <SlidingTabs tabs={KINDS} value={kind} onChange={setKind} className="flex gap-1 mb-4" />
       {error && <p className="text-sm text-rust-500 mb-3">{error}</p>}
       <div className="bg-paper rounded-sm shadow-card overflow-x-auto">

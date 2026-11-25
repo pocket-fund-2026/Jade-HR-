@@ -196,3 +196,38 @@ def bulk_deactivate(body: BulkDeactivate, user: dict = Depends(require_permissio
                        "codes": [eligible[i]["code"] for i in ids][:200]}, note=f"{len(ids)} inactive accounts deactivated")
     return {"deactivated": len(ids), "skipped": len(skipped),
             "people": [{"code": eligible[i]["code"], "name": eligible[i]["name"]} for i in ids]}
+
+
+class DeactivatePicked(BaseModel):
+    employee_ids: list[str]
+
+
+@router.post("/deactivate")
+def deactivate_picked(body: DeactivatePicked, user: dict = Depends(require_permission("employees.manage"))):
+    """Deactivates people ticked on a Data Readiness checklist. A soft delete: history is kept and each person
+    can be reactivated from their record. Never touches HR/Accounts logins or the person pressing the button."""
+    ids = list(dict.fromkeys(body.employee_ids))
+    if not ids:
+        raise HTTPException(status_code=400, detail="Tick at least one person")
+    if len(ids) > 300:
+        raise HTTPException(status_code=400, detail="Too many at once (300 max)")
+    rows = []
+    for i in range(0, len(ids), 80):
+        rows += supabase.table("hr_employees").select("id,employee_code,first_name,last_name,role,is_active").in_("id", ids[i:i + 80]).execute().data
+    ok, skipped = [], []
+    for r in rows:
+        name = f"{r.get('first_name') or ''} {r.get('last_name') or ''}".strip() or r["employee_code"]
+        if r["id"] == user["id"]:
+            skipped.append({"code": r["employee_code"], "name": name, "why": "that is you"})
+        elif r.get("role") in dr.CONSOLE_ROLES:
+            skipped.append({"code": r["employee_code"], "name": name, "why": "HR/Accounts login"})
+        elif not r.get("is_active"):
+            skipped.append({"code": r["employee_code"], "name": name, "why": "already inactive"})
+        else:
+            ok.append(r)
+    for i in range(0, len(ok), 50):
+        supabase.table("hr_employees").update({"is_active": False}).in_("id", [r["id"] for r in ok[i:i + 50]]).execute()
+    if ok:
+        record_step("bulk_deactivate", None, "deactivated_from_checklist", user,
+                    basis={"count": len(ok), "codes": [r["employee_code"] for r in ok][:200]}, note=f"{len(ok)} deactivated from a Data Readiness checklist")
+    return {"deactivated": len(ok), "skipped": skipped}

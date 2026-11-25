@@ -90,6 +90,53 @@ function ResolveRow({ visit, onResolved }) {
   );
 }
 
+function GeofencePanel() {
+  const [fences, setFences] = useState(null);
+  const [edit, setEdit] = useState({});
+  const [msg, setMsg] = useState("");
+  const load = () => api.get("/api/market-visits/geofences/admin").then(({ data }) => setFences(data)).catch(() => setFences([]));
+  useEffect(() => { load(); }, []);
+  if (!fences || !fences.length) return null;
+  const val = (f, k) => (edit[f.id]?.[k] ?? f[k] ?? "");
+  const set = (f, k, v) => setEdit((e) => ({ ...e, [f.id]: { ...e[f.id], [k]: v } }));
+  const here = (f) => {
+    setMsg("");
+    if (!navigator.geolocation) { setMsg("This browser cannot share a location."); return; }
+    navigator.geolocation.getCurrentPosition(
+      (p) => { set(f, "latitude", p.coords.latitude.toFixed(6)); set(f, "longitude", p.coords.longitude.toFixed(6)); setMsg(`Got your position (about ±${Math.round(p.coords.accuracy)} m). Check it, then save.`); },
+      () => setMsg("Could not get your location. Allow location access, or type the coordinates."), { enableHighAccuracy: true, timeout: 20000 });
+  };
+  const save = async (f) => {
+    setMsg("");
+    try {
+      await api.put(`/api/market-visits/geofences/${f.id}`, {
+        latitude: Number(val(f, "latitude")), longitude: Number(val(f, "longitude")), radius_m: Number(val(f, "radius_m")) || 100,
+      });
+      setEdit((e) => { const c = { ...e }; delete c[f.id]; return c; });
+      setMsg("Saved. Check-ins at this store are now locked to its radius.");
+      load();
+    } catch (err) { setMsg(err.response?.data?.detail || "Could not save"); }
+  };
+  const inp = "w-36 rounded-sm border border-ink/15 bg-manila/40 px-3 py-1.5 text-xs font-nums focus:outline-none focus:ring-2 focus:ring-jade-500";
+  return (
+    <div className="bg-paper rounded-sm shadow-card p-5 mb-6">
+      <p className="text-xs font-semibold text-ink/70 mb-1">Store geolock</p>
+      <p className="text-xs text-ink/60 mb-3">A check-in at a store counts only within its radius. Stand at the store, press "Use my location", save. Until a point is confirmed, nothing is blocked.</p>
+      {fences.map((f) => (
+        <div key={f.id} className="flex flex-wrap items-end gap-3 mb-2">
+          <div className="min-w-[12rem]"><p className="text-sm text-ink font-medium">{f.name}</p><p className="text-[11px] text-ink/60">{f.center_confirmed ? "Lock is ON" : "Point not confirmed, lock is OFF"}</p></div>
+          <label className="text-[11px] text-ink/70">Latitude<input aria-label="Latitude" className={`${inp} block`} value={val(f, "latitude")} onChange={(e) => set(f, "latitude", e.target.value)} /></label>
+          <label className="text-[11px] text-ink/70">Longitude<input aria-label="Longitude" className={`${inp} block`} value={val(f, "longitude")} onChange={(e) => set(f, "longitude", e.target.value)} /></label>
+          <label className="text-[11px] text-ink/70">Radius (m)<input aria-label="Radius in metres" className={`${inp} block w-24`} value={val(f, "radius_m")} onChange={(e) => set(f, "radius_m", e.target.value)} /></label>
+          <button type="button" onClick={() => here(f)} className="text-xs text-jade-700 hover:underline pb-2">Use my location</button>
+          <button type="button" onClick={() => save(f)} className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700">Save point</button>
+        </div>
+      ))}
+      {msg && <p className="text-xs text-ink/80 mt-2">{msg}</p>}
+    </div>
+  );
+}
+
 export default function MarketVisits() {
   const [tab, setTab] = useState("pending");
   const [visits, setVisits] = useState([]);
@@ -108,6 +155,8 @@ export default function MarketVisits() {
         <h2 className="font-display text-2xl text-ink">Market Visit Check-ins</h2>
         <p className="text-xs text-ink/70 font-nums mt-0.5">Geotagged field check-ins — photo + location logged as-is, no verification against a known location</p>
       </div>
+
+      <GeofencePanel />
 
       <SlidingTabs tabs={TABS} value={tab} onChange={setTab} className="flex gap-1 mb-4" />
 

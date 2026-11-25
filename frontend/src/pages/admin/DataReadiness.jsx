@@ -34,17 +34,43 @@ function Stat({ label, value, tone }) {
 
 // Dropdown listing everyone a check flagged: name + employee code, each
 // linking to the record so HR can fill the missing detail in.
-function PeopleDropdown({ people, label }) {
+function PeopleDropdown({ people, label, onChanged }) {
+  const { can } = useAuth() || {};
+  const canDeactivate = !can || can("employees.manage");
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
+  const [picked, setPicked] = useState(new Set());
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
   const shown = useMemo(() => {
     const t = q.trim().toLowerCase();
     if (!t) return people;
     return people.filter((p) => `${p.name} ${p.code}`.toLowerCase().includes(t));
   }, [people, q]);
-  if (!people?.length) return null;
+  const selectable = shown.filter((p) => p.id);
+  const allPicked = selectable.length > 0 && selectable.every((p) => picked.has(p.id));
+  const toggle = (id) => setPicked((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleAll = () => setPicked((s) => { const n = new Set(s); selectable.forEach((p) => (allPicked ? n.delete(p.id) : n.add(p.id))); return n; });
+  const run = async () => {
+    setBusy(true);
+    setMsg("");
+    try {
+      const { data } = await api.post("/api/data-readiness/deactivate", { employee_ids: [...picked] });
+      setMsg(`Deactivated ${data.deactivated}.${data.skipped.length ? ` Skipped ${data.skipped.length}: ${data.skipped.map((x) => `${x.name} (${x.why})`).join(", ")}.` : ""}`);
+      setPicked(new Set());
+      setConfirming(false);
+      onChanged?.();
+    } catch (err) {
+      setMsg(err.response?.data?.detail || "Could not deactivate");
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (!people?.length && !msg) return null;
   return (
     <div className="mt-1.5">
+      {msg && <p className="text-xs text-jade-700 mb-1">{msg}</p>}
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
         className="inline-flex items-center gap-1 text-xs font-semibold text-jade-700 hover:underline">
         <ChevronDown size={13} className={`transition-transform ${open ? "rotate-180" : ""}`} />
@@ -56,10 +82,26 @@ function PeopleDropdown({ people, label }) {
             <input type="search" aria-label="Search employees by name or code" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name or code"
               className="w-full border-b border-ink/10 bg-paper px-2 py-1.5 text-xs text-ink focus:outline-none" />
           )}
+          {canDeactivate && picked.size > 0 && (
+            <div className="flex flex-wrap items-center gap-3 px-2 py-2 border-b border-ink/10 bg-paper text-xs">
+              <span className="text-ink/70">{picked.size} ticked</span>
+              {!confirming ? (
+                <button type="button" onClick={() => setConfirming(true)}
+                  className="bg-rust-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm font-semibold hover:bg-rust-500">Deactivate {picked.size}</button>
+              ) : (
+                <>
+                  <span className="text-rust-600 font-semibold">Deactivate {picked.size} {picked.size === 1 ? "person" : "people"}? They can be reactivated later.</span>
+                  <button type="button" disabled={busy} onClick={run} className="bg-rust-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm font-semibold hover:bg-rust-500 disabled:opacity-50">{busy ? "Working…" : "Yes, deactivate"}</button>
+                  <button type="button" onClick={() => setConfirming(false)} className="text-ink/70 hover:text-ink">Cancel</button>
+                </>
+              )}
+            </div>
+          )}
           <div className="max-h-64 overflow-y-auto">
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-paper">
                 <tr className="text-left text-[10px] text-ink/60">
+                  {canDeactivate && <th className="px-2 py-1.5 w-8"><input type="checkbox" aria-label="Select all shown" checked={allPicked} onChange={toggleAll} /></th>}
                   <th className="px-2 py-1.5 w-24">Emp code</th><th className="px-2 py-1.5">Employee name</th>
                   {people[0]?.missing && <th className="px-2 py-1.5">Not updated</th>}
                 </tr>
@@ -67,6 +109,7 @@ function PeopleDropdown({ people, label }) {
               <tbody>
                 {shown.map((p) => (
                   <tr key={p.id || p.code} className="border-t border-ink/10 align-top">
+                    {canDeactivate && <td className="px-2 py-1.5">{p.id && <input type="checkbox" aria-label={`Select ${p.name || p.code}`} checked={picked.has(p.id)} onChange={() => toggle(p.id)} />}</td>}
                     <td className="px-2 py-1.5 font-mono text-ink/80">{p.code || "—"}</td>
                     <td className="px-2 py-1.5">
                       {p.id ? <Link to={`/admin/employees/${p.id}`} className="text-ink hover:text-jade-700 hover:underline">{p.name || "(no name)"}</Link> : (p.name || "(no name)")}
@@ -131,7 +174,7 @@ function NotUpdatedPanel({ checks }) {
   );
 }
 
-function CheckRow({ c }) {
+function CheckRow({ c, onChanged }) {
   const bad = c.severity !== "ok";
   return (
     <li className="py-3 border-t border-ink/10 first:border-t-0">
@@ -149,7 +192,7 @@ function CheckRow({ c }) {
               {c.sample.join(", ")}{c.count > c.sample.length && c.key !== "hr_default_permissions" ? ` and ${c.count - c.sample.length} more` : ""}
             </p>
           )}
-          {bad && <PeopleDropdown people={c.people} />}
+          {bad && <PeopleDropdown people={c.people} onChanged={onChanged} />}
         </div>
       </div>
     </li>
@@ -401,7 +444,7 @@ export default function DataReadiness() {
         return (
           <section key={dim} className="mb-8">
             <h3 className="font-display text-lg text-ink mb-2">{title}</h3>
-            <ul className="bg-paper rounded-sm shadow-card px-4">{rows.map((c) => <CheckRow key={c.key} c={c} />)}</ul>
+            <ul className="bg-paper rounded-sm shadow-card px-4">{rows.map((c) => <CheckRow key={c.key} c={c} onChanged={load} />)}</ul>
           </section>
         );
       })}
