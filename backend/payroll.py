@@ -491,7 +491,7 @@ def _apply_weekly_off_earning_rule(rows: list[dict]) -> None:
     over the 6 days before it, the employee was EITHER (a) on Paid Leave
     every one of those days — in which case the weekly-off itself also
     counts as Paid Leave, matching how the week reads on the leave ledger —
-    or (b) actually present (or on a confirmed WFH day — doc §25 pays WFH
+    or (b) actually present (or on a company holiday, or on a confirmed WFH day — doc §25 pays WFH
     like a working day, so it must count toward earning the week's off too,
     same as a real in-office day) at least 3 of those days, in which case it
     stays a normal paid weekoff (unchanged from before this rule existed).
@@ -514,7 +514,11 @@ def _apply_weekly_off_earning_rule(rows: list[dict]) -> None:
             row["status"] = "leave"
             row["leave_type"] = "paid"
             row["late"] = False
-        elif sum(1 for r in week_rows if r["status"] in ("present", "wfh")) >= 3:
+        elif sum(1 for r in week_rows if r["status"] in ("present", "wfh", "holiday")) >= 3:
+            # A company holiday (Diwali, a closed day) is a day the company gave off, so it
+            # counts as attended towards earning the week's off. Without this, a week
+            # containing two Diwali holidays and two working days showed the Sunday absent
+            # (2026-11-15, Dhananjay Singh).
             continue
         else:
             row["status"] = "absent"
