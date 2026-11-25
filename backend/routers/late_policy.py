@@ -616,7 +616,7 @@ def _aip_mail(name: str, rec: dict, cards) -> tuple[str, str]:
     return "You have been placed on an Attendance Improvement Plan", body
 
 
-def send_aip_notices(records: list[dict], dry_run: bool = False) -> dict:
+def send_aip_notices(records: list[dict], dry_run: bool = False, summaries: bool = True) -> dict:
     """Mails each employee on a new AIP the plan and its rules, their reporting manager(s) a heads-up
     listing their reportees, and Nimit (HR) one full summary. Each AIP is marked [NOTIFIED] in its notes
     once the employee's mail has gone, so a re-run never sends twice."""
@@ -653,7 +653,7 @@ def send_aip_notices(records: list[dict], dry_run: bool = False) -> dict:
         else:
             failed.append((label, err))
     mgr_sent = 0
-    if not dry_run and sent:
+    if not dry_run and summaries and (sent or records):
         for m, people in by_manager.items():
             ok, _ = email_service.send_email_detailed(
                 m, f"{len(people)} of your team placed on an Attendance Improvement Plan",
@@ -665,18 +665,27 @@ def send_aip_notices(records: list[dict], dry_run: bool = False) -> dict:
         email_service.send_email_detailed(
             email_service.HR_NOTIFY_EMAIL, f"AIP started for {len(records)} people", 
             f"{len(records)} Attendance Improvement Plans are active from this run.\n\n" + "\n".join(lines_hr)
-            + f"\n\nEmployee mails sent: {len(sent)}; failed: {len(failed)}; no email on file: {len(no_email)}.\n\n"
+            + "\n\nEach person above (except anyone with no email on file) has been mailed the plan and its rules, with their reporting manager copied.\n\n"
             + AIP_RULES_TEXT.format(days=30, start="start", end="end"), kind="aip_notice_hr")
     return {"employee_mails": len(sent), "failed": failed, "no_email": no_email, "manager_mails": mgr_sent, "dry_run": dry_run}
 
 
 @router.post("/v3/aip/notify")
-def notify_aip(dry_run: bool = Query(default=True), user: dict = Depends(require_console)):
+def notify_aip(
+    dry_run: bool = Query(default=True),
+    batch: int = Query(default=10, ge=1, le=50, description="employee mails per call (a serverless call times out near 20)"),
+    summary: bool = Query(default=False, description="send the reporting-manager and HR summary mails (once, after all employees are done)"),
+    user: dict = Depends(require_console),
+):
     """Mails everyone on a still-active AIP who has not yet been told (employee, their reporting manager
     and a summary to HR). Dry run by default."""
     active = supabase.table("hr_aip_records").select("*").eq("status", "active").execute().data
     pending = [r for r in active if AIP_NOTIFIED_MARKER not in (r.get("notes") or "")]
-    return {"active": len(active), "to_notify": len(pending), **send_aip_notices(pending, dry_run)}
+    if summary:
+        # Managers + HR summary over every AIP already mailed; no employee mails here.
+        done = [r for r in active if AIP_NOTIFIED_MARKER in (r.get("notes") or "") and "25 Nov 2026" in (r.get("notes") or "")]
+        return {"active": len(active), "summary_for": len(done), **send_aip_notices(done, dry_run, summaries=True)}
+    return {"active": len(active), "remaining_before": len(pending), **send_aip_notices(pending[:batch], dry_run, summaries=False)}
 
 
 @router.get("/v3/late-night-safety")
