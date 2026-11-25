@@ -67,6 +67,11 @@ JOBS = {
         cmd=[PY, f"{ROOT}/clocks_digest_notify.py"], slots=["08:05"], window_min=360, gate="attendance", idempotent=False,
         max_attempts=6, timeout_s=180, retry_min=10, success_re=None, log=f"{LOG}/jade-hr-clocks-digest.log",
         parse=[r"clocks-digest: \{'aip': (?P<aip>\d+), 'probation': (?P<probation>\d+), 'notice': (?P<notice>\d+)\} on [\d-]+, emailed=(?P<emailed>\w+)"], enabled=MAIL_ENABLED),
+    "aip_enforce": dict(
+        cmd=[PY, f"{ROOT}/aip_enforce_notify.py"], slots=["08:15"], window_min=360, gate="attendance", idempotent=False,
+        max_attempts=6, timeout_s=175, retry_min=10, success_re=r"aip-enforce: ", log=f"{LOG}/jade-hr-aip-enforce.log",
+        after={"topic": "attendance_synced", "within_min": 240},
+        parse=[r"aip-enforce: (?P<started>\d+) started, (?P<flagged>\d+) flagged on [\d-]+, emailed=(?P<emailed>\w+)"], enabled=MAIL_ENABLED),
     "comp_off_accrual": dict(
         cmd=[PY, f"{ROOT}/comp_off_accrual.py"], slots=["08:10"], window_min=360, gate="attendance", idempotent=True,
         max_attempts=6, timeout_s=180, retry_min=10, success_re=None, log=f"{LOG}/jade-hr-comp-off.log",
