@@ -72,7 +72,7 @@ const navItems = [
   { to: "/admin/team-wfh", label: "Team WFH", icon: Home, requiresApprover: true, group: "My account & team" },
   { to: "/admin/team-disputes", label: "Team disputes", icon: ShieldAlert, requiresApprover: true, group: "My account & team" },
   { to: "/admin/team-market-visits", label: "Team market visits", icon: MapPin, requiresApprover: true, group: "My account & team" },
-  { to: "/admin/department", label: "Department decisions", icon: ShieldAlert, requiresHead: true, group: "My account & team" },
+  { to: "/admin/department", label: "Change decisions", icon: ShieldAlert, requiresHead: true, group: "My account & team" },
   { to: "/admin/my-leave", label: "My leave", icon: CalendarPlus, group: "My account & team" },
   { to: "/admin/my-payslip", label: "My payslip", icon: Receipt, group: "My account & team" },
   { to: "/admin/help", label: "Help", icon: HelpCircle, group: "My account & team" },

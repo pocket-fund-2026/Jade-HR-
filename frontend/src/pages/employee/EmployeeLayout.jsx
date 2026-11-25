@@ -103,7 +103,7 @@ export default function EmployeeLayout() {
                   }`
                 }
               >
-                Department decisions
+                Change decisions
               </NavLink>
             )}
             {interviewer && (

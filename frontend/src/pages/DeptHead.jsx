@@ -86,9 +86,9 @@ export default function DeptHead() {
 
   return (
     <div>
-      <h2 className="font-display text-2xl text-ink">Department decisions</h2>
+      <h2 className="font-display text-2xl text-ink">Change decisions</h2>
       <p className="text-xs text-ink/70 mt-0.5 mb-5">
-        {info?.department ? `${info.department}. ` : ""}Disputes, leave and work absences already decided for your department in the last 120 days. You can change an approval to a rejection or the other way round. The person is told by email.
+        Disputes, leave and work absences that have already been approved or rejected, in the last 120 days. You can change an approval to a rejection, or a rejection to an approval, whenever it is needed. A reason is required and the person is told by email. Reporting managers see their team, department heads their department, HR and Accounts everyone.
       </p>
       <SlidingTabs tabs={KINDS} value={kind} onChange={setKind} className="flex gap-1 mb-4" />
       {error && <p className="text-sm text-rust-500 mb-3">{error}</p>}

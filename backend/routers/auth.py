@@ -363,7 +363,7 @@ def me(user: dict = Depends(get_current_user)):
         reporting_resp = reporting_future.result()
     user["is_leave_approver"] = bool(direct_resp.data or reporting_resp.data)
     head_rows = head_future.result().data
-    user["is_dept_head"] = bool(head_rows and head_rows[0].get("head_of_department")) or user.get("role") == "accounts"
+    user["is_dept_head"] = bool(head_rows and head_rows[0].get("head_of_department")) or user.get("role") in ("accounts", "hr") or user["is_leave_approver"]
     user["avatar_url"] = _avatar_url(user.get("avatar_path"))
     return user
 

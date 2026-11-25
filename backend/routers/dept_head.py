@@ -1,7 +1,11 @@
-"""Department heads: change the status of items ALREADY decided for people in their own department
-(disputes, leave, work-related absence). A head is hr_employee_profile.head_of_department = true;
-scope is employees whose hr_employees.department equals the head's. Heads cannot change their own
-items. Accounts can use it for any department. Every change is written to the workflow log."""
+"""Change the status of items ALREADY decided (disputes, leave, work-related absence), after the fact.
+Who may change what:
+  - Accounts (super admin): everything.
+  - HR with the matching permission (leave.manage / disputes.manage / absence.manage): everything of that kind.
+  - A reporting manager: their own team's items.
+  - A department head (hr_employee_profile.head_of_department): everyone in their department.
+Nobody can change their own items. Every change needs a reason, is written to the workflow log, and the
+employee is emailed."""
 
 from datetime import datetime, timedelta, timezone
 
@@ -9,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 import email_service
-from auth import get_current_user, require_permission
+from auth import get_current_user, my_report_ids, require_permission, user_can
 from database import maybe_single_data, supabase
 from workflow_log import record_step
 
@@ -23,20 +27,32 @@ def _profile_flag(user_id: str) -> bool:
     return bool(row and row.get("head_of_department"))
 
 
+PERM_BY_KIND = {"disputes": "disputes.manage", "leave": "leave.manage", "absence": "absence.manage"}
+
+
 def head_scope(user: dict) -> tuple[bool, str | None]:
-    """(allowed, department or None meaning every department)."""
-    if user.get("role") == "accounts":
-        return True, None
+    """(is a department head, their department)."""
     if _profile_flag(user["id"]) and (user.get("department") or "").strip():
         return True, user["department"].strip()
     return False, None
 
 
-def require_head(user: dict = Depends(get_current_user)) -> tuple[dict, str | None]:
-    ok, dept = head_scope(user)
-    if not ok:
-        raise HTTPException(status_code=403, detail="Department head access required")
-    return user, dept
+def scope_ids(user: dict, kind: str) -> set[str] | None:
+    """Employee ids whose decided items this user may change; None means everyone."""
+    if user.get("role") == "accounts":
+        return None
+    if user.get("role") == "hr" and user_can(user, PERM_BY_KIND[kind]):
+        return None
+    ids = set(my_report_ids(user))
+    head, dept = head_scope(user)
+    if head:
+        ids |= set(_dept_member_ids(dept))
+    ids.discard(user["id"])
+    return ids
+
+
+def require_reviser(user: dict = Depends(get_current_user)) -> dict:
+    return user
 
 
 def _dept_member_ids(dept: str | None) -> list[str]:
@@ -46,19 +62,19 @@ def _dept_member_ids(dept: str | None) -> list[str]:
     return [r["id"] for r in q.execute().data]
 
 
-def _check_target(user: dict, dept: str | None, employee_id: str) -> None:
+def _check_target(user: dict, kind: str, employee_id: str) -> None:
     if employee_id == user["id"]:
         raise HTTPException(status_code=403, detail="You cannot change your own items — another reviewer must")
-    if dept is not None:
-        emp = maybe_single_data(supabase.table("hr_employees").select("department").eq("id", employee_id).maybe_single().execute()) or {}
-        if (emp.get("department") or "").strip() != dept:
-            raise HTTPException(status_code=403, detail="This person is not in your department")
+    scope = scope_ids(user, kind)
+    if scope is not None and employee_id not in scope:
+        raise HTTPException(status_code=403, detail="You can only change decisions for your own team or department")
 
 
 @router.get("/status")
 def head_status(user: dict = Depends(get_current_user)):
-    ok, dept = head_scope(user)
-    return {"is_head": ok, "department": dept or ("All departments" if ok else None)}
+    head, dept = head_scope(user)
+    can = user.get("role") in ("accounts", "hr") or head or bool(my_report_ids(user))
+    return {"is_head": head, "can_change": can, "department": dept or ("All" if user.get("role") in ("accounts", "hr") else "Your team")}
 
 
 TABLES = {
@@ -69,25 +85,29 @@ TABLES = {
 
 
 @router.get("/items")
-def items(kind: str = Query(...), status: str | None = Query(None), ctx=Depends(require_head)):
+def items(kind: str = Query(...), status: str | None = Query(None), user: dict = Depends(get_current_user)):
     if kind not in TABLES:
         raise HTTPException(status_code=400, detail="kind must be disputes, leave or absence")
-    user, dept = ctx
     table, select, datecol = TABLES[kind]
-    ids = _dept_member_ids(dept)
-    if not ids:
-        return []
+    scope = scope_ids(user, kind)
+    if scope is not None and not scope:
+        raise HTTPException(status_code=403, detail="You do not have anyone's decisions to change")
     since = (datetime.now(timezone.utc) - timedelta(days=WINDOW_DAYS)).date().isoformat()
     out: list[dict] = []
-    for i in range(0, len(ids), 80):
-        q = supabase.table(table).select(select).in_("employee_id", ids[i:i + 80]).gte(datecol, since).neq("status", "pending")
+    if scope is None:
+        q = supabase.table(table).select(select).gte(datecol, since).neq("status", "pending")
         if status:
             q = q.eq("status", status)
-        out += q.execute().data
+        out = q.order(datecol, desc=True).limit(400).execute().data
+    else:
+        ids = list(scope)
+        for i in range(0, len(ids), 80):
+            q = supabase.table(table).select(select).in_("employee_id", ids[i:i + 80]).gte(datecol, since).neq("status", "pending")
+            if status:
+                q = q.eq("status", status)
+            out += q.execute().data
     out = [r for r in out if r["employee_id"] != user["id"]]
     out.sort(key=lambda r: r.get(datecol) or "", reverse=True)
-    if kind == "absence":
-        pass  # absence rows carry the employee's name and code themselves
     return out[:300]
 
 
@@ -124,12 +144,11 @@ def _guard(body: Revise, current: str) -> str:
 
 
 @router.put("/disputes/{dispute_id}")
-def revise_dispute(dispute_id: str, body: Revise, ctx=Depends(require_head)):
-    user, dept = ctx
+def revise_dispute(dispute_id: str, body: Revise, user: dict = Depends(get_current_user)):
     d = maybe_single_data(supabase.table("hr_attendance_disputes").select("*").eq("id", dispute_id).maybe_single().execute())
     if not d:
         raise HTTPException(status_code=404, detail="Dispute not found")
-    _check_target(user, dept, d["employee_id"])
+    _check_target(user, "disputes", d["employee_id"])
     new = _guard(body, d["status"])
     now = datetime.now(timezone.utc).isoformat()
     iso = lambda t: t if isinstance(t, str) or t is None else t.isoformat()
@@ -141,7 +160,7 @@ def revise_dispute(dispute_id: str, body: Revise, ctx=Depends(require_head)):
     }).execute()
     if new == "approved":
         row = {"employee_id": d["employee_id"], "date": d["date"], "status_override": body.status_override, "first_in": iso(first_in),
-               "last_out": iso(last_out), "note": f"Approved dispute (department head): {d['reason']}", "created_by": user["id"]}
+               "last_out": iso(last_out), "note": f"Approved dispute (changed later): {d['reason']}", "created_by": user["id"]}
         out_date = body.last_out_date or d.get("claimed_out_date")
         if out_date and str(out_date)[:10] != str(d["date"])[:10]:
             row["last_out_date"] = str(out_date)[:10]
@@ -165,15 +184,14 @@ def revise_dispute(dispute_id: str, body: Revise, ctx=Depends(require_head)):
 
 
 @router.put("/leave/{request_id}")
-def revise_leave(request_id: str, body: Revise, ctx=Depends(require_head)):
-    user, dept = ctx
+def revise_leave(request_id: str, body: Revise, user: dict = Depends(get_current_user)):
     r = maybe_single_data(supabase.table("hr_leave_requests").select("*").eq("id", request_id).maybe_single().execute())
     if not r:
         raise HTTPException(status_code=404, detail="Leave request not found")
-    _check_target(user, dept, r["employee_id"])
+    _check_target(user, "leave", r["employee_id"])
     new = _guard(body, r["status"])
     if r["leave_type"] == "comp_off":
-        raise HTTPException(status_code=400, detail="Comp-Off leave uses up the person's balance, so only HR can change it")
+        raise HTTPException(status_code=400, detail="Comp-Off leave uses up the person's Comp-Off balance, so it cannot be flipped here — ask HR to adjust the ledger")
     supabase.table("hr_leave_requests").update({
         "status": new, "admin_note": body.note or r.get("admin_note"), "resolved_by": user["id"],
         "resolved_at": datetime.now(timezone.utc).isoformat(),
@@ -185,12 +203,11 @@ def revise_leave(request_id: str, body: Revise, ctx=Depends(require_head)):
 
 
 @router.put("/absence/{request_id}")
-def revise_absence(request_id: str, body: Revise, ctx=Depends(require_head)):
-    user, dept = ctx
+def revise_absence(request_id: str, body: Revise, user: dict = Depends(get_current_user)):
     r = maybe_single_data(supabase.table("hr_absence_requests").select("*").eq("id", request_id).maybe_single().execute())
     if not r:
         raise HTTPException(status_code=404, detail="Absence request not found")
-    _check_target(user, dept, r["employee_id"])
+    _check_target(user, "absence", r["employee_id"])
     new = _guard(body, r["status"])
     supabase.table("hr_absence_requests").update({
         "status": new, "admin_note": body.note or r.get("admin_note"), "resolved_by": user["id"],
