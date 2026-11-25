@@ -13,7 +13,7 @@ def d(**kw):
 
 
 def rule(x, others=None):
-    r = dp.evaluate(x, others)
+    r = dp.evaluate(x, others, max_age_days=7)
     return r["rule"] if r else None
 
 
@@ -27,7 +27,7 @@ def test_future_date():
 
 def test_late_filing_boundary():
     assert rule(d(date="2026-11-18")) is None            # exactly 7 days
-    r = dp.evaluate(d(date="2026-11-17"))
+    r = dp.evaluate(d(date="2026-11-17"), max_age_days=7)
     assert r["rule"] == "late_filing" and "8 days" in r["reason"] and "7 days" in r["reason"]
 
 
@@ -70,7 +70,7 @@ def test_appeals_never_auto_rejected():
 
 
 def test_cutoff_hint():
-    h = dp.cutoff_hint(datetime(2026, 11, 25).date())
+    h = dp.cutoff_hint(datetime(2026, 11, 25).date(), max_age_days=7)
     assert h["earliest_date"] == "2026-11-18"
 
 
