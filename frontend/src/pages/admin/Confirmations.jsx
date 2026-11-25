@@ -96,7 +96,7 @@ function DueRow({ row, onChanged }) {
         <button
           onClick={confirm}
           disabled={busy}
-          className="flex items-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors whitespace-nowrap"
+          className="flex items-center gap-1.5 bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors whitespace-nowrap"
         >
           <Check size={13} /> Confirm employment
         </button>
@@ -136,7 +136,7 @@ function UnsetRow({ row, onChanged }) {
           <button
             onClick={save}
             disabled={busy || !probationDate}
-            className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 disabled:opacity-40 transition-colors whitespace-nowrap"
+            className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 disabled:opacity-40 transition-colors whitespace-nowrap"
           >
             {busy ? "Saving…" : "Save probation date"}
           </button>
@@ -184,9 +184,9 @@ function BackfillPanel() {
         <label className="text-xs text-ink/70">Probation length (calendar days)
           <input type="number" min={30} max={730} value={days} onChange={(e) => setDays(Number(e.target.value) || 126)} className={`${inputCls} block w-28 mt-1`} />
         </label>
-        <button onClick={preview} disabled={busy} className="rounded-sm bg-jade-500 text-on-jade px-4 py-2 text-sm disabled:opacity-50">{rows ? "Refresh preview" : "Preview confirmations"}</button>
+        <button onClick={preview} disabled={busy} className="rounded-sm bg-jade-500 text-white px-4 py-2 text-sm disabled:opacity-50">{rows ? "Refresh preview" : "Preview confirmations"}</button>
         {rows && picked.size > 0 && (
-          <button onClick={apply} disabled={busy} className="rounded-sm bg-ledger-900 text-on-jade px-4 py-2 text-sm disabled:opacity-50">Confirm {picked.size} selected</button>
+          <button onClick={apply} disabled={busy} className="rounded-sm bg-ledger-900 text-manila px-4 py-2 text-sm disabled:opacity-50">Confirm {picked.size} selected</button>
         )}
         {msg && <span className="text-sm text-ink">{msg}</span>}
       </div>

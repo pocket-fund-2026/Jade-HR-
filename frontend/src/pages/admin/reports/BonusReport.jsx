@@ -107,12 +107,12 @@ export default function BonusReport() {
       <div className="bg-ledger-800 rounded-sm shadow-card p-6 relative overflow-hidden mb-6">
         <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
         <div className="relative flex flex-wrap justify-between items-baseline gap-4">
-          <span className="font-display text-on-jade text-lg">Total bonus payable ({eligible.length} of {rows.length} eligible)</span>
-          <span className="font-nums font-semibold text-3xl text-on-jade">{formatINR(totalBonus)}</span>
+          <span className="font-display text-manila text-lg">Total bonus payable ({eligible.length} of {rows.length} eligible)</span>
+          <span className="font-nums font-semibold text-3xl text-manila">{formatINR(totalBonus)}</span>
         </div>
         {totalExgratia > 0 && (
-          <div className="relative flex justify-between text-sm text-on-jade/60 mt-2">
-            <span>Total ex-gratia</span><span className="font-nums text-on-jade">{formatINR(totalExgratia)}</span>
+          <div className="relative flex justify-between text-sm text-manila/60 mt-2">
+            <span>Total ex-gratia</span><span className="font-nums text-manila">{formatINR(totalExgratia)}</span>
           </div>
         )}
       </div>

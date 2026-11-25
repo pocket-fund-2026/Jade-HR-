@@ -71,7 +71,7 @@ export default function Login() {
   };
 
   const inputCls = "w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-3 min-h-[44px] text-base text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500";
-  const btnCls = "w-full rounded-sm bg-ledger-800 text-on-jade py-4 min-h-[56px] text-lg font-semibold shadow-lift hover:bg-ledger-700 active:bg-ledger-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
+  const btnCls = "w-full rounded-sm bg-ledger-800 text-manila py-4 min-h-[56px] text-lg font-semibold shadow-lift hover:bg-ledger-700 active:bg-ledger-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-ledger-900 px-4 py-12 relative overflow-hidden">
@@ -80,8 +80,8 @@ export default function Login() {
       <div className="w-full max-w-md relative">
         <div className="text-center mb-10">
           <img src="/jade-logo.png" alt="JADE" className="w-24 h-24 mx-auto -rotate-2 mb-3" />
-          <p className="font-display text-on-jade text-lg"><abbr className="acr">HR</abbr></p>
-          <p className="text-on-jade/75 text-sm font-nums mt-1">Madhu Estate &middot; Mumbai</p>
+          <p className="font-display text-manila text-lg"><abbr className="acr">HR</abbr></p>
+          <p className="text-manila/75 text-sm font-nums mt-1">Madhu Estate &middot; Mumbai</p>
         </div>
 
         <div className="bg-paper rounded-sm shadow-stamp px-8 sm:px-10 pt-8 pb-8 border-t-4 border-jade-500 rise-in">
@@ -173,7 +173,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={busy}
-              className="w-full rounded-sm bg-ledger-800 text-on-jade py-4 min-h-[56px] text-lg font-semibold shadow-lift hover:bg-ledger-700 active:bg-ledger-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full rounded-sm bg-ledger-800 text-manila py-4 min-h-[56px] text-lg font-semibold shadow-lift hover:bg-ledger-700 active:bg-ledger-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {busy ? "Checking…" : "Sign in to JADE HR"}
             </button>
@@ -202,9 +202,9 @@ export default function Login() {
           </div>
         )}
 
-        <p className="text-center text-xs text-on-jade/75 mt-6">
+        <p className="text-center text-xs text-manila/75 mt-6">
           First time setting up?{" "}
-          <Link to="/setup" className="text-on-jade/85 hover:text-on-jade underline underline-offset-2">
+          <Link to="/setup" className="text-manila/85 hover:text-manila underline underline-offset-2">
             Create admin account
           </Link>
         </p>

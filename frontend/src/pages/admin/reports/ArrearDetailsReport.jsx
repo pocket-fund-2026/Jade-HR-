@@ -107,7 +107,7 @@ export default function ArrearDetailsReport() {
         </div>
         <div className="flex flex-wrap items-center gap-4">
           {canEdit && (
-            <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors">
+            <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors">
               <Plus size={15} /> Add arrear
             </button>
           )}
@@ -147,8 +147,8 @@ export default function ArrearDetailsReport() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <div className="bg-ledger-800 rounded-sm shadow-card p-5 relative overflow-hidden">
           <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
-          <p className="relative text-on-jade/80 text-xs">Approved — payable ({count("approved")})</p>
-          <p className="relative font-nums font-semibold text-3xl text-on-jade">{formatINR(sum("approved"))}</p>
+          <p className="relative text-manila/80 text-xs">Approved — payable ({count("approved")})</p>
+          <p className="relative font-nums font-semibold text-3xl text-manila">{formatINR(sum("approved"))}</p>
         </div>
         <div className="bg-paper rounded-sm shadow-card p-5 border-l-4 border-ochre-500">
           <p className="text-ink/70 text-xs">Pending approval ({count("pending")})</p>

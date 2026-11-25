@@ -198,7 +198,7 @@ function OwnerRow({ row, edit, onEdit }) {
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
             aria-label="Add a signer by employee ID or work email" placeholder="e.g. JADE0123 or name@jadecouture.com" className={inputCls}
           />
-          <button type="button" onClick={add} disabled={!draft.trim()} className="bg-ledger-800 text-on-jade px-3 rounded-sm text-xs font-semibold disabled:opacity-40 whitespace-nowrap">Add signer</button>
+          <button type="button" onClick={add} disabled={!draft.trim()} className="bg-ledger-800 text-manila px-3 rounded-sm text-xs font-semibold disabled:opacity-40 whitespace-nowrap">Add signer</button>
           {(edit !== undefined || row.custom) && (
             <button type="button" onClick={() => onEdit(edit === "reset" ? undefined : "reset")} className="text-xs text-ink/60 hover:text-ink whitespace-nowrap px-1">
               {edit === "reset" ? "Undo reset" : "Reset"}
@@ -252,7 +252,7 @@ function SignoffOwnersSection({ exitId }) {
       <p className="text-xs text-ink/60 mb-4">Add or remove signers for any row of this exit only. Anyone newly added is emailed straight away and the sign-off appears in their console with a pop-up.</p>
       <OwnersEditor rows={rows} values={values} onChange={setValues} />
       <div className="flex items-center gap-4 mt-4">
-        <button onClick={save} disabled={busy || !Object.keys(values).length} className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 disabled:opacity-40">{busy ? "Saving…" : "Save sign-off owners"}</button>
+        <button onClick={save} disabled={busy || !Object.keys(values).length} className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 disabled:opacity-40">{busy ? "Saving…" : "Save sign-off owners"}</button>
         {msg && <span className="text-xs text-ink/70">{msg}</span>}
       </div>
     </div>
@@ -352,7 +352,7 @@ function ExitDetail({ id }) {
           <button
             onClick={finalize}
             disabled={!record.all_completed || finalizing}
-            className="flex items-center gap-2 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-40 transition-colors"
+            className="flex items-center gap-2 bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-40 transition-colors"
           >
             <Check size={15} /> {finalizing ? "Finalizing…" : "Final Authorization"}
           </button>
@@ -472,7 +472,7 @@ function InitiateExitModal({ onClose, onCreated, initial = null }) {
           {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
           <div className="flex justify-end gap-4 pt-1">
             <button type="button" onClick={onClose} className="text-sm text-ink/70 hover:text-ink px-2">Cancel</button>
-            <button type="submit" disabled={busy} className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors">
+            <button type="submit" disabled={busy} className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors">
               {busy ? "Starting…" : "Start exit process"}
             </button>
           </div>
@@ -562,7 +562,7 @@ function SignerConfig() {
                 <input id="exit_signer_scope" className={inputCls} value={scope} onChange={(e) => setScope(e.target.value)} placeholder="e.g. Costing" />
               </div>
             )}
-            <button type="submit" className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700">Add signer</button>
+            <button type="submit" className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700">Add signer</button>
           </form>
           {error && <p className="text-sm text-rust-500 mt-2">{error}</p>}
         </div>
@@ -601,7 +601,7 @@ function ExitList() {
         <h2 className="font-display text-2xl text-ink">Exit procedure</h2>
         <button
           onClick={() => { setPrefill(null); setShowModal(true); }}
-          className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+          className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
         >
           Initiate exit
         </button>
@@ -660,7 +660,7 @@ function ExitList() {
         {[["in_progress", "In progress"], ["completed", "Completed"]].map(([key, label]) => (
           <button
             key={key} onClick={() => setTab(key)}
-            className={`px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-medium transition-colors ${tab === key ? "bg-ledger-800 text-on-jade" : "bg-paper text-ink/70 hover:text-ink"}`}
+            className={`px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-medium transition-colors ${tab === key ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}
           >
             {label}
           </button>

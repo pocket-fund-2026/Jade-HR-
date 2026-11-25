@@ -3,44 +3,43 @@
 @tailwind utilities;
 
 /* ── Colour tokens ───────────────────────────────────────────────────────
-   One hue per colour family: jade/ledger 158°, rust 10°, ochre 31°, cream 43°,
-   and every grey is the ink hue (222°, a cool blue) at low saturation, so
-   greys, borders and shadows lean blue instead of olive. Shades inside a
+   The original JADE ledger palette: jade/ledger greens, rust, ochre, warm manila
+   and paper, warm ink. Shades inside a
    family change only lightness and saturation, never hue.
    Dark mode is muted on purpose: lower saturation and lower lightness on the
    accents, off-black blue surfaces instead of pure black, no pure white. */
 :root {
-  --c-ledger-900: 15 36 28;
-  --c-ledger-800: 22 49 39;
-  --c-ledger-700: 32 70 56;
-  --c-jade-50: 235 244 241;
-  --c-jade-100: 204 229 220;
-  --c-jade-400: 63 146 116;
-  --c-jade-500: 47 121 94;
-  --c-jade-600: 37 101 77;
-  --c-jade-700: 27 75 57;
-  --c-rust-50: 251 237 234;
-  --c-rust-400: 193 84 62;
-  --c-rust-500: 163 66 46;
-  --c-rust-600: 133 52 35;
-  --c-ochre-50: 251 240 228;
-  --c-ochre-400: 218 148 73;
-  --c-ochre-500: 200 125 45;
-  --c-ochre-600: 168 102 31;
-  --c-ochre-700: 139 84 24;
-  --c-manila: 240 234 219;
+  --c-ledger-900: 15 35 30;
+  --c-ledger-800: 22 48 42;
+  --c-ledger-700: 31 69 54;
+  --c-jade-50: 234 244 239;
+  --c-jade-100: 205 230 216;
+  --c-jade-400: 62 146 112;
+  --c-jade-500: 47 122 94;
+  --c-jade-600: 37 99 73;
+  --c-jade-700: 27 74 55;
+  --c-rust-50: 251 238 233;
+  --c-rust-400: 192 90 63;
+  --c-rust-500: 161 61 46;
+  --c-rust-600: 131 47 35;
+  --c-ochre-50: 251 240 226;
+  --c-ochre-400: 218 149 72;
+  --c-ochre-500: 201 124 46;
+  --c-ochre-600: 166 98 31;
+  --c-ochre-700: 139 82 25;
+  --c-manila: 239 233 218;
   --c-paper: 250 247 240;
   --c-white: 255 255 255;
-  --c-ink: 21 25 35;
+  --c-ink: 27 27 24;
 
-  --c-on-jade: 237 247 244;
-  --c-on-rust: 251 241 239;
-  --c-on-ochre: 252 245 238;
-  --c-shadow: 21 25 35;
+  --c-on-jade: 239 233 218;
+  --c-on-rust: 255 255 255;
+  --c-on-ochre: 255 255 255;
+  --c-shadow: 27 27 24;
   color-scheme: light;
 }
-@media screen and (prefers-color-scheme: dark) {
-  :root {
+@media screen {
+  :root[data-theme="dark"] {
     --c-ledger-900: 18 28 24;
     --c-ledger-800: 38 59 51;
     --c-ledger-700: 51 76 67;
@@ -594,14 +593,13 @@ td.font-nums, th.font-nums { text-align: right; }
 
 /* Dark mode: accent text is lifted and desaturated (the deep accent shades
    are fills, they would vanish as text on a dark surface). */
-@media screen and (prefers-color-scheme: dark) {
-  :root { --t-jade: 150 190 172; --t-rust: 208 150 138; --t-ochre: 200 170 120; }
-  .text-jade-400, .text-jade-500, .text-jade-600, .text-jade-700,
-  .hover\:text-jade-700:hover, .hover\:text-jade-600:hover { color: rgb(var(--t-jade)); }
-  .text-rust-400, .text-rust-500, .text-rust-600, .hover\:text-rust-600:hover { color: rgb(var(--t-rust)); }
-  .text-ochre-400, .text-ochre-500, .text-ochre-600, .text-ochre-700 { color: rgb(var(--t-ochre)); }
-  .bg-jade-500\/15, .bg-jade-500\/10 { background-color: rgb(var(--c-jade-500) / 0.18); }
-  img:not([src*=".svg"]) { filter: brightness(0.92); }
+@media screen {
+  :root[data-theme="dark"] { --t-jade: 150 190 172; --t-rust: 208 150 138; --t-ochre: 200 170 120; }
+  :root[data-theme="dark"] .text-jade-400, :root[data-theme="dark"] .text-jade-500, :root[data-theme="dark"] .text-jade-600, :root[data-theme="dark"] .text-jade-700, :root[data-theme="dark"] .hover\:text-jade-700:hover, :root[data-theme="dark"] .hover\:text-jade-600:hover { color: rgb(var(--t-jade)); }
+  :root[data-theme="dark"] .text-rust-400, :root[data-theme="dark"] .text-rust-500, :root[data-theme="dark"] .text-rust-600, :root[data-theme="dark"] .hover\:text-rust-600:hover { color: rgb(var(--t-rust)); }
+  :root[data-theme="dark"] .text-ochre-400, :root[data-theme="dark"] .text-ochre-500, :root[data-theme="dark"] .text-ochre-600, :root[data-theme="dark"] .text-ochre-700 { color: rgb(var(--t-ochre)); }
+  :root[data-theme="dark"] .bg-jade-500\/15, :root[data-theme="dark"] .bg-jade-500\/10 { background-color: rgb(var(--c-jade-500) / 0.18); }
+  :root[data-theme="dark"] img:not([src*=".svg"]) { filter: brightness(0.92); }
 }
 
 /* ── Motion rules ────────────────────────────────────────────────────────

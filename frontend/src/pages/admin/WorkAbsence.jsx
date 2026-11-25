@@ -66,7 +66,7 @@ function ResolveRow({ request, onResolved }) {
           <button
             disabled={busy}
             onClick={() => resolve("approve")}
-            className="flex items-center gap-1 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-1 bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
           >
             <Check size={13} /> Approve absence
           </button>

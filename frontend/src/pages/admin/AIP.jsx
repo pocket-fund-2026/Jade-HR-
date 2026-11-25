@@ -100,7 +100,7 @@ function StartAipForm({ onStarted }) {
       <div className="flex justify-end mt-4">
         <button
           type="submit" disabled={busy || !employeeId}
-          className="flex items-center gap-1.5 bg-ochre-600 text-on-ochre px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ochre-700 disabled:opacity-50 transition-colors"
+          className="flex items-center gap-1.5 bg-ochre-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ochre-700 disabled:opacity-50 transition-colors"
         >
           <ShieldAlert size={15} /> {busy ? "Starting…" : "Start AIP"}
         </button>
@@ -156,7 +156,7 @@ function CloseAipRow({ aip, onClosed }) {
           <button
             disabled={busy}
             onClick={() => close("passed")}
-            className="bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
+            className="bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
           >
             Mark passed
           </button>

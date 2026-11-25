@@ -137,7 +137,7 @@ export default function CareersScreening() {
             type="button"
             onClick={save}
             disabled={!dirty || saving}
-            className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold bg-jade-600 text-on-jade hover:bg-jade-700 disabled:opacity-40"
+            className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40"
           >
             {saving ? "Saving…" : "Save rules"}
           </button>
@@ -162,7 +162,7 @@ export default function CareersScreening() {
                 type="button"
                 onClick={() => run(true)}
                 disabled={running}
-                className="px-4 py-2 rounded-sm text-sm font-semibold bg-ink text-on-jade hover:bg-ink/90 disabled:opacity-40"
+                className="px-4 py-2 rounded-sm text-sm font-semibold bg-ink text-manila hover:bg-ink/90 disabled:opacity-40"
               >
                 Apply to existing applicants
               </button>

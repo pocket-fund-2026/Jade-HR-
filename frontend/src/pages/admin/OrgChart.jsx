@@ -293,7 +293,7 @@ export default function OrgChart() {
           </select>
           <div className="flex rounded-sm border border-ink/15 overflow-hidden text-sm">
             {["chart", "list"].map((v) => (
-              <button key={v} onClick={() => setView(v)} className={`px-3 py-2 capitalize ${view === v ? "bg-jade-500 text-on-jade" : "bg-manila/40 text-ink"}`}>{v}</button>
+              <button key={v} onClick={() => setView(v)} className={`px-3 py-2 capitalize ${view === v ? "bg-jade-500 text-white" : "bg-manila/40 text-ink"}`}>{v}</button>
             ))}
           </div>
           {view === "chart" && (
@@ -305,7 +305,7 @@ export default function OrgChart() {
               <button className={`${selectCls} flex items-center gap-1`} title="Zoom in" onClick={() => { setFit(false); setZoom((z) => Math.min(2, +(z + 0.15).toFixed(2))); }}>
                 <ZoomIn size={16} /> <span className="hidden sm:inline">Zoom in</span>
               </button>
-              <button className={`${selectCls} ${fit ? "bg-jade-500 text-on-jade" : ""}`} onClick={() => setFit(true)}>Fit</button>
+              <button className={`${selectCls} ${fit ? "bg-jade-500 text-white" : ""}`} onClick={() => setFit(true)}>Fit</button>
               <button className={selectCls} onClick={() => setCollapsed(new Set())}>Expand all</button>
               <button
                 className={`${selectCls} flex items-center gap-1`} title="Reset zoom, fit to screen and collapse back to the first level"

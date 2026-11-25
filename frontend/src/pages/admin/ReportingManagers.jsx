@@ -340,7 +340,7 @@ export default function ReportingManagers() {
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex rounded-sm border border-ink/15 overflow-hidden text-sm">
             {[["people", "By employee"], ["teams", "By manager"]].map(([v, l]) => (
-              <button key={v} onClick={() => setView(v)} className={`px-3 py-2 ${view === v ? "bg-jade-500 text-on-jade" : "bg-manila/40 text-ink"}`}>{l}</button>
+              <button key={v} onClick={() => setView(v)} className={`px-3 py-2 ${view === v ? "bg-jade-500 text-white" : "bg-manila/40 text-ink"}`}>{l}</button>
             ))}
           </div>
           <button onClick={() => setShowImport(true)} className={`${selectCls} flex items-center gap-1.5`}>
@@ -374,7 +374,7 @@ export default function ReportingManagers() {
             <b>{suggestedRows.length}</b> people have a manager name on file that matches exactly one active employee.
             Accept them all, check the list, then save.
           </p>
-          <button onClick={acceptAllSuggestions} className="bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors">
+          <button onClick={acceptAllSuggestions} className="bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors">
             Accept all {suggestedRows.length} suggestions
           </button>
         </div>
@@ -399,12 +399,12 @@ export default function ReportingManagers() {
         </select>
         {view === "people" && edits.size > 0 && (
           <button onClick={() => setStatus(status === "changed" ? "" : "changed")}
-            className={`${selectCls} ${status === "changed" ? "bg-jade-500 text-on-jade" : ""}`}>
+            className={`${selectCls} ${status === "changed" ? "bg-jade-500 text-white" : ""}`}>
             Unsaved only ({edits.size})
           </button>
         )}
         {filterManager && view === "people" && (
-          <span className="inline-flex items-center gap-1.5 rounded-sm bg-ledger-800 text-on-jade px-3 py-2 text-sm">
+          <span className="inline-flex items-center gap-1.5 rounded-sm bg-ledger-800 text-manila px-3 py-2 text-sm">
             Team of {filterManager.name}
             <button onClick={() => setManagerFilter("")} aria-label="Clear manager filter"><X size={14} /></button>
           </span>
@@ -563,13 +563,13 @@ export default function ReportingManagers() {
 
       {edits.size > 0 && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-xl">
-          <div className="flex items-center justify-between gap-4 bg-ledger-800 text-on-jade rounded-sm shadow-stamp px-4 py-3">
+          <div className="flex items-center justify-between gap-4 bg-ledger-800 text-manila rounded-sm shadow-stamp px-4 py-3">
             <span className="text-sm"><b>{edits.size}</b> unsaved change{edits.size === 1 ? "" : "s"}</span>
             <div className="flex items-center gap-2">
-              <button onClick={() => { setEdits(new Map()); setNotice(null); }} disabled={saving} className="text-sm text-on-jade/80 hover:text-on-jade px-2">
+              <button onClick={() => { setEdits(new Map()); setNotice(null); }} disabled={saving} className="text-sm text-manila/80 hover:text-manila px-2">
                 Discard
               </button>
-              <button onClick={save} disabled={saving} className="bg-jade-500 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-600 disabled:opacity-60 transition-colors">
+              <button onClick={save} disabled={saving} className="bg-jade-500 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-600 disabled:opacity-60 transition-colors">
                 {saving ? "Saving…" : "Save changes"}
               </button>
             </div>

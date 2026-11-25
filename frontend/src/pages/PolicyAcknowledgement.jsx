@@ -125,7 +125,7 @@ function PolicyQuiz({ employeeCategory, onPassed, onFailed }) {
                 // again via the post-login popup too.
                 api.post("/api/policy/acknowledgement/popup-seen").catch(() => {}).then(onPassed);
               }}
-              className="flex items-center justify-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors"
+              className="flex items-center justify-center gap-1.5 bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors"
             >
               <ShieldCheck size={15} /> Continue to the console
             </button>
@@ -133,7 +133,7 @@ function PolicyQuiz({ employeeCategory, onPassed, onFailed }) {
             <button
               type="button"
               onClick={onFailed}
-              className="flex items-center justify-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors"
+              className="flex items-center justify-center gap-1.5 bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors"
             >
               Re-read the policy
             </button>
@@ -143,7 +143,7 @@ function PolicyQuiz({ employeeCategory, onPassed, onFailed }) {
             type="button"
             onClick={submit}
             disabled={!allAnswered || submitting}
-            className="flex items-center justify-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-40 transition-colors"
+            className="flex items-center justify-center gap-1.5 bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-40 transition-colors"
           >
             <ShieldCheck size={15} />
             {submitting ? "Checking…" : "Submit quiz answers"}
@@ -241,15 +241,15 @@ export default function PolicyAcknowledgement() {
 
   return (
     <div className="min-h-screen bg-manila flex flex-col">
-      <header className="bg-ledger-800 text-on-jade px-5 sm:px-8 py-5">
+      <header className="bg-ledger-800 text-manila px-5 sm:px-8 py-5">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center gap-2">
-            <ShieldCheck size={20} className="text-on-jade/80" />
+            <ShieldCheck size={20} className="text-manila/80" />
             <h1 className="font-display text-xl sm:text-2xl">
               {stage === "quiz" ? "Policy comprehension quiz" : "Company policy acknowledgement"}
             </h1>
           </div>
-          <p className="text-sm text-on-jade/70 mt-1.5">
+          <p className="text-sm text-manila/70 mt-1.5">
             {stage === "quiz"
               ? "One last step before the console unlocks."
               : `${user?.name ? `${user.name}, before` : "Before"} you use the HR Console, please read the policy document below and confirm that you’ve read and understood it. This is recorded against your employee record.`}
@@ -270,12 +270,12 @@ export default function PolicyAcknowledgement() {
                 onClick={() => setActiveKey(t.key)}
                 className={`flex items-center gap-1.5 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-medium border transition-colors ${
                   activeKey === t.key
-                    ? "bg-ledger-800 text-on-jade border-ledger-800"
+                    ? "bg-ledger-800 text-manila border-ledger-800"
                     : "bg-paper text-ink/70 border-ink/15 hover:border-ink/30"
                 }`}
               >
                 {isRead
-                  ? <CheckCircle2 size={14} className={activeKey === t.key ? "text-on-jade" : "text-jade-600"} />
+                  ? <CheckCircle2 size={14} className={activeKey === t.key ? "text-manila" : "text-jade-600"} />
                   : <Circle size={14} className="opacity-50" />}
                 {t.label}
               </button>
@@ -328,7 +328,7 @@ export default function PolicyAcknowledgement() {
             type="button"
             onClick={submit}
             disabled={!allRead || !confirmed || submitting}
-            className="mt-4 w-full sm:w-auto flex items-center justify-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-40 transition-colors"
+            className="mt-4 w-full sm:w-auto flex items-center justify-center gap-1.5 bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-40 transition-colors"
           >
             <ShieldCheck size={15} />
             {submitting ? "Recording…" : "Acknowledge and continue"}

@@ -28,7 +28,7 @@ function dayLabel(iso, todayIso) {
 }
 
 const CARD_STYLES = {
-  red: "bg-rust-500 text-on-rust",
+  red: "bg-rust-500 text-white",
   yellow: "bg-ochre-400 text-ink",
 };
 
@@ -67,14 +67,14 @@ export default function LateTodayPanel() {
 
   return (
     <section className="bg-paper rounded-sm shadow-card overflow-hidden" aria-labelledby="late-today-title">
-      <div className="bg-ledger-800 text-on-jade px-4 py-3 flex items-center justify-between gap-2">
+      <div className="bg-ledger-800 text-manila px-4 py-3 flex items-center justify-between gap-2">
         <h3 id="late-today-title" className="flex items-center gap-2 font-display text-base">
           <AlarmClock size={16} className="text-ochre-400" /> Late arrivals
         </h3>
         <div className="flex items-center gap-1">
-          <button type="button" onClick={() => setDay(shiftDay(day, -1))} aria-label="Previous day" className="p-1 rounded-sm hover:bg-on-jade/10"><ChevronLeft size={15} /></button>
+          <button type="button" onClick={() => setDay(shiftDay(day, -1))} aria-label="Previous day" className="p-1 rounded-sm hover:bg-manila/10"><ChevronLeft size={15} /></button>
           <span className="text-xs font-semibold min-w-[74px] text-center">{dayLabel(day, todayIso)}</span>
-          <button type="button" onClick={() => setDay(shiftDay(day, 1))} disabled={day >= todayIso} aria-label="Next day" className="p-1 rounded-sm hover:bg-on-jade/10 disabled:opacity-30"><ChevronRight size={15} /></button>
+          <button type="button" onClick={() => setDay(shiftDay(day, 1))} disabled={day >= todayIso} aria-label="Next day" className="p-1 rounded-sm hover:bg-manila/10 disabled:opacity-30"><ChevronRight size={15} /></button>
         </div>
       </div>
 

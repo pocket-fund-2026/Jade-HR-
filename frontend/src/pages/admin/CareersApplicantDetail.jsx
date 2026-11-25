@@ -83,14 +83,14 @@ export default function CareersApplicantDetail() {
       {(a.status === "Offered" || a.status === "Hired") && can("letters.generate") && (
         <div className="mb-5 bg-paper rounded-sm shadow-card px-4 py-3 text-sm text-ink flex items-center justify-between gap-4 flex-wrap">
           <span><strong>Offer letter:</strong> create it in Letters with this candidate’s name, role, department and email already filled in. You add the pay and joining details, then send it for approval as usual.</span>
-          <Link to={`/admin/letters?type=${job?.employment_type === "Internship" ? "offer_internship" : "offer_employment"}&candidate=${a.id}`} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-on-jade hover:bg-jade-700 whitespace-nowrap">Create offer letter</Link>
+          <Link to={`/admin/letters?type=${job?.employment_type === "Internship" ? "offer_internship" : "offer_employment"}&candidate=${a.id}`} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 whitespace-nowrap">Create offer letter</Link>
         </div>
       )}
 
       {suggestion && (
         <div className="mb-5 border border-jade-500/40 bg-jade-500/10 rounded-sm px-4 py-3 text-sm text-ink flex items-center justify-between gap-4 flex-wrap">
           <span><strong>Suggested next step:</strong> move to {suggestion.to} <span className="text-ink/60">({suggestion.why})</span>. A draft email is prepared for you to review; nothing is sent automatically.</span>
-          <button type="button" disabled={saving} onClick={() => setStatus(suggestion.to)} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-on-jade hover:bg-jade-700 disabled:opacity-40">Move to {suggestion.to}</button>
+          <button type="button" disabled={saving} onClick={() => setStatus(suggestion.to)} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40">Move to {suggestion.to}</button>
         </div>
       )}
 
@@ -124,7 +124,7 @@ export default function CareersApplicantDetail() {
             onClick={() => setStatus("Offered")}
             className={`flex items-center gap-1.5 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold border transition-colors disabled:opacity-50 ${
               isAccepted
-                ? "bg-jade-600 border-jade-600 text-on-jade"
+                ? "bg-jade-600 border-jade-600 text-white"
                 : "bg-paper border-jade-500/40 text-jade-700 hover:bg-jade-500/10"
             }`}
           >
@@ -136,7 +136,7 @@ export default function CareersApplicantDetail() {
             onClick={() => setStatus("Rejected")}
             className={`ml-auto flex items-center gap-1.5 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold border transition-colors disabled:opacity-50 ${
               isRejected
-                ? "bg-rust-500 border-rust-500 text-on-rust"
+                ? "bg-rust-500 border-rust-500 text-white"
                 : "bg-paper border-rust-500/40 text-rust-500 hover:bg-rust-50"
             }`}
           >

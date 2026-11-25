@@ -136,7 +136,7 @@ export default function MarketVisitCheckinCard() {
           {checkinEnabled && (
             <button
               onClick={() => start("check_in")}
-              className="flex items-center gap-2 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors"
+              className="flex items-center gap-2 bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors"
             >
               <MapPin size={15} /> Check in from here
             </button>
@@ -144,7 +144,7 @@ export default function MarketVisitCheckinCard() {
           {checkoutEnabled && (
             <button
               onClick={() => start("check_out")}
-              className="flex items-center gap-2 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+              className="flex items-center gap-2 bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
             >
               <MapPin size={15} /> Check out from here
             </button>
@@ -164,7 +164,7 @@ export default function MarketVisitCheckinCard() {
           <div className="flex gap-4">
             <button
               onClick={capture}
-              className="flex items-center gap-2 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+              className="flex items-center gap-2 bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
             >
               <Camera size={15} /> Capture
             </button>
@@ -188,7 +188,7 @@ export default function MarketVisitCheckinCard() {
             <button
               onClick={submit}
               disabled={mode === "submitting"}
-              className="flex items-center gap-2 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
+              className="flex items-center gap-2 bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
             >
               <CheckCircle2 size={15} /> {mode === "submitting" ? "Submitting…" : `Submit ${visitType === "check_out" ? "check-out" : "check-in"}`}
             </button>

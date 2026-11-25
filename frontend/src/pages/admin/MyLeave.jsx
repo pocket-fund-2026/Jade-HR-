@@ -120,7 +120,7 @@ export default function MyLeave() {
             {error && <p className="text-sm text-rust-500 mt-3">{error}</p>}
             <div className="flex justify-end mt-4">
               <button type="submit" disabled={submitting}
-                className="flex items-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors">
+                className="flex items-center gap-1.5 bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors">
                 <CalendarPlus size={14} /> {submitting ? "Submitting…" : "Submit leave request"}
               </button>
             </div>

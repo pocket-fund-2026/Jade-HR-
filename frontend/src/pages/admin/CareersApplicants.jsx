@@ -189,7 +189,7 @@ export default function CareersApplicants() {
       </div>
 
       {selected.size > 0 && (
-        <div className="flex items-center gap-2 flex-wrap mb-4 px-4 py-2.5 bg-ink text-on-jade rounded-sm text-sm">
+        <div className="flex items-center gap-2 flex-wrap mb-4 px-4 py-2.5 bg-ink text-manila rounded-sm text-sm">
           <span className="font-semibold mr-2">{selected.size} selected</span>
           {BULK_ACTIONS.map((b) => (
             <button
@@ -212,7 +212,7 @@ export default function CareersApplicants() {
             <option value="">Move to…</option>
             {APPLICANT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
-          <button type="button" onClick={() => setSelected(new Set())} className="ml-auto text-on-jade/70 hover:text-on-jade text-xs">Clear selection</button>
+          <button type="button" onClick={() => setSelected(new Set())} className="ml-auto text-manila/70 hover:text-manila text-xs">Clear selection</button>
         </div>
       )}
       {message && <p className="text-xs text-jade-700 mb-3">{message}</p>}

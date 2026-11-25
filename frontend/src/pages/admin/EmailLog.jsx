@@ -156,7 +156,7 @@ export default function EmailLog() {
               <button
                 onClick={sendTest}
                 disabled={testState.sending || !testTo.includes("@")}
-                className="flex items-center gap-2 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
+                className="flex items-center gap-2 bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
               >
                 <Send size={14} /> {testState.sending ? "Sending…" : "Send test email"}
               </button>

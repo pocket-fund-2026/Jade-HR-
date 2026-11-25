@@ -51,7 +51,7 @@ export default function AppealModal({ dispute, onClose, onSubmitted }) {
           {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
           <div className="flex justify-end gap-4">
             <button type="button" onClick={onClose} className="text-sm text-ink/70 hover:text-ink px-2">Cancel</button>
-            <button type="submit" disabled={busy} className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors">
+            <button type="submit" disabled={busy} className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors">
               {busy ? "Submitting…" : "Submit appeal"}
             </button>
           </div>

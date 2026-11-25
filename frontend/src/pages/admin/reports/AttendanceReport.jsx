@@ -164,7 +164,7 @@ function EditCellModal({ employee, day, onClose, onSaved, canCorrect }) {
             <input id="fld-163" value={remark} onChange={(e) => setRemark(e.target.value)} maxLength={10} inputMode="decimal" placeholder="e.g. 1, 0.75, 0.5 — leave empty to clear"
               className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
             <button type="button" onClick={saveRemark} disabled={remarkBusy || busy}
-              className="mt-2 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors">
+              className="mt-2 bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors">
               {remarkBusy ? "Saving…" : "Save remark"}
             </button>
           </div>
@@ -177,7 +177,7 @@ function EditCellModal({ employee, day, onClose, onSaved, canCorrect }) {
           {canCorrect && <button
             onClick={save}
             disabled={busy}
-            className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
+            className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
           >
             {busy ? "Saving…" : "Save changes"}
           </button>}
@@ -301,13 +301,13 @@ export default function AttendanceReport() {
         <div className="flex items-center gap-1 bg-paper rounded-sm shadow-card p-1">
           <button
             onClick={() => setMode("month")}
-            className={`px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold transition-colors ${mode === "month" ? "bg-ledger-800 text-on-jade" : "text-ink/70 hover:text-ink"}`}
+            className={`px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold transition-colors ${mode === "month" ? "bg-ledger-800 text-manila" : "text-ink/70 hover:text-ink"}`}
           >
             Month
           </button>
           <button
             onClick={() => { setMode("range"); if (!appliedRange) setRows([]); }}
-            className={`px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold transition-colors ${mode === "range" ? "bg-ledger-800 text-on-jade" : "text-ink/70 hover:text-ink"}`}
+            className={`px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold transition-colors ${mode === "range" ? "bg-ledger-800 text-manila" : "text-ink/70 hover:text-ink"}`}
           >
             Custom range
           </button>

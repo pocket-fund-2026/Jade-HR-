@@ -50,7 +50,7 @@ function Locations() {
       <div className="flex items-center justify-between px-5 py-3 border-b border-ink/10">
         <p className="text-xs text-ink/70">Place of Work choices on the public form. The name is what gets stored on the employee; the full address is shown to the joiner.</p>
         <button onClick={() => setDraft({ value: "", address: "", is_hq: false, sort_order: visible.length + 1 })}
-          className="flex items-center gap-1.5 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 flex-shrink-0 ml-3"><Plus size={13} /> Add place</button>
+          className="flex items-center gap-1.5 bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 flex-shrink-0 ml-3"><Plus size={13} /> Add place</button>
       </div>
       {draft && (
         <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-ink/10 bg-manila/30">
@@ -60,7 +60,7 @@ function Locations() {
           {error && <p className="text-sm text-rust-500 sm:col-span-2">{error}</p>}
           <div className="sm:col-span-2 flex justify-end gap-2">
             <button onClick={() => setDraft(null)} className="text-xs text-ink/70 px-3 py-1.5">Cancel</button>
-            <button onClick={save} className="bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700">Save place</button>
+            <button onClick={save} className="bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700">Save place</button>
           </div>
         </div>
       )}
@@ -220,7 +220,7 @@ function FormFields() {
       <div className="flex items-center justify-between px-5 py-3 border-b border-ink/10">
         <p className="text-xs text-ink/70">Your own extra questions, shown after the built-in sections. Existing answers stay on each submission if you remove a field.</p>
         <button onClick={() => setDraft({ label: "", field_type: "text", section: "Additional Details", help_text: "", required: false, sort_order: visible.length + 1, optionsText: "" })}
-          className="flex items-center gap-1.5 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 flex-shrink-0 ml-3"><Plus size={13} /> Add field</button>
+          className="flex items-center gap-1.5 bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 flex-shrink-0 ml-3"><Plus size={13} /> Add field</button>
       </div>
       {draft && (
         <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-ink/10 bg-manila/30">
@@ -238,7 +238,7 @@ function FormFields() {
           {error && <p className="text-sm text-rust-500 sm:col-span-2">{error}</p>}
           <div className="sm:col-span-2 flex justify-end gap-2">
             <button onClick={() => setDraft(null)} className="text-xs text-ink/70 px-3 py-1.5">Cancel</button>
-            <button onClick={save} className="bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700">Save field</button>
+            <button onClick={save} className="bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700">Save field</button>
           </div>
         </div>
       )}
@@ -353,7 +353,7 @@ function HrDetailsCard({ submission, canViewSalary, onSaved }) {
       </div>
       <div className="flex items-center justify-end gap-4 mt-3">
         {msg && <span className={`text-xs ${msg === "Saved" ? "text-jade-700" : "text-rust-500"}`}>{msg}</span>}
-        <button onClick={save} disabled={!dirty || busy} className="bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-40">{busy ? "Saving…" : "Save details"}</button>
+        <button onClick={save} disabled={!dirty || busy} className="bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-40">{busy ? "Saving…" : "Save details"}</button>
       </div>
     </div>
   );
@@ -515,7 +515,7 @@ function SubmissionDetail({ id, onBack, onResolved, canViewSalary }) {
             <p className="text-xs text-ink/70">Next step: the offer letter fills in from this form. Add pay and any other details, then send it for approval.</p>
             <Link
               to={`/admin/letters?type=offer_employment&submission=${submission.id}`}
-              className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-on-jade hover:bg-jade-700 whitespace-nowrap"
+              className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 whitespace-nowrap"
             >
               Create offer letter
             </Link>
@@ -570,7 +570,7 @@ function SubmissionDetail({ id, onBack, onResolved, canViewSalary }) {
               <button
                 disabled={busy}
                 onClick={() => resolve("approve")}
-                className="flex items-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
+                className="flex items-center gap-1.5 bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
               >
                 <Check size={14} /> Approve and create employee
               </button>

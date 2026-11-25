@@ -79,7 +79,7 @@ export default function NimitRequests() {
     <div className="flex flex-wrap gap-2" role="tablist" aria-label="Request type">
       {TABS.map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={tab === key}
         onClick={() => { setTab(key); setFilter("pending"); }}
-        className={`px-4 py-2 text-sm rounded-sm border ${tab === key ? "bg-ledger-800 text-on-jade border-ledger-800" : "bg-paper text-ink border-ink/15"}`}>
+        className={`px-4 py-2 text-sm rounded-sm border ${tab === key ? "bg-ledger-800 text-manila border-ledger-800" : "bg-paper text-ink border-ink/15"}`}>
         {label} {data && <span className="font-nums ml-1">{data[key]?.length || 0}</span>}
       </button>)}</div>
     <div className="flex flex-wrap gap-4 items-center">
@@ -115,7 +115,7 @@ export default function NimitRequests() {
             className="w-full border border-ink/20 bg-paper px-3 py-2 text-sm rounded-sm" />
           <div className="flex gap-2">
             <button type="button" disabled={busy === row.id} onClick={() => resolve(row, "approve")}
-              className="bg-jade-700 text-on-jade px-4 py-2 text-sm rounded-sm disabled:opacity-50">Approve request</button>
+              className="bg-jade-700 text-white px-4 py-2 text-sm rounded-sm disabled:opacity-50">Approve request</button>
             <button type="button" disabled={busy === row.id} onClick={() => resolve(row, "reject")}
               className="border border-red-700 text-red-700 px-4 py-2 text-sm rounded-sm disabled:opacity-50">Reject request</button>
           </div>

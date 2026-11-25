@@ -642,7 +642,7 @@ function WalkthroughVideo() {
       .catch((err) => setError(err.response?.data?.detail || "The walkthrough video could not be loaded."));
   }, []);
   if (error) {
-    return <div className="w-full aspect-[8/5] bg-ledger-800 text-on-jade/80 text-sm flex items-center justify-center p-6 text-center">{error}</div>;
+    return <div className="w-full aspect-[8/5] bg-ledger-800 text-manila/80 text-sm flex items-center justify-center p-6 text-center">{error}</div>;
   }
   return (
     <video

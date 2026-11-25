@@ -14,8 +14,8 @@ function Shell({ children }) {
       <div className="relative max-w-2xl mx-auto px-4 py-12">
         <div className="text-center mb-8">
           <img src="/jade-logo.png" alt="" className="w-20 h-20 mx-auto mb-3" />
-          <p className="font-display text-on-jade text-2xl">Submit an invoice</p>
-          <p className="text-on-jade/60 text-sm mt-1">JADE Lifestyles India · vendor invoice submission</p>
+          <p className="font-display text-manila text-2xl">Submit an invoice</p>
+          <p className="text-manila/60 text-sm mt-1">JADE Lifestyles India · vendor invoice submission</p>
         </div>
         {children}
       </div>
@@ -112,11 +112,11 @@ export default function InvoiceSubmit() {
         <div>
           <label htmlFor="inv_file" className={labelCls}>Invoice attachment (<abbr className="acr">PDF</abbr> or image) *</label>
           <input id="inv_file" type="file" accept="application/pdf,image/*" onChange={(e) => setFile(e.target.files?.[0] || null)}
-            className="w-full text-xs text-ink/70 file:mr-3 file:rounded-sm file:border-0 file:bg-ledger-800 file:text-on-jade file:px-3 file:py-2 file:text-xs file:font-semibold file:cursor-pointer" />
+            className="w-full text-xs text-ink/70 file:mr-3 file:rounded-sm file:border-0 file:bg-ledger-800 file:text-manila file:px-3 file:py-2 file:text-xs file:font-semibold file:cursor-pointer" />
           <p className="text-xs text-ink/60 mt-1">The invoice number and amount you enter are checked against the document, so please make sure they match.</p>
         </div>
         {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
-        <button disabled={busy} className="w-full rounded-sm bg-jade-600 text-on-jade py-3 font-semibold hover:bg-jade-700 disabled:opacity-50">{busy ? "Submitting…" : "Submit invoice"}</button>
+        <button disabled={busy} className="w-full rounded-sm bg-jade-600 text-white py-3 font-semibold hover:bg-jade-700 disabled:opacity-50">{busy ? "Submitting…" : "Submit invoice"}</button>
       </form>
       <Track />
     </Shell>

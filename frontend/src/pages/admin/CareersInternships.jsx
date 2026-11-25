@@ -85,7 +85,7 @@ export default function CareersInternships() {
                   <p className="text-xs text-ink/70 truncate">{m.subject} · {when(m.date)}</p>
                 </div>
                 <Link to="/admin/careers/inbox" className="text-xs text-ink/60 hover:text-ink">Open in inbox</Link>
-                <button type="button" onClick={() => addApplicant(m)} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-on-jade hover:bg-jade-700">File as intern applicant</button>
+                <button type="button" onClick={() => addApplicant(m)} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700">File as intern applicant</button>
               </li>
             ))}
           </ul>

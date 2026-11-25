@@ -29,7 +29,7 @@ export default function PendingSignaturesModal() {
   if (!current) return null;
   if (hidden) {
     return (
-      <button onClick={() => setHidden(false)} className="fixed bottom-5 right-5 z-40 bg-jade-600 text-on-jade rounded-sm shadow-stamp px-4 py-3 text-sm font-semibold inline-flex items-center gap-2">
+      <button onClick={() => setHidden(false)} className="fixed bottom-5 right-5 z-40 bg-jade-600 text-white rounded-sm shadow-stamp px-4 py-3 text-sm font-semibold inline-flex items-center gap-2">
         <FileSignature size={16} /> {pending.length} letter{pending.length > 1 ? "s" : ""} waiting for your e-signature
       </button>
     );
@@ -82,7 +82,7 @@ export default function PendingSignaturesModal() {
           </label>
           {error && <p className="text-sm text-rust-500">{error}</p>}
           <div className="flex gap-2">
-            <button onClick={sign} disabled={busy || fullName.trim().split(/\s+/).length < 2 || !confirm} className="flex-1 bg-jade-600 text-on-jade rounded-sm px-4 py-2.5 text-sm font-semibold disabled:opacity-50 inline-flex items-center justify-center gap-1.5">
+            <button onClick={sign} disabled={busy || fullName.trim().split(/\s+/).length < 2 || !confirm} className="flex-1 bg-jade-600 text-white rounded-sm px-4 py-2.5 text-sm font-semibold disabled:opacity-50 inline-flex items-center justify-center gap-1.5">
               <CheckCircle2 size={15} /> {busy ? "Signing…" : "Sign letter"}
             </button>
             <button onClick={() => setHidden(true)} className="px-4 py-2.5 text-sm text-ink/70 hover:text-ink">Later</button>

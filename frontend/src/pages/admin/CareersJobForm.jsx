@@ -118,7 +118,7 @@ function QuestionsEditor({ jobId }) {
           <button
             type="submit"
             disabled={saving || !draft.question_text.trim()}
-            className="ml-auto flex items-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
+            className="ml-auto flex items-center gap-1.5 bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
           >
             <Plus size={13} /> Add question
           </button>
@@ -298,7 +298,7 @@ export default function CareersJobForm() {
           type="submit"
           onClick={save}
           disabled={saving}
-          className="bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
+          className="bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
         >
           {saving ? "Saving…" : editing ? "Save job changes" : "Create job"}
         </button>

@@ -88,12 +88,12 @@ export default function LwfReport() {
       <div className="bg-ledger-800 rounded-sm shadow-card p-6 relative overflow-hidden mb-6">
         <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
         <div className="relative space-y-2">
-          <p className="text-xs font-semibold text-on-jade/60 mb-3">Challan — {rows.length} employees</p>
-          <div className="flex justify-between text-sm text-on-jade/60"><span>Employee <abbr className="acr">LWF</abbr></span><span className="font-nums text-on-jade">{formatINR(totals.employee)}</span></div>
-          <div className="flex justify-between text-sm text-on-jade/60"><span>Employer <abbr className="acr">LWF</abbr></span><span className="font-nums text-on-jade">{formatINR(totals.employer)}</span></div>
+          <p className="text-xs font-semibold text-manila/60 mb-3">Challan — {rows.length} employees</p>
+          <div className="flex justify-between text-sm text-manila/60"><span>Employee <abbr className="acr">LWF</abbr></span><span className="font-nums text-manila">{formatINR(totals.employee)}</span></div>
+          <div className="flex justify-between text-sm text-manila/60"><span>Employer <abbr className="acr">LWF</abbr></span><span className="font-nums text-manila">{formatINR(totals.employer)}</span></div>
           <div className="flex justify-between items-baseline pt-4 mt-2 border-t border-manila/15">
-            <span className="font-display text-on-jade text-lg">Total to deposit</span>
-            <span className="font-nums font-semibold text-3xl text-on-jade">{formatINR(totals.employee + totals.employer)}</span>
+            <span className="font-display text-manila text-lg">Total to deposit</span>
+            <span className="font-nums font-semibold text-3xl text-manila">{formatINR(totals.employee + totals.employer)}</span>
           </div>
         </div>
       </div>

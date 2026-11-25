@@ -140,14 +140,14 @@ function SidebarSearch({ user, can, onNavigate }) {
   return (
     <div ref={boxRef} className="relative px-3 pb-3">
       <div className="relative">
-        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-jade/50" />
+        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-manila/50" />
         <input
           value={query}
           onChange={(e) => { setQuery(e.target.value); setOpen(true); loadEmployeesIfNeeded(); }}
           onFocus={() => { setOpen(true); loadEmployeesIfNeeded(); }}
           placeholder="Search sections…"
           aria-label="Search sections"
-          className="w-full rounded-sm bg-on-jade/10 border border-on-jade/15 pl-8 pr-2 py-2 min-h-[44px] md:min-h-0 text-base md:text-xs text-on-jade placeholder:text-on-jade/55 focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500"
+          className="w-full rounded-sm bg-manila/10 border border-manila/15 pl-8 pr-2 py-2 min-h-[44px] md:min-h-0 text-base md:text-xs text-manila placeholder:text-manila/55 focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500"
         />
       </div>
       {open && q && (
@@ -226,8 +226,8 @@ function SidebarContent({ user, can, logout, pendingCounts, onNavigate, bell }) 
       <div className="px-6 py-6 relative flex items-center gap-4">
         <img src="/jade-logo.png" alt="" className="w-9 h-9 flex-shrink-0" />
         <div className="min-w-0">
-          <p className="font-display text-on-jade text-xl leading-none">JADE HR</p>
-          <p className="text-on-jade/75 text-[11px] mt-1.5">
+          <p className="font-display text-manila text-xl leading-none">JADE HR</p>
+          <p className="text-manila/75 text-[11px] mt-1.5">
             {user?.role === "accounts" ? "Accounts Ledger" : "HR Ledger"}
           </p>
         </div>
@@ -240,11 +240,11 @@ function SidebarContent({ user, can, logout, pendingCounts, onNavigate, bell }) 
           const isOpen = !name || !collapsed.includes(name) || hasActive;
           const groupBadge = items.reduce((n, i) => n + (i.badgeKey ? pendingCounts[i.badgeKey] || 0 : 0), 0);
           return (
-            <div key={name || "top"} className={name ? "mt-3 pt-3 border-t border-on-jade/10" : ""}>
+            <div key={name || "top"} className={name ? "mt-3 pt-3 border-t border-manila/10" : ""}>
               {name && (
                 <button
                   type="button" aria-expanded={isOpen} onClick={() => toggleGroup(name)}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-[10px] font-semibold text-on-jade/60 hover:text-on-jade"
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-[10px] font-semibold text-manila/60 hover:text-manila"
                 >
                   <ChevronDown size={12} className={`transition-transform ${isOpen ? "" : "-rotate-90"}`} />
                   <span>{name}</span>
@@ -262,8 +262,8 @@ function SidebarContent({ user, can, logout, pendingCounts, onNavigate, bell }) 
                     className={({ isActive }) =>
                       `group relative flex items-center gap-4 px-[1.5em] py-[0.625em] leading-tight min-h-[44px] md:min-h-0 rounded-md text-sm font-medium transition-all duration-150 ${
                         isActive
-                          ? "bg-on-jade text-ledger-900 shadow-sm before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-r before:bg-jade-500"
-                          : "text-on-jade/75 hover:bg-on-jade/10 hover:text-on-jade hover:translate-x-0.5"
+                          ? "bg-manila text-ledger-900 shadow-sm before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-r before:bg-jade-500"
+                          : "text-white/75 hover:bg-manila/10 hover:text-white hover:translate-x-0.5"
                       }`
                     }
                   >
@@ -282,24 +282,24 @@ function SidebarContent({ user, can, logout, pendingCounts, onNavigate, bell }) 
         })}
       </nav>
       <div className="px-3 py-4 relative">
-        <div className="border-t border-on-jade/10 pt-4">
+        <div className="border-t border-manila/10 pt-4">
           <div className="px-3 pb-3 flex items-center gap-4">
             <Avatar className="w-10 h-10" />
             <div className="min-w-0">
-              <p className="text-on-jade text-sm font-medium truncate">{user?.name}</p>
-              <p className="text-on-jade/75 text-xs font-nums">{user?.employee_code}</p>
+              <p className="text-manila text-sm font-medium truncate">{user?.name}</p>
+              <p className="text-manila/75 text-xs font-nums">{user?.employee_code}</p>
             </div>
           </div>
           <button
             onClick={() => setShowPw(true)}
-            className="flex items-center gap-4 px-3 py-2 min-h-[44px] md:min-h-0 rounded-md text-sm font-medium text-on-jade/75 hover:bg-on-jade/10 hover:text-on-jade w-full transition-colors"
+            className="flex items-center gap-4 px-3 py-2 min-h-[44px] md:min-h-0 rounded-md text-sm font-medium text-manila/75 hover:bg-manila/10 hover:text-manila w-full transition-colors"
           >
             <KeyRound size={16} />
             Change password
           </button>
           <button
             onClick={logout}
-            className="flex items-center gap-4 px-3 py-2 min-h-[44px] md:min-h-0 rounded-md text-sm font-medium text-on-jade/75 hover:bg-on-jade/10 hover:text-on-jade w-full transition-colors"
+            className="flex items-center gap-4 px-3 py-2 min-h-[44px] md:min-h-0 rounded-md text-sm font-medium text-manila/75 hover:bg-manila/10 hover:text-manila w-full transition-colors"
           >
             <LogOut size={16} />
             Sign out
@@ -332,7 +332,7 @@ function ExitSignoffPrompt({ user }) {
         <div className="text-sm text-ink/80">
           <strong className="text-ink">Exit clearance</strong> — {items.length === 1 ? `${items[0].employee_name} is leaving and` : `${items.length} people are leaving and`} needs your e-sign.
         </div>
-        <button onClick={() => setOpen(true)} className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors whitespace-nowrap self-start sm:self-auto">
+        <button onClick={() => setOpen(true)} className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors whitespace-nowrap self-start sm:self-auto">
           Review &amp; sign
         </button>
       </div>
@@ -448,18 +448,18 @@ export default function AdminLayout() {
         <div className="flex items-center gap-2">
           <img src="/jade-logo.png" alt="" className="w-7 h-7" />
           <div>
-            <span className="font-display text-on-jade text-lg leading-none block">JADE HR</span>
-            <span className="text-on-jade/75 text-[9px] leading-none">
+            <span className="font-display text-manila text-lg leading-none block">JADE HR</span>
+            <span className="text-manila/75 text-[9px] leading-none">
               {user?.role === "accounts" ? "Accounts Ledger" : "HR Ledger"}
             </span>
           </div>
         </div>
         <div className="flex items-center gap-1">
           <NotificationBell pending={pendingByType} variant="mobile" />
-          <button onClick={logout} aria-label="Sign out" title="Sign out" className="text-on-jade/80 hover:text-on-jade w-11 h-11 flex items-center justify-center">
+          <button onClick={logout} aria-label="Sign out" title="Sign out" className="text-manila/80 hover:text-manila w-11 h-11 flex items-center justify-center">
             <LogOut size={20} />
           </button>
-          <button onClick={() => setMobileOpen(true)} aria-label="Open menu" className="text-on-jade w-11 h-11 flex items-center justify-center -mr-1">
+          <button onClick={() => setMobileOpen(true)} aria-label="Open menu" className="text-manila w-11 h-11 flex items-center justify-center -mr-1">
             <Menu size={22} />
           </button>
         </div>
@@ -470,7 +470,7 @@ export default function AdminLayout() {
         <div className="md:hidden fixed inset-0 z-40 flex">
           <div className="absolute inset-0 bg-ledger-900/60" onClick={() => setMobileOpen(false)} />
           <aside ref={drawerRef} className="drawer-in relative touch-pan-y w-64 max-w-[85vw] h-screen bg-ledger-800 flex flex-col">
-            <button onClick={() => setMobileOpen(false)} aria-label="Close menu" className="absolute top-3 right-3 w-11 h-11 flex items-center justify-center text-on-jade/80 hover:text-on-jade">
+            <button onClick={() => setMobileOpen(false)} aria-label="Close menu" className="absolute top-3 right-3 w-11 h-11 flex items-center justify-center text-manila/80 hover:text-manila">
               <X size={20} />
             </button>
             <SidebarContent user={user} can={can} logout={logout} pendingCounts={pendingCounts} onNavigate={() => setMobileOpen(false)} />

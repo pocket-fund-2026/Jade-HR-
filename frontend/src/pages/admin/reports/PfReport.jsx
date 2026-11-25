@@ -118,16 +118,16 @@ export default function PfReport() {
       <div className="bg-ledger-800 rounded-sm shadow-card p-6 relative overflow-hidden mb-6">
         <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
         <div className="relative space-y-2">
-          <p className="text-xs font-semibold text-on-jade/60 mb-3">Challan — {rows.length} employees</p>
-          <div className="flex justify-between text-sm text-on-jade/60"><span>Employee <abbr className="acr">PF</abbr> (12%)</span><span className="font-nums text-on-jade">{formatINR(totals.employeePf)}</span></div>
-          <div className="flex justify-between text-sm text-on-jade/60"><span>VPF</span><span className="font-nums text-on-jade">{formatINR(totals.vpf)}</span></div>
-          <div className="flex justify-between text-sm text-on-jade/60"><span>Employer EPS (8.33%, capped ₹15,000)</span><span className="font-nums text-on-jade">{formatINR(totals.eps)}</span></div>
-          <div className="flex justify-between text-sm text-on-jade/60"><span>Employer EPF</span><span className="font-nums text-on-jade">{formatINR(totals.epf)}</span></div>
-          <div className="flex justify-between text-sm text-on-jade/60"><span>EDLI Charges (0.5%, capped ₹15,000)</span><span className="font-nums text-on-jade">{formatINR(totals.edli)}</span></div>
-          <div className="flex justify-between text-sm text-on-jade/60"><span><abbr className="acr">PF</abbr> Admin Charges (0.5%)</span><span className="font-nums text-on-jade">{formatINR(totals.admin)}</span></div>
+          <p className="text-xs font-semibold text-manila/60 mb-3">Challan — {rows.length} employees</p>
+          <div className="flex justify-between text-sm text-manila/60"><span>Employee <abbr className="acr">PF</abbr> (12%)</span><span className="font-nums text-manila">{formatINR(totals.employeePf)}</span></div>
+          <div className="flex justify-between text-sm text-manila/60"><span>VPF</span><span className="font-nums text-manila">{formatINR(totals.vpf)}</span></div>
+          <div className="flex justify-between text-sm text-manila/60"><span>Employer EPS (8.33%, capped ₹15,000)</span><span className="font-nums text-manila">{formatINR(totals.eps)}</span></div>
+          <div className="flex justify-between text-sm text-manila/60"><span>Employer EPF</span><span className="font-nums text-manila">{formatINR(totals.epf)}</span></div>
+          <div className="flex justify-between text-sm text-manila/60"><span>EDLI Charges (0.5%, capped ₹15,000)</span><span className="font-nums text-manila">{formatINR(totals.edli)}</span></div>
+          <div className="flex justify-between text-sm text-manila/60"><span><abbr className="acr">PF</abbr> Admin Charges (0.5%)</span><span className="font-nums text-manila">{formatINR(totals.admin)}</span></div>
           <div className="flex justify-between items-baseline pt-4 mt-2 border-t border-manila/15">
-            <span className="font-display text-on-jade text-lg">Total to deposit</span>
-            <span className="font-nums font-semibold text-3xl text-on-jade">{formatINR(totalDeposit)}</span>
+            <span className="font-display text-manila text-lg">Total to deposit</span>
+            <span className="font-nums font-semibold text-3xl text-manila">{formatINR(totalDeposit)}</span>
           </div>
         </div>
       </div>

@@ -131,7 +131,7 @@ function GrantForm({ onGranted, onCancel }) {
       <div className="flex justify-end gap-4">
         <button type="button" disabled={busy} onClick={onCancel} className="text-sm text-ink/70 hover:text-ink px-2">Cancel</button>
         <button type="submit" disabled={busy || !employeeId || !earnedDate || !confirmed || Number(hours) <= 0 || loading || !!loadError}
-          className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors">
+          className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors">
           {busy ? "Granting…" : "Grant comp-off"}
         </button>
       </div>
@@ -177,7 +177,7 @@ export default function CompOff() {
         </div>
         <button
           onClick={() => setShowGrant((v) => !v)}
-          className="flex items-center gap-1.5 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+          className="flex items-center gap-1.5 bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
         >
           <Plus size={15} /> Grant Comp-Off
         </button>

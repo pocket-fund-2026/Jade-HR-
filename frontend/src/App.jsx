@@ -41,7 +41,7 @@ function QuizScorePopup({ policyAck, reloadPolicyAck }) {
         <button
           type="button"
           onClick={dismiss}
-          className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+          className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
         >
           Got it
         </button>

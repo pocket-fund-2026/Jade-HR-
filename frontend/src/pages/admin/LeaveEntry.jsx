@@ -132,7 +132,7 @@ function EntryForm({ employees, onAdded }) {
       <div className="flex justify-end mt-4">
         <button
           disabled={saving}
-          className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
+          className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
         >
           {saving ? "Adding…" : "Add Entry"}
         </button>
@@ -195,7 +195,7 @@ export default function LeaveEntry() {
               <button
                 key={s}
                 onClick={() => { setStatus(s); setPage(1); }}
-                className={`px-3 py-1.5 font-semibold capitalize transition-colors ${status === s ? "bg-ledger-800 text-on-jade" : "bg-paper text-ink/70 hover:text-ink"}`}
+                className={`px-3 py-1.5 font-semibold capitalize transition-colors ${status === s ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}
               >
                 {s}
               </button>
@@ -270,7 +270,7 @@ export default function LeaveEntry() {
             <button
               key={p}
               onClick={() => setPage(p)}
-              className={`w-8 h-8 rounded-sm text-xs font-semibold transition-colors ${p === page ? "bg-ledger-800 text-on-jade" : "bg-paper border border-ink/15 text-ink/70 hover:border-jade-500"}`}
+              className={`w-8 h-8 rounded-sm text-xs font-semibold transition-colors ${p === page ? "bg-ledger-800 text-manila" : "bg-paper border border-ink/15 text-ink/70 hover:border-jade-500"}`}
             >
               {p}
             </button>

@@ -50,7 +50,7 @@ function ConfirmRow({ request, onResolved }) {
           <button
             disabled={busy}
             onClick={() => confirm(true)}
-            className="flex items-center justify-center gap-1.5 min-h-[44px] bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
+            className="flex items-center justify-center gap-1.5 min-h-[44px] bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
           >
             <Check size={13} /> Work completed
           </button>

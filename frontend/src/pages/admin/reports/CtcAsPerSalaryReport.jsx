@@ -70,8 +70,8 @@ export default function CtcAsPerSalaryReport() {
       <div className="bg-ledger-800 rounded-sm shadow-card p-6 relative overflow-hidden mb-6">
         <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
         <div className="relative flex justify-between items-baseline">
-          <span className="font-display text-on-jade text-lg">Total CTC Yearly ({rows.length} employees)</span>
-          <span className="font-nums font-semibold text-3xl text-on-jade">{formatINR(total)}</span>
+          <span className="font-display text-manila text-lg">Total CTC Yearly ({rows.length} employees)</span>
+          <span className="font-nums font-semibold text-3xl text-manila">{formatINR(total)}</span>
         </div>
       </div>
 

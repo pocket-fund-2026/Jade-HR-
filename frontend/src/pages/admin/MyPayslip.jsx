@@ -79,7 +79,7 @@ export default function MyPayslip() {
             <button
               onClick={submit}
               disabled={submitting}
-              className="flex items-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors flex-shrink-0"
+              className="flex items-center gap-1.5 bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors flex-shrink-0"
             >
               <Send size={13} /> {submitting ? "Submitting…" : currentSubmission ? "Resubmit for Approval" : "Submit for Approval"}
             </button>

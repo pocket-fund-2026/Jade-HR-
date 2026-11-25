@@ -54,7 +54,7 @@ function SignRow({ item, fullName, onSigned }) {
       </label>
       {error && <p className="text-xs text-rust-500 border-l-2 border-rust-500 pl-2">{error}</p>}
       <div className="flex justify-end">
-        <button type="submit" disabled={busy || !confirm} className="bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-40 transition-colors">
+        <button type="submit" disabled={busy || !confirm} className="bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-40 transition-colors">
           {busy ? "Signing…" : "Sign off"}
         </button>
       </div>

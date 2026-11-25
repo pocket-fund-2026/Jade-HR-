@@ -28,9 +28,9 @@ export default function UpdateBanner() {
 
   if (!stale) return null;
   return (
-    <div role="status" className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] bg-ledger-900 text-on-jade text-sm rounded-sm shadow-stamp px-4 py-3 flex items-center gap-4">
+    <div role="status" className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] bg-ledger-900 text-manila text-sm rounded-sm shadow-stamp px-4 py-3 flex items-center gap-4">
       <span>A new version of JADE <abbr className="acr">HR</abbr> is available.</span>
-      <button onClick={() => window.location.reload()} className="bg-jade-500 text-on-jade font-semibold rounded-sm px-3 py-1">
+      <button onClick={() => window.location.reload()} className="bg-jade-500 text-white font-semibold rounded-sm px-3 py-1">
         Refresh
       </button>
     </div>

@@ -82,7 +82,7 @@ export default function CareersDashboard() {
               type="button"
               onClick={() => setDays(p.key)}
               className={`px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold border ${
-                days === p.key ? "bg-ink text-on-jade border-ink" : "bg-paper border-ink/15 text-ink/70 hover:text-ink"
+                days === p.key ? "bg-ink text-manila border-ink" : "bg-paper border-ink/15 text-ink/70 hover:text-ink"
               }`}
             >
               {p.label}

@@ -50,8 +50,8 @@ export function ConfirmProvider({ children }) {
                 onClick={() => settle(true)}
                 className={
                   state.danger
-                    ? "bg-rust-500 text-on-rust px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:opacity-90 transition-opacity"
-                    : "bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+                    ? "bg-rust-500 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:opacity-90 transition-opacity"
+                    : "bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
                 }
               >
                 {state.confirmLabel}

@@ -187,7 +187,7 @@ export default function Dashboard() {
               <div className="text-sm text-ink/80">
                 <strong className="text-ink">Exit clearance</strong> — {signoffs.length === 1 ? `${signoffs[0].employee_name} is leaving and` : `${signoffs.length} people are leaving and`} needs your e-sign.
               </div>
-              <button onClick={() => setShowSignoffs(true)} className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors whitespace-nowrap self-start sm:self-auto">
+              <button onClick={() => setShowSignoffs(true)} className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors whitespace-nowrap self-start sm:self-auto">
                 Review and sign exit clearance
               </button>
             </div>
@@ -203,14 +203,14 @@ export default function Dashboard() {
               </div>
               <button
                 onClick={() => setShowExitInterview(true)}
-                className="flex items-center gap-1.5 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors whitespace-nowrap self-start sm:self-auto"
+                className="flex items-center gap-1.5 bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors whitespace-nowrap self-start sm:self-auto"
               >
                 {myExit.submitted ? "Review answers" : "Fill exit interview"}
               </button>
               {myAssets?.has_exit && (
                 <button
                   onClick={() => setShowAssets(true)}
-                  className="flex items-center gap-1.5 border border-ledger-800 text-ledger-800 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-800 hover:text-on-jade transition-colors whitespace-nowrap self-start sm:self-auto"
+                  className="flex items-center gap-1.5 border border-ledger-800 text-ledger-800 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-800 hover:text-manila transition-colors whitespace-nowrap self-start sm:self-auto"
                 >
                   {myAssets.submitted ? "System handover ✓" : "System handover (required)"}
                 </button>
@@ -272,7 +272,7 @@ export default function Dashboard() {
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => setShowLeaveModal(true)}
-                  className="flex items-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 transition-colors whitespace-nowrap"
+                  className="flex items-center gap-1.5 bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 transition-colors whitespace-nowrap"
                 >
                   <Plane size={13} /> Request leave
                 </button>

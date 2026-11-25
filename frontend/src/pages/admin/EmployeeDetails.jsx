@@ -740,7 +740,7 @@ function ShiftTimingEditor({ employeeId, currentSlot, onSaved }) {
         <label className="text-xs text-ink/70">Out time
           <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="block mt-1 rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink" />
         </label>
-        <button type="button" onClick={save} disabled={busy || !start || !end} className="rounded-sm bg-jade-600 px-4 py-2.5 text-sm font-medium text-on-jade disabled:opacity-50">
+        <button type="button" onClick={save} disabled={busy || !start || !end} className="rounded-sm bg-jade-600 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">
           {busy ? "Saving…" : "Set shift timing"}
         </button>
       </div>
@@ -867,7 +867,7 @@ function SalaryStructureSection({ employeeId, dateOfJoining, canView, canEdit, p
             <button
               type="button"
               onClick={openNew}
-              className="flex items-center gap-1.5 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors flex-shrink-0"
+              className="flex items-center gap-1.5 bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors flex-shrink-0"
             >
               <Plus size={14} /> Add salary structure
             </button>
@@ -1008,7 +1008,7 @@ function SalaryStructureSection({ employeeId, dateOfJoining, canView, canEdit, p
             type="button"
             onClick={save}
             disabled={saving}
-            className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
+            className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
           >
             {saving ? "Saving…" : "Save salary structure"}
           </button>
@@ -1104,7 +1104,7 @@ function InitiateExitModal({ employeeId, onClose, onCreated }) {
           {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
           <div className="flex justify-end gap-4 pt-1">
             <button type="button" onClick={onClose} className="text-sm text-ink/70 hover:text-ink px-2">Cancel</button>
-            <button type="submit" disabled={busy} className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors">
+            <button type="submit" disabled={busy} className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors">
               {busy ? "Starting…" : "Start exit process"}
             </button>
           </div>
@@ -1744,7 +1744,7 @@ export default function EmployeeDetails() {
                   <button
                     type="button"
                     onClick={() => setMode("edit")}
-                    className="flex items-center gap-2 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+                    className="flex items-center gap-2 bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
                   >
                     <Pencil size={14} /> Edit
                   </button>
@@ -1773,7 +1773,7 @@ export default function EmployeeDetails() {
                   type="button"
                   disabled={saving}
                   onClick={() => save("new")}
-                  className="flex items-center gap-2 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
+                  className="flex items-center gap-2 bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
                 >
                   Save and add another
                 </button>

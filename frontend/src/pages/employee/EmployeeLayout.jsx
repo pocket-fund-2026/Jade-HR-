@@ -39,15 +39,15 @@ export default function EmployeeLayout() {
             <img src="/jade-logo.png" alt="" className="w-8 h-8 flex-shrink-0" />
             <Avatar className="w-10 h-10" />
             <div className="min-w-0">
-              <p className="font-display text-on-jade text-lg leading-none">JADE HR</p>
-              <p className="text-on-jade/75 text-xs mt-1 truncate">{user?.name}</p>
+              <p className="font-display text-manila text-lg leading-none">JADE HR</p>
+              <p className="text-manila/75 text-xs mt-1 truncate">{user?.name}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
             <button
               onClick={() => setShowPw(true)}
               title="Change password"
-              className="flex items-center gap-2 text-sm min-h-[44px] px-1 text-on-jade/75 hover:text-on-jade transition-colors whitespace-nowrap"
+              className="flex items-center gap-2 text-sm min-h-[44px] px-1 text-manila/75 hover:text-manila transition-colors whitespace-nowrap"
             >
               <KeyRound size={16} className="flex-shrink-0" />
               <span className="hidden sm:inline">Change password</span>
@@ -55,7 +55,7 @@ export default function EmployeeLayout() {
             <button
               onClick={logout}
               title="Sign out"
-              className="flex items-center gap-2 text-sm min-h-[44px] px-1 text-on-jade/75 hover:text-on-jade transition-colors whitespace-nowrap"
+              className="flex items-center gap-2 text-sm min-h-[44px] px-1 text-manila/75 hover:text-manila transition-colors whitespace-nowrap"
             >
               <LogOut size={16} className="flex-shrink-0" />
               <span className="hidden sm:inline">Sign out</span>
@@ -69,7 +69,7 @@ export default function EmployeeLayout() {
               end
               className={({ isActive }) =>
                 `flex-shrink-0 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-on-jade text-on-jade" : "border-transparent text-on-jade/75 hover:text-on-jade"
+                  isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
                 }`
               }
             >
@@ -80,7 +80,7 @@ export default function EmployeeLayout() {
                 to="/employee/my-team"
                 className={({ isActive }) =>
                   `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                    isActive ? "border-on-jade text-on-jade" : "border-transparent text-on-jade/75 hover:text-on-jade"
+                    isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
                   }`
                 }
               >
@@ -93,7 +93,7 @@ export default function EmployeeLayout() {
                 to="/employee/team-leave"
                 className={({ isActive }) =>
                   `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                    isActive ? "border-on-jade text-on-jade" : "border-transparent text-on-jade/75 hover:text-on-jade"
+                    isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
                   }`
                 }
               >
@@ -111,7 +111,7 @@ export default function EmployeeLayout() {
                 to="/employee/team-wfh"
                 className={({ isActive }) =>
                   `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                    isActive ? "border-on-jade text-on-jade" : "border-transparent text-on-jade/75 hover:text-on-jade"
+                    isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
                   }`
                 }
               >
@@ -124,7 +124,7 @@ export default function EmployeeLayout() {
                 to="/employee/team-disputes"
                 className={({ isActive }) =>
                   `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                    isActive ? "border-on-jade text-on-jade" : "border-transparent text-on-jade/75 hover:text-on-jade"
+                    isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
                   }`
                 }
               >
@@ -137,7 +137,7 @@ export default function EmployeeLayout() {
                 to="/employee/team-market-visits"
                 className={({ isActive }) =>
                   `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                    isActive ? "border-on-jade text-on-jade" : "border-transparent text-on-jade/75 hover:text-on-jade"
+                    isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
                   }`
                 }
               >
@@ -149,7 +149,7 @@ export default function EmployeeLayout() {
               to="/employee/tax-declaration"
               className={({ isActive }) =>
                 `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-on-jade text-on-jade" : "border-transparent text-on-jade/75 hover:text-on-jade"
+                  isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
                 }`
               }
             >
@@ -160,7 +160,7 @@ export default function EmployeeLayout() {
               to="/employee/my-payslip"
               className={({ isActive }) =>
                 `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-on-jade text-on-jade" : "border-transparent text-on-jade/75 hover:text-on-jade"
+                  isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
                 }`
               }
             >
@@ -171,7 +171,7 @@ export default function EmployeeLayout() {
               to="/employee/my-onboarding"
               className={({ isActive }) =>
                 `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-on-jade text-on-jade" : "border-transparent text-on-jade/75 hover:text-on-jade"
+                  isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
                 }`
               }
             >
@@ -182,7 +182,7 @@ export default function EmployeeLayout() {
               to="/employee/policy"
               className={({ isActive }) =>
                 `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-on-jade text-on-jade" : "border-transparent text-on-jade/75 hover:text-on-jade"
+                  isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
                 }`
               }
             >
@@ -193,7 +193,7 @@ export default function EmployeeLayout() {
               to="/employee/help"
               className={({ isActive }) =>
                 `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-on-jade text-on-jade" : "border-transparent text-on-jade/75 hover:text-on-jade"
+                  isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
                 }`
               }
             >

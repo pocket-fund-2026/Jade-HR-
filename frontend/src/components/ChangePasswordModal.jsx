@@ -52,7 +52,7 @@ export default function ChangePasswordModal({ onClose }) {
           <div className="space-y-4">
             <p className="text-sm text-ink">Your password has been updated. Use it the next time you sign in.</p>
             <div className="flex justify-end">
-              <button onClick={onClose} className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors">
+              <button onClick={onClose} className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors">
                 Done
               </button>
             </div>
@@ -76,7 +76,7 @@ export default function ChangePasswordModal({ onClose }) {
 
             <div className="flex justify-end gap-4 pt-1">
               <button type="button" onClick={onClose} className="text-sm text-ink/70 hover:text-ink px-2">Cancel</button>
-              <button type="submit" disabled={busy} className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors">
+              <button type="submit" disabled={busy} className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors">
                 {busy ? "Saving…" : "Update password"}
               </button>
             </div>

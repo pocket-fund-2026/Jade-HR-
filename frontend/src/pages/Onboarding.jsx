@@ -32,7 +32,7 @@ function Section({ title, step, children }) {
   return (
     <div id={`step-${step}`} className="bg-paper rounded-sm shadow-card p-5 sm:p-6 scroll-mt-4">
       <h3 className="font-display text-lg text-ink mb-4 flex items-center gap-2.5">
-        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-jade-600 text-on-jade text-xs font-semibold flex items-center justify-center">
+        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-jade-600 text-white text-xs font-semibold flex items-center justify-center">
           {step}
         </span>
         {title}
@@ -153,7 +153,7 @@ function FileField({ label, hint, multiple, count, onUploaded }) {
         multiple={multiple}
         disabled={busy}
         onChange={handleFiles}
-        className="w-full text-xs text-ink/70 file:mr-3 file:rounded-sm file:border-0 file:bg-ledger-800 file:text-on-jade file:px-3 file:py-2 file:text-xs file:font-semibold file:cursor-pointer disabled:opacity-50"
+        className="w-full text-xs text-ink/70 file:mr-3 file:rounded-sm file:border-0 file:bg-ledger-800 file:text-manila file:px-3 file:py-2 file:text-xs file:font-semibold file:cursor-pointer disabled:opacity-50"
       />
       {(status || count > 0) && (
         <p className="text-xs text-jade-600 mt-1">{status || `${count} file(s) on file`}</p>
@@ -185,12 +185,12 @@ function StepStrip({ titles }) {
           key={title}
           href={`#step-${i + 1}`}
           title={title}
-          className="flex-shrink-0 w-7 h-7 rounded-full bg-on-jade/20 border border-on-jade/30 text-on-jade/70 text-xs font-semibold flex items-center justify-center hover:bg-on-jade/30 hover:text-on-jade transition-colors"
+          className="flex-shrink-0 w-7 h-7 rounded-full bg-manila/20 border border-manila/30 text-manila/70 text-xs font-semibold flex items-center justify-center hover:bg-manila/30 hover:text-manila transition-colors"
         >
           {i + 1}
         </a>
       ))}
-      <span className="text-on-jade/50 text-xs ml-1">{titles.length} short sections — jump to any of them</span>
+      <span className="text-manila/50 text-xs ml-1">{titles.length} short sections — jump to any of them</span>
     </div>
   );
 }
@@ -361,8 +361,8 @@ export default function Onboarding() {
       <div className="relative max-w-3xl mx-auto px-4 py-12">
         <div className="text-center mb-8">
           <img src="/jade-logo.png" alt="" className="w-24 h-24 mx-auto mb-3" />
-          <p className="font-display text-on-jade text-2xl">New joinee details</p>
-          <p className="text-on-jade/60 text-sm mt-1">Please fill in your details to complete your joining formalities with JADE</p>
+          <p className="font-display text-manila text-2xl">New joinee details</p>
+          <p className="text-manila/60 text-sm mt-1">Please fill in your details to complete your joining formalities with JADE</p>
         </div>
 
         <StepStrip titles={stepTitles} />
@@ -399,7 +399,7 @@ export default function Onboarding() {
           <button
             type="submit"
             disabled={busy}
-            className="w-full rounded-sm bg-jade-600 text-on-jade py-3 font-semibold tracking-wide hover:bg-jade-700 disabled:opacity-50 transition-colors"
+            className="w-full rounded-sm bg-jade-600 text-white py-3 font-semibold tracking-wide hover:bg-jade-700 disabled:opacity-50 transition-colors"
           >
             {busy ? "Submitting…" : "Submit joining details"}
           </button>

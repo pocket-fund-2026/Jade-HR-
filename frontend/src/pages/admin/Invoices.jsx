@@ -86,13 +86,13 @@ function InvoiceDetail({ id, onBack, onChanged }) {
             {["paid", "rejected"].includes(inv.status) && <p className="text-xs text-ink/60">This invoice is closed.</p>}
             {(["pending_verification", "verification_rejected", "verified"].includes(inv.status) && can("invoices.verify")) && (
               <div className="flex gap-2 justify-between">
-                {inv.status !== "verified" && <button disabled={busy} onClick={() => act("verify", { note }, { passed: true })} className="flex items-center gap-1.5 bg-jade-600 text-on-jade px-3 py-1.5 rounded-sm text-xs font-semibold"><Check size={13} /> Pass verification</button>}
+                {inv.status !== "verified" && <button disabled={busy} onClick={() => act("verify", { note }, { passed: true })} className="flex items-center gap-1.5 bg-jade-600 text-white px-3 py-1.5 rounded-sm text-xs font-semibold"><Check size={13} /> Pass verification</button>}
                 {inv.status !== "verification_rejected" && <button disabled={busy} onClick={() => act("verify", { note }, { passed: false })} className="flex items-center gap-1.5 border border-rust-500 text-rust-500 px-3 py-1.5 rounded-sm text-xs font-semibold"><X size={13} /> Reject verification</button>}
               </div>
             )}
             {inv.status === "verified" && can("invoices.approve") && (
               <div className="flex gap-2 justify-between">
-                <button disabled={busy} onClick={() => act("approve")} className="flex items-center gap-1.5 bg-ledger-800 text-on-jade px-3 py-1.5 rounded-sm text-xs font-semibold"><Check size={13} /> Approve invoice</button>
+                <button disabled={busy} onClick={() => act("approve")} className="flex items-center gap-1.5 bg-ledger-800 text-manila px-3 py-1.5 rounded-sm text-xs font-semibold"><Check size={13} /> Approve invoice</button>
                 <button disabled={busy} onClick={() => act("reject")} className="flex items-center gap-1.5 border border-rust-500 text-rust-500 px-3 py-1.5 rounded-sm text-xs font-semibold"><X size={13} /> Reject invoice</button>
               </div>
             )}
@@ -100,7 +100,7 @@ function InvoiceDetail({ id, onBack, onChanged }) {
             {inv.status === "approved" && can("invoices.pay") && (
               <div className="flex gap-2">
                 <label className="block"><span className="block text-xs font-semibold text-ink/70 mb-1">Payment reference (UTR)</span><input value={payRef} onChange={(e) => setPayRef(e.target.value)} placeholder="Payment reference / UTR" className={inputCls} /></label>
-                <button disabled={busy} onClick={() => act("pay", { payment_ref: payRef })} className="bg-jade-600 text-on-jade px-3 py-1.5 rounded-sm text-xs font-semibold whitespace-nowrap">Mark paid</button>
+                <button disabled={busy} onClick={() => act("pay", { payment_ref: payRef })} className="bg-jade-600 text-white px-3 py-1.5 rounded-sm text-xs font-semibold whitespace-nowrap">Mark paid</button>
               </div>
             )}
             {error && <p className="text-sm text-rust-500">{error}</p>}
@@ -176,7 +176,7 @@ function Reconciliation() {
         <p className="font-display text-base text-ink">Reconcile a bank statement</p>
         <p className="text-xs text-ink/65 mt-1 mb-3">Upload the CSV from your bank. Outgoing payments are matched to approved invoices by invoice number, payment reference, amount and vendor name. Only the safe matches are pre-ticked; nothing is marked paid until you confirm.</p>
         <input type="file" accept=".csv,text/csv" onChange={onFile} disabled={busy}
-          className="text-xs text-ink/70 file:mr-3 file:rounded-sm file:border-0 file:bg-ledger-800 file:text-on-jade file:px-3 file:py-2 file:text-xs file:font-semibold file:cursor-pointer" />
+          className="text-xs text-ink/70 file:mr-3 file:rounded-sm file:border-0 file:bg-ledger-800 file:text-manila file:px-3 file:py-2 file:text-xs file:font-semibold file:cursor-pointer" />
         {error && <p className="text-sm text-rust-500 mt-2">{error}</p>}
         {result && (
           <ul className="text-xs mt-3 space-y-0.5">
@@ -190,7 +190,7 @@ function Reconciliation() {
         <div className="bg-paper rounded-sm shadow-card overflow-x-auto">
           <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 border-b border-ink/10">
             <p className="text-xs text-ink/70">{preview.lines.length} payment line(s){preview.skipped ? ` · ${preview.skipped} non-payment row(s) skipped` : ""} · {Object.entries(preview.counts).map(([k, v]) => `${v} ${REC_LABEL[k].toLowerCase()}`).join(", ")}</p>
-            <button disabled={busy || !picked} onClick={confirm} className="bg-jade-600 text-on-jade px-4 py-1.5 rounded-sm text-xs font-semibold disabled:opacity-40">Confirm {picked} selected</button>
+            <button disabled={busy || !picked} onClick={confirm} className="bg-jade-600 text-white px-4 py-1.5 rounded-sm text-xs font-semibold disabled:opacity-40">Confirm {picked} selected</button>
           </div>
           <table className="w-full text-sm">
             <thead className="text-left text-[11px] text-ink/60"><tr>
@@ -287,13 +287,13 @@ export default function Invoices() {
           <p className="text-xs text-ink/70 mt-0.5">Vendor invoices: verified automatically, then approved and paid.</p>
         </div>
         <div className="flex items-center gap-4">
-          {can("invoices.reconcile") && <button onClick={() => setView("reconcile")} className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700">Reconcile with bank</button>}
+          {can("invoices.reconcile") && <button onClick={() => setView("reconcile")} className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700">Reconcile with bank</button>}
           <a href="/invoices/submit" target="_blank" rel="noreferrer" className="text-xs text-jade-600 underline">Open vendor submission link ↗</a>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2 mb-4">
         {STATUSES.map(([k, l]) => (
-          <button key={k} onClick={() => setStatus(k)} className={`px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold border ${status === k ? "bg-ledger-800 text-on-jade border-ledger-800" : "border-ink/15 text-ink/70 hover:border-jade-500"}`}>{l}</button>
+          <button key={k} onClick={() => setStatus(k)} className={`px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold border ${status === k ? "bg-ledger-800 text-manila border-ledger-800" : "border-ink/15 text-ink/70 hover:border-jade-500"}`}>{l}</button>
         ))}
         <input aria-label="Search vendor, invoice no., ref" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search vendor, invoice no., ref…" className={`${inputCls} max-w-xs ml-auto`} />
       </div>

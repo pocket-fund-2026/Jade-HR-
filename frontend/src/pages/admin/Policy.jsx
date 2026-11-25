@@ -104,7 +104,7 @@ function HolidayCalendar({ holidays, onAdd, onRemove, adding, year, onYearChange
         {error && <p className="sm:col-span-2 text-sm text-rust-500">{error}</p>}
         <div className="sm:col-span-2">
           <button type="submit" disabled={adding}
-            className="flex items-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors">
+            className="flex items-center gap-1.5 bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors">
             <Plus size={14} /> Add holiday
           </button>
         </div>
@@ -378,7 +378,7 @@ function LateMarkCards() {
             </select>
           </div>
           <button type="button" onClick={runQuarter} disabled={running || loading || pending.length === 0}
-            className="flex items-center gap-1.5 bg-rust-500 text-on-rust px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:opacity-90 disabled:opacity-40 transition-opacity">
+            className="flex items-center gap-1.5 bg-rust-500 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:opacity-90 disabled:opacity-40 transition-opacity">
             <ShieldAlert size={14} />
             {pending.length === 0 ? "No Quarter Red Cards to issue" : `Issue ${pending.length} Quarter Red Card${pending.length === 1 ? "" : "s"}`}
           </button>
@@ -539,7 +539,7 @@ function StoreTimings() {
             className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
         </div>
         <div className="flex items-end">
-          <button type="submit" className="flex items-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors">
+          <button type="submit" className="flex items-center gap-1.5 bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors">
             <Plus size={14} /> Add slot
           </button>
         </div>
@@ -602,7 +602,7 @@ function StoreTimings() {
         </div>
         {storeError && <p className="sm:col-span-2 text-sm text-rust-500">{storeError}</p>}
         <div className="sm:col-span-2">
-          <button type="submit" className="flex items-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors">
+          <button type="submit" className="flex items-center gap-1.5 bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors">
             <Plus size={14} /> Add store
           </button>
         </div>
@@ -692,7 +692,7 @@ function NewJoinerRecipients() {
             className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
         </div>
         <div className="flex items-end">
-          <button type="submit" className="flex items-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors">
+          <button type="submit" className="flex items-center gap-1.5 bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors">
             <Plus size={14} /> Add recipient
           </button>
         </div>
@@ -775,27 +775,27 @@ export default function Policy() {
 
       <div className="flex gap-1 mb-6">
         <button onClick={() => setTab("holidays")}
-          className={`flex items-center gap-1.5 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-medium transition-colors ${tab === "holidays" ? "bg-ledger-800 text-on-jade" : "bg-paper text-ink/70 hover:text-ink"}`}>
+          className={`flex items-center gap-1.5 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-medium transition-colors ${tab === "holidays" ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}>
           <CalendarDays size={14} /> Holiday calendar
         </button>
         <button onClick={() => setTab("compoff")}
-          className={`flex items-center gap-1.5 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-medium transition-colors ${tab === "compoff" ? "bg-ledger-800 text-on-jade" : "bg-paper text-ink/70 hover:text-ink"}`}>
+          className={`flex items-center gap-1.5 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-medium transition-colors ${tab === "compoff" ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}>
           <Clock3 size={14} /> Comp-Off
         </button>
         <button onClick={() => setTab("latemarks")}
-          className={`flex items-center gap-1.5 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-medium transition-colors ${tab === "latemarks" ? "bg-ledger-800 text-on-jade" : "bg-paper text-ink/70 hover:text-ink"}`}>
+          className={`flex items-center gap-1.5 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-medium transition-colors ${tab === "latemarks" ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}>
           <ShieldAlert size={14} /> Late marks
         </button>
         <button onClick={() => setTab("birthdays")}
-          className={`flex items-center gap-1.5 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-medium transition-colors ${tab === "birthdays" ? "bg-ledger-800 text-on-jade" : "bg-paper text-ink/70 hover:text-ink"}`}>
+          className={`flex items-center gap-1.5 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-medium transition-colors ${tab === "birthdays" ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}>
           <Cake size={14} /> Birthdays
         </button>
         <button onClick={() => setTab("timings")}
-          className={`flex items-center gap-1.5 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-medium transition-colors ${tab === "timings" ? "bg-ledger-800 text-on-jade" : "bg-paper text-ink/70 hover:text-ink"}`}>
+          className={`flex items-center gap-1.5 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-medium transition-colors ${tab === "timings" ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}>
           <Store size={14} /> Store timings
         </button>
         <button onClick={() => setTab("newjoiner")}
-          className={`flex items-center gap-1.5 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-medium transition-colors ${tab === "newjoiner" ? "bg-ledger-800 text-on-jade" : "bg-paper text-ink/70 hover:text-ink"}`}>
+          className={`flex items-center gap-1.5 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-medium transition-colors ${tab === "newjoiner" ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}>
           <Mail size={14} /> New joiner email
         </button>
       </div>

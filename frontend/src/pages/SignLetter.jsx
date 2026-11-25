@@ -78,7 +78,7 @@ export default function SignLetter() {
                 {isApprover ? (isOffer ? "I approve this offer letter." : "I approve and sign this letter.") : "I have read and understood the terms of this offer and accept them."}
               </label>
               {error && <p className="text-sm text-rust-500">{error}</p>}
-              <button onClick={submit} disabled={busy || !value.trim() || !confirm} className="w-full bg-jade-600 text-on-jade rounded-sm px-4 py-2.5 text-sm font-semibold disabled:opacity-50">
+              <button onClick={submit} disabled={busy || !value.trim() || !confirm} className="w-full bg-jade-600 text-white rounded-sm px-4 py-2.5 text-sm font-semibold disabled:opacity-50">
                 {busy ? "Submitting…" : isApprover ? (isOffer ? "Approve offer" : "Sign letter") : "Sign and accept"}
               </button>
             </>

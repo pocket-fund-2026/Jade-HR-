@@ -47,7 +47,7 @@ export default function CareersSlots() {
         <p className="text-xs text-ink/70 mt-0.5">Set when each interviewer can interview (<abbr className="acr">IST</abbr>). When you schedule or send the second mail, <strong>Suggest times</strong> fills in the next free slots, skipping other interviews and the interviewer’s Google Calendar. You can still edit them before sending.</p>
       </div>
       <CareersNav />
-      {!edit && <button type="button" onClick={() => open(null)} className="mb-4 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-on-jade hover:bg-jade-700">+ Add interviewer availability</button>}
+      {!edit && <button type="button" onClick={() => open(null)} className="mb-4 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700">+ Add interviewer availability</button>}
 
       {edit && (
         <form onSubmit={save} className="bg-paper rounded-sm shadow-card p-5 mb-5 space-y-4">
@@ -86,7 +86,7 @@ export default function CareersSlots() {
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={edit.active} onChange={(e) => setEdit({ ...edit, active: e.target.checked })} /> Active (used for suggestions)</label>
           {err && <p className="text-xs text-rust-500">{err}</p>}
           <div className="flex gap-2">
-            <button type="submit" disabled={saving} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-on-jade hover:bg-jade-700 disabled:opacity-40">{saving ? "Saving…" : "Save availability"}</button>
+            <button type="submit" disabled={saving} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40">{saving ? "Saving…" : "Save availability"}</button>
             <button type="button" onClick={() => setEdit(null)} className="px-3 py-1.5 rounded-sm text-xs text-ink/70 hover:text-ink">Cancel</button>
           </div>
         </form>

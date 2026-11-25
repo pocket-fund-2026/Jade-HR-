@@ -44,8 +44,8 @@ export default function Setup() {
       <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
       <div className="w-full max-w-sm relative">
         <div className="text-center mb-8">
-          <p className="font-display text-on-jade text-2xl">First-time setup</p>
-          <p className="text-on-jade/60 text-sm mt-1">Open a new ledger — create the first admin account</p>
+          <p className="font-display text-manila text-2xl">First-time setup</p>
+          <p className="text-manila/60 text-sm mt-1">Open a new ledger — create the first admin account</p>
         </div>
 
         <div className="bg-paper rounded-sm shadow-stamp px-8 pt-8 pb-7 border-t-4 border-ochre-500 rise-in">
@@ -62,7 +62,7 @@ export default function Setup() {
             <button
               type="submit"
               disabled={busy}
-              className="w-full rounded-sm bg-ledger-800 text-on-jade py-2.5 font-semibold tracking-wide hover:bg-ledger-700 disabled:opacity-50 transition-colors"
+              className="w-full rounded-sm bg-ledger-800 text-manila py-2.5 font-semibold tracking-wide hover:bg-ledger-700 disabled:opacity-50 transition-colors"
             >
               {busy ? "Creating…" : "Create admin account"}
             </button>

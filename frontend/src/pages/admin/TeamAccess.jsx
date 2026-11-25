@@ -118,7 +118,7 @@ function PersonOverrides({ permissionKeys, hrEmployees, overrides, onApplyBulk, 
             type="button"
             disabled={applying || !selectedIds.length}
             onClick={() => onApplyBulk(selectedKey, true, selectedIds)}
-            className="bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
+            className="bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
           >
             Grant to selected
           </button>

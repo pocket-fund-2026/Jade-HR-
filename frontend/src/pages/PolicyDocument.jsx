@@ -700,7 +700,7 @@ function PolicyNotice({ tabKey }) {
             type="button"
             onClick={save}
             disabled={saving}
-            className="bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
+            className="bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
           >
             {saving ? "Saving…" : "Save notice"}
           </button>
@@ -804,7 +804,7 @@ export default function PolicyDocument({ scope = "console" }) {
               onClick={() => setTab(t.key)}
               className={`px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-medium border transition-colors ${
                 tab === t.key
-                  ? "bg-ledger-800 text-on-jade border-ledger-800"
+                  ? "bg-ledger-800 text-manila border-ledger-800"
                   : "bg-paper text-ink/70 border-ink/15 hover:border-ink/30"
               }`}
             >

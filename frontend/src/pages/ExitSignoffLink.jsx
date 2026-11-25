@@ -92,7 +92,7 @@ export default function ExitSignoffLink() {
               Everything under my department is cleared for {data.leaver.name}.
             </label>
             {error && <p className="text-sm text-rust-500">{error}</p>}
-            <button onClick={submit} disabled={busy || !confirm} className="w-full bg-jade-600 text-on-jade rounded-sm px-4 py-3 text-sm font-semibold disabled:opacity-50">
+            <button onClick={submit} disabled={busy || !confirm} className="w-full bg-jade-600 text-white rounded-sm px-4 py-3 text-sm font-semibold disabled:opacity-50">
               {busy ? "Signing…" : "Sign off clearance"}
             </button>
           </>

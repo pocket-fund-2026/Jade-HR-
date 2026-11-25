@@ -339,7 +339,7 @@ export default function Dashboard() {
         <div className="flex flex-wrap items-center gap-4">
           <Link
             to="/admin/my-leave"
-            className="flex items-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 transition-colors whitespace-nowrap"
+            className="flex items-center gap-1.5 bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 transition-colors whitespace-nowrap"
           >
             <CalendarPlus size={13} /> Apply leave
           </Link>
@@ -421,7 +421,7 @@ export default function Dashboard() {
             </p>
             <button
               onClick={dismissBirthday}
-              className="mt-6 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+              className="mt-6 bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
             >
               Dismiss birthday notice
             </button>
@@ -480,7 +480,7 @@ export default function Dashboard() {
             </p>
             <button
               onClick={dismissAnniversary}
-              className="mt-6 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+              className="mt-6 bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
             >
               Dismiss anniversary notice
             </button>

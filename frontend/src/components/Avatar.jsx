@@ -84,7 +84,7 @@ export default function Avatar({ className = "w-9 h-9", editable = true }) {
   );
 
   if (!editable) {
-    return <span className={`${className} rounded-full bg-on-jade/15 text-on-jade flex items-center justify-center overflow-hidden flex-shrink-0`}>{face}</span>;
+    return <span className={`${className} rounded-full bg-manila/15 text-manila flex items-center justify-center overflow-hidden flex-shrink-0`}>{face}</span>;
   }
   return (
     <>
@@ -94,10 +94,10 @@ export default function Avatar({ className = "w-9 h-9", editable = true }) {
           onClick={() => setOpen(true)}
           title="Change profile photo"
           aria-label="Change profile photo"
-          className={`${className} rounded-full bg-on-jade/15 text-on-jade flex items-center justify-center overflow-hidden relative focus:outline-none focus-visible:ring-2 focus-visible:ring-on-jade`}
+          className={`${className} rounded-full bg-manila/15 text-manila flex items-center justify-center overflow-hidden relative focus:outline-none focus-visible:ring-2 focus-visible:ring-manila`}
         >
           {face}
-          <span className="absolute inset-0 bg-ledger-900/55 text-on-jade flex items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity">
+          <span className="absolute inset-0 bg-ledger-900/55 text-manila flex items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity">
             <Camera size={14} />
           </span>
         </button>
@@ -113,7 +113,7 @@ export default function Avatar({ className = "w-9 h-9", editable = true }) {
             {error && <p className="text-sm text-rust-500 mt-3">{error}</p>}
             <div className="mt-5 flex flex-col gap-2">
               {preview ? (
-                <button type="button" onClick={save} disabled={busy} className="min-h-[44px] rounded-sm bg-ledger-800 text-on-jade text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50">{busy ? "Saving…" : "Save photo"}</button>
+                <button type="button" onClick={save} disabled={busy} className="min-h-[44px] rounded-sm bg-ledger-800 text-manila text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50">{busy ? "Saving…" : "Save photo"}</button>
               ) : null}
               <button type="button" onClick={() => input.current?.click()} disabled={busy} className="min-h-[44px] rounded-sm border border-ink/15 bg-paper text-ink text-sm font-semibold hover:border-jade-500">{preview ? "Choose a different photo" : "Choose a photo"}</button>
               <button type="button" onClick={close} className="min-h-[44px] text-sm text-ink/60 hover:text-ink">Cancel</button>

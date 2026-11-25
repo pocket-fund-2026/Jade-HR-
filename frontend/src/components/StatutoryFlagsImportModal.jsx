@@ -126,7 +126,7 @@ export default function StatutoryFlagsImportModal({ onClose, onImported }) {
           <button
             disabled={!rows || !rows.length || busy}
             onClick={submit}
-            className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
+            className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
           >
             {busy ? "Importing…" : "Import statutory flags"}
           </button>

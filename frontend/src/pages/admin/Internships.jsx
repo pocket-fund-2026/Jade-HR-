@@ -67,7 +67,7 @@ export default function Internships() {
           <GraduationCap size={20} className="text-jade-600" />
           <h2 className="font-display text-2xl text-ink">Internships</h2>
         </div>
-        <Link to="/admin/letters?type=offer_internship" className="inline-flex items-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 transition-colors">
+        <Link to="/admin/letters?type=offer_internship" className="inline-flex items-center gap-1.5 bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 transition-colors">
           <Plus size={13} /> New internship letter
         </Link>
       </div>
@@ -88,7 +88,7 @@ export default function Internships() {
           <input aria-label="Search name, email, role" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, email, role…" className="pl-8 pr-3 py-2 rounded-sm border border-ink/15 bg-paper text-sm text-ink w-64 focus:outline-none focus:ring-2 focus:ring-jade-500" />
         </div>
         {FILTERS.map(([k, label]) => (
-          <button key={k} onClick={() => setFilter(k)} className={`px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold border ${filter === k ? "bg-ledger-800 text-on-jade border-ledger-800" : "bg-paper text-ink/70 border-ink/15 hover:text-ink"}`}>{label}</button>
+          <button key={k} onClick={() => setFilter(k)} className={`px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold border ${filter === k ? "bg-ledger-800 text-manila border-ledger-800" : "bg-paper text-ink/70 border-ink/15 hover:text-ink"}`}>{label}</button>
         ))}
       </div>
 

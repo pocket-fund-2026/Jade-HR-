@@ -85,7 +85,7 @@ function TeamSummary({ requests, groupBy, setGroupBy, active, onPick }) {
         </p>
         <div className="flex rounded-sm border border-ink/15 overflow-hidden text-xs">
           {[["manager", "By reporting manager"], ["department", "By department"]].map(([v, l]) => (
-            <button key={v} onClick={() => setGroupBy(v)} className={`px-2.5 py-1.5 ${groupBy === v ? "bg-jade-500 text-on-jade" : "bg-paper text-ink"}`}>{l}</button>
+            <button key={v} onClick={() => setGroupBy(v)} className={`px-2.5 py-1.5 ${groupBy === v ? "bg-jade-500 text-white" : "bg-paper text-ink"}`}>{l}</button>
           ))}
         </div>
       </div>
@@ -190,7 +190,7 @@ function ResolveRow({ request, onResolved }) {
           <button
             disabled={busy}
             onClick={() => resolve("approve")}
-            className="flex items-center gap-1 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-1 bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
           >
             <Check size={13} /> Approve leave
           </button>
@@ -347,7 +347,7 @@ export default function Leave() {
             .filter(([, , n]) => n > 0)
             .map(([key, label]) => (
               <button key={key} onClick={() => setAttention(attention === key ? "" : key)}
-                className={`rounded-sm px-[1.5em] py-[0.625em] leading-tight text-xs font-semibold border transition-colors ${attention === key ? "bg-rust-500 text-on-rust border-rust-500" : "bg-paper text-rust-500 border-rust-500/40 hover:bg-rust-500/10"}`}>
+                className={`rounded-sm px-[1.5em] py-[0.625em] leading-tight text-xs font-semibold border transition-colors ${attention === key ? "bg-rust-500 text-white border-rust-500" : "bg-paper text-rust-500 border-rust-500/40 hover:bg-rust-500/10"}`}>
                 {label}
               </button>
             ))}
@@ -369,7 +369,7 @@ export default function Leave() {
           </select>
         </label>
         {team && (
-          <span className="inline-flex items-center gap-1.5 rounded-sm bg-ledger-800 text-on-jade px-3 py-2 text-sm">
+          <span className="inline-flex items-center gap-1.5 rounded-sm bg-ledger-800 text-manila px-3 py-2 text-sm">
             {groupBy === "manager" ? "Team" : "Department"}: {team}
             <button onClick={() => setTeam("")} aria-label="Clear team filter"><X size={14} /></button>
           </span>

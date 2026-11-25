@@ -46,7 +46,7 @@ export function NotesCard({ applicationId, notes, onChange }) {
       <form onSubmit={add}>
         <label htmlFor="applicant_note_body" className={LABEL}>New note</label>
         <textarea id="applicant_note_body" rows={3} value={body} onChange={(e) => setBody(e.target.value)} placeholder="e.g. Call notes, portfolio impressions, references" className={`${INPUT} mt-1`} />
-        <button type="submit" disabled={saving || !body.trim()} className="mt-2 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-on-jade hover:bg-jade-700 disabled:opacity-40">
+        <button type="submit" disabled={saving || !body.trim()} className="mt-2 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40">
           {saving ? "Saving…" : "Add note"}
         </button>
       </form>
@@ -197,7 +197,7 @@ function InterviewForm({ initial = EMPTY, submitLabel, onSubmit, onCancel, full 
         </>
       )}
       <div className="flex gap-2">
-        <button type="submit" disabled={saving || !f.round.trim()} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-on-jade hover:bg-jade-700 disabled:opacity-40">
+        <button type="submit" disabled={saving || !f.round.trim()} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40">
           {saving ? "Saving…" : submitLabel}
         </button>
         {onCancel && <button type="button" onClick={onCancel} className="px-3 py-1.5 rounded-sm text-xs text-ink/70 hover:text-ink">Cancel</button>}
@@ -301,7 +301,7 @@ export function EmailsCard({ emails = [], onChange }) {
             {slErr && <p className="text-xs text-rust-500 mt-2">{slErr}</p>}
             <div className="flex gap-2 mt-3">
               <button type="button" disabled={slBusy} onClick={() => discard(sl.id).then(() => setSl(null))} className="mr-auto px-3 py-1.5 rounded-sm text-xs text-rust-500 hover:underline">Discard draft</button>
-              <button type="button" disabled={slBusy || !slFilled.length || !sl.f.round.trim()} onClick={slSend} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-on-jade hover:bg-jade-700 disabled:opacity-40">{slBusy ? "Sending…" : "Send interview times"}</button>
+              <button type="button" disabled={slBusy || !slFilled.length || !sl.f.round.trim()} onClick={slSend} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40">{slBusy ? "Sending…" : "Send interview times"}</button>
               <button type="button" disabled={slBusy} onClick={() => setSl(null)} className="px-3 py-1.5 rounded-sm text-xs text-ink/70 hover:text-ink">Close</button>
             </div>
           </div>
@@ -317,7 +317,7 @@ export function EmailsCard({ emails = [], onChange }) {
             <iframe title="Email preview" sandbox="" srcDoc={draft.html} className="w-full h-[52vh] border border-ink/10 rounded-sm bg-white" />
             <div className="flex gap-2 mt-3">
               <button type="button" disabled={busy} onClick={() => discard(draft.id)} className="mr-auto px-3 py-1.5 rounded-sm text-xs text-rust-500 hover:underline">Discard draft</button>
-              <button type="button" disabled={busy} onClick={sendDraft} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-on-jade hover:bg-jade-700 disabled:opacity-40">{busy ? "Working…" : "Send from careers@"}</button>
+              <button type="button" disabled={busy} onClick={sendDraft} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40">{busy ? "Working…" : "Send from careers@"}</button>
               <button type="button" disabled={busy} onClick={() => setDraft(null)} className="px-3 py-1.5 rounded-sm text-xs text-ink/70 hover:text-ink">Close</button>
             </div>
           </div>
@@ -504,7 +504,7 @@ export function OffersCard({ applicationId, onChange }) {
           <label className="block"><span className={LABEL}>Personal note (optional)</span><textarea rows={2} value={f.note} onChange={set("note")} className={`${INPUT} mt-1`} /></label>
           {err && <p className="text-xs text-rust-500">{err}</p>}
           <div className="flex gap-2">
-            <button type="submit" disabled={saving || !filled.length || !f.round.trim()} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-on-jade hover:bg-jade-700 disabled:opacity-40">{saving ? "Saving…" : "Send times to candidate"}</button>
+            <button type="submit" disabled={saving || !filled.length || !f.round.trim()} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40">{saving ? "Saving…" : "Send times to candidate"}</button>
             <button type="button" onClick={() => setAdding(false)} className="px-3 py-1.5 rounded-sm text-xs text-ink/70 hover:text-ink">Cancel</button>
           </div>
           <p className="text-[11px] text-ink/50">The candidate gets an email with a button for each time; tapping one and confirming books the interview automatically (Meet link for video calls), and the interviewer gets a brief. If interview emails are switched off, copy the link and share it yourself.</p>

@@ -160,7 +160,7 @@ export default function AddArrearModal({ employee, employees, defaultPeriod, onC
                     <input id="arrear_new_pay" type="number" min="0" placeholder="e.g. 35000" value={calc.neu} onChange={(e) => setCalc((c) => ({ ...c, neu: e.target.value }))} className={`${input} font-nums`} />
                   </div>
                 </div>
-                <button type="button" onClick={runCalc} className="text-xs font-semibold bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm hover:bg-ledger-700">Calculate arrear</button>
+                <button type="button" onClick={runCalc} className="text-xs font-semibold bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm hover:bg-ledger-700">Calculate arrear</button>
                 {calc.error && <p className="text-xs text-rust-500">{calc.error}</p>}
                 {calc.result && (
                   <div className="text-xs">
@@ -211,7 +211,7 @@ export default function AddArrearModal({ employee, employees, defaultPeriod, onC
 
           <div className="flex justify-end gap-4 pt-1">
             <button type="button" onClick={onClose} className="text-sm text-ink/70 hover:text-ink px-2">Cancel</button>
-            <button type="submit" disabled={busy} className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors">
+            <button type="submit" disabled={busy} className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors">
               {busy ? "Saving…" : "Save arrear"}
             </button>
           </div>

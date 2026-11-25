@@ -255,7 +255,7 @@ export default function Employees() {
           )}
           <Link
             to="/admin/employees/new"
-            className="flex items-center gap-2 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+            className="flex items-center gap-2 bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
           >
             <Plus size={16} />
             Add employee

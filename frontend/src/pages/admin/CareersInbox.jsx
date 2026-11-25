@@ -111,7 +111,7 @@ export default function CareersInbox() {
                         <option value="">File under which role…</option>
                         {jobs.map((j) => <option key={j.id} value={j.id}>{j.title}</option>)}
                       </select>
-                      <button type="button" disabled={!pickJob} onClick={addApplicant} className="px-2.5 py-1 rounded-sm font-semibold bg-jade-600 text-on-jade hover:bg-jade-700 disabled:opacity-40">Add as applicant</button>
+                      <button type="button" disabled={!pickJob} onClick={addApplicant} className="px-2.5 py-1 rounded-sm font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40">Add as applicant</button>
                       <button type="button" onClick={dismiss} className="px-2.5 py-1 rounded-sm text-ink/70 hover:text-ink">Not a candidate</button>
                     </div>
                   )}
@@ -121,7 +121,7 @@ export default function CareersInbox() {
               <div className="mt-4 border-t border-ink/10 pt-3">
                 <label htmlFor="inbox_reply" className="block text-xs font-semibold text-ink/70 mb-1.5">Your reply</label>
                 <textarea id="inbox_reply" rows={5} value={reply} onChange={(e) => setReply(e.target.value)} placeholder={`e.g. Hi, thanks for writing in…`} className={INPUT} />
-                <button type="button" disabled={sending || !reply.trim()} onClick={send} className="mt-2 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-on-jade hover:bg-jade-700 disabled:opacity-40">
+                <button type="button" disabled={sending || !reply.trim()} onClick={send} className="mt-2 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40">
                   {sending ? "Sending…" : "Send reply from careers@"}
                 </button>
               </div>

@@ -116,7 +116,7 @@ export default function SelfieCheckinCard() {
       {mode === "idle" && (
         <button
           onClick={startCapture}
-          className="flex items-center gap-2 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors"
+          className="flex items-center gap-2 bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors"
         >
           <Camera size={15} /> {nextAction} with selfie
         </button>
@@ -128,7 +128,7 @@ export default function SelfieCheckinCard() {
           <div className="flex gap-4">
             <button
               onClick={capture}
-              className="flex items-center gap-2 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+              className="flex items-center gap-2 bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
             >
               <Camera size={15} /> Capture
             </button>
@@ -146,7 +146,7 @@ export default function SelfieCheckinCard() {
             <button
               onClick={submit}
               disabled={mode === "submitting"}
-              className="flex items-center gap-2 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
+              className="flex items-center gap-2 bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
             >
               <CheckCircle2 size={15} /> {mode === "submitting" ? "Submitting…" : `Save ${nextAction.toLowerCase()}`}
             </button>

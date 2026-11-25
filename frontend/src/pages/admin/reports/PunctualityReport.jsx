@@ -69,7 +69,7 @@ export default function PunctualityReport() {
                 <button
                   key={s}
                   onClick={() => setScope(s)}
-                  className={`flex-1 px-3 py-2 font-semibold capitalize transition-colors ${scope === s ? "bg-ledger-800 text-on-jade" : "bg-paper text-ink/70 hover:text-ink"}`}
+                  className={`flex-1 px-3 py-2 font-semibold capitalize transition-colors ${scope === s ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}
                 >
                   {s}
                 </button>
@@ -107,7 +107,7 @@ export default function PunctualityReport() {
         <div className="flex justify-end mt-4">
           <button
             onClick={search}
-            className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+            className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
           >
             Search
           </button>

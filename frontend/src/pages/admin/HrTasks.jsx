@@ -165,7 +165,7 @@ export default function HrTasks() {
           </Link>
           <button
             onClick={startCreate}
-            className="flex items-center gap-2 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+            className="flex items-center gap-2 bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
           >
             <Plus size={16} /> New task
           </button>
@@ -178,7 +178,7 @@ export default function HrTasks() {
             key={key}
             onClick={() => setFilter(key)}
             className={`px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-medium transition-colors ${
-              filter === key ? "bg-ledger-800 text-on-jade" : "bg-paper text-ink/70 hover:text-ink"
+              filter === key ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"
             }`}
           >
             {label}
@@ -243,7 +243,7 @@ export default function HrTasks() {
           {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
           <div className="flex justify-end gap-4">
             <button type="button" onClick={() => { setShowForm(false); setEditingId(null); }} className="text-sm text-ink/70 hover:text-ink px-2">Cancel</button>
-            <button type="submit" className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors">
+            <button type="submit" className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors">
               {editingId ? "Save changes" : "Save task"}
             </button>
           </div>
@@ -276,7 +276,7 @@ export default function HrTasks() {
                       onClick={() => toggleDone(t)}
                       aria-label={t.status === "done" ? "Mark open" : "Mark done"}
                       className={`w-5 h-5 rounded-sm border flex items-center justify-center transition-colors ${
-                        t.status === "done" ? "bg-jade-600 border-jade-600 text-on-jade" : "border-ink/25 hover:border-jade-500"
+                        t.status === "done" ? "bg-jade-600 border-jade-600 text-white" : "border-ink/25 hover:border-jade-500"
                       }`}
                     >
                       {t.status === "done" && <Check size={13} />}

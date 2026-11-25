@@ -161,12 +161,12 @@ export default function NotificationBell({ pending, variant = "desktop" }) {
           aria-label={`Notifications${totalFresh ? `, ${totalFresh} new` : ""}`}
           aria-expanded={open}
           className={`relative flex items-center justify-center w-9 h-9 rounded-full transition-colors ${onDark
-            ? (totalFresh ? "bg-ochre-400 text-ledger-900 hover:bg-ochre-500" : "text-on-jade/75 hover:text-on-jade hover:bg-on-jade/10")
-            : (totalFresh ? "bg-ledger-800 text-on-jade" : "bg-paper text-ink/70 hover:text-ink border border-ink/10")}`}
+            ? (totalFresh ? "bg-ochre-400 text-ledger-900 hover:bg-ochre-500" : "text-white/75 hover:text-white hover:bg-manila/10")
+            : (totalFresh ? "bg-ledger-800 text-white" : "bg-paper text-ink/70 hover:text-ink border border-ink/10")}`}
         >
           <Bell size={18} className={totalFresh ? "bell-ring" : ""} />
           {totalPending > 0 && (
-            <span key={totalPending} className={`t-pop absolute -top-1 -right-1 min-w-[19px] h-[19px] px-1 rounded-full text-[10.5px] font-bold font-nums flex items-center justify-center ring-2 ${onDark ? "ring-ledger-800" : "ring-manila"} ${totalFresh ? "bg-rust-500 text-on-rust" : "bg-ink/40 text-on-rust"}`}>
+            <span key={totalPending} className={`t-pop absolute -top-1 -right-1 min-w-[19px] h-[19px] px-1 rounded-full text-[10.5px] font-bold font-nums flex items-center justify-center ring-2 ${onDark ? "ring-ledger-800" : "ring-manila"} ${totalFresh ? "bg-rust-500 text-white" : "bg-ink/40 text-white"}`}>
               {totalPending > 99 ? "99+" : totalPending}
             </span>
           )}

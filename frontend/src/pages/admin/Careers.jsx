@@ -70,7 +70,7 @@ export default function Careers() {
         </div>
         <Link
           to="/admin/careers/new"
-          className="flex items-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors"
+          className="flex items-center gap-1.5 bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors"
         >
           <Plus size={15} /> New job
         </Link>
@@ -115,7 +115,7 @@ export default function Careers() {
                     {newByJob[job.id] > 0 && (
                       <Link
                         to={`/admin/careers/applicants?job_id=${job.id}&status=New`}
-                        className="ml-2 inline-flex items-center gap-1 rounded-full bg-rust-500 px-2 py-0.5 text-[10px] font-bold text-on-rust align-middle"
+                        className="ml-2 inline-flex items-center gap-1 rounded-full bg-rust-500 px-2 py-0.5 text-[10px] font-bold text-white align-middle"
                       >
                         <Bell size={10} /> {newByJob[job.id]} new
                       </Link>

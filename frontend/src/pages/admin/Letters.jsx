@@ -307,7 +307,7 @@ function pdfFilename(title, name) {
 
 const inputCls = "w-full rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
 const labelCls = "block text-[11px] font-semibold text-ink/70 mb-1";
-const primaryBtn = "flex items-center justify-center gap-2 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors";
+const primaryBtn = "flex items-center justify-center gap-2 bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors";
 const secondaryBtn = "flex items-center justify-center gap-2 border border-ink/15 bg-paper text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 hover:text-jade-700 disabled:opacity-50 transition-colors";
 
 const NEW_TEMPLATE_SCAFFOLD = `<p class="lt-dateline"><span>Mumbai</span><span><strong>{{letter_date}}</strong></span></p>
@@ -568,7 +568,7 @@ function TemplateEditor({ template, onClose, onSaved, onDeleted, templates = [] 
           <button
             onClick={save}
             disabled={saving || !title.trim() || (isNew && !letterType.trim())}
-            className="flex items-center gap-2 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-2 bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
           >
             <Save size={15} /> {saving ? "Saving…" : isNew ? "Create Template" : "Save Template"}
           </button>
@@ -897,7 +897,7 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null, subm
                     {clauseError && <p className="text-xs text-rust-500">{clauseError}</p>}
                     <div className="flex justify-end gap-2">
                       <button type="button" onClick={() => { setNewClause(null); setClauseError(""); }} className="text-xs text-ink/70 px-2">Cancel</button>
-                      <button type="button" onClick={addNewClause} className="bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700">Add to letter</button>
+                      <button type="button" onClick={addNewClause} className="bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700">Add to letter</button>
                     </div>
                   </div>
                 )}
@@ -1339,7 +1339,7 @@ function ClauseLibrary({ templates }) {
           <p className="text-[11px] font-semibold text-ink/55">Clause library</p>
           <p className="text-xs text-ink/60 mt-0.5">Reusable clauses. Drag to set the order they appear in. When issuing a letter, add the ones that apply to that person and edit the wording for them.</p>
         </div>
-        <button onClick={() => setDraft({ title: "", body: "", letter_type: "", default_on: false, conditions: [] })} className="flex items-center gap-1.5 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700">
+        <button onClick={() => setDraft({ title: "", body: "", letter_type: "", default_on: false, conditions: [] })} className="flex items-center gap-1.5 bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700">
           <Plus size={13} /> New clause
         </button>
       </div>
@@ -1489,7 +1489,7 @@ export default function Letters() {
           <p className="text-sm text-ink/70 mt-1">Issue offer, confirmation, conduct and exit letters on JADE letterhead, then print, download or email them.</p>
         </div>
         {can("letters.manage") && (
-          <button onClick={() => setView("new")} className="flex items-center gap-1.5 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors">
+          <button onClick={() => setView("new")} className="flex items-center gap-1.5 bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors">
             <Plus size={14} /> Create a letter
           </button>
         )}
@@ -1517,7 +1517,7 @@ export default function Letters() {
                         {can("letters.generate") && (
                           <button
                             onClick={() => { setActiveType(t.letter_type); setView("generate"); }}
-                            className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors"
+                            className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors"
                           >
                             Generate
                           </button>
