@@ -78,9 +78,25 @@ def create_dispute(body: DisputeCreate, user: dict = Depends(get_current_user)):
     # written rule is filed already rejected, with the reason in its note. It still
     # shows in the employee's list and can be appealed once like any rejection.
     verdict = _policy_verdict({**row, "created_at": None}, user["id"])
+    delay_reason = (body.delay_reason or "").strip()
     if verdict:
         row.update(_auto_reject_fields(verdict))
-    inserted = supabase.table("hr_attendance_disputes").insert(row).execute()
+    else:
+        # Filed late but still inside the window: it must say, in detail, why.
+        problem = dispute_policy.delay_reason_problem(dispute_policy.days_late(row["date"]), delay_reason)
+        if problem:
+            raise HTTPException(status_code=400, detail=problem)
+    if delay_reason:
+        row["delay_reason"] = delay_reason
+    try:
+        inserted = supabase.table("hr_attendance_disputes").insert(row).execute()
+    except Exception as e:
+        # sql/095 not applied yet: keep the delay reason by folding it into the reason text.
+        if "delay_reason" not in str(e):
+            raise
+        row.pop("delay_reason", None)
+        row["reason"] = f"{row['reason']}\n\nReason for delay: {delay_reason}"
+        inserted = supabase.table("hr_attendance_disputes").insert(row).execute()
     created = inserted.data[0]
     if verdict:
         _log_auto_reject(created, verdict)
@@ -316,6 +332,110 @@ def _settle(dispute_id: str, body: DisputeResolve, actor: dict, role: str, allow
 @router.put("/disputes/{dispute_id}")
 def resolve_dispute(dispute_id: str, body: DisputeResolve, admin: dict = Depends(require_permission("disputes.manage"))):
     return _settle(dispute_id, body, admin, "hr")
+
+
+class HrResponse(BaseModel):
+    note: str
+    reopen: bool = False  # send a rejected dispute back to Pending for a fresh decision
+
+
+@router.post("/disputes/{dispute_id}/respond")
+def hr_respond(dispute_id: str, body: HrResponse, admin: dict = Depends(require_permission("disputes.manage"))):
+    """HR can answer ANY dispute, whatever its status (pending, approved, or rejected by
+    a manager, by HR or by the policy check). The employee sees the response next to the
+    decision. With reopen=true a rejected dispute goes back to Pending so it can be
+    decided again; an approved one cannot be reopened (its attendance correction exists)."""
+    note = body.note.strip()
+    if len(note) < 3:
+        raise HTTPException(status_code=400, detail="Write a response")
+    dispute = maybe_single_data(supabase.table("hr_attendance_disputes").select("*").eq("id", dispute_id).maybe_single().execute())
+    if not dispute:
+        raise HTTPException(status_code=404, detail="Dispute not found")
+    if dispute["employee_id"] == admin["id"]:
+        raise HTTPException(status_code=403, detail="You cannot respond to your own dispute — another reviewer must")
+    if body.reopen and dispute["status"] != "rejected":
+        raise HTTPException(status_code=400, detail="Only a rejected dispute can be reopened")
+    now = datetime.now(timezone.utc).isoformat()
+    updates = {"hr_response": note, "hr_response_by": admin["id"], "hr_response_at": now}
+    if body.reopen:
+        updates.update({"status": "pending", "resolved_by": None, "resolved_by_role": None, "resolved_at": None})
+    try:
+        supabase.table("hr_attendance_disputes").update(updates).eq("id", dispute_id).execute()
+    except Exception as e:
+        if "hr_response" not in str(e):
+            raise
+        # sql/095 not applied yet: append the response to the decision note.
+        fallback = {"admin_note": f"{dispute.get('admin_note') or ''}\nHR response: {note}".strip()}
+        if body.reopen:
+            fallback.update({"status": "pending", "resolved_by": None, "resolved_by_role": None, "resolved_at": None})
+        supabase.table("hr_attendance_disputes").update(fallback).eq("id", dispute_id).execute()
+    if body.reopen:
+        supabase.table("hr_dispute_actions").delete().eq("dispute_id", dispute_id).execute()
+    record_step("dispute", dispute_id, "hr_reopened" if body.reopen else "hr_responded", admin,
+                employee_id=dispute["employee_id"], basis={"date": str(dispute["date"])[:10], "was": dispute["status"]}, note=note)
+    return {"ok": True, "reopened": body.reopen}
+
+
+@router.get("/disputes/ai-queue")
+def ai_queue(limit: int = Query(40, le=100), admin: dict = Depends(require_permission("disputes.manage"))):
+    """Pending, first-time disputes with what the system already shows for that day, for the
+    AI policy review job (dispute_ai_review.py on the server). Read-only."""
+    from routers.payroll import _attendance_for_range, _get_active_employee
+    rows = (
+        supabase.table("hr_attendance_disputes")
+        .select("*, hr_employees!hr_attendance_disputes_employee_id_fkey(first_name,last_name,employee_code,location,employee_category)")
+        .eq("status", "pending").is_("appeal_of", "null").order("created_at").limit(limit).execute().data
+    )
+    out = []
+    for r in rows:
+        day = None
+        try:
+            emp = _get_active_employee(r["employee_id"])
+            d = datetime.fromisoformat(str(r["date"])[:10]).date()
+            att = _attendance_for_range(emp, d, d)
+            if att:
+                a = att[0]
+                day = {k: a.get(k) for k in ("status", "first_in", "last_out", "leave_type", "weekoff_forfeited", "worked_on_weekly_off", "late_band_v3")}
+        except Exception:
+            day = None
+        e = r.get("hr_employees") or {}
+        out.append({
+            "id": r["id"], "name": f"{e.get('first_name', '')} {e.get('last_name') or ''}".strip(), "code": e.get("employee_code"),
+            "category": e.get("employee_category"), "date": str(r["date"])[:10], "issue_type": r["issue_type"],
+            "claimed_in": r.get("claimed_in"), "claimed_out": r.get("claimed_out"), "reason": r.get("reason"),
+            "delay_reason": r.get("delay_reason"), "filed_on": str(r.get("created_at"))[:10], "system_record_for_that_day": day,
+        })
+    return out
+
+
+class AiReject(BaseModel):
+    reason: str
+    confidence: float = 0.0
+
+
+@router.post("/disputes/{dispute_id}/ai-reject")
+def ai_reject(dispute_id: str, body: AiReject, admin: dict = Depends(require_permission("disputes.manage"))):
+    """The AI policy review can only REJECT, and only a dispute still pending and not an appeal. The
+    reason is written into the rejection note; the employee can appeal once and a person decides that."""
+    reason = body.reason.strip()
+    if len(reason) < 10:
+        raise HTTPException(status_code=400, detail="A rejection needs a clear reason")
+    d = maybe_single_data(supabase.table("hr_attendance_disputes").select("*").eq("id", dispute_id).maybe_single().execute())
+    if not d:
+        raise HTTPException(status_code=404, detail="Dispute not found")
+    if d.get("appeal_of"):
+        raise HTTPException(status_code=400, detail="Appeals are decided by a person")
+    claimed = (
+        supabase.table("hr_attendance_disputes")
+        .update({"status": "rejected", "admin_note": f"Auto-rejected by AI policy review: {reason}",
+                 "resolved_by_role": "ai", "resolved_at": datetime.now(timezone.utc).isoformat()})
+        .eq("id", dispute_id).eq("status", "pending").execute()
+    )
+    if not claimed.data:
+        raise HTTPException(status_code=409, detail="Already settled")
+    record_step("dispute", dispute_id, "ai_rejected", None, employee_id=d["employee_id"],
+                basis={"date": str(d["date"])[:10], "confidence": body.confidence}, note=reason)
+    return {"ok": True}
 
 
 @router.get("/me/team-disputes")

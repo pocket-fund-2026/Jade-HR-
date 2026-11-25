@@ -15,6 +15,70 @@ const TABS = [
   { key: "rejected", label: "Rejected" },
 ];
 
+function RespondBox({ dispute, onDone }) {
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState("");
+  const [reopen, setReopen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const { user } = useAuth();
+  if (dispute.employee_id === user?.id) return null;
+  const send = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await api.post(`/api/disputes/${dispute.id}/respond`, { note, reopen });
+      setOpen(false);
+      setNote("");
+      setReopen(false);
+      onDone();
+    } catch (err) {
+      setError(err.response?.data?.detail || "Could not send the response");
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="text-xs text-jade-700 hover:underline mt-1.5">
+        {dispute.hr_response ? "Edit HR response" : "Respond"}
+      </button>
+    );
+  }
+  return (
+    <div className="mt-2 space-y-2">
+      <textarea aria-label="HR response" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Your response to the employee"
+        className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 min-h-[64px]" />
+      {dispute.status === "rejected" && (
+        <label className="flex items-center gap-2 text-xs text-ink/80">
+          <input type="checkbox" checked={reopen} onChange={(e) => setReopen(e.target.checked)} /> Reopen for a new decision
+        </label>
+      )}
+      {error && <p className="text-xs text-rust-500">{error}</p>}
+      <div className="flex gap-3 items-center">
+        <button type="button" disabled={busy || note.trim().length < 3} onClick={send}
+          className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors">
+          {busy ? "Sending…" : "Send response"}
+        </button>
+        <button type="button" onClick={() => setOpen(false)} className="text-xs text-ink/70 hover:text-ink">Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+function DelayAndResponse({ dispute }) {
+  return (
+    <>
+      {dispute.delay_reason && (
+        <p className="text-xs text-ochre-700 mt-1.5"><strong>Reason for delay:</strong> {dispute.delay_reason}</p>
+      )}
+      {dispute.hr_response && (
+        <p className="text-xs text-ink/80 mt-1.5 border-l-2 border-jade-500 pl-2"><strong>HR response:</strong> {dispute.hr_response}</p>
+      )}
+    </>
+  );
+}
+
 function ResolveRow({ dispute, onResolved }) {
   const [firstIn, setFirstIn] = useState(dispute.claimed_in?.slice(0, 5) || "");
   const [lastOut, setLastOut] = useState(dispute.claimed_out?.slice(0, 5) || "");
@@ -63,6 +127,8 @@ function ResolveRow({ dispute, onResolved }) {
             <Paperclip size={11} /> {dispute.photo_filename || "Photo"}
           </a>
         )}
+        <DelayAndResponse dispute={dispute} />
+        <RespondBox dispute={dispute} onDone={onResolved} />
       </td>
       <td className="px-5 py-3.5">
         <div className="flex gap-2">
@@ -241,8 +307,11 @@ export default function Disputes() {
                         <Paperclip size={11} /> {d.photo_filename || "Photo"}
                       </a>
                     )}
+                    {d.admin_note && <p className="text-xs text-ink/70 mt-1.5"><strong>Decision note:</strong> {d.admin_note}</p>}
+                    <DelayAndResponse dispute={d} />
+                    <RespondBox dispute={d} onDone={() => load(true)} />
                   </td>
-                  <td className="px-5 py-3.5"><StampBadge status={d.status}>{d.status}</StampBadge>{d.resolved_by_role && <div className="text-[11px] text-ink/60 mt-1">by {d.resolved_by_role === "manager" ? "reporting manager" : d.resolved_by_role === "policy" ? "attendance policy (auto)" : "HR"}</div>}</td>
+                  <td className="px-5 py-3.5"><StampBadge status={d.status}>{d.status}</StampBadge>{d.resolved_by_role && <div className="text-[11px] text-ink/60 mt-1">by {d.resolved_by_role === "manager" ? "reporting manager" : d.resolved_by_role === "ai" ? "AI policy review (auto)" : d.resolved_by_role === "policy" ? "attendance policy (auto)" : "HR"}</div>}</td>
                 </tr>
               ))
             )}

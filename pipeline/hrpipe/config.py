@@ -72,6 +72,10 @@ JOBS = {
         max_attempts=6, timeout_s=175, retry_min=10, success_re=r"aip-enforce: ", log=f"{LOG}/jade-hr-aip-enforce.log",
         after={"topic": "attendance_synced", "within_min": 240},
         parse=[r"aip-enforce: (?P<started>\d+) started, (?P<flagged>\d+) flagged on [\d-]+, emailed=(?P<emailed>\w+)"], enabled=MAIL_ENABLED),
+    "dispute_ai_review": dict(
+        cmd=[PY, f"{ROOT}/dispute_ai_review.py"], slots=["04:30", "07:30", "10:30", "13:30"], window_min=120, gate=None, idempotent=True,
+        max_attempts=3, timeout_s=900, retry_min=10, success_re=r"dispute-ai: ", log=f"{LOG}/jade-hr-dispute-ai.log",
+        parse=[r"dispute-ai: (?P<rejected>\d+) rejected, (?P<kept>\d+) kept for a person, (?P<failed>\d+) failed of (?P<total>\d+) new"], enabled=MAIL_ENABLED),
     "comp_off_accrual": dict(
         cmd=[PY, f"{ROOT}/comp_off_accrual.py"], slots=["08:10"], window_min=360, gate="attendance", idempotent=True,
         max_attempts=6, timeout_s=180, retry_min=10, success_re=None, log=f"{LOG}/jade-hr-comp-off.log",

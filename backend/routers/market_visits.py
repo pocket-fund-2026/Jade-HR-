@@ -8,13 +8,16 @@ _is_reporting_manager_of / my-team pattern exactly.
 """
 
 import base64
+import re
 from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 from auth import get_current_user, my_report_ids, require_permission, user_can
 from database import supabase
 from workflow_log import record_step
+import geofence as geo
 from models import MarketVisitCreate, MarketVisitResolve
 
 router = APIRouter(prefix="/api/market-visits", tags=["market-visits"])
@@ -54,6 +57,7 @@ def _is_reporting_manager_of(user_id: str, employee_id: str) -> bool:
 
 
 PLACE_TYPES = ("market", "store", "factory", "office", "other")
+STORE_VISIT_RE = re.compile(r"\b(store|showroom|boutique|outlet)\b.{0,30}\bvisit|\bvisit\w*\b.{0,30}\b(store|showroom|boutique|outlet)\b|\bat the store\b|\bstore visit\b", re.I)
 
 
 def movement_for(employee_ids: list[str], days: list[str]) -> dict[tuple[str, str], list[dict]]:
@@ -77,6 +81,7 @@ def movement_for(employee_ids: list[str], days: list[str]) -> dict[tuple[str, st
             "visit_type": r.get("visit_type"), "place": r.get("place") or "", "place_type": r.get("place_type") or "market",
             "captured_at": r.get("captured_at"), "status": r.get("status"),
             "latitude": r.get("latitude"), "longitude": r.get("longitude"),
+            "geo_verified": r.get("geo_verified"), "distance_m": r.get("distance_m"),
         })
     return out
 
@@ -86,6 +91,9 @@ def attach_movement(rows: list[dict]) -> None:
     found = movement_for(list({r["employee_id"] for r in rows}), [str(r["date"])[:10] for r in rows])
     for r in rows:
         r["movement"] = found.get((r["employee_id"], str(r["date"])[:10]), [])
+        # "Store visit" in the explanation: show reviewers whether a geolocked check-in backs it.
+        r["claims_store_visit"] = bool(STORE_VISIT_RE.search(f"{r.get('reason') or ''} {r.get('delay_reason') or ''}"))
+        r["store_visit_verified"] = any(m.get("geo_verified") for m in r["movement"])
 
 
 @router.get("/places")
@@ -93,6 +101,63 @@ def known_places(user: dict = Depends(get_current_user)):
     """Locations to pick from on the check-in card: every distinct work location on the roster."""
     rows = supabase.table("hr_employees").select("location").eq("is_active", True).execute().data
     return sorted({r["location"] for r in rows if r.get("location")})
+
+
+@router.get("/geofences")
+def list_geofences(user: dict = Depends(get_current_user)):
+    """Stores with a geolock, for the check-in card. Coordinates are not sent to staff."""
+    return [
+        {"id": f.get("id"), "name": f["name"], "address": f.get("address", ""), "radius_m": f.get("radius_m", 100),
+         "enforced": bool(f.get("center_confirmed"))}
+        for f in geo.load_fences()
+    ]
+
+
+class GeofenceSave(BaseModel):
+    name: str | None = None
+    address: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    radius_m: int | None = None
+    is_active: bool | None = None
+
+
+@router.get("/geofences/admin")
+def list_geofences_admin(user: dict = Depends(require_permission("employees.manage"))):
+    return geo.load_fences(active_only=False)
+
+
+@router.post("/geofences")
+def create_geofence(body: GeofenceSave, user: dict = Depends(require_permission("employees.manage"))):
+    if not body.name or not body.name.strip():
+        raise HTTPException(status_code=400, detail="Give the store a name")
+    row = {"name": body.name.strip(), "address": (body.address or "").strip(), "radius_m": body.radius_m or 100}
+    if body.latitude is not None and body.longitude is not None:
+        row.update({"latitude": body.latitude, "longitude": body.longitude, "center_confirmed": True})
+    try:
+        return supabase.table("hr_geofences").insert(row).execute().data[0]
+    except Exception as e:
+        raise HTTPException(status_code=409 if "duplicate" in str(e).lower() else 500, detail="Could not save (name already used, or sql/096 not applied)")
+
+
+@router.put("/geofences/{fence_id}")
+def update_geofence(fence_id: str, body: GeofenceSave, user: dict = Depends(require_permission("employees.manage"))):
+    """Setting latitude+longitude confirms the centre, which is what switches the lock on."""
+    updates = {k: v for k, v in body.model_dump().items() if v is not None and k not in ("latitude", "longitude")}
+    if body.latitude is not None and body.longitude is not None:
+        if not (-90 <= body.latitude <= 90 and -180 <= body.longitude <= 180):
+            raise HTTPException(status_code=400, detail="Not a valid latitude/longitude")
+        updates.update({"latitude": body.latitude, "longitude": body.longitude, "center_confirmed": True})
+    if "radius_m" in updates and not (20 <= updates["radius_m"] <= 1000):
+        raise HTTPException(status_code=400, detail="Radius must be between 20 and 1000 metres")
+    if not updates:
+        raise HTTPException(status_code=400, detail="Nothing to change")
+    updates["updated_at"] = datetime.now().isoformat()
+    res = supabase.table("hr_geofences").update(updates).eq("id", fence_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Geofence not found (apply sql/096 first)")
+    record_step("market_visit", fence_id, "geofence_updated", user, basis={k: v for k, v in updates.items() if k != "updated_at"})
+    return res.data[0]
 
 
 @router.post("/bulk-enable")
@@ -153,6 +218,16 @@ def create_market_visit(body: MarketVisitCreate, user: dict = Depends(get_curren
         raise HTTPException(status_code=502, detail=f"Photo upload failed: {e}")
 
     place_type = body.place_type if body.place_type in PLACE_TYPES else "market"
+    # Geolock: a check-in at a store that has one only counts within its radius.
+    fence = geo.match_fence(body.place, geo.load_fences()) if body.place.strip() else None
+    geo_result = None
+    if fence:
+        geo_result = geo.evaluate(fence, body.latitude, body.longitude, body.accuracy)
+        radius = fence.get("radius_m") or 100
+        if geo_result["state"] == "outside":
+            raise HTTPException(status_code=400, detail=f"You are about {geo_result['distance_m']} m from {fence['name']}. A check-in there only counts within {radius} m. Move to the store and try again.")
+        if geo_result["state"] == "imprecise":
+            raise HTTPException(status_code=400, detail=f"Your location is not precise enough (about ±{int(body.accuracy or 0)} m) to confirm you are within {radius} m of {fence['name']}. Step outside or near a window, wait a few seconds, and try again.")
     row = {
         "employee_id": user["id"],
         "photo_path": path,
@@ -163,14 +238,28 @@ def create_market_visit(body: MarketVisitCreate, user: dict = Depends(get_curren
         "status": "pending",
         "visit_type": body.visit_type,
     }
+    full = {**row, "place_type": place_type, "place": body.place.strip()[:120]}
+    if fence and fence.get("id") and geo_result:
+        full.update({"geofence_id": fence["id"], "distance_m": geo_result["distance_m"],
+                     "geo_verified": True if geo_result["state"] == "verified" else None})
     try:
-        inserted = supabase.table("hr_market_visits").insert({**row, "place_type": place_type, "place": body.place.strip()[:120]}).execute()
+        inserted = supabase.table("hr_market_visits").insert(full).execute()
     except Exception as e:
-        # sql/093 not applied yet: record the check-in without the place rather than lose it.
-        if "place" not in str(e):
+        # A migration (093 place / 096 geolock) is not applied yet: record the check-in without the extras rather than lose it.
+        msg = str(e)
+        if not any(k in msg for k in ("place", "geofence_id", "distance_m", "geo_verified")):
             raise
-        inserted = supabase.table("hr_market_visits").insert(row).execute()
-    return inserted.data[0]
+        slim = {k: v for k, v in full.items() if k not in ("geofence_id", "distance_m", "geo_verified")}
+        try:
+            inserted = supabase.table("hr_market_visits").insert(slim).execute()
+        except Exception as e2:
+            if "place" not in str(e2):
+                raise
+            inserted = supabase.table("hr_market_visits").insert(row).execute()
+    out = inserted.data[0]
+    if geo_result:
+        out["geo"] = {"fence": fence["name"], **geo_result}
+    return out
 
 
 @router.get("/mine")

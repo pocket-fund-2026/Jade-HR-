@@ -4,14 +4,18 @@ only fetches rows and assembles the response. Nothing here writes."""
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends
+from datetime import timedelta
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 import data_readiness as dr
 from auth import require_permission
 from config import IST
 from database import supabase
 from payroll import pay_period_bounds
-from workflow_log import WORKFLOWS
+from paging import ContextThreadPoolExecutor
+from workflow_log import WORKFLOWS, record_step
 
 router = APIRouter(prefix="/api/data-readiness", tags=["data-readiness"])
 
@@ -127,3 +131,68 @@ def readiness(user: dict = Depends(PERM)):
         "register": {k: v for k, v in register.items() if k != "partial"},
         "definitions": dr.policy_definitions(),
     }
+
+
+# --- Inactive accounts: preview + bulk deactivate ----------------------------
+def _inactive_candidates() -> list[dict]:
+    now = datetime.now(timezone.utc)
+    all_emps = _fetch_all(
+        "hr_employees",
+        "id,employee_code,first_name,last_name,role,is_active,date_of_joining,created_at,location,"
+        "basic,hra,conveyance,other_allowance,monthly_bonus,retention,incentive,"
+        "roster_unmatched_streak,password_changed_by_employee",
+    )
+    managers = {
+        e["leave_approver_id"] for e in _fetch_all("hr_employees", "id,is_active,leave_approver_id")
+        if e.get("is_active") and e.get("leave_approver_id")
+    }
+    managers |= {
+        p["reporting_to_id"] for p in _fetch_all("hr_employee_profile", "employee_id,reporting_to_id") if p.get("reporting_to_id")
+    }
+    # Look for punches only for accounts that could qualify, one tiny query each.
+    pre = dr.inactive_candidates(all_emps, set(), managers, now)
+    since = (now - timedelta(days=dr.IDLE_DAYS)).isoformat()
+
+    def punched(code: str) -> bool:
+        try:
+            return bool(supabase.table("hr_biometric_punches").select("employee_code").eq("employee_code", code)
+                        .gte("punch_time", since).limit(1).execute().data)
+        except Exception:
+            return True  # cannot tell: treat as active, never deactivate on a guess
+
+    with ContextThreadPoolExecutor(max_workers=8) as pool:
+        flags = list(pool.map(lambda c: (c["code"], punched(c["code"])), pre))
+    recent = {code for code, hit in flags if hit}
+    return dr.inactive_candidates(all_emps, recent, managers, now)
+
+
+@router.get("/inactive-accounts")
+def inactive_accounts(user: dict = Depends(PERM)):
+    c = _inactive_candidates()
+    counts: dict[str, int] = {}
+    for x in c:
+        counts[x["reason"]] = counts.get(x["reason"], 0) + 1
+    return {"candidates": c, "counts": counts, "reasons": dr.REASONS, "idle_days": dr.IDLE_DAYS}
+
+
+class BulkDeactivate(BaseModel):
+    employee_ids: list[str]
+
+
+@router.post("/inactive-accounts/deactivate")
+def bulk_deactivate(body: BulkDeactivate, user: dict = Depends(require_permission("employees.manage"))):
+    """Deactivates the chosen accounts, but ONLY those that are still safe candidates right now
+    (checked again here, whatever the page sent). A soft delete: history stays and each person
+    can be reactivated from their record."""
+    if not body.employee_ids:
+        raise HTTPException(status_code=400, detail="Select at least one account")
+    eligible = {c["id"]: c for c in _inactive_candidates()}
+    ids = [i for i in dict.fromkeys(body.employee_ids) if i in eligible]
+    skipped = [i for i in body.employee_ids if i not in eligible]
+    for i in range(0, len(ids), 50):
+        supabase.table("hr_employees").update({"is_active": False}).in_("id", ids[i:i + 50]).execute()
+    record_step("bulk_deactivate", None, "deactivated", user,
+                basis={"count": len(ids), "reasons": sorted({eligible[i]["reason"] for i in ids}),
+                       "codes": [eligible[i]["code"] for i in ids][:200]}, note=f"{len(ids)} inactive accounts deactivated")
+    return {"deactivated": len(ids), "skipped": len(skipped),
+            "people": [{"code": eligible[i]["code"], "name": eligible[i]["name"]} for i in ids]}

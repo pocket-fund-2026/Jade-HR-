@@ -29,6 +29,10 @@ from datetime import date, datetime, time, timedelta
 from config import IST
 
 MAX_AGE_DAYS = int(os.environ.get("DISPUTE_MAX_AGE_DAYS", "7"))
+# A dispute filed MORE than this many days after the day it is about must say, in detail, why it is late.
+DELAY_REASON_AFTER_DAYS = int(os.environ.get("DISPUTE_DELAY_REASON_AFTER_DAYS", "1"))
+DELAY_REASON_MIN_CHARS = 40
+DELAY_REASON_MIN_WORDS = 8
 
 # A register is only a problem when the person says it is hard to read or has
 # been altered — merely mentioning the register (the form asks for a photo of
@@ -114,8 +118,30 @@ def evaluate(dispute: dict, other_disputes: list[dict] | None = None, max_age_da
     return None
 
 
+def days_late(day, created_at=None) -> int:
+    """Whole days between the day a dispute is about and the day it is filed (IST)."""
+    return (filed_on(created_at) - _as_date(day)).days
+
+
+def delay_reason_problem(gap_days: int, text: str | None, after_days: int | None = None) -> str | None:
+    """None when no delay reason is needed or the one given is detailed enough; otherwise
+    the message to show. Detailed = enough characters, enough words, and not the same few
+    words repeated."""
+    limit = DELAY_REASON_AFTER_DAYS if after_days is None else after_days
+    if gap_days <= limit:
+        return None
+    t = (text or "").strip()
+    words = re.findall(r"[A-Za-z0-9']+", t)
+    if len(t) < DELAY_REASON_MIN_CHARS or len(words) < DELAY_REASON_MIN_WORDS or len({w.lower() for w in words}) < 5:
+        return (
+            f"This dispute is for a day {gap_days} days ago. Please explain in detail why it was not raised sooner "
+            f"(at least {DELAY_REASON_MIN_WORDS} words: what happened, why you could not raise it earlier, and when you found out)."
+        )
+    return None
+
+
 def cutoff_hint(today: date | None = None, max_age_days: int | None = None) -> dict:
     """What the employee form shows: the earliest day still accepted."""
     limit = MAX_AGE_DAYS if max_age_days is None else max_age_days
     today = today or datetime.now(IST).date()
-    return {"max_age_days": limit, "earliest_date": (today - timedelta(days=limit)).isoformat(), "today": today.isoformat()}
+    return {"max_age_days": limit, "delay_reason_after_days": DELAY_REASON_AFTER_DAYS, "delay_reason_min_words": DELAY_REASON_MIN_WORDS, "earliest_date": (today - timedelta(days=limit)).isoformat(), "today": today.isoformat()}

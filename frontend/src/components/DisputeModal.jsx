@@ -19,6 +19,7 @@ export default function DisputeModal({ date, onClose, onSubmitted, defaultIssue 
   const [claimedIn, setClaimedIn] = useState("");
   const [claimedOut, setClaimedOut] = useState("");
   const [reason, setReason] = useState("");
+  const [delayReason, setDelayReason] = useState("");
   const [photo, setPhoto] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -29,6 +30,10 @@ export default function DisputeModal({ date, onClose, onSubmitted, defaultIssue 
     api.get("/api/disputes/policy").then(({ data }) => setPolicy(data)).catch(() => {});
   }, []);
   const tooOld = policy && date < policy.earliest_date;
+  const daysLate = policy ? Math.round((new Date(policy.today) - new Date(date)) / 86400000) : 0;
+  const needsDelay = policy && !tooOld && daysLate > (policy.delay_reason_after_days ?? 1);
+  const delayWords = (delayReason.match(/[A-Za-z0-9']+/g) || []).length;
+  const minWords = policy?.delay_reason_min_words ?? 8;
 
   const photoOptional = issueType === "late_coming" || issueType === "weekly_off";
   const needsIn = issueType === "missed_clock_in" || issueType === "both" || issueType === "late_coming";
@@ -39,6 +44,10 @@ export default function DisputeModal({ date, onClose, onSubmitted, defaultIssue 
     setError("");
     if (!photo && !photoOptional) {
       setError("Please attach a photo of the attendance register as supporting evidence");
+      return;
+    }
+    if (needsDelay && (delayWords < minWords || delayReason.trim().length < 40)) {
+      setError(`Please explain in detail why this was not raised sooner — at least ${minWords} words.`);
       return;
     }
     setBusy(true);
@@ -54,6 +63,7 @@ export default function DisputeModal({ date, onClose, onSubmitted, defaultIssue 
         claimed_in: needsIn && claimedIn ? `${claimedIn}:00` : null,
         claimed_out: needsOut && claimedOut ? `${claimedOut}:00` : null,
         reason,
+        delay_reason: needsDelay ? delayReason.trim() : "",
         photo_path: uploaded.path,
         photo_filename: uploaded.filename,
       });
@@ -93,7 +103,7 @@ export default function DisputeModal({ date, onClose, onSubmitted, defaultIssue 
           <p className={`text-xs mb-4 border-l-2 pl-2.5 py-0.5 ${tooOld ? "text-rust-500 border-rust-500" : "text-ink/60 border-ink/20"}`}>
             {tooOld
               ? `This day is more than ${policy.max_age_days} days old, so a dispute for it will be rejected automatically. Disputes must be raised weekly.`
-              : `Raise disputes within ${policy.max_age_days} days of the day (earliest accepted today: ${formatDate(policy.earliest_date)}). Late ones are rejected automatically.`}
+              : `Raise disputes within ${policy.max_age_days} days of the day (earliest accepted today: ${formatDate(policy.earliest_date)}). Anything older than ${policy.delay_reason_after_days ?? 1} day needs a detailed reason for the delay; later than that is rejected automatically.`}
           </p>
         )}
         <form onSubmit={submit} className="space-y-4">
@@ -150,6 +160,23 @@ export default function DisputeModal({ date, onClose, onSubmitted, defaultIssue 
               required
             />
           </div>
+
+          {needsDelay && (
+            <div>
+              <label htmlFor="dispute_delay_reason" className="block text-xs font-semibold text-ink/70 mb-1.5">
+                Why are you raising this {daysLate} days late? <span className="text-rust-500 normal-case font-normal">*Required</span>
+              </label>
+              <textarea
+                id="dispute_delay_reason"
+                className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 min-h-[80px]"
+                value={delayReason}
+                onChange={(e) => setDelayReason(e.target.value)}
+                placeholder="What happened, why you could not raise it earlier, and when you found out"
+                required
+              />
+              <p className={`text-[11px] mt-1 ${delayWords >= minWords ? "text-jade-700" : "text-ink/60"}`}>{delayWords} of {minWords} words minimum</p>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-semibold text-ink/70 mb-1.5">

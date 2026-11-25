@@ -169,6 +169,8 @@ export default function TeamDisputes() {
                   <td className="px-5 py-3.5 font-nums text-ink/70">{formatDate(d.date)}</td>
                   <td className="px-5 py-3.5 text-ink/70 max-w-xs">
                     {d.reason}
+                    {d.delay_reason && <p className="text-xs text-ochre-700 mt-1.5"><strong>Reason for delay:</strong> {d.delay_reason}</p>}
+                    {d.hr_response && <p className="text-xs text-ink/80 mt-1.5 border-l-2 border-jade-500 pl-2"><strong>HR response:</strong> {d.hr_response}</p>}
                     {(d.movement || []).length > 0 && (
                       <div className="text-[11px] text-ink/70 mt-1.5 border-l-2 border-jade-500 pl-2">
                         <span className="font-semibold">Geotag check-ins that day:</span>{" "}
@@ -182,7 +184,7 @@ export default function TeamDisputes() {
                     )}
                   </td>
                   <td className="px-5 py-3.5"><StampBadge status={d.status}>{d.status}</StampBadge>
-                    {d.resolved_by_role && <div className="text-[11px] text-ink/60 mt-1">by {d.resolved_by_role === "manager" ? "manager" : d.resolved_by_role === "policy" ? "policy (auto)" : "HR"}</div>}</td>
+                    {d.resolved_by_role && <div className="text-[11px] text-ink/60 mt-1">by {d.resolved_by_role === "manager" ? "manager" : d.resolved_by_role === "ai" ? "AI review (auto)" : d.resolved_by_role === "policy" ? "policy (auto)" : "HR"}</div>}</td>
                 </tr>
               ))
             )}

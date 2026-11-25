@@ -72,3 +72,20 @@ def test_appeals_never_auto_rejected():
 def test_cutoff_hint():
     h = dp.cutoff_hint(datetime(2026, 11, 25).date())
     assert h["earliest_date"] == "2026-11-18"
+
+
+def test_delay_reason_not_needed_when_on_time():
+    assert dp.delay_reason_problem(0, "") is None
+    assert dp.delay_reason_problem(1, "") is None
+
+
+def test_delay_reason_required_and_must_be_detailed():
+    assert dp.delay_reason_problem(3, "") is not None
+    assert dp.delay_reason_problem(3, "was busy") is not None
+    assert dp.delay_reason_problem(3, "sorry sorry sorry sorry sorry sorry sorry sorry sorry sorry") is not None
+    good = "I was on a client visit out of Mumbai with no network and only noticed the missed punch when I opened my payslip today."
+    assert dp.delay_reason_problem(3, good) is None
+
+
+def test_days_late_counts_from_filing_day():
+    assert dp.days_late("2026-11-22", "2026-11-25T06:00:00+00:00") == 3

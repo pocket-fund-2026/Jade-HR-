@@ -454,6 +454,7 @@ export default function Dashboard() {
                       <td className="px-5 py-3">
                         <StampBadge status={d.status}>{d.status}</StampBadge>
                         {d.admin_note && <div className="text-xs text-ink/70 mt-1">{d.admin_note}</div>}
+                        {d.hr_response && <div className="text-xs text-ink/80 mt-1 border-l-2 border-jade-500 pl-2"><strong>HR response:</strong> {d.hr_response}</div>}
                         {d.status === "rejected" && !d.appeal_of && !disputes.some((x) => x.appeal_of === d.id) && (
                           <button onClick={() => setAppealing(d)} className="block text-xs font-semibold text-jade-700 hover:underline mt-1">Appeal</button>
                         )}

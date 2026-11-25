@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import api from "../../lib/api.js";
+import { useAuth } from "../../lib/auth.jsx";
 
 // Read-only report from backend/routers/data_readiness.py: is the data
 // payroll and attendance read fit to trust, who owns each feed, and what the
@@ -205,6 +206,124 @@ function WorkflowLog() {
   );
 }
 
+// Accounts that look unused (never named, stub records, repeatedly missing from the roster, or no
+// punches / pay / login) can be deactivated in bulk. The server re-checks every id before it acts,
+// and a deactivated person can be reactivated from their own record.
+const PRESELECT = new Set(["placeholder", "stub"]);
+
+function InactiveAccounts() {
+  const { can } = useAuth() || {};
+  const [state, setState] = useState(null);
+  const [error, setError] = useState("");
+  const [picked, setPicked] = useState(new Set());
+  const [reason, setReason] = useState("all");
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(null);
+  const canDeactivate = !can || can("employees.manage");
+
+  const load = () => {
+    setError("");
+    api.get("/api/data-readiness/inactive-accounts")
+      .then(({ data }) => {
+        setState(data);
+        setPicked(new Set(data.candidates.filter((c) => PRESELECT.has(c.reason)).map((c) => c.id)));
+      })
+      .catch((err) => setError(err.response?.data?.detail || "Could not load inactive accounts"));
+  };
+  useEffect(load, []);
+
+  const shown = useMemo(() => (state ? state.candidates.filter((c) => reason === "all" || c.reason === reason) : []), [state, reason]);
+  const toggle = (id) => setPicked((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const allShownPicked = shown.length > 0 && shown.every((c) => picked.has(c.id));
+  const toggleShown = () => setPicked((p) => { const n = new Set(p); shown.forEach((c) => (allShownPicked ? n.delete(c.id) : n.add(c.id))); return n; });
+
+  const run = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const { data } = await api.post("/api/data-readiness/inactive-accounts/deactivate", { employee_ids: [...picked] });
+      setDone(data);
+      setConfirming(false);
+      load();
+    } catch (err) {
+      setError(err.response?.data?.detail || "Could not deactivate");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (error && !state) return <p className="text-sm text-rust-600 mb-8">{error}</p>;
+  if (!state) return <p className="text-sm text-ink/60 mb-8">Looking for inactive accounts…</p>;
+
+  return (
+    <section className="mb-8">
+      <h3 className="font-display text-lg text-ink mb-1">Inactive accounts</h3>
+      <p className="text-sm text-ink/70 mb-3 max-w-3xl">
+        Accounts with no pay on file that look unused. Anyone with a salary, a punch in the last {state.idle_days} days, an HR/Accounts login, a recent joining
+        date, or who is someone's reporting manager is never listed. Deactivating keeps all history; each person can be reactivated from their record.
+      </p>
+      {done && (
+        <p className="text-sm text-jade-700 border-l-2 border-jade-500 pl-2.5 mb-3">
+          Deactivated {done.deactivated} account{done.deactivated === 1 ? "" : "s"}{done.skipped ? ` (${done.skipped} skipped because they are no longer eligible)` : ""}.
+        </p>
+      )}
+      {error && <p className="text-sm text-rust-600 mb-3">{error}</p>}
+      {state.candidates.length === 0 ? (
+        <p className="text-sm text-ink/60">No inactive accounts found.</p>
+      ) : (
+        <div className="bg-paper rounded-sm shadow-card">
+          <div className="flex flex-wrap items-center gap-3 p-3 border-b border-ink/10">
+            <select aria-label="Filter by reason" value={reason} onChange={(e) => setReason(e.target.value)}
+              className="rounded-sm border border-ink/15 bg-paper px-3 py-1.5 text-xs text-ink">
+              <option value="all">All reasons ({state.candidates.length})</option>
+              {Object.entries(state.reasons).filter(([k]) => state.counts[k]).map(([k, label]) => (
+                <option key={k} value={k}>{label} ({state.counts[k]})</option>
+              ))}
+            </select>
+            <span className="text-xs text-ink/60">{picked.size} selected</span>
+            {canDeactivate && !confirming && (
+              <button type="button" disabled={!picked.size} onClick={() => setConfirming(true)}
+                className="ml-auto bg-rust-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-rust-500 disabled:opacity-40 transition-colors">
+                Deactivate {picked.size || ""} selected
+              </button>
+            )}
+            {canDeactivate && confirming && (
+              <span className="ml-auto flex items-center gap-3 text-xs">
+                <span className="text-rust-600 font-semibold">Deactivate {picked.size} account{picked.size === 1 ? "" : "s"}?</span>
+                <button type="button" disabled={busy} onClick={run}
+                  className="bg-rust-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm font-semibold hover:bg-rust-500 disabled:opacity-50">{busy ? "Working…" : "Yes, deactivate"}</button>
+                <button type="button" onClick={() => setConfirming(false)} className="text-ink/70 hover:text-ink">Cancel</button>
+              </span>
+            )}
+          </div>
+          <div className="max-h-96 overflow-y-auto overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-paper">
+                <tr className="text-left text-[10px] text-ink/60">
+                  <th className="px-3 py-2 w-8"><input type="checkbox" aria-label="Select all shown" checked={allShownPicked} onChange={toggleShown} /></th>
+                  <th className="px-3 py-2 w-24">Emp code</th><th className="px-3 py-2">Name</th><th className="px-3 py-2">Location</th><th className="px-3 py-2">Why it is listed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((c) => (
+                  <tr key={c.id} className="border-t border-ink/10">
+                    <td className="px-3 py-1.5"><input type="checkbox" aria-label={`Select ${c.name || c.code}`} checked={picked.has(c.id)} onChange={() => toggle(c.id)} /></td>
+                    <td className="px-3 py-1.5 font-mono text-ink/80">{c.code}</td>
+                    <td className="px-3 py-1.5"><Link to={`/admin/employees/${c.id}`} className="text-ink hover:text-jade-700 hover:underline">{c.name || "(no name)"}</Link></td>
+                    <td className="px-3 py-1.5 text-ink/70">{c.location || "—"}</td>
+                    <td className="px-3 py-1.5 text-ink/70">{c.reason_label}{c.reason === "not_in_roster" ? ` (${c.roster_missed} syncs)` : ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function DataReadiness() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -236,7 +355,7 @@ export default function DataReadiness() {
         </button>
       </div>
       <p className="text-sm text-ink/70 mb-6">
-        Whether the data behind attendance, payroll and letters can be trusted. Read-only: it reports problems and never edits or creates anyone.
+        Whether the data behind attendance, payroll and letters can be trusted. It reports problems and never creates anyone; the only change it can make is deactivating inactive accounts you select.
       </p>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -248,6 +367,8 @@ export default function DataReadiness() {
         <Stat label="Checks needing attention" value={flagged} tone={flagged ? "text-ochre-700" : "text-jade-700"} />
         <Stat label="On imported register" value={`${data.register.on_register} / ${data.active_employees}`} />
       </div>
+
+      <InactiveAccounts />
 
       <h3 className="font-display text-lg text-ink mb-3">Data feeds and who owns them</h3>
       <div className="bg-paper rounded-sm shadow-card overflow-x-auto mb-8">

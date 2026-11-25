@@ -29,6 +29,7 @@ WORKFLOWS = {
     "wfh": "Work From Home",
     "absence": "Work absence",
     "market_visit": "Market visit",
+    "bulk_deactivate": "Bulk deactivation of inactive accounts",
     "careers_dispatch": "Careers offer + onboarding dispatch",
     "careers_flag": "Careers applicant flag",
     "careers_rule": "Careers auto-reject rule",

@@ -155,6 +155,7 @@ export default function DailyAttendanceSection({ monthDaily, employeeId, employe
                   <td className="px-5 py-2.5">
                     <StampBadge status={x.status}>{x.status}</StampBadge>
                     {x.admin_note && <div className="text-xs text-ink/70 mt-1">{x.admin_note}</div>}
+                    {x.hr_response && <div className="text-xs text-ink/80 mt-1 border-l-2 border-jade-500 pl-2"><strong>HR response:</strong> {x.hr_response}</div>}
                     {x.status === "rejected" && !x.appeal_of && !disputes.some((y) => y.appeal_of === x.id) && (
                       <button onClick={() => setAppealing(x)} className="block text-xs font-semibold text-jade-700 hover:underline mt-1">Appeal</button>
                     )}

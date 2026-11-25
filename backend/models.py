@@ -107,6 +107,8 @@ class DisputeCreate(BaseModel):
     # omits it is rejected by Pydantic before it reaches the handler.
     photo_path: str
     photo_filename: Optional[str] = None
+    # Required, in detail, when the dispute is filed more than a day after the day it is about.
+    delay_reason: str = ""
 
 
 class DisputePhotoUpload(BaseModel):

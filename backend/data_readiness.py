@@ -306,3 +306,67 @@ def policy_definitions() -> dict:
             "Policy version is chosen by the date being graded, not by today's date.",
         ],
     }
+
+
+# --- Inactive accounts (bulk clean-up) ---------------------------------------
+IDLE_DAYS = 90            # no biometric punch for this long
+RECENT_JOINER_DAYS = 30   # a brand-new account is not "inactive" yet
+ROSTER_MISSING_SYNCS = 3  # missing from the nightly roster this many times running
+CONSOLE_ROLES = ("hr", "accounts")
+REASONS = {
+    "placeholder": "Auto-added from biometric and never named",
+    "stub": "Stub record (no real name)",
+    "not_in_roster": "Missing from the roster sync repeatedly, no pay on file",
+    "idle": "No punches, no pay, never logged in",
+}
+
+
+def _has_pay(e: dict) -> bool:
+    return any(float(e.get(k) or 0) for k in SALARY_FIELDS)
+
+
+def _is_stub_name(e: dict) -> bool:
+    import re
+    first, last = (e.get("first_name") or "").strip(), (e.get("last_name") or "").strip()
+    code = str(e.get("employee_code") or "").strip()
+    if re.fullmatch(r"employee\s*\d+", f"{first} {last}".strip(), re.I):
+        return True
+    return bool(first) and first == code and (last in ("", code) or last.startswith("(auto-added"))
+
+
+def inactive_candidates(all_emps: list[dict], recently_punched: set[str], managers_in_use: set[str], now: datetime) -> list[dict]:
+    """Active accounts that look unused and are SAFE to deactivate. Never included: an HR/Accounts
+    login, anyone with pay on file, anyone who punched within IDLE_DAYS, anyone added or joining in
+    the last RECENT_JOINER_DAYS, and anyone who is the reporting manager of someone active.
+    Each gets exactly one reason (the first that applies, most certain first)."""
+    out = []
+    for e in all_emps:
+        if not e.get("is_active") or e.get("role") in CONSOLE_ROLES:
+            continue
+        code = str(e.get("employee_code") or "")
+        if _has_pay(e) or code in recently_punched or e["id"] in managers_in_use:
+            continue
+        created = e.get("created_at")
+        age_days = _age_hours(created, now) / 24 if created else 9999
+        if age_days < RECENT_JOINER_DAYS:
+            continue
+        doj = e.get("date_of_joining")
+        if doj and (date.fromisoformat(str(doj)[:10]) - now.date()).days > -RECENT_JOINER_DAYS:
+            continue  # joined within the last month, or has not joined yet
+        last = (e.get("last_name") or "")
+        if last.startswith("(auto-added"):
+            reason = "placeholder"
+        elif _is_stub_name(e):
+            reason = "stub"
+        elif (e.get("roster_unmatched_streak") or 0) >= ROSTER_MISSING_SYNCS:
+            reason = "not_in_roster"
+        elif not e.get("password_changed_by_employee"):
+            reason = "idle"
+        else:
+            continue
+        full = f"{e.get('first_name') or ''} {last}".strip()
+        out.append({"id": e["id"], "code": code, "name": full, "reason": reason, "reason_label": REASONS[reason],
+                    "location": e.get("location") or "", "created_at": created, "roster_missed": e.get("roster_unmatched_streak") or 0})
+    order = {k: i for i, k in enumerate(REASONS)}
+    out.sort(key=lambda c: (order[c["reason"]], c["code"]))
+    return out
