@@ -3,7 +3,8 @@ flags into actual hr_comp_off_ledger credits.
 
 The revised SOP (effective 1 November 2025) credits only weekly-off or
 public-holiday work: up to 4 hours earns half a day, above 4 hours earns a
-full day, with 120-day validity. Late-night work alone does not qualify.
+full day, with 120-day validity. Since 25 Nov 2026, corporate staff whose shift
+runs to 12:30 AM or later also earn one full day (credited to the day it started).
 
 Idempotent by construction: hr_comp_off_ledger has a UNIQUE (employee_id,
 earned_date), so a re-run — or a cron retry — can never double-credit a day.
@@ -85,6 +86,12 @@ def _accrual_rows_for(summary: dict) -> list[dict]:
                 "earned_date": row["date"],
                 "units": float(row.get("comp_off_units") or 1.0),
                 "reason": "Worked a weekly off / declared holiday",
+            })
+        elif row.get("midnight_comp_off"):
+            earned.append({
+                "earned_date": row["date"],
+                "units": 1.0,
+                "reason": f"Worked past 12:30 AM (clocked out {str(row.get('midnight_comp_off_clock_out'))[:5]})",
             })
     return earned
 

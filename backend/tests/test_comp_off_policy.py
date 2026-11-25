@@ -41,8 +41,13 @@ def test_revised_validity():
     assert leave.COMP_OFF_VALIDITY_DAYS == 120
 
 
-def test_midnight_alone_does_not_accrue():
+def test_old_midnight_flag_alone_does_not_accrue():
     assert comp_off._accrual_rows_for({'daily': [{'date': '2026-10-12', 'comp_off_eligible_v3': True}]}) == []
+
+
+def test_past_0030_accrues_one_day():
+    rows = comp_off._accrual_rows_for({'daily': [{'date': '2026-10-12', 'midnight_comp_off': True, 'midnight_comp_off_clock_out': '00:45:00'}]})
+    assert rows == [{'earned_date': '2026-10-12', 'units': 1.0, 'reason': 'Worked past 12:30 AM (clocked out 00:45)'}]
 
 
 @pytest.mark.parametrize('hours,units', [(0.25, 0.5), (4, 0.5), (4.01, 1), (8, 1)])

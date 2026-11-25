@@ -76,6 +76,11 @@ JOBS = {
         cmd=[PY, f"{ROOT}/dispute_ai_review.py"], slots=["04:30", "07:30", "10:30", "13:30"], window_min=120, gate=None, idempotent=True,
         max_attempts=3, timeout_s=900, retry_min=10, success_re=r"dispute-ai: ", log=f"{LOG}/jade-hr-dispute-ai.log",
         parse=[r"dispute-ai: (?P<rejected>\d+) rejected, (?P<kept>\d+) kept for a person, (?P<failed>\d+) failed of (?P<total>\d+) new"], enabled=MAIL_ENABLED),
+    # 02:30 IST = 21:00 UTC. Credits late-night comp-off (clock-out 12:30 AM or later) as soon as the night's punches are in.
+    "comp_off_night": dict(
+        cmd=[PY, f"{ROOT}/comp_off_accrual.py"], slots=["21:00"], window_min=240, gate=None, idempotent=True,
+        max_attempts=4, timeout_s=180, retry_min=15, success_re=None, log=f"{LOG}/jade-hr-comp-off-night.log",
+        parse=[r"comp-off accrual: (?P<credited>\d+) credited, (?P<already_on_file>\d+) already on file"]),
     "comp_off_accrual": dict(
         cmd=[PY, f"{ROOT}/comp_off_accrual.py"], slots=["08:10"], window_min=360, gate="attendance", idempotent=True,
         max_attempts=6, timeout_s=180, retry_min=10, success_re=None, log=f"{LOG}/jade-hr-comp-off.log",

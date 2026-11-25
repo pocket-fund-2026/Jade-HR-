@@ -381,8 +381,8 @@ export default function AttendanceReport() {
                               className={`relative inline-flex items-center justify-center min-w-[1.75rem] px-1 whitespace-nowrap h-5 rounded-sm font-semibold ${STATUS_CLASS[statusColorKey(d)] || ""}`}
                             >
                               {dayCode(d)}
-                              {d.comp_off_eligible && (
-                                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-jade-500 ring-1 ring-paper" />
+                              {(d.comp_off_eligible || d.midnight_comp_off) && (
+                                <span title={d.midnight_comp_off ? `Worked past 12:30 AM (out ${String(d.midnight_comp_off_clock_out || "").slice(0, 5)}) — Comp-Off` : "Comp-Off eligible"} className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-jade-500 ring-1 ring-paper" />
                               )}
                               {lateAllowanceInfo(d) && (
                                 <span title={lateAllowanceInfo(d).text} className={`absolute -top-1 -left-1 w-2 h-2 rounded-full ring-1 ring-paper ${lateAllowanceInfo(d).used ? "bg-jade-600" : "bg-ochre-500"}`} />

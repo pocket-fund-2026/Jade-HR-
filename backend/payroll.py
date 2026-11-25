@@ -123,6 +123,12 @@ MIDNIGHT_TAIL_CUTOFF = time(6, 0)
 # though the day is a holiday (HR, 19 Nov 2026: 25 Sep 2026).
 COMP_OFF_EXCLUDED_DATES = {date(2026, 9, 25)}
 
+# Late-night comp-off (HR instruction, 25 Nov 2026): corporate staff whose shift runs to 12:30 AM or
+# later (the real clock-out lands in the next calendar day's punch bucket) earn 1 day of Comp-Off,
+# credited to the day the shift STARTED. Work that ends between midnight and 12:30 AM earns only
+# the later next-day arrival time.
+MIDNIGHT_COMP_OFF_AFTER = time(0, 30)
+
 # Non-OT employees on this time slot have a shortened Saturday. OT-eligible
 # employees work their usual assigned shift on Saturdays as on weekdays.
 SATURDAY_SHIFT_HOURS = {
@@ -812,6 +818,13 @@ def compute_daily_attendance(
                 row["midnight_tail_punch_time"] = tail_time.isoformat() if tail_time else None
                 # Revised SOP: late-night work alone never earns Comp-Off.
                 row["comp_off_eligible_v3"] = False
+                clock_out = max(
+                    (p.astimezone(IST).time() for p in tail_punches if p.astimezone(IST).time() < MIDNIGHT_TAIL_CUTOFF),
+                    default=None,
+                )
+                if is_corporate and clock_out is not None and clock_out >= MIDNIGHT_COMP_OFF_AFTER and d not in COMP_OFF_EXCLUDED_DATES:
+                    row["midnight_comp_off"] = True
+                    row["midnight_comp_off_clock_out"] = clock_out.isoformat()
         if excused and is_corporate:
             row["after_noon"] = False
             row["late_half_day_tier"] = False

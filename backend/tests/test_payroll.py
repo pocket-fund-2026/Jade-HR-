@@ -176,9 +176,12 @@ def test_stay_back_past_midnight_extends_next_day_grace_to_noon():
     row1 = next(r for r in rows if r["date"] == "2026-01-05")
     row2 = next(r for r in rows if r["date"] == "2026-01-06")
 
-    # NOT a comp-off — comp-off is only weekly-off / declared-holiday work now.
+    # Clock-out at 00:30 earns the late-night comp-off (from 25 Nov 2026), credited to Jan 5;
+    # the plain weekly-off/holiday flag is untouched.
     assert "comp_off_eligible" not in row1
-    assert "midnight_comp_off" not in row1
+    assert row1["midnight_comp_off"] is True
+    assert row1["midnight_comp_off_clock_out"] == "00:30:00"
+    assert "midnight_comp_off" not in row2
     # Day 2's own first_in must reflect the REAL 11:45am arrival, not the
     # stray 00:30 tail punch left over from Jan 5's shift.
     assert row2["first_in"] == day2_real_in.isoformat()
@@ -1063,3 +1066,15 @@ def test_range_attendance_marks_v3_late_like_the_payslip():
     assert by["2026-09-23"]["late_band_v3"] == "daily_tolerance"
     assert by["2026-09-24"]["late"] is False
     assert all("lop_days" not in r for r in daily)
+
+
+def test_midnight_finish_before_0030_earns_no_comp_off_and_non_corporate_never():
+    day1_in = datetime(2026, 1, 5, 10, 0, tzinfo=IST)
+    early_out = datetime(2026, 1, 6, 0, 15, tzinfo=IST)
+    rows = compute_daily_attendance(2026, 1, [day1_in, early_out], 8, weekly_off_day=6, is_corporate=True)
+    assert "midnight_comp_off" not in next(r for r in rows if r["date"] == "2026-01-05")
+    late_out = datetime(2026, 1, 6, 1, 10, tzinfo=IST)
+    rows = compute_daily_attendance(2026, 1, [day1_in, late_out], 8, weekly_off_day=6, is_corporate=False)
+    assert "midnight_comp_off" not in next(r for r in rows if r["date"] == "2026-01-05")
+    rows = compute_daily_attendance(2026, 1, [day1_in, late_out], 8, weekly_off_day=6, is_corporate=True)
+    assert next(r for r in rows if r["date"] == "2026-01-05")["midnight_comp_off"] is True

@@ -506,7 +506,7 @@ function Policy2025({ showCorporateSections = true }) {
             items={[
               "Stayed back past 8:30pm (2+ hours extra): may come in late the next day, up to 11:00am.",
               "Stayed back past 10:30pm (4+ hours extra): may come in late the next day, up to 12:00pm.",
-              "Staying back past midnight alone does not earn Comp-Off. Under the revised SOP effective 1 November 2025, only work on a declared public holiday or weekly off qualifies.",
+              "Working until 12:30am or later earns 1 day of Comp-Off (corporate staff, from 25 November 2026), credited to the day the shift started. Finishing between midnight and 12:30am earns only the later arrival time, not a Comp-Off. Work on a declared public holiday or weekly off also qualifies, as before.",
               "Needs HOD approval with the date and reason for staying back, to regularize the late-arrival grace.",
               "No grace time beyond the tiers above.",
             ]}

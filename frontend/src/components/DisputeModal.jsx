@@ -14,7 +14,8 @@ const ISSUE_LABELS = {
   other: "Something else",
 };
 
-export default function DisputeModal({ date, onClose, onSubmitted, defaultIssue }) {
+export default function DisputeModal({ date: initialDate, onClose, onSubmitted, defaultIssue }) {
+  const [date, setDate] = useState(initialDate);
   const [issueType, setIssueType] = useState(defaultIssue || "missed_clock_out");
   const [claimedIn, setClaimedIn] = useState("");
   const [claimedOut, setClaimedOut] = useState("");
@@ -86,7 +87,13 @@ export default function DisputeModal({ date, onClose, onSubmitted, defaultIssue 
           <X size={18} />
         </button>
         <p className="text-xs font-semibold text-ochre-700 mb-1">Report an attendance issue</p>
-        <p className="font-display text-lg text-ink mb-5">{formatDate(date)}</p>
+        <div className="mb-5">
+          <label htmlFor="dispute_date" className="block text-xs font-semibold text-ink/70 mb-1.5">Day this is about</label>
+          <input id="dispute_date" type="date" required value={date} max={policy?.today} min={policy?.earliest_date}
+            onChange={(e) => e.target.value && setDate(e.target.value)}
+            className="rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+          <p className="text-[11px] text-ink/60 mt-1">{formatDate(date)}. For a shift that ran past midnight, choose the day it started.</p>
+        </div>
 
         {rejected ? (
           <div>
