@@ -14,7 +14,7 @@ from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from auth import get_current_user, require_permission
+from auth import get_current_user, require_console, require_permission
 from config import IST
 from database import supabase
 from paging import ContextThreadPoolExecutor
@@ -458,6 +458,131 @@ def close_aip(aip_id: str, body: AIPClose, user: dict = Depends(require_permissi
     record_step("aip", aip_id, f"closed_{body.status}", user, employee_id=updated.data[0].get("employee_id"),
                 note=body.notes or "")
     return updated.data[0]
+
+
+AIP_AUTO_FLAG_MARKER = "[AUTO-FLAG]"
+
+
+def _cycle_label_for(d: date) -> tuple[int, int]:
+    """The (year, month) pay-period label whose 23rd-22nd window contains d."""
+    y, m = (d.year + 1, 1) if (d.month == 12 and d.day >= 23) else (d.year, d.month + (1 if d.day >= 23 else 0))
+    return y, m
+
+
+@router.post("/v3/aip/enforce")
+def enforce_aip(
+    dry_run: bool = Query(default=False),
+    user: dict = Depends(require_console),
+):
+    """Switches the AIP (doc §15) on. Run daily. Two rules:
+
+    1. START — a corporate employee who has a Red Card (7 Yellow Cards) in the
+       current pay cycle and no AIP started since that cycle began is put on a
+       30-day AIP starting today.
+    2. FLAG — on an active AIP only ONE late arrival (any Yellow Card day) is
+       permitted for the whole plan; a second one flags the AIP for HR
+       (note marker + workflow-log step + email to HR). The AIP is NOT closed
+       and pay is NOT touched: HR still closes it passed/failed and takes the
+       disciplinary step. Flagged once only (marker in notes).
+    """
+    from email_service import HR_NOTIFY_EMAIL, send_email
+
+    today = datetime.now(IST).date()
+    cur_label = _cycle_label_for(today)
+    cycle_start, _ = pay_period_bounds(*cur_label)
+
+    corporate, profiles_by_employee, holidays = _corporate_roster()
+    corp_by_id = {e["id"]: e for e in corporate}
+
+    active = [r for r in supabase.table("hr_aip_records").select("*").eq("status", "active").execute().data
+              if r["employee_id"] in corp_by_id]
+    since_cycle = supabase.table("hr_aip_records").select("employee_id").gte("start_date", cycle_start.isoformat()).execute().data
+    has_aip_this_cycle = {r["employee_id"] for r in since_cycle}
+    active_ids = {r["employee_id"] for r in active}
+
+    # Pay-cycle labels needed: the current one, plus any back to the earliest active AIP start.
+    labels = {cur_label}
+    for r in active:
+        labels.add(_cycle_label_for(date.fromisoformat(r["start_date"])))
+    labels = sorted(labels)
+    with ContextThreadPoolExecutor(max_workers=min(len(labels), 4)) as pool:
+        futures = {
+            lab: pool.submit(_all_summaries_for_month, corporate, profiles_by_employee, holidays, lab[0], lab[1], True)
+            for lab in labels
+        }
+        by_label = {lab: {s["employee_id"]: s for s in f.result()} for lab, f in futures.items()}
+
+    def late_dates(employee_id: str, start: date, end: date) -> list[str]:
+        out = []
+        for summary_map in by_label.values():
+            for row in (summary_map.get(employee_id) or {}).get("daily", []):
+                if row.get("late_band_v3") and start.isoformat() <= row["date"] <= end.isoformat():
+                    out.append(row["date"])
+        return sorted(set(out))
+
+    started, flagged = [], []
+
+    # Rule 1 — Red Card this cycle => start a 30-day AIP.
+    for emp_id, s in by_label[cur_label].items():
+        v3 = s.get("late_policy_v3") or {}
+        if not v3.get("red_card") or emp_id in active_ids or emp_id in has_aip_this_cycle or emp_id not in corp_by_id:
+            continue
+        e = corp_by_id[emp_id]
+        name = f"{e['first_name']} {e.get('last_name') or ''}".strip()
+        entry = {"employee_id": emp_id, "employee_code": e["employee_code"], "name": name,
+                 "yellow_cards": v3.get("yellow_card_count")}
+        if not dry_run:
+            end = today + timedelta(days=V3_AIP_DEFAULT_DAYS)
+            row = {
+                "employee_id": emp_id, "duration_days": V3_AIP_DEFAULT_DAYS,
+                "start_date": today.isoformat(), "end_date": end.isoformat(),
+                "notes": f"Auto-started: Red Card ({v3.get('yellow_card_count')} Yellow Cards) in the cycle from {cycle_start.isoformat()}.",
+                "created_by": None,
+            }
+            inserted = supabase.table("hr_aip_records").insert(row).execute()
+            record_step("aip", inserted.data[0].get("id"), "auto_started", None, employee_id=emp_id,
+                        basis={"yellow_cards": v3.get("yellow_card_count"), "cycle_start": cycle_start.isoformat()})
+            entry["aip_id"] = inserted.data[0].get("id")
+        started.append(entry)
+
+    # Rule 2 — second late arrival while on an active AIP => flag for HR.
+    for r in active:
+        if AIP_AUTO_FLAG_MARKER in (r.get("notes") or ""):
+            continue
+        start = date.fromisoformat(r["start_date"])
+        end = min(today, date.fromisoformat(r["end_date"]))
+        dates = late_dates(r["employee_id"], start, end)
+        if len(dates) < 2:
+            continue
+        e = corp_by_id[r["employee_id"]]
+        name = f"{e['first_name']} {e.get('last_name') or ''}".strip()
+        entry = {"aip_id": r["id"], "employee_code": e["employee_code"], "name": name, "late_dates": dates,
+                 "aip_end_date": r["end_date"]}
+        if not dry_run:
+            note = f"{(r.get('notes') or '').strip()} {AIP_AUTO_FLAG_MARKER} {len(dates)} late arrivals during AIP ({', '.join(dates)}); only 1 permitted — review for failure.".strip()
+            supabase.table("hr_aip_records").update({"notes": note}).eq("id", r["id"]).execute()
+            record_step("aip", r["id"], "auto_flagged_failure", None, employee_id=r["employee_id"],
+                        basis={"late_dates": dates}, note="Second late arrival during AIP")
+        flagged.append(entry)
+
+    emailed = False
+    if (started or flagged) and not dry_run:
+        lines = [f"AIP update for {today.isoformat()}:", ""]
+        if started:
+            lines.append(f"Put on a 30-day AIP (Red Card this cycle) — {len(started)}:")
+            lines += [f"  • {x['name']} ({x['employee_code']}) — {x['yellow_cards']} Yellow Cards" for x in started]
+            lines.append("")
+        if flagged:
+            lines.append(f"Second late arrival while on an AIP — review for failure — {len(flagged)}:")
+            lines += [f"  • {x['name']} ({x['employee_code']}) — late on {', '.join(x['late_dates'])}" for x in flagged]
+            lines.append("")
+        lines.append("Open Admin > AIP to close a plan as passed/failed. Nothing has been deducted or actioned automatically.")
+        try:
+            emailed = bool(send_email(HR_NOTIFY_EMAIL, f"AIP: {len(started)} started, {len(flagged)} flagged", "\n".join(lines), kind="aip"))
+        except Exception:
+            emailed = False
+    return {"date": today.isoformat(), "dry_run": dry_run, "cycle_start": cycle_start.isoformat(),
+            "started": started, "flagged": flagged, "emailed": emailed}
 
 
 @router.get("/v3/late-night-safety")
