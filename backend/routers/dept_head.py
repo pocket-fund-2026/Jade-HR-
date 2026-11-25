@@ -191,7 +191,23 @@ def revise_leave(request_id: str, body: Revise, user: dict = Depends(get_current
     _check_target(user, "leave", r["employee_id"])
     new = _guard(body, r["status"])
     if r["leave_type"] == "comp_off":
-        raise HTTPException(status_code=400, detail="Comp-Off leave uses up the person's Comp-Off balance, so it cannot be flipped here — ask HR to adjust the ledger")
+        # Comp-Off leave draws on the person's ledger: approving uses credits, undoing an approval gives them back.
+        from routers.leave import _consume_comp_off, _days_in_range, _validate_comp_off_dates
+        today_iso = datetime.now(timezone.utc).astimezone().date().isoformat()
+        if new == "approved":
+            employee = maybe_single_data(supabase.table("hr_employees").select("*").eq("id", r["employee_id"]).maybe_single().execute())
+            end = datetime.fromisoformat(r["end_date"]).date()
+            _validate_comp_off_dates(employee, datetime.fromisoformat(r["start_date"]).date(), end, request_id)
+            if not _consume_comp_off(r["employee_id"], _days_in_range(r["start_date"], r["end_date"]), request_id, end):
+                raise HTTPException(status_code=409, detail="The person's Comp-Off balance no longer covers this leave")
+        else:
+            used = supabase.table("hr_comp_off_ledger").select("id,expiry_date").eq("used_in_leave_request_id", request_id).execute().data
+            back = [u["id"] for u in used if u["expiry_date"] >= today_iso]
+            gone = [u["id"] for u in used if u["expiry_date"] < today_iso]
+            if back:
+                supabase.table("hr_comp_off_ledger").update({"status": "available", "used_in_leave_request_id": None}).in_("id", back).execute()
+            if gone:
+                supabase.table("hr_comp_off_ledger").update({"status": "expired", "used_in_leave_request_id": None}).in_("id", gone).execute()
     supabase.table("hr_leave_requests").update({
         "status": new, "admin_note": body.note or r.get("admin_note"), "resolved_by": user["id"],
         "resolved_at": datetime.now(timezone.utc).isoformat(),
