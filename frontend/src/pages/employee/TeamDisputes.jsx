@@ -176,7 +176,7 @@ export default function TeamDisputes() {
                     )}
                   </td>
                   <td className="px-5 py-3.5"><StampBadge status={d.status}>{d.status}</StampBadge>
-                    {d.resolved_by_role && <div className="text-[11px] text-ink/60 mt-1">by {d.resolved_by_role === "manager" ? "manager" : "HR"}</div>}</td>
+                    {d.resolved_by_role && <div className="text-[11px] text-ink/60 mt-1">by {d.resolved_by_role === "manager" ? "manager" : d.resolved_by_role === "policy" ? "policy (auto)" : "HR"}</div>}</td>
                 </tr>
               ))
             )}

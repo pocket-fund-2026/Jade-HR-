@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import { cloneElement, isValidElement, useEffect, useId, useState } from "react";
 
 import api from "../lib/api.js";
+import useLeaveCutoff, { cutoffHint } from "../lib/useLeaveCutoff.js";
 import { useAuth } from "../lib/auth.jsx";
 import LeaveProofField, { uploadLeaveProof } from "./LeaveProofField.jsx";
 import { LEAVE_LABELS, selectableLeaveTypes } from "../lib/leaveTypes.js";
@@ -41,6 +42,7 @@ export default function LeaveRequestModal({ onClose, onSubmitted, onBehalfOf }) 
   const subject = onBehalfOf ?? user;
   const isCorporate = subject?.employee_category === "corporate";
   const availableTypes = selectableLeaveTypes(isCorporate);
+  const cutoff = useLeaveCutoff();
   const [leaveType, setLeaveType] = useState("paid");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -150,16 +152,17 @@ export default function LeaveRequestModal({ onClose, onSubmitted, onBehalfOf }) 
                 </Field>
               </>
             )}
+            {cutoff && <p className="text-xs text-ink/60 border-l-2 border-ink/20 pl-2.5">{cutoffHint(cutoff)}</p>}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="From" required>
                 <input
-                  type="date" required className={`${inputCls} font-nums`}
+                  type="date" required min={cutoff?.earliest_date} className={`${inputCls} font-nums`}
                   value={startDate} onChange={(e) => { setStartDate(e.target.value); if (isHalf) setEndDate(e.target.value); }}
                 />
               </Field>
               <Field label="To" required>
                 <input
-                  type="date" required disabled={isHalf} className={`${inputCls} font-nums`}
+                  type="date" required min={cutoff?.earliest_date} disabled={isHalf} className={`${inputCls} font-nums`}
                   value={isHalf ? startDate : endDate} onChange={(e) => setEndDate(e.target.value)}
                 />
               </Field>

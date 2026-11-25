@@ -8,6 +8,7 @@ from idempotency import find_recent_duplicate
 from auth import get_current_user, my_report_ids, require_permission
 from database import maybe_single_data, supabase
 from workflow_log import record_step
+import dispute_policy
 from models import AttendanceImportRequest, AttendanceOverrideUpsert, DisputeCreate, DisputePhotoUpload, DisputeResolve
 
 router = APIRouter(prefix="/api", tags=["disputes"])
@@ -72,8 +73,78 @@ def create_dispute(body: DisputeCreate, user: dict = Depends(get_current_user)):
     })
     if dup:
         return dup
+    # First-pass policy check (dispute_policy.py): a dispute that plainly breaks a
+    # written rule is filed already rejected, with the reason in its note. It still
+    # shows in the employee's list and can be appealed once like any rejection.
+    verdict = _policy_verdict({**row, "created_at": None}, user["id"])
+    if verdict:
+        row.update(_auto_reject_fields(verdict))
     inserted = supabase.table("hr_attendance_disputes").insert(row).execute()
-    return inserted.data[0]
+    created = inserted.data[0]
+    if verdict:
+        _log_auto_reject(created, verdict)
+        created["auto_rejected"] = True
+        created["auto_reject_reason"] = verdict["reason"]
+    return created
+
+
+def _policy_verdict(dispute: dict, employee_id: str) -> dict | None:
+    others = (
+        supabase.table("hr_attendance_disputes").select("id,date,status,appeal_of")
+        .eq("employee_id", employee_id).eq("date", str(dispute["date"])[:10]).execute().data
+    )
+    return dispute_policy.evaluate(dispute, others)
+
+
+def _auto_reject_fields(verdict: dict) -> dict:
+    return {
+        "status": "rejected",
+        "admin_note": f"Auto-rejected by attendance policy: {verdict['reason']}",
+        "resolved_by_role": "policy",
+        "resolved_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def _log_auto_reject(dispute: dict, verdict: dict) -> None:
+    record_step("dispute", dispute["id"], "auto_rejected", None, employee_id=dispute["employee_id"],
+                basis={"date": str(dispute["date"])[:10], "rule": verdict["rule"], "issue_type": dispute.get("issue_type")},
+                note=verdict["reason"])
+
+
+@router.get("/disputes/policy")
+def dispute_policy_info(user: dict = Depends(get_current_user)):
+    """What the dispute form needs to warn people before they submit."""
+    return {**dispute_policy.cutoff_hint(), "rules": dispute_policy.RULES}
+
+
+@router.post("/disputes/policy-sweep")
+def policy_sweep(dry_run: bool = Query(True), admin: dict = Depends(require_permission("disputes.manage"))):
+    """Runs the first-pass policy check over every PENDING dispute and rejects
+    the ones that break a rule (late filing is judged against when each was
+    filed, not today). dry_run=true (the default) only lists what would go."""
+    pending = supabase.table("hr_attendance_disputes").select("*").eq("status", "pending").execute().data
+    by_emp: dict[str, list[dict]] = {}
+    for r in pending:
+        by_emp.setdefault(r["employee_id"], []).append(r)
+    hits = []
+    for r in pending:
+        # Only an EARLIER pending dispute for the same day makes this one a duplicate.
+        earlier = [o for o in by_emp[r["employee_id"]] if o["id"] != r["id"] and o["created_at"] < r["created_at"]]
+        verdict = dispute_policy.evaluate(r, earlier)
+        if verdict:
+            hits.append((r, verdict))
+    if not dry_run:
+        for r, verdict in hits:
+            claimed = (
+                supabase.table("hr_attendance_disputes").update(_auto_reject_fields(verdict))
+                .eq("id", r["id"]).eq("status", "pending").execute()
+            )
+            if claimed.data:
+                _log_auto_reject(r, verdict)
+    return {
+        "dry_run": dry_run, "pending_checked": len(pending), "rejected": len(hits),
+        "items": [{"id": r["id"], "employee_id": r["employee_id"], "date": r["date"], "rule": v["rule"], "reason": v["reason"]} for r, v in hits],
+    }
 
 
 class AppealCreate(BaseModel):

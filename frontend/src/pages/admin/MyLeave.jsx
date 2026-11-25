@@ -3,6 +3,7 @@ import LeaveProofField, { LeaveProofLink, uploadLeaveProof } from "../../compone
 import { useEffect, useState } from "react";
 
 import StampBadge from "../../components/StampBadge.jsx";
+import useLeaveCutoff from "../../lib/useLeaveCutoff.js";
 import api from "../../lib/api.js";
 import { useAuth } from "../../lib/auth.jsx";
 import { formatDate } from "../../lib/format.js";
@@ -13,6 +14,7 @@ export default function MyLeave() {
   const { user } = useAuth();
   const isCorporate = user?.employee_category === "corporate";
   const availableTypes = selectableLeaveTypes(isCorporate);
+  const cutoff = useLeaveCutoff();
   const [balance, setBalance] = useState([]);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -93,7 +95,7 @@ export default function MyLeave() {
               </div>
               <div>
                 <label htmlFor="fld-95" className="block text-xs font-semibold text-ink/70 mb-1.5">Start date</label>
-                <input id="fld-95" type="date" required value={startDate} onChange={(e) => setStartDate(e.target.value)}
+                <input id="fld-95" type="date" required min={cutoff?.earliest_date} value={startDate} onChange={(e) => setStartDate(e.target.value)}
                   className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
               </div>
               <div>
@@ -105,7 +107,7 @@ export default function MyLeave() {
                     <option value="second">Second half (afternoon off)</option>
                   </select>
                 ) : (
-                <input id="myleave_end" type="date" required value={endDate} onChange={(e) => setEndDate(e.target.value)}
+                <input id="myleave_end" type="date" required min={cutoff?.earliest_date} value={endDate} onChange={(e) => setEndDate(e.target.value)}
                   className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
                 )}
               </div>

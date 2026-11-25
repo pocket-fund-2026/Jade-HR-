@@ -341,6 +341,27 @@ def _current_pay_period(today: date) -> tuple[int, int]:
     return year, month
 
 
+def current_cycle_start(today: date) -> date:
+    """First day (a 23rd) of the pay cycle `today` is in. Leave for any day
+    BEFORE this belongs to a cycle that has already closed and been paid."""
+    if today.day >= 23:
+        return date(today.year, today.month, 23)
+    year, month = (today.year - 1, 12) if today.month == 1 else (today.year, today.month - 1)
+    return date(year, month, 23)
+
+
+@router.get("/me/leave-cutoff")
+def leave_cutoff(user: dict = Depends(get_current_user)):
+    """What the leave forms need: the earliest date an employee can still apply
+    for themselves. After each pay cycle closes (the 22nd) only HR can file for
+    days inside it, on the employee's behalf."""
+    today = datetime.now(IST).date()
+    start = current_cycle_start(today)
+    nxt = date(start.year + (start.month == 12), start.month % 12 + 1, 23)
+    return {"earliest_date": start.isoformat(), "next_cutoff": nxt.isoformat(),
+            "days_to_cutoff": (nxt - today).days}
+
+
 def _is_red_carded_current_cycle(employee: dict) -> bool:
     """Whether `employee` already holds a Red Card in the pay period in
     progress. Runs the exact payslip computation (compute_monthly_summary with
@@ -446,6 +467,20 @@ def create_leave_request(body: LeaveRequestCreate, user: dict = Depends(get_curr
             raise HTTPException(status_code=404, detail="Employee not found")
     else:
         target = user
+
+    # Leave applications close with the pay cycle: once the cycle has ended on the
+    # 22nd, days inside it can no longer be applied for by the employee. HR can
+    # still file on their behalf (filed_by_hr), which is the documented exception.
+    if not filed_by_hr:
+        cycle_start = current_cycle_start(datetime.now(IST).date())
+        if body.start_date < cycle_start:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Leave for days before {cycle_start.strftime('%d %b %Y')} can no longer be applied for — that pay cycle "
+                    "closed on the 22nd. Please ask HR to submit it on your behalf."
+                ),
+            )
 
     is_corporate = target.get("employee_category") == "corporate"
     requested_days = _days_in_range(body.start_date.isoformat(), body.end_date.isoformat())

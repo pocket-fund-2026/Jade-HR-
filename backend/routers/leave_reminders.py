@@ -22,7 +22,7 @@ sends nothing.
 """
 
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
 
@@ -30,10 +30,11 @@ import email_service
 from auth import require_console
 from config import IST
 from database import supabase
-from routers.leave import _attach_reporting_manager
+from routers.leave import _attach_reporting_manager, current_cycle_start
 
 router = APIRouter(prefix="/api/leave-reminders", tags=["leave-reminders"])
 
+CUTOFF_WARNING_DAYS = 4  # approvers get the pay-cycle warning this many days before the cutoff
 OVERDUE_DAYS = 3  # a request waiting longer than this is flagged as overdue
 LEAVE_LABELS = {
     "paid": "Paid Leave", "casual": "Casual Leave", "sick": "Sick Leave", "earned": "Privilege Leave",
@@ -188,6 +189,19 @@ def leave_reminder_digest(
     no_mgr = _no_manager_summary() if include_weekly else {"missing": 0, "suggested": 0, "ambiguous": 0, "by_location": Counter()}
     no_mgr_count = no_mgr["missing"] + no_mgr["suggested"] + no_mgr["ambiguous"]
 
+    # Pay-cycle cutoff: leave applications close on the 22nd. In the days leading up
+    # to it, tell approvers plainly that undecided requests hold up their team's pay.
+    cycle_start = current_cycle_start(today)
+    next_cutoff = cycle_start.replace(year=cycle_start.year + (cycle_start.month == 12), month=cycle_start.month % 12 + 1)
+    days_to_cutoff = (next_cutoff - today).days
+    cutoff_warning = None
+    if 0 < days_to_cutoff <= CUTOFF_WARNING_DAYS:
+        cutoff_warning = (
+            f"The pay cycle closes on {(next_cutoff - timedelta(days=1)).strftime('%d %b')} "
+            f"({days_to_cutoff} day{'s' if days_to_cutoff != 1 else ''} left). Leave you have not approved or rejected by then "
+            "cannot be counted correctly, and your team's pay will be affected. Please clear them today."
+        )
+
     results = []
     for email, info in sorted(all_recipients.items()):
         reqs = info["requests"]
@@ -202,6 +216,7 @@ def leave_reminder_digest(
                 f"{n} leave request{'s' if n != 1 else ''} from your team {'are' if n != 1 else 'is'} waiting for a decision, oldest first:", "",
                 *(_line(r, today) for r in reqs), "",
                 "Please approve or reject them so attendance and payroll stay correct.",
+                *([cutoff_warning] if cutoff_warning else []),
                 f"Review them here: {base}/team-leave", "",
             ]
         if wfh_reqs:
@@ -256,6 +271,8 @@ def leave_reminder_digest(
             *(f"      {loc}: {n}" for loc, n in no_mgr["by_location"].most_common()),
             f"Assign them: {CONSOLE}/admin/reporting-managers",
         ]
+    if cutoff_warning:
+        hr_lines += ["", cutoff_warning.replace("Please clear them today.", "Approvers have been told.")]
     hr_lines += ["", f"Leave requests: {CONSOLE}/admin/leave"]
     hr_emailed, hr_error = False, "empty_list"
     if pending or wfh_open or (include_weekly and no_mgr_count):
