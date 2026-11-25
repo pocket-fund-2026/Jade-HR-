@@ -169,6 +169,12 @@ export default function TeamDisputes() {
                   <td className="px-5 py-3.5 font-nums text-ink/70">{formatDate(d.date)}</td>
                   <td className="px-5 py-3.5 text-ink/70 max-w-xs">
                     {d.reason}
+                    {(d.movement || []).length > 0 && (
+                      <div className="text-[11px] text-ink/70 mt-1.5 border-l-2 border-jade-500 pl-2">
+                        <span className="font-semibold">Geotag check-ins that day:</span>{" "}
+                        {d.movement.map((m) => `${m.visit_type === "check_out" ? "out" : "in"} ${m.place || m.place_type} ${new Date(m.captured_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false })}`).join(" · ")}
+                      </div>
+                    )}
                     {d.photo_url && (
                       <a href={d.photo_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-jade-700 hover:underline mt-1">
                         <Paperclip size={11} /> {d.photo_filename || "Photo"}

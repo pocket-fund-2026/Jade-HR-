@@ -9,6 +9,7 @@ from auth import get_current_user, my_report_ids, require_permission
 from database import maybe_single_data, supabase
 from workflow_log import record_step
 import dispute_policy
+from routers.market_visits import attach_movement
 from models import AttendanceImportRequest, AttendanceOverrideUpsert, DisputeCreate, DisputePhotoUpload, DisputeResolve
 
 router = APIRouter(prefix="/api", tags=["disputes"])
@@ -229,6 +230,7 @@ def list_disputes(status: str | None = Query(None), admin: dict = Depends(requir
     for r in resp.data:
         r["photo_url"] = urls.get(r.get("photo_path"))
     _attach_appeal_context(resp.data)
+    attach_movement(resp.data)
     return resp.data
 
 
@@ -334,6 +336,7 @@ def team_disputes(status: str | None = Query(None), user: dict = Depends(get_cur
     for r in rows:
         r["photo_url"] = urls.get(r.get("photo_path"))
     _attach_appeal_context(rows)
+    attach_movement(rows)
     return rows
 
 

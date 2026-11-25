@@ -8,7 +8,7 @@ _is_reporting_manager_of / my-team pattern exactly.
 """
 
 import base64
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -53,6 +53,76 @@ def _is_reporting_manager_of(user_id: str, employee_id: str) -> bool:
     return bool(data and data.get("reporting_to_id") == user_id)
 
 
+PLACE_TYPES = ("market", "store", "factory", "office", "other")
+
+
+def movement_for(employee_ids: list[str], days: list[str]) -> dict[tuple[str, str], list[dict]]:
+    """Geotag check-ins by (employee_id, YYYY-MM-DD), for showing dispute reviewers
+    where someone said they were. Best-effort: an error returns nothing rather than
+    breaking the page that asks."""
+    if not employee_ids or not days:
+        return {}
+    try:
+        lo, hi = min(days), (date.fromisoformat(max(days)) + timedelta(days=1)).isoformat()
+        rows = (
+            supabase.table("hr_market_visits").select("*")
+            .in_("employee_id", employee_ids).gte("captured_at", lo).lt("captured_at", hi)
+            .order("captured_at").execute().data
+        )
+    except Exception:
+        return {}
+    out: dict[tuple[str, str], list[dict]] = {}
+    for r in rows:
+        out.setdefault((r["employee_id"], (r.get("captured_at") or "")[:10]), []).append({
+            "visit_type": r.get("visit_type"), "place": r.get("place") or "", "place_type": r.get("place_type") or "market",
+            "captured_at": r.get("captured_at"), "status": r.get("status"),
+            "latitude": r.get("latitude"), "longitude": r.get("longitude"),
+        })
+    return out
+
+
+def attach_movement(rows: list[dict]) -> None:
+    """Adds `movement` (that employee's check-ins on the dispute's date) to dispute rows."""
+    found = movement_for(list({r["employee_id"] for r in rows}), [str(r["date"])[:10] for r in rows])
+    for r in rows:
+        r["movement"] = found.get((r["employee_id"], str(r["date"])[:10]), [])
+
+
+@router.get("/places")
+def known_places(user: dict = Depends(get_current_user)):
+    """Locations to pick from on the check-in card: every distinct work location on the roster."""
+    rows = supabase.table("hr_employees").select("location").eq("is_active", True).execute().data
+    return sorted({r["location"] for r in rows if r.get("location")})
+
+
+@router.post("/bulk-enable")
+def bulk_enable(body: dict, user: dict = Depends(require_permission("employees.manage"))):
+    """Turn geotag check-in/check-out on (or off) for a whole group at once instead of
+    person by person. Body: {"locations": ["Store A", ...] | null, "categories": ["factory_retail"] | null,
+    "checkin": true, "checkout": true}. Matches everyone ACTIVE who fits ALL the given filters;
+    needs at least one filter so a stray call can never flip the whole company."""
+    locations, categories = body.get("locations") or None, body.get("categories") or None
+    if not locations and not categories:
+        raise HTTPException(status_code=400, detail="Give at least one location or category")
+    q = supabase.table("hr_employees").select("id").eq("is_active", True)
+    if locations:
+        q = q.in_("location", locations)
+    if categories:
+        q = q.in_("employee_category", categories)
+    ids = [r["id"] for r in q.execute().data]
+    updates = {}
+    if body.get("checkin") is not None:
+        updates["market_visit_checkin_enabled"] = bool(body["checkin"])
+    if body.get("checkout") is not None:
+        updates["market_visit_checkout_enabled"] = bool(body["checkout"])
+    if not updates:
+        raise HTTPException(status_code=400, detail="Say whether to change checkin and/or checkout")
+    for i in range(0, len(ids), 100):
+        supabase.table("hr_employees").update(updates).in_("id", ids[i:i + 100]).execute()
+    record_step("market_visit", None, "bulk_enable", user, basis={"count": len(ids), **updates, "locations": locations, "categories": categories})
+    return {"updated": len(ids), **updates}
+
+
 ENABLED_FLAG_BY_VISIT_TYPE = {
     "check_in": "market_visit_checkin_enabled",
     "check_out": "market_visit_checkout_enabled",
@@ -82,7 +152,8 @@ def create_market_visit(body: MarketVisitCreate, user: dict = Depends(get_curren
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Photo upload failed: {e}")
 
-    inserted = supabase.table("hr_market_visits").insert({
+    place_type = body.place_type if body.place_type in PLACE_TYPES else "market"
+    row = {
         "employee_id": user["id"],
         "photo_path": path,
         "latitude": body.latitude,
@@ -91,7 +162,14 @@ def create_market_visit(body: MarketVisitCreate, user: dict = Depends(get_curren
         "captured_at": now.isoformat(),
         "status": "pending",
         "visit_type": body.visit_type,
-    }).execute()
+    }
+    try:
+        inserted = supabase.table("hr_market_visits").insert({**row, "place_type": place_type, "place": body.place.strip()[:120]}).execute()
+    except Exception as e:
+        # sql/093 not applied yet: record the check-in without the place rather than lose it.
+        if "place" not in str(e):
+            raise
+        inserted = supabase.table("hr_market_visits").insert(row).execute()
     return inserted.data[0]
 
 

@@ -15,11 +15,17 @@ export default function MarketVisitCheckinCard() {
   const [location, setLocation] = useState(null);
   const [error, setError] = useState("");
   const [justSubmitted, setJustSubmitted] = useState(false);
+  const [placeType, setPlaceType] = useState("store");
+  const [place, setPlace] = useState("");
+  const [places, setPlaces] = useState([]);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const dismissTimer = useRef(null);
 
   useEffect(() => () => clearTimeout(dismissTimer.current), []);
+  useEffect(() => {
+    api.get("/api/market-visits/places").then(({ data }) => setPlaces(data)).catch(() => {});
+  }, []);
   useEffect(() => () => stopStream(), []);
 
   const stopStream = () => {
@@ -101,6 +107,8 @@ export default function MarketVisitCheckinCard() {
         longitude: location.longitude,
         accuracy: location.accuracy,
         visit_type: visitType,
+        place_type: placeType,
+        place: place.trim(),
       });
       setPhoto(null);
       setLocation(null);
@@ -126,10 +134,32 @@ export default function MarketVisitCheckinCard() {
   return (
     <div className="bg-paper rounded-sm shadow-card p-5 mb-6 border-t-4 border-jade-500">
       <div className="flex items-center justify-between mb-3">
-        <p className="text-xs font-semibold text-jade-700">Market visit</p>
+        <p className="text-xs font-semibold text-jade-700">Check in / out of a location</p>
       </div>
 
       {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5 mb-3">{error}</p>}
+
+      {mode === "idle" && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 max-w-md">
+          <div>
+            <label htmlFor="mv_place_type" className="block text-xs font-semibold text-ink/70 mb-1">Where</label>
+            <select id="mv_place_type" value={placeType} onChange={(e) => setPlaceType(e.target.value)}
+              className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
+              <option value="store">Store</option>
+              <option value="factory">Factory</option>
+              <option value="office">Office</option>
+              <option value="market">Market / client visit</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="mv_place" className="block text-xs font-semibold text-ink/70 mb-1">Which place</label>
+            <input id="mv_place" list="mv_places" value={place} onChange={(e) => setPlace(e.target.value)} placeholder="e.g. store name"
+              className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+            <datalist id="mv_places">{places.map((p) => <option key={p} value={p} />)}</datalist>
+          </div>
+        </div>
+      )}
 
       {mode === "idle" && (
         <div className="flex flex-wrap gap-4">

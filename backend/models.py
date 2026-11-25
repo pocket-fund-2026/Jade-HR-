@@ -242,6 +242,9 @@ class MarketVisitCreate(BaseModel):
     longitude: float
     accuracy: float | None = None
     visit_type: str = "check_in"  # "check_in" | "check_out"
+    # Where the check-in is (sql/093). Optional so older clients keep working.
+    place_type: str = "market"  # market | store | factory | office | other
+    place: str = ""  # e.g. the store name
 
 
 class MarketVisitResolve(BaseModel):
