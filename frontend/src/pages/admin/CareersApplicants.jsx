@@ -5,6 +5,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import EmptyState from "../../components/EmptyState.jsx";
 import CareersNav from "../../components/CareersNav.jsx";
+import RejectDialog from "../../components/RejectDialog.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
 import { APPLICANT_STATUSES, VERDICT_LABEL, downloadCsv, formatDateTime } from "../../lib/careers.js";
@@ -26,6 +27,8 @@ export default function CareersApplicants() {
   const search = searchParams.get("q") || "";
   // "active" hides applicants the screening rules auto-rejected; they're kept, just parked in their own tab.
   const view = searchParams.get("view") || "active";
+  const flag = searchParams.get("flag") || "";
+  const [rejectIds, setRejectIds] = useState(null);
   const [searchDraft, setSearchDraft] = useState(search);
   const [jobs, setJobs] = useState([]);
   const [applications, setApplications] = useState([]);
@@ -44,7 +47,8 @@ export default function CareersApplicants() {
     const params = {};
     if (jobId) params.job_id = jobId;
     if (status) params.status = status;
-    else params.include_auto_rejected = "1";
+    else { params.include_auto_rejected = "1"; params.include_rejected = "1"; }
+    if (flag) params.flag = flag;
     if (verdict) params.verdict = verdict;
     if (search) params.search = search;
     return api
@@ -56,7 +60,7 @@ export default function CareersApplicants() {
   useEffect(() => {
     setSelected(new Set());
     load();
-  }, [jobId, status, verdict, search]);
+  }, [jobId, status, verdict, search, flag]);
 
   // Debounce the search box into the URL.
   useEffect(() => {
@@ -66,8 +70,10 @@ export default function CareersApplicants() {
   }, [searchDraft]);
 
   const autoRejected = applications.filter((a) => a.status === "Auto-Rejected");
+  const rejected = applications.filter((a) => a.status === "Rejected");
+  const active = applications.filter((a) => a.status !== "Auto-Rejected" && a.status !== "Rejected");
   const visible = useMemo(
-    () => (status ? applications : view === "auto" ? autoRejected : applications.filter((a) => a.status !== "Auto-Rejected")),
+    () => (status ? applications : view === "auto" ? autoRejected : view === "rejected" ? rejected : active),
     [applications, status, view]
   );
 
@@ -87,16 +93,18 @@ export default function CareersApplicants() {
   const allChecked = visible.length > 0 && visible.every((a) => selected.has(a.id));
   const toggleAll = () => setSelected(allChecked ? new Set() : new Set(visible.map((a) => a.id)));
 
-  const applyBulk = async (target) => {
+  const applyBulk = async (target, extra = {}) => {
     if (!target || !selected.size) return;
-    if (!confirm(`Move ${selected.size} applicant${selected.size === 1 ? "" : "s"} to "${target}"? Candidates are not emailed.`)) return;
+    if (target === "Rejected" && !extra.reason) { setRejectIds([...selected]); return; }
+    if (target !== "Rejected" && !confirm(`Move ${selected.size} applicant${selected.size === 1 ? "" : "s"} to "${target}"? Candidates are not emailed.`)) return;
     setBusy(true);
     setMessage("");
     try {
-      const { data } = await api.post("/api/careers/applications/bulk-status", { ids: [...selected], status: target });
+      const { data } = await api.post("/api/careers/applications/bulk-status", { ids: [...selected], status: target, ...extra });
       setMessage(`${data.changed} applicant${data.changed === 1 ? "" : "s"} moved to ${target}.`);
       setSelected(new Set());
       setBulkStatus("");
+      setRejectIds(null);
       await load();
     } catch {
       setMessage("Bulk update failed. Please try again.");
@@ -139,7 +147,8 @@ export default function CareersApplicants() {
       {!status && (
         <div className="flex gap-1 mb-4 border-b border-ink/10">
           {[
-            ["active", "Active", applications.length - autoRejected.length],
+            ["active", "Active", active.length],
+            ["rejected", "Rejected", rejected.length],
             ["auto", "Auto-Rejected", autoRejected.length],
           ].map(([key, label, count]) => (
             <button
@@ -154,6 +163,9 @@ export default function CareersApplicants() {
             </button>
           ))}
         </div>
+      )}
+      {!status && view === "rejected" && (
+        <p className="text-xs text-ink/60 mb-4">Rejected by a reviewer. They are out of the active lists and get no automated emails or interview offers. The reason given is shown under each name; select and restore to reopen.</p>
       )}
       {!status && view === "auto" && (
         <p className="text-xs text-ink/60 mb-4">
@@ -182,7 +194,15 @@ export default function CareersApplicants() {
           <option value="">All statuses</option>
           {APPLICANT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
-        <select aria-label="Filter by screening result" value={verdict} onChange={(e) => updateFilter("verdict", e.target.value)} className={SELECT_CLS}>
+        <select value={flag} onChange={(e) => updateFilter("flag", e.target.value)} className={SELECT_CLS} aria-label="Flags">
+          <option value="">Any flag</option>
+          <option value="any">Flagged (duplicate or recruiter)</option>
+          <option value="duplicate">Duplicate CVs</option>
+          <option value="refer">Referred to recruiter</option>
+          <option value="suggested">Possible duplicates (to check)</option>
+          <option value="none">No flags</option>
+        </select>
+        <select value={verdict} onChange={(e) => updateFilter("verdict", e.target.value)} className={SELECT_CLS}>
           <option value="">Any screening result</option>
           {Object.entries(VERDICT_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
         </select>
@@ -257,6 +277,12 @@ export default function CareersApplicants() {
                       {a.full_name}
                     </Link>
                     {a.education && <div className="text-[11px] text-ink/55 max-w-[14rem] truncate">{a.education}</div>}
+                    {a.dup_of && <div className="text-[11px] mt-0.5"><span className="px-1.5 py-0.5 rounded-sm bg-ochre-500/15 text-ochre-700 font-semibold">Duplicate of #{a.dup_of}{a.dup_of_name ? ` (${a.dup_of_name})` : ""}</span></div>}
+                    {!a.dup_of && a.dup_suggest_of && <div className="text-[11px] mt-0.5 text-ochre-700">Possible duplicate of #{a.dup_suggest_of}</div>}
+                    {a.refer_recruiter ? <div className="text-[11px] mt-0.5"><span className="px-1.5 py-0.5 rounded-sm bg-ink/10 text-ink/80 font-semibold">Recruiter: {a.recruiter_name}</span></div> : null}
+                    {a.status === "Rejected" && (a.reject_reason || a.reject_note) && (
+                      <div className="text-[11px] mt-0.5 text-rust-500 max-w-[16rem]">{a.reject_reason}{a.reject_note ? `: ${a.reject_note}` : ""}</div>
+                    )}
                   </td>
                   <td className="px-4 py-3.5 text-ink/70">{a.job_title}</td>
                   <td className="px-4 py-3.5 text-ink/70 text-xs">
@@ -280,6 +306,9 @@ export default function CareersApplicants() {
           </tbody>
         </table>
       </div>
+      {rejectIds && (
+        <RejectDialog names={applications.filter((a) => rejectIds.includes(a.id)).map((a) => a.full_name)} busy={busy} onCancel={() => setRejectIds(null)} onConfirm={(r) => applyBulk("Rejected", r)} />
+      )}
     </div>
   );
 }

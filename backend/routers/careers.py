@@ -12,12 +12,19 @@ JWT_SECRET) rather than jade-careers' own admin email/password, so no
 separate login step or shared credential is exposed to the browser.
 """
 
+import logging
+
 import httpx
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from jose import jwt
 
+import careers_dispatch
+import workflow_log
 from auth import require_permission
 from config import CAREERS_API_BASE, CAREERS_JWT_SECRET
+from database import supabase
+
+logger = logging.getLogger("jade_hr.careers")
 
 router = APIRouter(prefix="/api/careers", tags=["careers"])
 
@@ -110,6 +117,8 @@ def list_applications(
     verdict: str | None = Query(None),
     search: str | None = Query(None),
     include_auto_rejected: str | None = Query(None),
+    include_rejected: str | None = Query(None),
+    flag: str | None = Query(None),
     user: dict = _gate,
 ):
     params = {
@@ -120,15 +129,60 @@ def list_applications(
             "verdict": verdict,
             "search": search,
             "include_auto_rejected": include_auto_rejected,
+            "include_rejected": include_rejected,
+            "flag": flag,
         }.items()
         if v
     }
     return _proxy("GET", "/api/admin/applications", params=params)
 
 
+def dispatch_store() -> careers_dispatch.DispatchStore:
+    return careers_dispatch.DispatchStore(supabase)
+
+
+def mail_status() -> dict:
+    try:
+        return _proxy("GET", "/api/admin/mail/status")
+    except HTTPException:
+        return {}  # careers mail switches unreadable: the explicit CAREERS_ACCEPT_DISPATCH flag still gates automatic sends
+
+
+def record_dispatch(application_id: int, user: dict, out: dict) -> None:
+    workflow_log.record_step("careers_dispatch", application_id, out.get("result", "unknown"), user, basis={"errors": out.get("errors") or []})
+    try:
+        d = out.get("dispatch") or {}
+        note = (f"Offer letter {'sent' if d.get('offer_sent_at') else 'not sent'}, "
+                f"onboarding link {'sent' if d.get('onboarding_sent_at') else 'not sent'} (acceptance dispatch).")
+        _proxy("POST", f"/api/admin/applications/{application_id}/notes", user=user, json={"body": note})
+    except Exception:
+        logger.warning("could not add dispatch note for %s", application_id)
+
+
+def auto_dispatch(application_id: int, user: dict) -> dict | None:
+    """Offer letter + onboarding link once an applicant is marked accepted. Never breaks the status change."""
+    try:
+        app = _proxy("GET", f"/api/admin/applications/{application_id}")["application"]
+        if app.get("status") not in careers_dispatch.ACCEPT_STATUSES:
+            return None
+        out = careers_dispatch.dispatch(
+            {"id": application_id, "full_name": app.get("full_name"), "email": app.get("email")}, dispatch_store(),
+            actor=_actor(user) or "system", mail_status=mail_status() if careers_dispatch.auto_enabled() else None,
+        )
+        if out.get("result") in ("sent", "partial"):
+            record_dispatch(application_id, user, out)
+        return out
+    except Exception:
+        logger.exception("careers acceptance dispatch failed for %s", application_id)
+        return {"result": "error"}
+
+
 @router.post("/applications/bulk-status")
 def bulk_status(body: dict = Body(...), user: dict = _gate):
-    return _proxy("POST", "/api/admin/applications/bulk-status", user=user, json=body)
+    out = _proxy("POST", "/api/admin/applications/bulk-status", user=user, json=body)
+    if (body.get("status") or "").strip() in careers_dispatch.ACCEPT_STATUSES and isinstance(out, dict):
+        out["dispatch"] = {str(i): auto_dispatch(int(i), user) for i in (body.get("ids") or [])[:50]}
+    return out
 
 
 @router.get("/applications/{application_id}")
@@ -138,7 +192,10 @@ def get_application(application_id: int, user: dict = _gate):
 
 @router.patch("/applications/{application_id}")
 def update_application(application_id: int, body: dict = Body(...), user: dict = _gate):
-    return _proxy("PATCH", f"/api/admin/applications/{application_id}", user=user, json=body)
+    out = _proxy("PATCH", f"/api/admin/applications/{application_id}", user=user, json=body)
+    if (body.get("status") or "").strip() in careers_dispatch.ACCEPT_STATUSES and isinstance(out, dict):
+        out["dispatch"] = auto_dispatch(application_id, user)
+    return out
 
 
 # ---------- Notes, interviews, history ----------

@@ -9,7 +9,7 @@ from postgrest.exceptions import APIError
 from config import ALLOWED_ORIGINS
 from resilience import CircuitOpenError
 from routers import (
-    absence, arrears, auth, biometric, careers, clocks, comp_off, confirmations, data_readiness, disputes, email_log, employee_profile, help_media, org_chart,
+    absence, arrears, auth, biometric, careers, careers_recruitment, clocks, comp_off, confirmations, data_readiness, disputes, email_log, employee_profile, help_media, org_chart,
     employees,
     exit_procedure, hr_tasks_report,
     holidays, hr_tasks, invoice_reconciliation, invoices, late_policy, leave, leave_ledger, leave_reminders, letters, offers, loans, market_visits, new_joiner_email, nimit_requests, onboarding,
@@ -105,6 +105,7 @@ app.include_router(salary_paid.router)
 app.include_router(hr_tasks.router)
 app.include_router(hr_tasks_report.router)
 app.include_router(careers.router)
+app.include_router(careers_recruitment.router)
 app.include_router(clocks.router)
 app.include_router(leave_reminders.router)
 app.include_router(comp_off.router)

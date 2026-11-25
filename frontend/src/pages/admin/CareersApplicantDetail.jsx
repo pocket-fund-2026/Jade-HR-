@@ -7,6 +7,8 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../lib/auth.jsx";
 import { EmailsCard, HistoryCard, InterviewsCard, NotesCard, OffersCard } from "../../components/CareersApplicantActivity.jsx";
 import CareersNav from "../../components/CareersNav.jsx";
+import { DispatchCard, FlagsCard, Round2Card } from "../../components/CareersRecruitmentCards.jsx";
+import RejectDialog from "../../components/RejectDialog.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
 import { APPLICANT_STATUSES, CAREERS_SITE_URL, VERDICT_LABEL } from "../../lib/careers.js";
@@ -29,17 +31,25 @@ export default function CareersApplicantDetail() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [notice, setNotice] = useState("");
   const { can } = useAuth();
 
   const load = () => api.get(`/api/careers/applications/${id}`).then(({ data }) => setData(data));
 
   useEffect(() => { load(); }, [id]);
 
-  const setStatus = async (status) => {
+  const setStatus = async (status, extra = {}) => {
+    if (status === "Rejected" && !extra.reason) { setRejecting(true); return; }
     if (status === "Shortlisted" && a.status !== "Shortlisted" && !window.confirm(`Move ${a.full_name} to Shortlisted? Review the candidate before confirming. No email will be sent by this move.`)) return;
     setSaving(true);
     try {
-      await api.patch(`/api/careers/applications/${id}`, { status });
+      const { data: res } = await api.patch(`/api/careers/applications/${id}`, { status, ...extra });
+      setRejecting(false);
+      if (res?.dispatch?.result) {
+        const r = res.dispatch.result;
+        setNotice(r === "sent" ? "Offer letter and onboarding link sent." : r === "partial" ? `Dispatch partly done: ${(res.dispatch.errors || []).join("; ")}` : r === "already_sent" ? "Offer letter and onboarding link were already sent." : r === "held" ? "Automatic sending is off or held; use Send in the dispatch card." : "");
+      }
       await load();
     } finally {
       setSaving(false);
@@ -47,9 +57,9 @@ export default function CareersApplicantDetail() {
   };
 
   if (!data) return <p className="text-ink/70 text-sm"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>;
-  const { application: a, job, submission, answers, notes = [], interviews = [], events = [], emails = [], inbox = [], suggestion = null } = data;
+  const { application: a, job, submission, answers, notes = [], interviews = [], events = [], emails = [], inbox = [], suggestion = null, round2 = null } = data;
 
-  const isAccepted = a.status === "Offered" || a.status === "Hired";
+  const isAccepted = ["Offered", "Offer Accepted", "Hired"].includes(a.status);
   const isRejected = a.status === "Rejected";
 
   return (
@@ -80,8 +90,21 @@ export default function CareersApplicantDetail() {
         </div>
       </div>
 
-      {(a.status === "Offered" || a.status === "Hired") && can("letters.generate") && (
-        <div className="mb-5 bg-paper rounded-sm shadow-card px-4 py-3 text-sm text-ink flex items-center justify-between gap-4 flex-wrap">
+      {notice && <p className="mb-4 text-xs text-jade-700 bg-jade-500/10 border border-jade-500/30 rounded-sm px-3 py-2">{notice}</p>}
+      {a.status === "Rejected" && (a.reject_reason || a.reject_note) && (
+        <div className="mb-5 border border-rust-500/30 bg-rust-50 rounded-sm px-4 py-3 text-sm text-ink">
+          <strong>Rejected:</strong> {a.reject_reason}{a.reject_note ? <span className="text-ink/75"> — {a.reject_note}</span> : null}
+          <span className="block text-[11px] text-ink/50 mt-0.5">{a.rejected_by ? `by ${a.rejected_by}` : ""} · no further automated emails or interview offers go to this applicant.</span>
+        </div>
+      )}
+      {a.status === "Offered" && (
+        <div className="mb-5 bg-paper rounded-sm shadow-card px-4 py-3 text-sm text-ink flex items-center justify-between gap-3 flex-wrap">
+          <span>Offer accepted by the candidate? Marking it sends the offer letter and onboarding form link automatically (once).</span>
+          <button type="button" disabled={saving} onClick={() => setStatus("Offer Accepted")} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40 whitespace-nowrap">Mark offer accepted</button>
+        </div>
+      )}
+      {(a.status === "Offered" || a.status === "Offer Accepted" || a.status === "Hired") && can("letters.generate") && (
+        <div className="mb-5 bg-paper rounded-sm shadow-card px-4 py-3 text-sm text-ink flex items-center justify-between gap-3 flex-wrap">
           <span><strong>Offer letter:</strong> create it in Letters with this candidate’s name, role, department and email already filled in. You add the pay and joining details, then send it for approval as usual.</span>
           <Link to={`/admin/letters?type=${job?.employment_type === "Internship" ? "offer_internship" : "offer_employment"}&candidate=${a.id}`} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 whitespace-nowrap">Create offer letter</Link>
         </div>
@@ -264,8 +287,11 @@ export default function CareersApplicantDetail() {
       </div>
 
       <aside>
+        <FlagsCard application={a} onChange={load} />
+        <DispatchCard applicationId={a.id} status={a.status} />
         <InterviewsCard applicationId={a.id} interviews={interviews} onChange={load} />
         <OffersCard applicationId={a.id} onChange={load} />
+        <Round2Card applicationId={a.id} round2={round2} onChange={load} />
         <EmailsCard emails={emails} onChange={load} />
         {inbox.length > 0 && (
           <section className="mb-4 border border-ink/10 rounded-sm p-3">
@@ -279,6 +305,7 @@ export default function CareersApplicantDetail() {
         <HistoryCard events={events} />
       </aside>
       </div>
+      {rejecting && <RejectDialog names={[a.full_name]} busy={saving} onCancel={() => setRejecting(false)} onConfirm={(r) => setStatus("Rejected", r)} />}
     </div>
   );
 }

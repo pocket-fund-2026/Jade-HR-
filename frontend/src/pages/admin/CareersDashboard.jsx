@@ -29,6 +29,39 @@ function Card({ title, sub, children, className = "" }) {
   );
 }
 
+const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+// Interviews per day: booked + still-open slots against the daily target (4). Short days are flagged so gaps are visible early.
+function InterviewLoad() {
+  const [load, setLoad] = useState(null);
+  useEffect(() => { api.get("/api/careers/interviews/daily-load", { params: { days: 14 } }).then(({ data }) => setLoad(data)).catch(() => setLoad(false)); }, []);
+  if (load === false) return null;
+  return (
+    <Card title="Interviews per day" sub={load ? `Booked + open slots against a target of ${load.target} a day, next 14 days. Red = under target.` : "Loading…"} className="mb-5">
+      {load && (
+        <>
+          <div className="grid grid-cols-7 gap-2">
+            {load.days.map((d) => (
+              <div
+                key={d.date}
+                title={`${d.booked} booked, ${d.open} open slots`}
+                className={`rounded-sm border px-2 py-2 text-center ${d.closed ? "border-ink/10 bg-manila/30 text-ink/40" : d.short ? "border-rust-500/50 bg-rust-50 text-rust-500" : "border-jade-500/40 bg-jade-500/10 text-jade-700"}`}
+              >
+                <p className="text-[10px] uppercase tracking-wider">{DOW[d.dow]} {new Date(d.date).getDate()}</p>
+                <p className="font-nums text-lg leading-tight">{d.total}</p>
+                <p className="text-[10px] font-nums">{d.booked} booked · {d.open} open</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-ink/60 mt-3">
+            {load.interviewers === 0 ? "No interviewer has set up availability yet." : load.short_days ? `${load.short_days} day${load.short_days === 1 ? "" : "s"} under target: ask interviewers to add slots under My interview availability.` : "Every working day meets the target."}
+          </p>
+        </>
+      )}
+    </Card>
+  );
+}
+
 function WeekTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
   const p = payload[0].payload;
@@ -102,9 +135,11 @@ export default function CareersDashboard() {
             <StatCard label="Awaiting review" value={data.awaiting} sub="status New" accent="text-ochre-700" />
             <StatCard label="Strong fits" value={verdicts.shortlist || 0} sub="cleared screening" accent="text-jade-600" />
             <StatCard label="Interviewing" value={data.byStatus.Interviewing || 0} />
-            <StatCard label="Offered / Hired" value={(data.byStatus.Offered || 0) + (data.byStatus.Hired || 0)} accent="text-jade-600" />
+            <StatCard label="Offered / Hired" value={(data.byStatus.Offered || 0) + (data.byStatus["Offer Accepted"] || 0) + (data.byStatus.Hired || 0)} accent="text-jade-600" />
             <StatCard label="Auto-rejected" value={data.byStatus["Auto-Rejected"] || 0} sub="kept, not notified" accent="text-rust-500" />
           </div>
+
+          <InterviewLoad />
 
           <div className="grid lg:grid-cols-2 gap-5 mb-5">
             <Card title="Hiring funnel" sub="Applicants at or past each stage">

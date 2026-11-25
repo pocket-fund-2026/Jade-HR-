@@ -219,7 +219,7 @@ export function EmailsCard({ emails = [], onChange }) {
   const [slErr, setSlErr] = useState("");
   const [slBusy, setSlBusy] = useState(false);
   const [slAvail, setSlAvail] = useState(null);
-  const openShortlist = (id) => { setSlErr(""); setSlAvail(null); setSl({ id, f: { round: "Round 1 – HR", mode: "Video call", duration_min: 30, interviewer: "", interviewer_email: "", note: "", slots: ["", ""] } }); };
+  const openShortlist = (id) => { setSlErr(""); setSlAvail(null); setSl({ id, f: { round: "Round 1 – HR", mode: "Video call", duration_min: 30, interviewer: "", interviewer_email: "", note: "", slots: ["", ""], auto_slots: false } }); };
   const slSet = (k) => (e) => setSl({ ...sl, f: { ...sl.f, [k]: e.target.value } });
   const interviewers = useInterviewers();
   const slSuggest = async () => { setSlErr(""); try { setSl({ ...sl, f: { ...sl.f, slots: await suggestTimes(sl.f.interviewer_email, sl.f.duration_min, 3) } }); setSlAvail(null); } catch (e) { setSlErr(e?.response?.data?.detail || "Could not suggest times"); } };
@@ -235,7 +235,7 @@ export function EmailsCard({ emails = [], onChange }) {
   const slSend = async () => {
     if (!confirm("Send the interview-times email to the candidate from careers@jadecouture.com now?")) return;
     setSlBusy(true); setSlErr("");
-    try { await api.post(`/api/careers/mail/${sl.id}/send-shortlist`, { ...sl.f, slots: slFilled }); setSl(null); await onChange(); }
+    try { await api.post(`/api/careers/mail/${sl.id}/send-shortlist`, { ...sl.f, slots: sl.f.auto_slots ? [] : slFilled }); setSl(null); await onChange(); }
     catch (e) { setSlErr(e?.response?.data?.detail || "Could not send"); } finally { setSlBusy(false); }
   };
   const openDraft = async (id) => { const { data } = await api.get(`/api/careers/mail/${id}`); setDraft({ id, subject: data.subject, note: data.payload?.note || "", html: data.body_html, to: data.to_email }); };
@@ -282,7 +282,11 @@ export function EmailsCard({ emails = [], onChange }) {
               <label className="block"><span className={LABEL}>Interviewer</span><input value={sl.f.interviewer} onChange={slSet("interviewer")} className={`${INPUT} mt-1`} /></label>
               <label className="block"><span className={LABEL}>Interviewer email (gets invite + brief)</span><input type="email" value={sl.f.interviewer_email} onChange={slSet("interviewer_email")} className={`${INPUT} mt-1`} /></label>
             </div>
-            <div className="mt-3">
+            <label className="flex items-start gap-2 text-xs text-ink/80 mt-3">
+              <input type="checkbox" className="mt-0.5" checked={sl.f.auto_slots} disabled={!sl.f.interviewer_email} onChange={(e) => setSl({ ...sl, f: { ...sl.f, auto_slots: e.target.checked } })} />
+              <span>Let the candidate pick from this interviewer's own open slots (up to 6, spread over different days). {!sl.f.interviewer_email && "Choose an interviewer first."}</span>
+            </label>
+            <div className={`mt-3 ${sl.f.auto_slots ? "hidden" : ""}`}>
               <span className={LABEL}>Times to offer (1–6, <abbr className="acr">IST</abbr>)</span>
               {sl.f.slots.map((v, i) => (
                 <div key={i} className="flex gap-2 mt-1.5">
@@ -301,7 +305,7 @@ export function EmailsCard({ emails = [], onChange }) {
             {slErr && <p className="text-xs text-rust-500 mt-2">{slErr}</p>}
             <div className="flex gap-2 mt-3">
               <button type="button" disabled={slBusy} onClick={() => discard(sl.id).then(() => setSl(null))} className="mr-auto px-3 py-1.5 rounded-sm text-xs text-rust-500 hover:underline">Discard draft</button>
-              <button type="button" disabled={slBusy || !slFilled.length || !sl.f.round.trim()} onClick={slSend} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40">{slBusy ? "Sending…" : "Send interview times"}</button>
+              <button type="button" disabled={slBusy || (!sl.f.auto_slots && !slFilled.length) || !sl.f.round.trim()} onClick={slSend} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40">{slBusy ? "Sending…" : "Send interview times"}</button>
               <button type="button" disabled={slBusy} onClick={() => setSl(null)} className="px-3 py-1.5 rounded-sm text-xs text-ink/70 hover:text-ink">Close</button>
             </div>
           </div>
@@ -401,10 +405,26 @@ export function InterviewsCard({ applicationId, interviews, onChange }) {
   );
 }
 
-// Interviewers configured under Careers -> Interview Slots (active ones), for dropdowns and "Suggest times".
+// Interviewer dropdown: active reporting managers and store managers (from the employee records), merged with the
+// availability each of them has set up (Careers -> Interview Slots / "My interview availability"). Anyone with availability
+// but not in the employee list (e.g. a shared default) is kept too.
 function useInterviewers() {
   const [list, setList] = useState([]);
-  useEffect(() => { api.get("/api/careers/availability").then(({ data }) => setList(data.filter((x) => x.active))).catch(() => {}); }, []);
+  useEffect(() => {
+    Promise.all([
+      api.get("/api/careers/interviewers").then(({ data }) => data).catch(() => []),
+      api.get("/api/careers/availability").then(({ data }) => data.filter((x) => x.active)).catch(() => []),
+    ]).then(([people, avail]) => {
+      const byEmail = new Map(avail.filter((x) => x.email).map((x) => [x.email.toLowerCase(), x]));
+      const merged = people.map((p) => {
+        const v = byEmail.get(p.email);
+        return { id: `e:${p.id}`, name: p.name, email: p.email, slot_min: v?.slot_min || 30, has_availability: !!v, note: [p.designation, p.reason].filter(Boolean).join(", ") };
+      });
+      const seen = new Set(merged.map((m) => m.email));
+      for (const v of avail) if (!v.email || !seen.has(v.email.toLowerCase())) merged.push({ id: `a:${v.id}`, name: v.name, email: v.email || "", slot_min: v.slot_min, has_availability: true, note: v.email ? "" : "shared default" });
+      setList(merged);
+    });
+  }, []);
   return list;
 }
 function InterviewerSelect({ list, email, onPick }) {
@@ -412,10 +432,10 @@ function InterviewerSelect({ list, email, onPick }) {
   const cur = list.find((x) => x.email && x.email.toLowerCase() === (email || "").toLowerCase());
   return (
     <label className="block col-span-2">
-      <span className={LABEL}>Interviewer (from Interview Slots)</span>
-      <select value={cur ? cur.id : ""} onChange={(e) => { const r = list.find((x) => String(x.id) === e.target.value); if (r) onPick(r); }} className={`${INPUT} mt-1`}>
+      <span className={LABEL}>Interviewer (reporting managers & store managers)</span>
+      <select value={cur ? cur.id : ""} onChange={(e) => { const r = list.find((x) => x.id === e.target.value); if (r) onPick(r); }} className={`${INPUT} mt-1`}>
         <option value="">Choose, or type below…</option>
-        {list.map((x) => <option key={x.id} value={x.id}>{x.name}{x.email ? ` (${x.email})` : " (shared default)"}</option>)}
+        {list.map((x) => <option key={x.id} value={x.id}>{x.name}{x.note ? ` - ${x.note}` : ""}{x.has_availability ? "" : " (no slots set up yet)"}</option>)}
       </select>
     </label>
   );
@@ -431,7 +451,7 @@ const fmtSlot = (s) => (s ? formatDateTime(s) : "");
 export function OffersCard({ applicationId, onChange }) {
   const [offers, setOffers] = useState([]);
   const [adding, setAdding] = useState(false);
-  const [f, setF] = useState({ round: "", mode: "Video call", duration_min: 30, interviewer: "", interviewer_email: "", note: "", slots: ["", ""] });
+  const [f, setF] = useState({ round: "", mode: "Video call", duration_min: 30, interviewer: "", interviewer_email: "", note: "", slots: ["", ""], auto_slots: false });
   const [err, setErr] = useState("");
   const [saving, setSaving] = useState(false);
   const [avail, setAvail] = useState(null);
@@ -453,7 +473,7 @@ export function OffersCard({ applicationId, onChange }) {
   };
   const submit = async (e) => {
     e.preventDefault(); setErr(""); setSaving(true);
-    try { await api.post(`/api/careers/applications/${applicationId}/offers`, { ...f, slots: filled }); setAdding(false); setAvail(null); setF({ ...f, slots: ["", ""], note: "" }); await load(); await onChange?.(); }
+    try { await api.post(`/api/careers/applications/${applicationId}/offers`, { ...f, slots: f.auto_slots ? [] : filled }); setAdding(false); setAvail(null); setF({ ...f, slots: ["", ""], note: "" }); await load(); await onChange?.(); }
     catch (e2) { setErr(e2?.response?.data?.detail || "Could not create the offer"); } finally { setSaving(false); }
   };
   const act = async (path, confirmText) => { if (confirmText && !confirm(confirmText)) return; try { await api.post(path, {}); } catch (e) { alert(e?.response?.data?.detail || "Failed"); } await load(); await onChange?.(); };
@@ -486,7 +506,11 @@ export function OffersCard({ applicationId, onChange }) {
             <label className="block"><span className={LABEL}>Interviewer</span><input value={f.interviewer} onChange={set("interviewer")} className={`${INPUT} mt-1`} /></label>
             <label className="block"><span className={LABEL}>Interviewer email (gets the invite + brief)</span><input type="email" value={f.interviewer_email} onChange={set("interviewer_email")} className={`${INPUT} mt-1`} /></label>
           </div>
-          <div>
+          <label className="flex items-start gap-2 text-xs text-ink/80">
+            <input type="checkbox" className="mt-0.5" checked={f.auto_slots} disabled={!f.interviewer_email} onChange={(e) => setF({ ...f, auto_slots: e.target.checked })} />
+            <span>Let the candidate pick from this interviewer's own open slots (up to 6, spread over different days, from the availability they manage themselves). {!f.interviewer_email && "Choose an interviewer first."}</span>
+          </label>
+          <div className={f.auto_slots ? "hidden" : ""}>
             <span className={LABEL}>Times to offer (1–6, <abbr className="acr">IST</abbr>)</span>
             {f.slots.map((v, i) => (
               <div key={i} className="flex gap-2 mt-1.5">
@@ -504,7 +528,7 @@ export function OffersCard({ applicationId, onChange }) {
           <label className="block"><span className={LABEL}>Personal note (optional)</span><textarea rows={2} value={f.note} onChange={set("note")} className={`${INPUT} mt-1`} /></label>
           {err && <p className="text-xs text-rust-500">{err}</p>}
           <div className="flex gap-2">
-            <button type="submit" disabled={saving || !filled.length || !f.round.trim()} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40">{saving ? "Saving…" : "Send times to candidate"}</button>
+            <button type="submit" disabled={saving || (!f.auto_slots && !filled.length) || !f.round.trim()} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40">{saving ? "Saving…" : "Send times to candidate"}</button>
             <button type="button" onClick={() => setAdding(false)} className="px-3 py-1.5 rounded-sm text-xs text-ink/70 hover:text-ink">Cancel</button>
           </div>
           <p className="text-[11px] text-ink/50">The candidate gets an email with a button for each time; tapping one and confirming books the interview automatically (Meet link for video calls), and the interviewer gets a brief. If interview emails are switched off, copy the link and share it yourself.</p>

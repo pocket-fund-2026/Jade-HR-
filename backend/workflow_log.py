@@ -29,6 +29,10 @@ WORKFLOWS = {
     "wfh": "Work From Home",
     "absence": "Work absence",
     "market_visit": "Market visit",
+    "careers_dispatch": "Careers offer + onboarding dispatch",
+    "careers_flag": "Careers applicant flag",
+    "careers_rule": "Careers auto-reject rule",
+    "careers_round2": "Careers round-2 notes",
 }
 
 

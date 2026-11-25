@@ -36,7 +36,7 @@ export default function CareersPipeline() {
 
   useEffect(() => {
     setLoading(true);
-    const params = { include_auto_rejected: "1" };
+    const params = { include_auto_rejected: "1", include_rejected: "1" };
     if (jobId) params.job_id = jobId;
     api.get("/api/careers/applications", { params }).then(({ data }) => setApplications(data)).finally(() => setLoading(false));
   }, [jobId]);
