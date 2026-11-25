@@ -1,3 +1,4 @@
+import EmptyState from "../../components/EmptyState.jsx";
 import { Check, Paperclip, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
@@ -53,7 +54,7 @@ function ResolveRow({ dispute, onResolved }) {
       <td className="px-5 py-3.5 font-nums text-ink/70">{formatDate(dispute.date)}</td>
       <td className="px-5 py-3.5 max-w-xs">
         <p className="text-ink/70">{dispute.reason}</p>
-        <p className="text-xs text-ink/70 mt-0.5 uppercase tracking-wide">{dispute.issue_type.replace(/_/g, " ")}</p>
+        <p className="text-xs text-ink/70 mt-0.5">{dispute.issue_type.replace(/_/g, " ")}</p>
         {dispute.appeal_of && (
           <p className="text-xs text-ochre-700 mt-1"><strong>APPEAL</strong> of a rejection{dispute.appeal_original_by ? ` by ${dispute.appeal_original_by}` : ""}{dispute.appeal_original_note ? `: "${dispute.appeal_original_note}"` : ""}</p>
         )}
@@ -70,14 +71,14 @@ function ResolveRow({ dispute, onResolved }) {
             value={firstIn}
             onChange={(e) => setFirstIn(e.target.value)}
             aria-label="Actual clock-in" placeholder="In"
-            className="w-24 rounded-sm border border-ink/15 bg-manila/40 px-2 py-1.5 text-xs font-nums focus:outline-none focus:ring-2 focus:ring-jade-500"
+            className="w-24 rounded-sm border border-ink/15 bg-manila/40 px-4 py-1.5 text-xs font-nums focus:outline-none focus:ring-2 focus:ring-jade-500"
           />
           <input
             type="time"
             value={lastOut}
             onChange={(e) => setLastOut(e.target.value)}
             aria-label="Actual clock-out" placeholder="Out"
-            className="w-24 rounded-sm border border-ink/15 bg-manila/40 px-2 py-1.5 text-xs font-nums focus:outline-none focus:ring-2 focus:ring-jade-500"
+            className="w-24 rounded-sm border border-ink/15 bg-manila/40 px-4 py-1.5 text-xs font-nums focus:outline-none focus:ring-2 focus:ring-jade-500"
           />
         </div>
       </td>
@@ -85,20 +86,20 @@ function ResolveRow({ dispute, onResolved }) {
         {isOwn ? (
           <p className="text-xs text-ink/70 max-w-[11rem]">Your own dispute. Another reviewer has to settle it.</p>
         ) : (
-        <div className="flex gap-2">
-          <button
-            disabled={busy}
-            onClick={() => resolve("approve")}
-            className="flex items-center gap-1 bg-jade-600 text-white px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
-          >
-            <Check size={13} /> Approve
-          </button>
+        <div className="flex gap-8">
           <button
             disabled={busy}
             onClick={() => resolve("reject")}
-            className="flex items-center gap-1 bg-paper border border-rust-500 text-rust-500 px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-rust-50 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-1 bg-paper border border-rust-500 text-rust-500 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-rust-50 disabled:opacity-50 transition-colors"
           >
-            <X size={13} /> Reject
+            <X size={13} /> Reject dispute
+          </button>
+          <button
+            disabled={busy}
+            onClick={() => resolve("approve")}
+            className="flex items-center gap-1 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
+          >
+            <Check size={13} /> Approve dispute
           </button>
         </div>
         )}
@@ -165,20 +166,20 @@ export default function Disputes() {
   }, [disputes, location, department, issueType, dateFrom, dateTo, search]);
   const hasFilters = search || location !== "all" || department !== "all" || issueType !== "all" || dateFrom || dateTo;
   const clearFilters = () => { setSearch(""); setLocation("all"); setDepartment("all"); setIssueType("all"); setDateFrom(""); setDateTo(""); };
-  const inputCls = "rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
+  const inputCls = "rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h2 className="font-display text-2xl text-ink">Attendance Disputes</h2>
+          <h2 className="font-display text-2xl text-ink">Attendance disputes</h2>
           <p className="text-xs text-ink/70 font-nums mt-0.5">Employee-reported missed punches</p>
         </div>
       </div>
 
       <SlidingTabs tabs={TABS} value={tab} onChange={setTab} className="flex gap-1 mb-4" />
 
-      <div className="flex flex-wrap items-end gap-3 mb-4">
+      <div className="flex flex-wrap items-end gap-4 mb-4">
         <input type="search" aria-label="Search employee" placeholder="Search name or employee code" value={search}
           onChange={(e) => setSearch(e.target.value)} className={`${inputCls} w-64`} />
         <select aria-label="Filter by department" value={department} onChange={(e) => setDepartment(e.target.value)} className={inputCls}>
@@ -200,22 +201,22 @@ export default function Disputes() {
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm tabular-nums">
-          <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
+          <thead className="text-left sticky top-0 z-10 bg-paper shadow-edge">
             <tr className="border-b-2 border-ink/10">
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Location</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Date</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Issue</th>
-              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Confirm times</th>}
-              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Action</th>}
-              {tab !== "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Status</th>}
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Employee</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Location</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Date</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Issue</th>
+              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Confirm times</th>}
+              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Action</th>}
+              {tab !== "pending" && <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Status</th>}
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={6}>Loading ledger…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={6}>{hasFilters ? "No disputes match these filters." : `No ${tab} disputes.`}</td></tr>
+              <tr><td colSpan={6}><EmptyState title={hasFilters ? "No disputes match these filters" : `No ${tab} disputes`} action={hasFilters ? { label: "Clear filters", onClick: clearFilters } : tab !== "pending" ? { label: "Show pending disputes", onClick: () => setTab("pending") } : { label: "Open attendance report", to: "/admin/reports/attendance" }}>{hasFilters ? "Try widening the search or removing a filter." : tab === "pending" ? "Employees report missed punches from their own attendance page." : `Disputes you ${tab} will be listed here.`}</EmptyState></td></tr>
             ) : tab === "pending" ? (
               filtered.map((d) => <ResolveRow key={d.id} dispute={d} onResolved={load} />)
             ) : (

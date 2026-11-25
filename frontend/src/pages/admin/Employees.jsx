@@ -1,3 +1,4 @@
+import EmptyState from "../../components/EmptyState.jsx";
 import { ChevronLeft, ChevronRight, FileSpreadsheet, GitBranch, Plus, Search, Upload } from "lucide-react";
 import PersonAvatar from "../../components/PersonAvatar.jsx";
 import { useEffect, useMemo, useState } from "react";
@@ -210,25 +211,25 @@ export default function Employees() {
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h2 className="font-display text-2xl text-ink">Employees</h2>
           <p className="text-xs text-ink/70 font-nums mt-0.5">{employees.length} on the ledger</p>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-4">
           <button
             onClick={() => exportMasterExcel(filtered, canViewSalary)}
             disabled={!filtered.length}
-            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-4 py-2.5 rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
+            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
           >
             <FileSpreadsheet size={16} />
-            Export Master
+            Export master
           </button>
           {canManage && (
             <button
               onClick={downloadCompleteDetails}
               disabled={exportingFull}
-              className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-4 py-2.5 rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
+              className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
             >
               <FileSpreadsheet size={16} />
               {exportingFull ? "Preparing…" : "Complete Details (Excel)"}
@@ -237,27 +238,27 @@ export default function Employees() {
           {canEditSalary && (
             <button
               onClick={() => setShowImport(true)}
-              className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-4 py-2.5 rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
+              className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
             >
               <Upload size={16} />
-              Import Salaries
+              Import salaries
             </button>
           )}
           {canManage && (
             <Link
               to="/admin/reporting-managers"
-              className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-4 py-2.5 rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
+              className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
             >
               <GitBranch size={16} />
-              Reporting Managers
+              Reporting managers
             </Link>
           )}
           <Link
             to="/admin/employees/new"
-            className="flex items-center gap-2 bg-ledger-800 text-manila px-4 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+            className="flex items-center gap-2 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
           >
             <Plus size={16} />
-            Add Employee
+            Add employee
           </Link>
         </div>
       </div>
@@ -269,7 +270,7 @@ export default function Employees() {
         />
       )}
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+      <div className="flex flex-col sm:flex-row gap-4 mb-4">
         <div className="relative sm:max-w-xs flex-1">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/65" />
           <input
@@ -284,7 +285,7 @@ export default function Employees() {
           aria-label="Filter by location"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
-          className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+          className="rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
         >
           <option value="all">All locations</option>
           {locations.map((loc) => (
@@ -295,7 +296,7 @@ export default function Employees() {
           aria-label="Filter by category"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+          className="rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
         >
           <option value="all">All categories</option>
           <option value="corporate">Corporate</option>
@@ -305,16 +306,16 @@ export default function Employees() {
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm tabular-nums">
-          <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
+          <thead className="text-left sticky top-0 z-10 bg-paper shadow-edge">
             <tr className="border-b-2 border-ink/10">
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Name</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Code</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Location</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Designation</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Name</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Code</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Location</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Designation</th>
               {canViewSalary && (
-                <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Gross (B+H+C)</th>
+                <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Gross (B+H+C)</th>
               )}
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Status</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Status</th>
               <th></th>
             </tr>
           </thead>
@@ -322,7 +323,7 @@ export default function Employees() {
             {loading ? (
               <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={7}>Loading ledger…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={7}>No employees match.</td></tr>
+              <tr><td colSpan={7}><EmptyState title="No employees match" action={query || location !== "all" || category !== "all" ? { label: "Clear filters", onClick: () => { setQuery(""); setLocation("all"); setCategory("all"); setPage(1); } } : { label: "Add an employee", to: "/admin/employees/new" }}>{query || location !== "all" || category !== "all" ? "Try widening the search or removing a filter." : "No employees are on file yet."}</EmptyState></td></tr>
             ) : (
               pageItems.map((e) => (
                 <tr key={e.id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
@@ -332,7 +333,7 @@ export default function Employees() {
                       {e.first_name} {e.last_name}
                     </Link>
                     {e.is_intern && (
-                      <span className="ml-2 text-[10px] font-semibold uppercase tracking-wider text-ochre-700 bg-ochre-500/15 rounded-full px-2 py-0.5 align-middle">
+                      <span className="ml-2 text-[10px] font-semibold text-ochre-700 bg-ochre-500/15 rounded-full px-2 py-0.5 align-middle">
                         Intern
                       </span>
                     )}
@@ -367,7 +368,7 @@ export default function Employees() {
       </div>
 
       {!loading && filtered.length > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 mt-4">
+        <div className="flex flex-wrap items-center justify-between gap-4 mt-4">
           <p className="text-xs text-ink/70 font-nums">
             Showing {(pageSafe - 1) * PAGE_SIZE + 1}–{Math.min(pageSafe * PAGE_SIZE, filtered.length)} of {filtered.length}
           </p>

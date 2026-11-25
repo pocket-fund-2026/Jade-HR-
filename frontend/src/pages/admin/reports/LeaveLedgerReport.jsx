@@ -58,20 +58,20 @@ export default function LeaveLedgerReport() {
   return (
     <div>
       <Link to="/admin/reports" className="inline-flex items-center gap-1.5 text-xs text-ink/70 hover:text-ink transition-colors">
-        <ArrowLeft size={13} /> Back to Reports
+        <ArrowLeft size={13} /> Back to reports
       </Link>
       <h2 className="font-display text-2xl text-ink mt-2 mb-6">Leave Ledger — Leave Detailed Report</h2>
 
       <div className="bg-paper rounded-sm shadow-card p-5 mb-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Active / Inactive</label>
+            <label className="block text-xs font-semibold text-ink/70 mb-1.5">Active / Inactive</label>
             <div className="flex rounded-sm border border-ink/15 overflow-hidden text-xs">
               {["active", "inactive", "both"].map((s) => (
                 <button
                   key={s}
                   onClick={() => setStatus(s)}
-                  className={`flex-1 px-3 py-2 font-semibold capitalize transition-colors ${status === s ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}
+                  className={`flex-1 px-3 py-2 font-semibold capitalize transition-colors ${status === s ? "bg-ledger-800 text-on-jade" : "bg-paper text-ink/70 hover:text-ink"}`}
                 >
                   {s}
                 </button>
@@ -79,11 +79,11 @@ export default function LeaveLedgerReport() {
             </div>
           </div>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Employee</label>
-            <select
+            <label htmlFor="fld-83" className="block text-xs font-semibold text-ink/70 mb-1.5">Employee</label>
+            <select id="fld-83"
               value={employeeId}
               onChange={(e) => setEmployeeId(e.target.value)}
-              className="w-full rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+              className="w-full rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
             >
               <option value="">All Employees are Selected</option>
               {filteredEmployees.map((e) => (
@@ -92,29 +92,29 @@ export default function LeaveLedgerReport() {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Leave Type</label>
-            <select
+            <label htmlFor="fld-96" className="block text-xs font-semibold text-ink/70 mb-1.5">Leave type</label>
+            <select id="fld-96"
               value={leaveType}
               onChange={(e) => setLeaveType(e.target.value)}
-              className="w-full rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+              className="w-full rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
             >
               {Object.entries(LEAVE_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Year</label>
-            <input
+            <label htmlFor="fld-106" className="block text-xs font-semibold text-ink/70 mb-1.5">Year</label>
+            <input id="fld-106"
               type="number"
               value={year}
               onChange={(e) => setYear(Number(e.target.value))}
-              className="w-full rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink font-nums focus:outline-none focus:ring-2 focus:ring-jade-500"
+              className="w-full rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm text-ink font-nums focus:outline-none focus:ring-2 focus:ring-jade-500"
             />
           </div>
         </div>
         <div className="flex justify-end mt-4">
           <button
             onClick={search}
-            className="bg-ledger-800 text-manila px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+            className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
           >
             Search
           </button>
@@ -126,7 +126,7 @@ export default function LeaveLedgerReport() {
 
       {report && !loading && (
         <div className="bg-paper rounded-sm shadow-card p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
             <p className="text-sm text-ink">
               <span className="font-semibold">Emp Code:</span> {report.employee_code}
               <span className="ml-4 font-semibold">Emp Name:</span> {report.employee_name}
@@ -134,27 +134,27 @@ export default function LeaveLedgerReport() {
             </p>
             <button
               onClick={() => exportExcel(report)}
-              className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
+              className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
             >
               <FileSpreadsheet size={15} /> Excel
             </button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm tabular-nums">
-              <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
+              <thead className="text-left sticky top-0 z-10 bg-paper shadow-edge">
                 <tr className="border-b-2 border-ink/10">
-                  <th className="px-3 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Date</th>
-                  <th className="px-3 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Description</th>
-                  <th className="px-3 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">Cr</th>
-                  <th className="px-3 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">Debit</th>
-                  <th className="px-3 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">Adjusted in Payslip</th>
-                  <th className="px-3 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">Leave Approved</th>
+                  <th className="px-3 py-2.5 font-semibold text-[11px] text-ink/70">Date</th>
+                  <th className="px-3 py-2.5 font-semibold text-[11px] text-ink/70">Description</th>
+                  <th className="px-3 py-2.5 font-semibold text-[11px] text-ink/70 text-right">Cr</th>
+                  <th className="px-3 py-2.5 font-semibold text-[11px] text-ink/70 text-right">Debit</th>
+                  <th className="px-3 py-2.5 font-semibold text-[11px] text-ink/70 text-right">Adjusted in payslip</th>
+                  <th className="px-3 py-2.5 font-semibold text-[11px] text-ink/70 text-right">Leave approved</th>
                 </tr>
               </thead>
               <tbody>
                 <tr className="border-b border-ink/[0.06]">
                   <td className="px-3 py-2 font-nums text-ink/70">01-Jan-{report.year}</td>
-                  <td className="px-3 py-2 text-ink">Opening Balance</td>
+                  <td className="px-3 py-2 text-ink">Opening balance</td>
                   <td className="px-3 py-2 font-nums text-right">{report.opening_balance}</td>
                   <td className="px-3 py-2 font-nums text-right">—</td>
                   <td className="px-3 py-2 font-nums text-right">—</td>

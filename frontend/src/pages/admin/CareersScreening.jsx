@@ -114,7 +114,7 @@ export default function CareersScreening() {
     }
   };
 
-  const field = "w-full rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-jade-500";
+  const field = "w-full rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-jade-500";
 
   return (
     <div>
@@ -129,7 +129,7 @@ export default function CareersScreening() {
             onClick={() => run(false)}
             disabled={running || dirty}
             title={dirty ? "Save your changes first" : ""}
-            className="px-4 py-2 rounded-sm text-sm font-semibold border border-ink/15 bg-paper text-ink hover:bg-manila/40 disabled:opacity-40"
+            className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold border border-ink/15 bg-paper text-ink hover:bg-manila/40 disabled:opacity-40"
           >
             {running ? "Checking…" : "Preview re-screen"}
           </button>
@@ -137,7 +137,7 @@ export default function CareersScreening() {
             type="button"
             onClick={save}
             disabled={!dirty || saving}
-            className="px-4 py-2 rounded-sm text-sm font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40"
+            className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold bg-jade-600 text-on-jade hover:bg-jade-700 disabled:opacity-40"
           >
             {saving ? "Saving…" : "Save rules"}
           </button>
@@ -151,7 +151,7 @@ export default function CareersScreening() {
         <div className="bg-paper rounded-sm shadow-card p-6 mb-6">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/60">{preview.applied ? "Re-screen applied" : "Re-screen preview (nothing saved yet)"}</p>
+              <p className="text-[11px] font-semibold text-ink/60">{preview.applied ? "Re-screen applied" : "Re-screen preview (nothing saved yet)"}</p>
               <p className="text-sm text-ink mt-1">
                 {preview.total} applicants: {preview.tally.shortlist || 0} strong fit, {preview.tally.review || 0} review, {preview.tally.reject || 0} fail the brief.{" "}
                 {preview.changes.length} would change.
@@ -162,7 +162,7 @@ export default function CareersScreening() {
                 type="button"
                 onClick={() => run(true)}
                 disabled={running}
-                className="px-4 py-2 rounded-sm text-sm font-semibold bg-ink text-manila hover:bg-ink/90 disabled:opacity-40"
+                className="px-4 py-2 rounded-sm text-sm font-semibold bg-ink text-on-jade hover:bg-ink/90 disabled:opacity-40"
               >
                 Apply to existing applicants
               </button>
@@ -171,7 +171,7 @@ export default function CareersScreening() {
           {preview.changes.length > 0 && (
             <div className="overflow-x-auto mt-4 max-h-96 overflow-y-auto">
               <table className="w-full text-sm">
-                <thead className="text-left text-[11px] uppercase tracking-wider text-ink/60 sticky top-0 bg-paper">
+                <thead className="text-left text-[11px] text-ink/60 sticky top-0 bg-paper">
                   <tr className="border-b border-ink/10">
                     <th className="py-2 pr-3 font-semibold">Applicant</th>
                     <th className="py-2 pr-3 font-semibold">Screening</th>
@@ -210,14 +210,14 @@ export default function CareersScreening() {
             <div className="grid md:grid-cols-2 gap-4 mt-5">
               {s.regex.map(([k, label]) => (
                 <label key={k} className="block">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-ink/60">{label}</span>
+                  <span className="text-[11px] font-semibold text-ink/60">{label}</span>
                   <input value={draft[k] || ""} onChange={(e) => setDraft({ ...draft, [k]: e.target.value })} className={`${field} mt-1`} />
                   <span className="text-[11px] text-ink/50">Separate alternatives with |</span>
                 </label>
               ))}
               {s.number && (
                 <label className="block">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-ink/60">{s.number[1]}</span>
+                  <span className="text-[11px] font-semibold text-ink/60">{s.number[1]}</span>
                   <input
                     type="number"
                     min="0"
@@ -232,7 +232,7 @@ export default function CareersScreening() {
             <div className="grid md:grid-cols-2 gap-4 mt-5">
               {s.lists.map(([k, label]) => (
                 <label key={k} className="block">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-ink/60">
+                  <span className="text-[11px] font-semibold text-ink/60">
                     {label} <span className="font-nums text-ink/40 normal-case">({toList(draft[k] || "").length})</span>
                   </span>
                   <textarea

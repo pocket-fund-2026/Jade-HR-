@@ -8,6 +8,7 @@ import { useAuth } from "../../lib/auth.jsx";
 import { formatDate } from "../../lib/format.js";
 import { LEAVE_LABELS, selectableLeaveTypes } from "../../lib/leaveTypes.js";
 
+import EmptyState from "../../components/EmptyState.jsx";
 export default function MyLeave() {
   const { user } = useAuth();
   const isCorporate = user?.employee_category === "corporate";
@@ -60,7 +61,7 @@ export default function MyLeave() {
 
   return (
     <div className="max-w-2xl">
-      <h2 className="font-display text-2xl text-ink mb-1">My Leave</h2>
+      <h2 className="font-display text-2xl text-ink mb-1">My leave</h2>
       <p className="text-sm text-ink/70 mb-6">Submit and track your own leave requests.</p>
 
       {loading ? (
@@ -68,10 +69,10 @@ export default function MyLeave() {
       ) : (
         <>
           {balance.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
               {balance.filter((b) => b.allocated !== null).map((b) => (
                 <div key={b.leave_type} className="bg-paper rounded-sm shadow-card px-4 py-3 border-t-2 border-ink/10">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70">{LEAVE_LABELS[b.leave_type] || b.leave_type}</p>
+                  <p className="text-[11px] font-semibold text-ink/70">{LEAVE_LABELS[b.leave_type] || b.leave_type}</p>
                   <p className="font-display text-lg text-ink mt-0.5">{b.remaining} <span className="text-xs text-ink/70 font-sans">/ {b.allocated}</span></p>
                   {b.carried_forward > 0 && (
                     <p className="text-[10px] text-ink/70 mt-0.5">incl. {Number(b.carried_forward).toFixed(1)} carried forward</p>
@@ -84,50 +85,50 @@ export default function MyLeave() {
           <form onSubmit={submit} className="bg-paper rounded-sm shadow-card p-5 mb-6">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Leave Type</label>
-                <select value={leaveType} onChange={(e) => setLeaveType(e.target.value)}
-                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
+                <label htmlFor="fld-88" className="block text-xs font-semibold text-ink/70 mb-1.5">Leave type</label>
+                <select id="fld-88" value={leaveType} onChange={(e) => setLeaveType(e.target.value)}
+                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
                   {availableTypes.map((v) => <option key={v} value={v}>{LEAVE_LABELS[v]}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Start Date</label>
-                <input type="date" required value={startDate} onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+                <label htmlFor="fld-95" className="block text-xs font-semibold text-ink/70 mb-1.5">Start date</label>
+                <input id="fld-95" type="date" required value={startDate} onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">{isHalf ? "Which half" : "End Date"}</label>
+                <label htmlFor="myleave_end" className="block text-xs font-semibold text-ink/70 mb-1.5">{isHalf ? "Which half" : "End date"}</label>
                 {isHalf ? (
-                  <select value={session} onChange={(e) => setSession(e.target.value)}
-                    className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
+                  <select id="myleave_end" value={session} onChange={(e) => setSession(e.target.value)}
+                    className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
                     <option value="first">First half (morning off)</option>
                     <option value="second">Second half (afternoon off)</option>
                   </select>
                 ) : (
-                <input type="date" required value={endDate} onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+                <input id="myleave_end" type="date" required value={endDate} onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
                 )}
               </div>
             </div>
             <div className="mt-4">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Reason</label>
-              <input type="text" value={reason} onChange={(e) => setReason(e.target.value)}
+              <label htmlFor="fld-114" className="block text-xs font-semibold text-ink/70 mb-1.5">Reason</label>
+              <input id="fld-114" type="text" value={reason} onChange={(e) => setReason(e.target.value)}
                 placeholder="Optional"
-                className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+                className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
             </div>
             <div className="mt-4"><LeaveProofField file={proof} onChange={setProof} /></div>
             {error && <p className="text-sm text-rust-500 mt-3">{error}</p>}
             <div className="flex justify-end mt-4">
               <button type="submit" disabled={submitting}
-                className="flex items-center gap-1.5 bg-jade-600 text-white px-4 py-2 rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors">
-                <CalendarPlus size={14} /> {submitting ? "Submitting…" : "Submit Request"}
+                className="flex items-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors">
+                <CalendarPlus size={14} /> {submitting ? "Submitting…" : "Submit leave request"}
               </button>
             </div>
           </form>
 
           <div className="bg-paper rounded-sm shadow-card divide-y divide-ink/[0.06]">
             {requests.length === 0 ? (
-              <p className="px-5 py-8 text-ink/70 text-center text-sm">No leave requests yet.</p>
+              <EmptyState title="No leave requests yet" action={{ label: "Request leave", onClick: () => document.getElementById("fld-88")?.focus() }}>Requests you file show up here with their status.</EmptyState>
             ) : (
               requests.map((r) => (
                 <div key={r.id} className="flex items-center justify-between gap-4 px-5 py-3.5">

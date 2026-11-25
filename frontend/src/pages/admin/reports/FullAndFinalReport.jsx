@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import api from "../../../lib/api.js";
 import { formatFullDate, formatINR } from "../../../lib/format.js";
 
+import EmptyState from "../../../components/EmptyState.jsx";
 export default function FullAndFinalReport() {
   const [employees, setEmployees] = useState([]);
   const [search, setSearch] = useState("");
@@ -45,7 +46,7 @@ export default function FullAndFinalReport() {
   return (
     <div>
       <Link to="/admin/reports" className="inline-flex items-center gap-1.5 text-xs text-ink/70 hover:text-ink transition-colors">
-        <ArrowLeft size={13} /> Back to Reports
+        <ArrowLeft size={13} /> Back to reports
       </Link>
       <h2 className="font-display text-2xl text-ink mt-2 mb-1">Payslip Full &amp; Final</h2>
       <p className="text-xs text-ink/70 mb-6">Last pay-period payslip, unused earned-leave encashment, and gratuity.</p>
@@ -53,23 +54,23 @@ export default function FullAndFinalReport() {
       {loadingList ? (
         <p className="text-ink/70"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>
       ) : employees.length === 0 ? (
-        <p className="text-sm text-ink/70">No employees found.</p>
+        <EmptyState title="No employees found" action={{ label: "Open employees", to: "/admin/employees" }}>Settlements are built for employees who have an exit.</EmptyState>
       ) : (
         <>
-          <div className="mb-6 max-w-md space-y-3">
-            <input
+          <div className="mb-6 max-w-md space-y-4">
+            <input aria-label="Search by name or employee code"
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by name or employee code…"
-              className="w-full rounded-sm border border-ink/15 bg-paper px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+              className="w-full rounded-sm border border-ink/15 bg-paper px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
             />
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Employee</label>
-              <select
+              <label htmlFor="fld-69" className="block text-xs font-semibold text-ink/70 mb-1.5">Employee</label>
+              <select id="fld-69"
                 value={employeeId}
                 onChange={(e) => setEmployeeId(e.target.value)}
-                className="w-full rounded-sm border border-ink/15 bg-paper px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+                className="w-full rounded-sm border border-ink/15 bg-paper px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
               >
                 {filtered.length === 0 ? (
                   <option value="">No matches</option>
@@ -94,27 +95,27 @@ export default function FullAndFinalReport() {
                 <div className="bg-ochre-50 border border-ochre-400/40 rounded-sm px-4 py-3 text-sm text-ink/80">
                   <strong>Estimate</strong> — no Exit Date or Scheduled Exit Date is on file for this employee, so this
                   is calculated as if they were leaving today ({formatFullDate(settlement.reference_date)}). Set an
-                  Exit Date on the employee's Dates tab once it's confirmed for the real settlement figure.
+                  Exit Date on the employee’s Dates tab once it’s confirmed for the real settlement figure.
                 </div>
               )}
               <div className="bg-paper rounded-sm shadow-card p-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70">Employee</p>
+                    <p className="text-[11px] font-semibold text-ink/70">Employee</p>
                     <p className="text-sm text-ink font-medium mt-0.5">{settlement.name} ({settlement.employee_code})</p>
                   </div>
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70">
+                    <p className="text-[11px] font-semibold text-ink/70">
                       {settlement.is_estimate ? "As-of Date" : "Exit Date"}
                     </p>
                     <p className="text-sm text-ink font-medium mt-0.5">{formatFullDate(settlement.reference_date)}</p>
                   </div>
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70">Status</p>
+                    <p className="text-[11px] font-semibold text-ink/70">Status</p>
                     <p className="text-sm text-ink font-medium mt-0.5">{settlement.employee_status || "—"}</p>
                   </div>
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70">Reason</p>
+                    <p className="text-[11px] font-semibold text-ink/70">Reason</p>
                     <p className="text-sm text-ink font-medium mt-0.5">{settlement.reason_of_leaving || "—"}</p>
                   </div>
                 </div>
@@ -140,7 +141,7 @@ export default function FullAndFinalReport() {
                       <td className="px-5 py-3 text-right font-nums text-ink">{formatINR(settlement.gratuity.gratuity_amount)}</td>
                     </tr>
                     <tr className="border-t-2 border-ink/10 font-semibold">
-                      <td className="px-5 py-3">Total Settlement</td>
+                      <td className="px-5 py-3">Total settlement</td>
                       <td className="px-5 py-3 text-right font-nums text-jade-700">{formatINR(settlement.total_settlement)}</td>
                     </tr>
                   </tbody>

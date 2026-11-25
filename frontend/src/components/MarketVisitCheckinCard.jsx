@@ -34,7 +34,7 @@ export default function MarketVisitCheckinCard() {
     setLocation(null);
     setMode("locating");
     if (!navigator.geolocation) {
-      setError("This browser doesn't support location — can't check in from here.");
+      setError("This browser doesn’t support location — can’t check in from here.");
       setMode("idle");
       return;
     }
@@ -44,7 +44,7 @@ export default function MarketVisitCheckinCard() {
         startCapture();
       },
       () => {
-        setError("Couldn't get your location — check location permissions and try again.");
+        setError("Couldn’t get your location — check location permissions and try again.");
         setMode("idle");
       },
       { enableHighAccuracy: true, timeout: 15000 },
@@ -61,7 +61,7 @@ export default function MarketVisitCheckinCard() {
         await videoRef.current.play();
       }
     } catch {
-      setError("Couldn't access the camera — check browser permissions.");
+      setError("Couldn’t access the camera — check browser permissions.");
       setMode("idle");
     }
   };
@@ -108,7 +108,7 @@ export default function MarketVisitCheckinCard() {
       setMode("success");
       dismissTimer.current = setTimeout(() => setMode("idle"), SUCCESS_MS);
     } catch (err) {
-      setError(err.response?.data?.detail || "Couldn't submit — try again");
+      setError(err.response?.data?.detail || "Couldn’t submit — try again");
       setMode("preview");
     }
   };
@@ -126,17 +126,17 @@ export default function MarketVisitCheckinCard() {
   return (
     <div className="bg-paper rounded-sm shadow-card p-5 mb-6 border-t-4 border-jade-500">
       <div className="flex items-center justify-between mb-3">
-        <p className="text-xs font-semibold uppercase tracking-wider text-jade-700">Market visit</p>
+        <p className="text-xs font-semibold text-jade-700">Market visit</p>
       </div>
 
       {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5 mb-3">{error}</p>}
 
       {mode === "idle" && (
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-4">
           {checkinEnabled && (
             <button
               onClick={() => start("check_in")}
-              className="flex items-center gap-2 bg-jade-600 text-white px-4 py-2.5 rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors"
+              className="flex items-center gap-2 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors"
             >
               <MapPin size={15} /> Check in from here
             </button>
@@ -144,7 +144,7 @@ export default function MarketVisitCheckinCard() {
           {checkoutEnabled && (
             <button
               onClick={() => start("check_out")}
-              className="flex items-center gap-2 bg-ledger-800 text-manila px-4 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+              className="flex items-center gap-2 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
             >
               <MapPin size={15} /> Check out from here
             </button>
@@ -159,12 +159,12 @@ export default function MarketVisitCheckinCard() {
       )}
 
       {mode === "capturing" && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           <video ref={videoRef} className="w-full max-w-xs rounded-sm bg-ledger-900 aspect-square object-cover" playsInline muted />
-          <div className="flex gap-3">
+          <div className="flex gap-4">
             <button
               onClick={capture}
-              className="flex items-center gap-2 bg-ledger-800 text-manila px-4 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+              className="flex items-center gap-2 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
             >
               <Camera size={15} /> Capture
             </button>
@@ -176,7 +176,7 @@ export default function MarketVisitCheckinCard() {
       )}
 
       {(mode === "preview" || mode === "submitting") && photo && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           <img src={photo} alt="Check-in preview" className="w-full max-w-xs rounded-sm aspect-square object-cover" />
           {location && (
             <p className="text-xs text-ink/70 font-nums flex items-center gap-1">
@@ -184,11 +184,11 @@ export default function MarketVisitCheckinCard() {
               {location.accuracy ? ` (±${Math.round(location.accuracy)}m)` : ""}
             </p>
           )}
-          <div className="flex gap-3">
+          <div className="flex gap-4">
             <button
               onClick={submit}
               disabled={mode === "submitting"}
-              className="flex items-center gap-2 bg-jade-600 text-white px-4 py-2.5 rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
+              className="flex items-center gap-2 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
             >
               <CheckCircle2 size={15} /> {mode === "submitting" ? "Submitting…" : `Submit ${visitType === "check_out" ? "check-out" : "check-in"}`}
             </button>
@@ -207,7 +207,7 @@ export default function MarketVisitCheckinCard() {
         <button onClick={dismissSuccess} className="w-full text-left group">
           <div className="flex items-center gap-4 py-1">
             <span className="stamp stamp-land text-jade-600 text-sm px-3 py-1.5 flex-shrink-0">Submitted</span>
-            <span className="text-ink/70 text-sm">Awaiting your manager's review</span>
+            <span className="text-ink/70 text-sm">Awaiting your manager’s review</span>
             <span className="ml-auto text-xs text-ink/65 group-hover:text-ink/70 transition-colors">Tap to dismiss</span>
           </div>
         </button>

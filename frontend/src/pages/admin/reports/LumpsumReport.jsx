@@ -7,6 +7,7 @@ import api from "../../../lib/api.js";
 import { useAuth } from "../../../lib/auth.jsx";
 import { formatINR } from "../../../lib/format.js";
 
+import EmptyState from "../../../components/EmptyState.jsx";
 const today = new Date();
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -81,20 +82,20 @@ export default function LumpsumReport() {
   return (
     <div>
       <Link to="/admin/reports" className="inline-flex items-center gap-1.5 text-xs text-ink/70 hover:text-ink transition-colors">
-        <ArrowLeft size={13} /> Back to Reports
+        <ArrowLeft size={13} /> Back to reports
       </Link>
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mt-2 mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mt-2 mb-6">
         <div>
-          <h2 className="font-display text-2xl text-ink">Lumpsum Report</h2>
+          <h2 className="font-display text-2xl text-ink">Lumpsum report</h2>
           <p className="text-xs text-ink/70 font-nums mt-0.5">
             {canEdit ? "One-off salary adjustments for this pay period — click a figure to edit, it saves on blur." : "One-off salary adjustments for this pay period."}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-4">
           <button
             onClick={() => exportExcel(rows, year, month)}
             disabled={!rows.length}
-            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
+            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
           >
             <FileSpreadsheet size={15} /> Export Excel
           </button>
@@ -106,13 +107,13 @@ export default function LumpsumReport() {
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm tabular-nums">
-          <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
+          <thead className="text-left sticky top-0 z-10 bg-paper shadow-edge">
             <tr className="border-b-2 border-ink/10">
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Employee</th>
               {EDITABLE_COLUMNS.map((c) => (
-                <th key={c.readKey} className="px-3 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">{c.label}</th>
+                <th key={c.readKey} className="px-3 py-3 font-semibold text-[11px] text-ink/70 text-right">{c.label}</th>
               ))}
-              <th className="px-3 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">
+              <th className="px-3 py-3 font-semibold text-[11px] text-ink/70 text-right">
                 TDS
                 <span className="block normal-case font-normal text-ink/70 text-[10px]">from Tax Declaration</span>
               </th>
@@ -122,7 +123,7 @@ export default function LumpsumReport() {
             {loading ? (
               <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={EDITABLE_COLUMNS.length + 2}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : rows.length === 0 ? (
-              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={EDITABLE_COLUMNS.length + 2}>No employees found.</td></tr>
+              <tr><td colSpan={EDITABLE_COLUMNS.length + 2}><EmptyState title="No employees found" action={{ label: "Open employees", to: "/admin/employees" }}>Employees show here once they are added and active.</EmptyState></td></tr>
             ) : (
               rows.map((r) => (
                 <tr key={r.employee_id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
@@ -133,9 +134,9 @@ export default function LumpsumReport() {
                   {EDITABLE_COLUMNS.map((c) => (
                     <td key={c.readKey} className="px-2 py-2 text-right">
                       {canEdit ? (
-                        <input
+                        <input aria-label="Amount"
                           type="number"
-                          className="w-28 rounded-sm border border-ink/15 bg-manila/40 px-2 py-1.5 text-sm font-nums text-right text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 disabled:opacity-50"
+                          className="w-28 rounded-sm border border-ink/15 bg-manila/40 px-4 py-1.5 text-sm font-nums text-right text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 disabled:opacity-50"
                           value={r[c.readKey] ?? 0}
                           disabled={savingId === r.employee_id}
                           onChange={(e) => setCell(r.employee_id, c.readKey, e.target.value)}

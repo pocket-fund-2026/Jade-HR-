@@ -1,3 +1,5 @@
+import MidTruncate from "../../components/MidTruncate.jsx";
+import EmptyState from "../../components/EmptyState.jsx";
 import { AlertTriangle, CheckCircle2, Mail, RefreshCw, Send } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -35,17 +37,17 @@ const EVENT_STYLES = {
 
 const REASON_LABELS = {
   no_recipient: "No recipient",
-  employee_has_no_email: "No email on the employee's record",
+  employee_has_no_email: "No email on the employee’s record",
   not_configured: "Email sending not configured",
   empty_list: "Nothing to report",
 };
 
-const inputCls = "rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
+const inputCls = "rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
 
 function Stat({ label, value, tone }) {
   return (
     <div className="bg-paper rounded-sm shadow-card p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/60">{label}</p>
+      <p className="text-[11px] font-semibold text-ink/60">{label}</p>
       <p className={`font-display text-2xl mt-1 ${tone || "text-ink"}`}>{value}</p>
     </div>
   );
@@ -107,7 +109,7 @@ export default function EmailLog() {
 
   return (
     <div>
-      <h2 className="font-display text-2xl text-ink">Email Log</h2>
+      <h2 className="font-display text-2xl text-ink">Email log</h2>
       <p className="text-sm text-ink/70 mt-1 mb-6">
         Every email sent as {health?.from || "Tina at JADE HR"}: who it went to, and whether it was delivered.
       </p>
@@ -130,7 +132,7 @@ export default function EmailLog() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
           <div className="bg-paper rounded-sm shadow-card p-5 text-sm space-y-1.5">
             <p className="font-display text-lg text-ink mb-1">Where emails go</p>
-            <p><span className="text-ink/60">HR notifications:</span> {health.hr_notify_email}</p>
+            <p><span className="text-ink/60"><abbr className="acr">HR</abbr> notifications:</span> {health.hr_notify_email}</p>
             <p><span className="text-ink/60">Salary-hold alerts:</span> {health.salary_hold_notify_email} + HR</p>
             <p>
               <span className="text-ink/60">New-joiner emails:</span>{" "}
@@ -139,7 +141,7 @@ export default function EmailLog() {
                 : <>{health.hr_notify_email} <span className="text-ochre-700">(no list set; pick recipients under Leave Policy → New Joiner Email)</span></>}
             </p>
             <p>
-              <span className="text-ink/60">Leave requests:</span> the employee's leave approver and reporting manager, plus HR.{" "}
+              <span className="text-ink/60">Leave requests:</span> the employee’s leave approver and reporting manager, plus HR.{" "}
               {health.active_without_leave_approver > 0 && (
                 <span className="text-ochre-700">{health.active_without_leave_approver} active staff have no leave approver, so only HR hears about their requests.</span>
               )}
@@ -147,15 +149,16 @@ export default function EmailLog() {
           </div>
           <div className="bg-paper rounded-sm shadow-card p-5">
             <p className="font-display text-lg text-ink mb-1">Send a test email</p>
-            <p className="text-xs text-ink/60 mb-3">Confirms an inbox is receiving HR emails end to end.</p>
+            <p className="text-xs text-ink/60 mb-3">Confirms an inbox is receiving <abbr className="acr">HR</abbr> emails end to end.</p>
+            <label htmlFor="email_test_to" className="block text-xs font-semibold text-ink/70 mb-1.5">Send the test to</label>
             <div className="flex gap-2">
-              <input value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder="name@jadecouture.com" className={`${inputCls} flex-1`} type="email" />
+              <input id="email_test_to" value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder="name@jadecouture.com" className={`${inputCls} flex-1`} type="email" />
               <button
                 onClick={sendTest}
                 disabled={testState.sending || !testTo.includes("@")}
-                className="flex items-center gap-2 bg-ledger-800 text-manila px-4 py-2 rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
+                className="flex items-center gap-2 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
               >
-                <Send size={14} /> {testState.sending ? "Sending…" : "Send"}
+                <Send size={14} /> {testState.sending ? "Sending…" : "Send test email"}
               </button>
             </div>
             {testState.msg && (
@@ -166,31 +169,36 @@ export default function EmailLog() {
       )}
 
       <div className="flex flex-wrap gap-2 mb-3">
-        <select value={filters.kind} onChange={(e) => setFilters((f) => ({ ...f, kind: e.target.value }))} className={inputCls}>
+        <select aria-label="Filter by email type" value={filters.kind} onChange={(e) => setFilters((f) => ({ ...f, kind: e.target.value }))} className={inputCls}>
           <option value="">All email types</option>
           {Object.entries(KIND_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
-        <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} className={inputCls}>
+        <select aria-label="Filter by status" value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} className={inputCls}>
           <option value="">Any status</option>
           <option value="sent">Sent</option>
           <option value="failed">Failed</option>
           <option value="skipped">Skipped</option>
         </select>
-        <input value={filters.q} onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))} placeholder="Search recipient or subject…" className={`${inputCls} flex-1 min-w-[200px]`} />
+        <input aria-label="Search recipient or subject" value={filters.q} onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))} placeholder="Search recipient or subject…" className={`${inputCls} flex-1 min-w-[200px]`} />
       </div>
 
       <div className="bg-paper rounded-sm shadow-card overflow-x-auto">
         {rows === null ? (
           <p className="p-5 text-sm text-ink/70"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>
         ) : rows.length === 0 ? (
-          <div className="p-8 text-center">
-            <Mail size={22} className="mx-auto text-ink/30 mb-2" />
-            <p className="text-sm text-ink/60">No emails logged yet. Logging started on 1st October 2026.</p>
-          </div>
+          filters.kind || filters.status || filters.q ? (
+            <EmptyState icon={Mail} title="No emails match these filters" action={{ label: "Clear filters", onClick: () => setFilters({ kind: "", status: "", q: "" }) }}>
+              Try widening the search or removing a filter.
+            </EmptyState>
+          ) : (
+            <EmptyState icon={Mail} title="No emails logged yet" action={{ label: "Send a test email", onClick: () => document.getElementById("email_test_to")?.focus() }}>
+              Logging started on 1st October 2026.
+            </EmptyState>
+          )
         ) : (
           <table className="w-full text-sm tabular-nums">
             <thead>
-              <tr className="text-left text-[11px] uppercase tracking-wider text-ink/60 border-b border-ink/10">
+              <tr className="text-left text-[11px] text-ink/60 border-b border-ink/10">
                 <th className="px-4 py-2.5 font-semibold">When</th>
                 <th className="px-4 py-2.5 font-semibold">Type</th>
                 <th className="px-4 py-2.5 font-semibold">To</th>
@@ -204,11 +212,11 @@ export default function EmailLog() {
                 <tr key={r.id} className="border-b border-ink/5 last:border-0 align-top">
                   <td className="px-4 py-2.5 whitespace-nowrap text-ink/70 text-xs">{stamp(r.created_at)}</td>
                   <td className="px-4 py-2.5 whitespace-nowrap text-ink/80">{KIND_LABELS[r.kind] || r.kind}</td>
-                  <td className="px-4 py-2.5 text-ink">
-                    {r.to_email || <span className="text-ink/40">nobody</span>}
+                  <td className="px-4 py-2.5 text-ink max-w-[260px]">
+                    {r.to_email ? <MidTruncate text={r.to_email} tail={14} /> : <span className="text-ink/40">nobody</span>}
                     {r.cc?.length > 0 && <span className="block text-[11px] text-ink/50">cc {r.cc.join(", ")}</span>}
                   </td>
-                  <td className="px-4 py-2.5 text-ink/80 max-w-[320px]">{r.subject}</td>
+                  <td className="px-4 py-2.5 text-ink/80 max-w-[320px]"><span className="clamp-2" title={r.subject}>{r.subject}</span></td>
                   <td className="px-4 py-2.5">
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-sm capitalize ${STATUS_STYLES[r.status] || ""}`}>{r.status}</span>
                     {r.error && <span className="block text-[11px] text-ink/60 mt-1 max-w-[220px] break-words">{REASON_LABELS[r.error] || r.error}</span>}

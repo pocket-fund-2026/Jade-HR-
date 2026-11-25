@@ -5,6 +5,7 @@ import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
 import { useAuth } from "../../lib/auth.jsx";
 
+import EmptyState from "../../components/EmptyState.jsx";
 const STATUSES = [
   ["", "All"], ["pending_verification", "To verify"], ["verified", "To approve"], ["approved", "To pay"],
   ["paid", "Paid"], ["verification_rejected", "Verification rejected"], ["rejected", "Rejected"],
@@ -15,7 +16,7 @@ const LABEL = {
   approved: "Approved", rejected: "Rejected", paid: "Paid",
 };
 const money = (n) => `₹${Number(n).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
-const inputCls = "w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-jade-500";
+const inputCls = "w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-jade-500";
 
 function InvoiceDetail({ id, onBack, onChanged }) {
   const { can } = useAuth();
@@ -44,16 +45,16 @@ function InvoiceDetail({ id, onBack, onChanged }) {
       <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-ink/70 hover:text-ink mb-4"><ArrowLeft size={15} /> Back to invoices</button>
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(340px,440px)_1fr] gap-5 items-start">
         <div className="space-y-4">
-          <div className="bg-paper rounded-sm shadow-card p-5 space-y-3">
-            <div className="flex items-start justify-between gap-3">
+          <div className="bg-paper rounded-sm shadow-card p-5 space-y-4">
+            <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/55">Ref #{inv.reference_no}</p>
+                <p className="text-[11px] font-semibold text-ink/55">Ref #{inv.reference_no}</p>
                 <h3 className="font-display text-xl text-ink">{inv.vendor_name}</h3>
                 <p className="text-xs text-ink/70">{inv.vendor_email} · {inv.vendor_phone}</p>
               </div>
               <StampBadge status={TONE[inv.status]}>{LABEL[inv.status]}</StampBadge>
             </div>
-            <dl className="grid grid-cols-2 gap-3 text-sm">
+            <dl className="grid grid-cols-2 gap-4 text-sm">
               <div><dt className="text-xs text-ink/60">Invoice number</dt><dd className="text-ink font-nums">{inv.invoice_number}</dd></div>
               <div><dt className="text-xs text-ink/60">Amount</dt><dd className="text-ink font-nums">{money(inv.amount)}</dd></div>
               <div><dt className="text-xs text-ink/60">Invoice date</dt><dd className="text-ink">{inv.invoice_date || "—"}</dd></div>
@@ -64,7 +65,7 @@ function InvoiceDetail({ id, onBack, onChanged }) {
 
           <div className="bg-paper rounded-sm shadow-card p-5">
             <p className="font-display text-base text-ink mb-2">Read from the invoice</p>
-            {Object.keys(ex).filter((k) => k !== "submitter").length === 0 ? <p className="text-xs text-ink/60">Nothing could be read automatically (image or scanned PDF).</p> : (
+            {Object.keys(ex).filter((k) => k !== "submitter").length === 0 ? <p className="text-xs text-ink/60">Nothing could be read automatically (image or scanned <abbr className="acr">PDF</abbr>).</p> : (
               <dl className="text-sm space-y-1.5">
                 <div className="flex justify-between"><dt className="text-ink/60">Company</dt><dd className="text-ink">{ex.company_name || "—"}</dd></div>
                 <div className="flex justify-between"><dt className="text-ink/60">Invoice number</dt><dd className={mismatch(inv.invoice_number, ex.invoice_number) ? "text-rust-500" : "text-ink"}>{ex.invoice_number || "—"}</dd></div>
@@ -80,26 +81,26 @@ function InvoiceDetail({ id, onBack, onChanged }) {
             {inv.verification_note && <p className="text-xs text-rust-500 mt-2">{inv.verification_note}</p>}
           </div>
 
-          <div className="bg-paper rounded-sm shadow-card p-5 space-y-3">
+          <div className="bg-paper rounded-sm shadow-card p-5 space-y-4">
             <p className="font-display text-base text-ink">Actions</p>
             {["paid", "rejected"].includes(inv.status) && <p className="text-xs text-ink/60">This invoice is closed.</p>}
             {(["pending_verification", "verification_rejected", "verified"].includes(inv.status) && can("invoices.verify")) && (
-              <div className="flex gap-2">
-                {inv.status !== "verified" && <button disabled={busy} onClick={() => act("verify", { note }, { passed: true })} className="flex items-center gap-1.5 bg-jade-600 text-white px-3 py-1.5 rounded-sm text-xs font-semibold"><Check size={13} /> Pass verification</button>}
+              <div className="flex gap-2 justify-between">
+                {inv.status !== "verified" && <button disabled={busy} onClick={() => act("verify", { note }, { passed: true })} className="flex items-center gap-1.5 bg-jade-600 text-on-jade px-3 py-1.5 rounded-sm text-xs font-semibold"><Check size={13} /> Pass verification</button>}
                 {inv.status !== "verification_rejected" && <button disabled={busy} onClick={() => act("verify", { note }, { passed: false })} className="flex items-center gap-1.5 border border-rust-500 text-rust-500 px-3 py-1.5 rounded-sm text-xs font-semibold"><X size={13} /> Reject verification</button>}
               </div>
             )}
             {inv.status === "verified" && can("invoices.approve") && (
-              <div className="flex gap-2">
-                <button disabled={busy} onClick={() => act("approve")} className="flex items-center gap-1.5 bg-ledger-800 text-manila px-3 py-1.5 rounded-sm text-xs font-semibold"><Check size={13} /> Approve</button>
-                <button disabled={busy} onClick={() => act("reject")} className="flex items-center gap-1.5 border border-rust-500 text-rust-500 px-3 py-1.5 rounded-sm text-xs font-semibold"><X size={13} /> Reject</button>
+              <div className="flex gap-2 justify-between">
+                <button disabled={busy} onClick={() => act("approve")} className="flex items-center gap-1.5 bg-ledger-800 text-on-jade px-3 py-1.5 rounded-sm text-xs font-semibold"><Check size={13} /> Approve invoice</button>
+                <button disabled={busy} onClick={() => act("reject")} className="flex items-center gap-1.5 border border-rust-500 text-rust-500 px-3 py-1.5 rounded-sm text-xs font-semibold"><X size={13} /> Reject invoice</button>
               </div>
             )}
-            {["pending_verification", "verification_rejected", "verified"].includes(inv.status) && <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note / reason (required to reject; the vendor is emailed it)" className={inputCls} />}
+            {["pending_verification", "verification_rejected", "verified"].includes(inv.status) && <label className="block"><span className="block text-xs font-semibold text-ink/70 mb-1">Note or reason</span><textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note / reason (required to reject; the vendor is emailed it)" className={inputCls} /></label>}
             {inv.status === "approved" && can("invoices.pay") && (
               <div className="flex gap-2">
-                <input value={payRef} onChange={(e) => setPayRef(e.target.value)} placeholder="Payment reference / UTR" className={inputCls} />
-                <button disabled={busy} onClick={() => act("pay", { payment_ref: payRef })} className="bg-jade-600 text-white px-3 py-1.5 rounded-sm text-xs font-semibold whitespace-nowrap">Mark paid</button>
+                <label className="block"><span className="block text-xs font-semibold text-ink/70 mb-1">Payment reference (UTR)</span><input value={payRef} onChange={(e) => setPayRef(e.target.value)} placeholder="Payment reference / UTR" className={inputCls} /></label>
+                <button disabled={busy} onClick={() => act("pay", { payment_ref: payRef })} className="bg-jade-600 text-on-jade px-3 py-1.5 rounded-sm text-xs font-semibold whitespace-nowrap">Mark paid</button>
               </div>
             )}
             {error && <p className="text-sm text-rust-500">{error}</p>}
@@ -175,7 +176,7 @@ function Reconciliation() {
         <p className="font-display text-base text-ink">Reconcile a bank statement</p>
         <p className="text-xs text-ink/65 mt-1 mb-3">Upload the CSV from your bank. Outgoing payments are matched to approved invoices by invoice number, payment reference, amount and vendor name. Only the safe matches are pre-ticked; nothing is marked paid until you confirm.</p>
         <input type="file" accept=".csv,text/csv" onChange={onFile} disabled={busy}
-          className="text-xs text-ink/70 file:mr-3 file:rounded-sm file:border-0 file:bg-ledger-800 file:text-manila file:px-3 file:py-2 file:text-xs file:font-semibold file:cursor-pointer" />
+          className="text-xs text-ink/70 file:mr-3 file:rounded-sm file:border-0 file:bg-ledger-800 file:text-on-jade file:px-3 file:py-2 file:text-xs file:font-semibold file:cursor-pointer" />
         {error && <p className="text-sm text-rust-500 mt-2">{error}</p>}
         {result && (
           <ul className="text-xs mt-3 space-y-0.5">
@@ -189,10 +190,10 @@ function Reconciliation() {
         <div className="bg-paper rounded-sm shadow-card overflow-x-auto">
           <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 border-b border-ink/10">
             <p className="text-xs text-ink/70">{preview.lines.length} payment line(s){preview.skipped ? ` · ${preview.skipped} non-payment row(s) skipped` : ""} · {Object.entries(preview.counts).map(([k, v]) => `${v} ${REC_LABEL[k].toLowerCase()}`).join(", ")}</p>
-            <button disabled={busy || !picked} onClick={confirm} className="bg-jade-600 text-white px-4 py-1.5 rounded-sm text-xs font-semibold disabled:opacity-40">Confirm {picked} selected</button>
+            <button disabled={busy || !picked} onClick={confirm} className="bg-jade-600 text-on-jade px-4 py-1.5 rounded-sm text-xs font-semibold disabled:opacity-40">Confirm {picked} selected</button>
           </div>
           <table className="w-full text-sm">
-            <thead className="text-left text-[11px] uppercase tracking-wider text-ink/60"><tr>
+            <thead className="text-left text-[11px] text-ink/60"><tr>
               <th className="px-4 py-2">Bank line</th><th className="px-4 py-2 text-right">Amount</th><th className="px-4 py-2">Result</th><th className="px-4 py-2">Settles invoice</th></tr></thead>
             <tbody>
               {preview.lines.map((l) => (
@@ -202,8 +203,8 @@ function Reconciliation() {
                   <td className="px-4 py-2.5"><p className={`text-xs font-semibold ${REC_TONE[l.status]}`}>{REC_LABEL[l.status]}</p><p className="text-[11px] text-ink/60 max-w-[220px]">{l.why}</p></td>
                   <td className="px-4 py-2.5">
                     {l.status === "already_imported" ? <span className="text-xs text-ink/50">—</span> : (
-                      <select value={choice[l.hash] || "skip"} onChange={(e) => setChoice((c) => ({ ...c, [l.hash]: e.target.value }))} className={`${inputCls} min-w-[220px]`}>
-                        <option value="skip">Don't import</option>
+                      <select aria-label="Invoice to match this payment to" value={choice[l.hash] || "skip"} onChange={(e) => setChoice((c) => ({ ...c, [l.hash]: e.target.value }))} className={`${inputCls} min-w-[220px]`}>
+                        <option value="skip">Don’t import</option>
                         <option value="none">Record as payment with no invoice</option>
                         {l.invoice_id && <option value={l.invoice_id}>{l.vendor_name} · {l.invoice_number} (proposed)</option>}
                         {preview.open_invoices.filter((o) => o.id !== l.invoice_id).map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
@@ -223,10 +224,10 @@ function Reconciliation() {
           <div className="bg-paper rounded-sm shadow-card p-5">
             <p className="font-display text-base text-ink mb-2">Outstanding (approved, not yet paid)</p>
             <div className="grid grid-cols-4 gap-2 mb-3">
-              {Object.entries(summary.aging).map(([k, v]) => <div key={k} className="bg-manila/50 rounded-sm p-2"><p className="text-[10px] uppercase text-ink/55">{k}</p><p className={`font-nums text-sm ${k === "60+ days" && v > 0 ? "text-rust-500" : "text-ink"}`}>{money(v)}</p></div>)}
+              {Object.entries(summary.aging).map(([k, v]) => <div key={k} className="bg-manila/50 rounded-sm p-2"><p className="text-[10px] text-ink/55">{k}</p><p className={`font-nums text-sm ${k === "60+ days" && v > 0 ? "text-rust-500" : "text-ink"}`}>{money(v)}</p></div>)}
             </div>
             {summary.outstanding.length === 0 ? <p className="text-xs text-ink/60">Nothing outstanding.</p> : (
-              <ul className="text-sm divide-y divide-ink/[0.07]">{summary.outstanding.map((i) => <li key={i.id} className="py-1.5 flex justify-between gap-3"><span>{i.vendor_name} · {i.invoice_number} <span className="text-xs text-ink/55">({i.age_days}d)</span></span><span className="font-nums">{money(i.amount)}</span></li>)}</ul>
+              <ul className="text-sm divide-y divide-ink/[0.07]">{summary.outstanding.map((i) => <li key={i.id} className="py-1.5 flex justify-between gap-4"><span>{i.vendor_name} · {i.invoice_number} <span className="text-xs text-ink/55">({i.age_days}d)</span></span><span className="font-nums">{money(i.amount)}</span></li>)}</ul>
             )}
           </div>
           <div className="bg-paper rounded-sm shadow-card p-5 space-y-4">
@@ -267,7 +268,7 @@ export default function Invoices() {
   if (view === "reconcile" && !openId) {
     return (
       <div>
-        <div className="mb-5 flex items-end justify-between gap-3">
+        <div className="mb-5 flex items-end justify-between gap-4">
           <div><h2 className="font-display text-2xl text-ink">Invoice reconciliation</h2><p className="text-xs text-ink/70 mt-0.5">Match bank payments to approved invoices and see what is still outstanding.</p></div>
           <button onClick={() => setView("list")} className="text-xs text-jade-700 underline">← Back to invoices</button>
         </div>
@@ -280,24 +281,24 @@ export default function Invoices() {
 
   return (
     <div>
-      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="font-display text-2xl text-ink">Invoices</h2>
           <p className="text-xs text-ink/70 mt-0.5">Vendor invoices: verified automatically, then approved and paid.</p>
         </div>
         <div className="flex items-center gap-4">
-          {can("invoices.reconcile") && <button onClick={() => setView("reconcile")} className="bg-ledger-800 text-manila px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-ledger-700">Reconcile with bank</button>}
+          {can("invoices.reconcile") && <button onClick={() => setView("reconcile")} className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700">Reconcile with bank</button>}
           <a href="/invoices/submit" target="_blank" rel="noreferrer" className="text-xs text-jade-600 underline">Open vendor submission link ↗</a>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2 mb-4">
         {STATUSES.map(([k, l]) => (
-          <button key={k} onClick={() => setStatus(k)} className={`px-3 py-1.5 rounded-sm text-xs font-semibold border ${status === k ? "bg-ledger-800 text-manila border-ledger-800" : "border-ink/15 text-ink/70 hover:border-jade-500"}`}>{l}</button>
+          <button key={k} onClick={() => setStatus(k)} className={`px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold border ${status === k ? "bg-ledger-800 text-on-jade border-ledger-800" : "border-ink/15 text-ink/70 hover:border-jade-500"}`}>{l}</button>
         ))}
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search vendor, invoice no., ref…" className={`${inputCls} max-w-xs ml-auto`} />
+        <input aria-label="Search vendor, invoice no., ref" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search vendor, invoice no., ref…" className={`${inputCls} max-w-xs ml-auto`} />
       </div>
-      {rows === null ? <p className="text-sm text-ink/70">Loading…</p> : shown.length === 0 ? <p className="text-sm text-ink/60 bg-paper rounded-sm shadow-card p-8 text-center">No invoices here.</p> : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+      {rows === null ? <p className="text-sm text-ink/70">Loading…</p> : shown.length === 0 ? <EmptyState title="No invoices here" action={{ label: "Clear filters", onClick: () => { setStatus(""); setQ(""); } }}>Nothing matches this status or search, or no vendor has submitted one yet.</EmptyState> : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {shown.map((r) => (
             <button key={r.id} onClick={() => setOpenId(r.id)} className="text-left bg-paper rounded-sm shadow-card p-4 hover:shadow-md hover:ring-1 hover:ring-jade-500/50 transition">
               <div className="flex items-start justify-between gap-2">

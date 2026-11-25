@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import api from "../../../lib/api.js";
 import { formatFullDate, formatINR } from "../../../lib/format.js";
 
+import EmptyState from "../../../components/EmptyState.jsx";
 async function exportExcel(rows) {
   const XLSX = await import("xlsx");
   const data = rows.map((r) => ({
@@ -39,18 +40,18 @@ export default function CtcAsPerSalaryReport() {
   return (
     <div>
       <Link to="/admin/reports" className="inline-flex items-center gap-1.5 text-xs text-ink/70 hover:text-ink transition-colors">
-        <ArrowLeft size={13} /> Back to Reports
+        <ArrowLeft size={13} /> Back to reports
       </Link>
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mt-2 mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mt-2 mb-6">
         <div>
-          <h2 className="font-display text-2xl text-ink">CTC As Per Salary Structure</h2>
-          <p className="text-xs text-ink/70 mt-1">Each employee's most recent Salary Structure revision — not a recomputation from actual payslips.</p>
+          <h2 className="font-display text-2xl text-ink"><abbr className="acr">CTC</abbr> As Per Salary Structure</h2>
+          <p className="text-xs text-ink/70 mt-1">Each employee’s most recent Salary Structure revision — not a recomputation from actual payslips.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-4">
           <button
             onClick={() => exportExcel(rows)}
             disabled={!rows.length}
-            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
+            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
           >
             <FileSpreadsheet size={15} /> Export Excel
           </button>
@@ -60,7 +61,7 @@ export default function CtcAsPerSalaryReport() {
               type="date"
               value={asOf}
               onChange={(e) => setAsOf(e.target.value)}
-              className="rounded-sm border border-ink/15 bg-manila/40 px-2 py-1 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+              className="rounded-sm border border-ink/15 bg-manila/40 px-4 py-1 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
             />
           </label>
         </div>
@@ -69,27 +70,27 @@ export default function CtcAsPerSalaryReport() {
       <div className="bg-ledger-800 rounded-sm shadow-card p-6 relative overflow-hidden mb-6">
         <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
         <div className="relative flex justify-between items-baseline">
-          <span className="font-display text-manila text-lg">Total CTC Yearly ({rows.length} employees)</span>
-          <span className="font-nums font-semibold text-3xl text-manila">{formatINR(total)}</span>
+          <span className="font-display text-on-jade text-lg">Total CTC Yearly ({rows.length} employees)</span>
+          <span className="font-nums font-semibold text-3xl text-on-jade">{formatINR(total)}</span>
         </div>
       </div>
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm tabular-nums">
-          <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
+          <thead className="text-left sticky top-0 z-10 bg-paper shadow-edge">
             <tr className="border-b-2 border-ink/10">
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Structure Effective</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Net Salary</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">CTC Monthly</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">CTC Yearly</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Employee</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Structure effective</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Net salary</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70"><abbr className="acr">CTC</abbr> Monthly</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70"><abbr className="acr">CTC</abbr> Yearly</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={5}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : rows.length === 0 ? (
-              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={5}>No employees.</td></tr>
+              <tr><td colSpan={5}><EmptyState title="No employees yet" action={{ label: "Open employees", to: "/admin/employees" }}>Employees show here once they are added and active.</EmptyState></td></tr>
             ) : (
               rows.map((r) => (
                 <tr key={r.employee_id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">

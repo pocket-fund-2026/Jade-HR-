@@ -1,3 +1,4 @@
+import EmptyState from "../../components/EmptyState.jsx";
 import { ArrowLeft, Check, CheckCircle2, Circle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -8,7 +9,7 @@ import api from "../../lib/api.js";
 import { formatDate } from "../../lib/format.js";
 
 const inputCls =
-  "w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
+  "w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
 
 function ChecklistRow({ item, exitId, onUpdated }) {
   const [signedBy, setSignedBy] = useState(item.signed_by || "");
@@ -36,6 +37,7 @@ function ChecklistRow({ item, exitId, onUpdated }) {
           value={signedBy}
           onChange={(e) => setSignedBy(e.target.value)}
           onBlur={() => item.status === "completed" && save("completed")}
+          aria-label={`Signed by, ${item.item_label}`}
           placeholder="Signed by…"
           className={`${inputCls} w-36`}
         />
@@ -45,6 +47,7 @@ function ChecklistRow({ item, exitId, onUpdated }) {
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           onBlur={() => item.status === "completed" && save("completed")}
+          aria-label={`Notes, ${item.item_label} (optional)`}
           placeholder="Notes (optional)"
           className={`${inputCls} w-48`}
         />
@@ -95,14 +98,14 @@ function AssetSection({ record, onUpdated }) {
 
   return (
     <div className="bg-paper rounded-sm shadow-card p-5 mb-6">
-      <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-3">Asset & Access Return</p>
+      <p className="text-xs font-semibold text-ink/70 mb-3">Asset & Access Return</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">System No.</label>
-          <input value={systemNo} onChange={(e) => setSystemNo(e.target.value)} onBlur={saveSystemNo} className={inputCls} />
+          <label htmlFor="exit_asset_system_no" className="block text-xs font-semibold text-ink/70 mb-1.5">System No.</label>
+          <input id="exit_asset_system_no" value={systemNo} onChange={(e) => setSystemNo(e.target.value)} onBlur={saveSystemNo} className={inputCls} />
         </div>
         <div className="sm:col-span-2 rounded-sm border border-ink/10 bg-manila/40 px-3 py-2.5">
-          <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1">System password (from the employee)</p>
+          <p className="text-xs font-semibold text-ink/70 mb-1">System password (from the employee)</p>
           {record.system_password ? (
             <p className="text-sm text-ink font-nums">
               {showPw ? record.system_password : "••••••••"}{" "}
@@ -137,9 +140,9 @@ function InterviewSection({ record }) {
   const existing = record.interview;
   return (
     <div className="bg-paper rounded-sm shadow-card p-5 mb-6">
-      <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-3">Employee Exit Interview</p>
+      <p className="text-xs font-semibold text-ink/70 mb-3">Employee exit interview</p>
       {existing ? (
-        <div className="space-y-3 text-sm text-ink/80">
+        <div className="space-y-4 text-sm text-ink/80">
           <p><strong>Reasons for leaving:</strong> {(existing.reasons_for_leaving || []).join(", ") || "—"}{existing.reason_other ? ` (${existing.reason_other})` : ""}</p>
           <p><strong>Role/performance feedback:</strong> {existing.role_feedback || "—"}</p>
           <p><strong>Management/team feedback:</strong> {existing.management_feedback || "—"}</p>
@@ -177,11 +180,11 @@ function OwnerRow({ row, edit, onEdit }) {
     setDraft("");
   };
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-[150px_1fr] gap-x-3 gap-y-1.5 items-start border-b border-ink/[0.06] pb-2.5 last:border-0">
+    <div className="grid grid-cols-1 sm:grid-cols-[150px_1fr] gap-x-4 gap-y-1.5 items-start border-b border-ink/[0.06] pb-2.5 last:border-0">
       <span className="text-xs font-semibold text-ink pt-1.5">{row.row_department}</span>
       <div>
         <div className="flex flex-wrap gap-1.5 mb-1.5">
-          {list.length === 0 && <span className="text-xs text-ink/50 pt-1">No signer — HR ticks this row by hand.</span>}
+          {list.length === 0 && <span className="text-xs text-ink/50 pt-1">No signer — <abbr className="acr">HR</abbr> ticks this row by hand.</span>}
           {list.map((o) => (
             <span key={o.ref} className="inline-flex items-center gap-1 bg-jade-50 border border-jade-500/30 text-xs text-ink rounded-sm pl-2 pr-1 py-0.5">
               {o.label}
@@ -193,9 +196,9 @@ function OwnerRow({ row, edit, onEdit }) {
           <input
             value={draft} onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
-            placeholder="Add: employee ID or work email" className={inputCls}
+            aria-label="Add a signer by employee ID or work email" placeholder="e.g. JADE0123 or name@jadecouture.com" className={inputCls}
           />
-          <button type="button" onClick={add} disabled={!draft.trim()} className="bg-ledger-800 text-manila px-3 rounded-sm text-xs font-semibold disabled:opacity-40 whitespace-nowrap">Add</button>
+          <button type="button" onClick={add} disabled={!draft.trim()} className="bg-ledger-800 text-on-jade px-3 rounded-sm text-xs font-semibold disabled:opacity-40 whitespace-nowrap">Add signer</button>
           {(edit !== undefined || row.custom) && (
             <button type="button" onClick={() => onEdit(edit === "reset" ? undefined : "reset")} className="text-xs text-ink/60 hover:text-ink whitespace-nowrap px-1">
               {edit === "reset" ? "Undo reset" : "Reset"}
@@ -248,8 +251,8 @@ function SignoffOwnersSection({ exitId }) {
       <p className="font-display text-lg text-ink mb-1">Who signs off this exit</p>
       <p className="text-xs text-ink/60 mb-4">Add or remove signers for any row of this exit only. Anyone newly added is emailed straight away and the sign-off appears in their console with a pop-up.</p>
       <OwnersEditor rows={rows} values={values} onChange={setValues} />
-      <div className="flex items-center gap-3 mt-4">
-        <button onClick={save} disabled={busy || !Object.keys(values).length} className="bg-ledger-800 text-manila px-4 py-2 rounded-sm text-xs font-semibold hover:bg-ledger-700 disabled:opacity-40">{busy ? "Saving…" : "Save sign-off owners"}</button>
+      <div className="flex items-center gap-4 mt-4">
+        <button onClick={save} disabled={busy || !Object.keys(values).length} className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 disabled:opacity-40">{busy ? "Saving…" : "Save sign-off owners"}</button>
         {msg && <span className="text-xs text-ink/70">{msg}</span>}
       </div>
     </div>
@@ -269,7 +272,7 @@ function ExitDetail({ id }) {
   useEffect(load, [id]);
 
   const finalize = async () => {
-    if (!(await confirm("Finalize this exit? This marks the employee as Exited and locks the checklist."))) return;
+    if (!(await confirm("Finalize this exit? This marks the employee as Exited and locks the checklist.", { confirmLabel: "Finalize exit" }))) return;
     setFinalizing(true);
     setError("");
     try {
@@ -291,10 +294,10 @@ function ExitDetail({ id }) {
   return (
     <div>
       <Link to="/admin/exit" className="inline-flex items-center gap-1.5 text-xs text-ink/70 hover:text-ink transition-colors mb-4">
-        <ArrowLeft size={13} /> Back to Exit Procedure
+        <ArrowLeft size={13} /> Back to exit procedure
       </Link>
 
-      <div className="flex items-center justify-between gap-3 mb-6">
+      <div className="flex items-center justify-between gap-4 mb-6">
         <div>
           <h2 className="font-display text-2xl text-ink">{emp.first_name} {emp.last_name}</h2>
           <p className="text-xs text-ink/70 font-nums mt-0.5">
@@ -308,18 +311,18 @@ function ExitDetail({ id }) {
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden mb-6">
         <div className="px-5 py-3 border-b border-ink/10 flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase tracking-wider text-ink/70">
+          <p className="text-xs font-semibold text-ink/70">
             Departmental Clearance ({completedCount}/{record.checklist.length})
           </p>
         </div>
         <table className="w-full text-sm tabular-nums">
           <thead className="text-left">
             <tr className="border-b border-ink/10">
-              <th className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Department</th>
-              <th className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Item</th>
-              <th className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Signed By</th>
-              <th className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Notes</th>
-              <th className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Status</th>
+              <th className="px-4 py-2.5 font-semibold text-[11px] text-ink/70">Department</th>
+              <th className="px-4 py-2.5 font-semibold text-[11px] text-ink/70">Item</th>
+              <th className="px-4 py-2.5 font-semibold text-[11px] text-ink/70">Signed by</th>
+              <th className="px-4 py-2.5 font-semibold text-[11px] text-ink/70">Notes</th>
+              <th className="px-4 py-2.5 font-semibold text-[11px] text-ink/70">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -349,7 +352,7 @@ function ExitDetail({ id }) {
           <button
             onClick={finalize}
             disabled={!record.all_completed || finalizing}
-            className="flex items-center gap-2 bg-jade-600 text-white px-4 py-2.5 rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-40 transition-colors"
+            className="flex items-center gap-2 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-40 transition-colors"
           >
             <Check size={15} /> {finalizing ? "Finalizing…" : "Final Authorization"}
           </button>
@@ -418,10 +421,10 @@ function InitiateExitModal({ onClose, onCreated, initial = null }) {
   return (
     <div className="fixed inset-0 bg-ledger-900/60 flex items-center justify-center px-4 z-50">
       <div className="bg-paper rounded-sm shadow-stamp w-full max-w-xl max-h-[92vh] overflow-y-auto p-6 border-t-4 border-jade-500">
-        <p className="font-display text-lg text-ink mb-5">Initiate Exit</p>
+        <p className="font-display text-lg text-ink mb-5">Initiate exit</p>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Employee</label>
+            <label htmlFor="exit_employee_search" className="block text-xs font-semibold text-ink/70 mb-1.5">Employee</label>
             {selected ? (
               <div className="flex items-center justify-between rounded-sm border border-jade-500/40 bg-jade-50 px-3 py-2 text-sm text-ink">
                 <span><span className="font-nums">{selected.employee_code}</span> — {selected.first_name} {selected.last_name}{selected.department ? ` · ${selected.department}` : ""}</span>
@@ -430,7 +433,7 @@ function InitiateExitModal({ onClose, onCreated, initial = null }) {
             ) : (
               <>
                 <input
-                  autoFocus value={search} onChange={(e) => setSearch(e.target.value)}
+                  id="exit_employee_search" autoFocus value={search} onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search by name, code or department…" className={inputCls}
                 />
                 <div className="mt-1.5 max-h-48 overflow-y-auto rounded-sm border border-ink/10 bg-paper">
@@ -451,26 +454,26 @@ function InitiateExitModal({ onClose, onCreated, initial = null }) {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Resignation Date</label>
-              <input type="date" required className={`${inputCls} font-nums`} value={resignationDate} onChange={(e) => setResignationDate(e.target.value)} />
+              <label htmlFor="exit_resignation_date" className="block text-xs font-semibold text-ink/70 mb-1.5">Resignation date</label>
+              <input id="exit_resignation_date" type="date" required className={`${inputCls} font-nums`} value={resignationDate} onChange={(e) => setResignationDate(e.target.value)} />
             </div>
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Last Working Day</label>
-              <input type="date" required className={`${inputCls} font-nums`} value={lastWorkingDay} onChange={(e) => setLastWorkingDay(e.target.value)} />
+              <label htmlFor="exit_last_working_day" className="block text-xs font-semibold text-ink/70 mb-1.5">Last working day</label>
+              <input id="exit_last_working_day" type="date" required className={`${inputCls} font-nums`} value={lastWorkingDay} onChange={(e) => setLastWorkingDay(e.target.value)} />
             </div>
           </div>
           {ownerRows.length > 0 && (
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Who signs off each row</label>
+              <label className="block text-xs font-semibold text-ink/70 mb-1.5">Who signs off each row</label>
               <p className="text-[11px] text-ink/55 mb-2">Prefilled with the standing owners. Remove anyone or add others by employee ID or work email, for this exit only. They are emailed today and it appears in their console.</p>
               <div className="max-h-56 overflow-y-auto pr-1"><OwnersEditor rows={ownerRows} values={ownerValues} onChange={setOwnerValues} /></div>
             </div>
           )}
           {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
-          <div className="flex justify-end gap-3 pt-1">
+          <div className="flex justify-end gap-4 pt-1">
             <button type="button" onClick={onClose} className="text-sm text-ink/70 hover:text-ink px-2">Cancel</button>
-            <button type="submit" disabled={busy} className="bg-ledger-800 text-manila px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors">
-              {busy ? "Starting…" : "Start Exit Process"}
+            <button type="submit" disabled={busy} className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors">
+              {busy ? "Starting…" : "Start exit process"}
             </button>
           </div>
         </form>
@@ -515,7 +518,7 @@ function SignerConfig() {
   return (
     <div className="bg-paper rounded-sm shadow-card mb-6">
       <button onClick={() => setOpen((v) => !v)} className="w-full px-5 py-3 flex items-center justify-between text-left">
-        <p className="text-xs font-semibold uppercase tracking-wider text-ink/70">Who e-signs which row</p>
+        <p className="text-xs font-semibold text-ink/70">Who e-signs which row</p>
         <span className="text-xs text-ink/50">{open ? "Hide" : `${data.signers.length} assigned · Edit`}</span>
       </button>
       {open && (
@@ -530,7 +533,7 @@ function SignerConfig() {
                 <tr key={d} className="border-b border-ink/[0.06] last:border-0 align-top">
                   <td className="py-2 pr-4 text-ink font-medium whitespace-nowrap">{d}</td>
                   <td className="py-2 text-ink/80">
-                    {byRow(d).length === 0 ? <span className="text-ink/40">HR types it in</span> : byRow(d).map((x) => (
+                    {byRow(d).length === 0 ? <span className="text-ink/40"><abbr className="acr">HR</abbr> types it in</span> : byRow(d).map((x) => (
                       <span key={x.id} className="inline-flex items-center gap-1.5 mr-3 mb-1 bg-manila rounded-sm px-2 py-0.5 text-xs">
                         {x.employee?.first_name} {x.employee?.last_name}{x.scope_department ? ` (${x.scope_department})` : ""}
                         <button onClick={() => remove(x.id)} aria-label="Remove" className="text-rust-500 hover:text-rust-600">×</button>
@@ -541,25 +544,25 @@ function SignerConfig() {
               ))}
             </tbody>
           </table>
-          <form onSubmit={add} className="flex flex-wrap items-end gap-3">
+          <form onSubmit={add} className="flex flex-wrap items-end gap-4">
             <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink/70 mb-1">Row</label>
-              <select className={inputCls} value={row} onChange={(e) => setRow(e.target.value)}>
+              <label htmlFor="exit_signer_row" className="block text-[11px] font-semibold text-ink/70 mb-1">Row</label>
+              <select id="exit_signer_row" className={inputCls} value={row} onChange={(e) => setRow(e.target.value)}>
                 {data.row_departments.map((d) => <option key={d}>{d}</option>)}
               </select>
             </div>
             <div className="flex-1 min-w-[220px]">
-              <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink/70 mb-1">Person</label>
-              <input list="exit-signer-people" className={inputCls} value={person} onChange={(e) => setPerson(e.target.value)} placeholder="Type a name or code…" />
+              <label htmlFor="exit_signer_person" className="block text-[11px] font-semibold text-ink/70 mb-1">Person</label>
+              <input id="exit_signer_person" list="exit-signer-people" className={inputCls} value={person} onChange={(e) => setPerson(e.target.value)} placeholder="Type a name or code…" />
               <datalist id="exit-signer-people">{employees.map((e) => <option key={e.id} value={label(e)} />)}</datalist>
             </div>
             {row === "Department Head" && (
               <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink/70 mb-1">Department they head</label>
-                <input className={inputCls} value={scope} onChange={(e) => setScope(e.target.value)} placeholder="e.g. Costing" />
+                <label htmlFor="exit_signer_scope" className="block text-[11px] font-semibold text-ink/70 mb-1">Department they head</label>
+                <input id="exit_signer_scope" className={inputCls} value={scope} onChange={(e) => setScope(e.target.value)} placeholder="e.g. Costing" />
               </div>
             )}
-            <button type="submit" className="bg-ledger-800 text-manila px-4 py-2 rounded-sm text-sm font-semibold hover:bg-ledger-700">Add</button>
+            <button type="submit" className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700">Add signer</button>
           </form>
           {error && <p className="text-sm text-rust-500 mt-2">{error}</p>}
         </div>
@@ -594,13 +597,13 @@ function ExitList() {
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-3 mb-1">
-        <h2 className="font-display text-2xl text-ink">Exit Procedure</h2>
+      <div className="flex items-center justify-between gap-4 mb-1">
+        <h2 className="font-display text-2xl text-ink">Exit procedure</h2>
         <button
           onClick={() => { setPrefill(null); setShowModal(true); }}
-          className="bg-ledger-800 text-manila px-4 py-2 rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+          className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
         >
-          Initiate Exit
+          Initiate exit
         </button>
       </div>
       <p className="text-sm text-ink/70 mb-6">Departmental clearance checklist and exit interview, matching the Final Settlement Form.</p>
@@ -609,11 +612,11 @@ function ExitList() {
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden mb-6">
         <div className="px-5 py-3 border-b border-ink/10 flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase tracking-wider text-ink/70">Exiting Soon ({soon.length})</p>
-          <p className="text-[11px] text-ink/50">Everyone with a Scheduled Exit Date or Exit Date on their profile who hasn't exited yet</p>
+          <p className="text-xs font-semibold text-ink/70">Exiting Soon ({soon.length})</p>
+          <p className="text-[11px] text-ink/50">Everyone with a Scheduled Exit Date or Exit Date on their profile who hasn’t exited yet</p>
         </div>
         {soon.length === 0 ? (
-          <p className="px-5 py-6 text-sm text-ink/60">Nobody is scheduled to leave. Set a Scheduled Exit Date on an employee's profile and they appear here.</p>
+          <p className="px-5 py-6 text-sm text-ink/60">Nobody is scheduled to leave. Set a Scheduled Exit Date on an employee’s profile and they appear here.</p>
         ) : (
           <table className="w-full text-sm tabular-nums">
             <tbody>
@@ -654,15 +657,16 @@ function ExitList() {
       </div>
 
       <div className="flex gap-1 mb-4">
-        {[["in_progress", "In Progress"], ["completed", "Completed"]].map(([key, label]) => (
+        {[["in_progress", "In progress"], ["completed", "Completed"]].map(([key, label]) => (
           <button
             key={key} onClick={() => setTab(key)}
-            className={`px-4 py-2 rounded-sm text-sm font-medium transition-colors ${tab === key ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}
+            className={`px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-medium transition-colors ${tab === key ? "bg-ledger-800 text-on-jade" : "bg-paper text-ink/70 hover:text-ink"}`}
           >
             {label}
           </button>
         ))}
         <input
+          aria-label="Filter exits by name, code or department"
           value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter by name, code or department…"
           className={`${inputCls} ml-auto max-w-xs`}
         />
@@ -674,7 +678,7 @@ function ExitList() {
             {loading ? (
               <tr><td className="px-5 py-12 text-ink/70 text-center text-sm"><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : shown.length === 0 ? (
-              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm">{needle ? "No exits match that filter." : `No ${tab === "in_progress" ? "exits in progress" : "completed exits"}.`}</td></tr>
+              <tr><td><EmptyState title={needle ? "No exits match that filter" : `No ${tab === "in_progress" ? "exits in progress" : "completed exits"}`} action={needle ? { label: "Clear filter", onClick: () => setQ("") } : tab === "completed" ? { label: "Show exits in progress", onClick: () => setTab("in_progress") } : { label: "Start an exit", onClick: () => { setPrefill(null); setShowModal(true); } }}>{needle ? "Try a different name, code or department." : tab === "completed" ? "Exits you finalize are listed here." : "Start an exit when an employee resigns."}</EmptyState></td></tr>
             ) : (
               shown.map((r) => (
                 <tr key={r.id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/30 cursor-pointer" onClick={() => navigate(`/admin/exit/${r.id}`)}>

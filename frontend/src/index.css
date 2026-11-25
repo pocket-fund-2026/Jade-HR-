@@ -2,6 +2,75 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Colour tokens ───────────────────────────────────────────────────────
+   One hue per colour family: jade/ledger 158°, rust 10°, ochre 31°, cream 43°,
+   and every grey is the ink hue (222°, a cool blue) at low saturation, so
+   greys, borders and shadows lean blue instead of olive. Shades inside a
+   family change only lightness and saturation, never hue.
+   Dark mode is muted on purpose: lower saturation and lower lightness on the
+   accents, off-black blue surfaces instead of pure black, no pure white. */
+:root {
+  --c-ledger-900: 15 36 28;
+  --c-ledger-800: 22 49 39;
+  --c-ledger-700: 32 70 56;
+  --c-jade-50: 235 244 241;
+  --c-jade-100: 204 229 220;
+  --c-jade-400: 63 146 116;
+  --c-jade-500: 47 121 94;
+  --c-jade-600: 37 101 77;
+  --c-jade-700: 27 75 57;
+  --c-rust-50: 251 237 234;
+  --c-rust-400: 193 84 62;
+  --c-rust-500: 163 66 46;
+  --c-rust-600: 133 52 35;
+  --c-ochre-50: 251 240 228;
+  --c-ochre-400: 218 148 73;
+  --c-ochre-500: 200 125 45;
+  --c-ochre-600: 168 102 31;
+  --c-ochre-700: 139 84 24;
+  --c-manila: 240 234 219;
+  --c-paper: 250 247 240;
+  --c-white: 255 255 255;
+  --c-ink: 21 25 35;
+
+  --c-on-jade: 237 247 244;
+  --c-on-rust: 251 241 239;
+  --c-on-ochre: 252 245 238;
+  --c-shadow: 21 25 35;
+  color-scheme: light;
+}
+@media screen and (prefers-color-scheme: dark) {
+  :root {
+    --c-ledger-900: 18 28 24;
+    --c-ledger-800: 38 59 51;
+    --c-ledger-700: 51 76 67;
+    --c-jade-50: 31 45 40;
+    --c-jade-100: 46 66 59;
+    --c-jade-400: 79 135 115;
+    --c-jade-500: 66 118 99;
+    --c-jade-600: 54 99 83;
+    --c-jade-700: 43 80 66;
+    --c-rust-50: 47 33 30;
+    --c-rust-400: 169 108 96;
+    --c-rust-500: 139 86 75;
+    --c-rust-600: 113 69 61;
+    --c-ochre-50: 47 39 30;
+    --c-ochre-400: 174 134 91;
+    --c-ochre-500: 150 113 74;
+    --c-ochre-600: 123 93 61;
+    --c-ochre-700: 103 77 50;
+    --c-manila: 17 19 24;
+    --c-paper: 26 29 35;
+    --c-white: 31 34 41;
+    --c-ink: 220 223 229;
+    --c-on-jade: 220 229 226;
+    --c-on-rust: 234 226 225;
+    --c-on-ochre: 235 230 224;
+    --c-shadow: 0 0 0;
+    color-scheme: dark;
+  }
+}
+
 body {
   @apply bg-manila text-ink font-sans antialiased;
 }
@@ -26,7 +95,7 @@ a:focus-visible, button:focus-visible {
    .stamp-land (see below) wherever a status is freshly decided, not on
    every render of a table full of old ones. */
 .stamp {
-  @apply inline-flex items-center justify-center font-sans text-[11px] font-semibold uppercase tracking-wider;
+  @apply inline-flex items-center justify-center font-sans text-[11px] font-semibold;
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
   border: 1.5px solid currentColor;
@@ -44,7 +113,7 @@ a:focus-visible, button:focus-visible {
 }
 
 .rule-line {
-  background-image: linear-gradient(to right, rgba(27, 27, 24, 0.1) 0 100%);
+  background-image: linear-gradient(to right, rgb(var(--c-ink) / 0.1) 0 100%);
   background-size: 100% 1px;
   background-repeat: no-repeat;
   background-position: top;
@@ -114,6 +183,8 @@ a:focus-visible, button:focus-visible {
    and acceptance slip — so every letter reads as one family. Mirrored for
    email in backend/letter_email.py; keep the two in step. */
 .letter-sheet {
+  /* Letters are paper documents: keep the light palette even in dark mode. */
+  --c-ink: 21 25 35; --c-paper: 250 247 240; --c-jade-50: 235 244 241; --c-white: 255 255 255;
   font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
   color: #1B1B18;
   background: #fff;
@@ -134,18 +205,18 @@ a:focus-visible, button:focus-visible {
 .letter-doc td, .letter-doc th { border: 1px solid rgba(22, 48, 42, 0.18); padding: 7px 10px; text-align: left; vertical-align: top; }
 .letter-doc th { background: #EAF4EF; color: #16302A; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; text-transform: uppercase; }
 
-.letter-doc .lt-dateline { display: flex; justify-content: space-between; gap: 16px; font-size: 12.5px; color: rgba(27,27,24,0.75); margin-bottom: 1.6em; }
+.letter-doc .lt-dateline { display: flex; justify-content: space-between; gap: 16px; font-size: 12.5px; color: rgb(var(--c-ink) / 0.75); margin-bottom: 1.6em; }
 .letter-doc .lt-dateline strong { color: #1B1B18; }
 .letter-doc .lt-confidential { font-size: 10.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: #A13D2E; }
 .letter-doc .lt-to { margin-bottom: 1.4em; line-height: 1.55; }
-.letter-doc .lt-to .lt-label { display: block; font-size: 10.5px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(27,27,24,0.55); margin-bottom: 2px; }
+.letter-doc .lt-to .lt-label { display: block; font-size: 10.5px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgb(var(--c-ink) / 0.55); margin-bottom: 2px; }
 .letter-doc .lt-subject { margin: 0 0 1.4em; padding: 8px 0 8px 12px; border-left: 3px solid #2F7A5E; background: linear-gradient(90deg, #EAF4EF, rgba(234,244,239,0)); font-weight: 600; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: #16302A; }
 .letter-doc .lt-heading { font-family: Fraunces, ui-serif, Georgia, serif; font-size: 15px; font-weight: 600; color: #16302A; margin: 1.5em 0 0.5em; padding-bottom: 4px; border-bottom: 1px solid rgba(22,48,42,0.12); break-after: avoid; page-break-after: avoid; }
 .letter-doc .lt-title { font-family: Fraunces, ui-serif, Georgia, serif; font-size: 20px; font-weight: 600; text-align: center; color: #16302A; letter-spacing: 0.02em; margin: 0 0 1.2em; }
 
 .letter-doc table.lt-details td { border: 0; border-bottom: 1px solid rgba(22,48,42,0.1); padding: 7px 4px; }
 .letter-doc table.lt-details tr:last-child td { border-bottom: 0; }
-.letter-doc table.lt-details td:first-child { width: 38%; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(27,27,24,0.6); padding-top: 9px; }
+.letter-doc table.lt-details td:first-child { width: 38%; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgb(var(--c-ink) / 0.6); padding-top: 9px; }
 .letter-doc table.lt-details td:last-child { font-weight: 600; }
 .letter-doc table.lt-details { border-top: 2px solid #16302A; border-bottom: 1px solid rgba(22,48,42,0.25); }
 
@@ -155,7 +226,7 @@ a:focus-visible, button:focus-visible {
 
 .letter-doc .lt-callout { margin: 0 0 1em; padding: 10px 14px; border-left: 3px solid #A13D2E; background: #FBEEE9; }
 .letter-doc .lt-callout p:last-child { margin-bottom: 0; }
-.letter-doc .lt-note { font-size: 12px; color: rgba(27,27,24,0.7); }
+.letter-doc .lt-note { font-size: 12px; color: rgb(var(--c-ink) / 0.7); }
 
 .letter-doc .lt-clauses { margin: 1.4em 0 0; break-inside: avoid; page-break-inside: avoid; }
 .letter-doc .lt-clauses .lt-clauses-h { font-family: Fraunces, ui-serif, Georgia, serif; font-size: 15px; font-weight: 600; color: #16302A; margin: 0 0 0.5em; padding-bottom: 4px; border-bottom: 1px solid rgba(22,48,42,0.12); }
@@ -164,12 +235,12 @@ a:focus-visible, button:focus-visible {
 .letter-doc .lt-sign { margin-top: 2em; break-inside: avoid; page-break-inside: avoid; }
 .letter-doc .lt-sign .lt-sign-space { height: 46px; }
 .letter-doc .lt-sign .lt-sign-name { display: inline-block; min-width: 220px; border-top: 1px solid #1B1B18; padding-top: 6px; }
-.letter-doc .lt-sign .lt-sign-meta { color: rgba(27,27,24,0.7); font-size: 12.5px; }
+.letter-doc .lt-sign .lt-sign-meta { color: rgb(var(--c-ink) / 0.7); font-size: 12.5px; }
 
 .letter-doc .lt-accept { margin-top: 2.2em; padding: 14px 16px 16px; border: 1px dashed rgba(22,48,42,0.45); border-radius: 2px; break-inside: avoid; page-break-inside: avoid; }
 .letter-doc .lt-accept .lt-label { display: block; font-size: 10.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: #256349; margin-bottom: 6px; }
 .letter-doc .lt-accept table td { border: 0; padding: 22px 8px 4px 0; width: 33%; }
-.letter-doc .lt-accept table td span { display: block; border-top: 1px solid #1B1B18; padding-top: 4px; font-size: 11px; color: rgba(27,27,24,0.65); }
+.letter-doc .lt-accept table td span { display: block; border-top: 1px solid #1B1B18; padding-top: 4px; font-size: 11px; color: rgb(var(--c-ink) / 0.65); }
 
 .letter-doc table.lt-rating th:not(:first-child), .letter-doc table.lt-rating td:not(:first-child):not(:last-child) { text-align: center; width: 9%; }
 .letter-doc table.lt-rating td:not(:first-child):not(:last-child)::before { content: ""; display: inline-block; width: 12px; height: 12px; border: 1px solid rgba(22,48,42,0.5); border-radius: 50%; }
@@ -247,8 +318,8 @@ button:active:not(:disabled) { transform: translateY(0.5px); }
 .nav-scroll::-webkit-scrollbar-thumb { background: rgba(239,233,218,0.25); border-radius: 4px; }
 /* Subtle loading + empty states */
 @keyframes skeleton-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 0.25; } }
-.skeleton { background: rgba(27,27,24,0.08); border-radius: 2px; animation: skeleton-pulse 1.4s ease-in-out infinite; }
-.empty-state { text-align: center; padding: 2.5rem 1rem; color: rgba(27,27,24,0.65); font-size: 0.875rem; }
+.skeleton { background: rgb(var(--c-ink) / 0.08); border-radius: 2px; animation: skeleton-pulse 1.4s ease-in-out infinite; }
+.empty-state { text-align: center; padding: 2.5rem 1rem; color: rgb(var(--c-ink) / 0.65); font-size: 0.875rem; }
 @media (prefers-reduced-motion: reduce) {
   .skeleton { animation: none; }
   html { scroll-behavior: auto; }
@@ -318,7 +389,7 @@ button, a, input, select, textarea, [role="button"], summary {
 .shadow-card, .shadow-stamp { transition: box-shadow var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out); }
 .stagger-rise > .shadow-card:hover, a.shadow-card:hover, button.shadow-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px -6px rgba(27, 27, 24, 0.22), 0 1px 0 rgba(27, 27, 24, 0.04);
+  box-shadow: 0 6px 16px -6px rgb(var(--c-ink) / 0.22), 0 1px 0 rgb(var(--c-ink) / 0.04);
 }
 button:active:not(:disabled), a.shadow-card:active { transform: translateY(0.5px) scale(0.985); }
 
@@ -346,7 +417,7 @@ aside nav a > span.rounded-full { animation: badge-pop var(--dur-base) var(--eas
 /* Skeletons shimmer rather than blink. */
 @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 .skeleton {
-  background: linear-gradient(100deg, rgba(27,27,24,0.07) 30%, rgba(27,27,24,0.15) 50%, rgba(27,27,24,0.07) 70%);
+  background: linear-gradient(100deg, rgb(var(--c-ink) / 0.07) 30%, rgb(var(--c-ink) / 0.15) 50%, rgb(var(--c-ink) / 0.07) 70%);
   background-size: 200% 100%;
   animation: shimmer 1.6s linear infinite;
 }
@@ -378,8 +449,8 @@ aside nav a > span.rounded-full { animation: badge-pop var(--dur-base) var(--eas
   --shake-distance: 6px; --shake-overshoot: 4px; --shake-dur-a: 80ms; --shake-dur-b: 60ms;
   --shake-ease: cubic-bezier(0.22, 1, 0.36, 1); --revert-dur: 280ms;
   --acc-dur: 250ms; --acc-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --shimmer-base: rgba(27, 27, 24, 0.55); --shimmer-highlight: rgba(27, 27, 24, 1); --shimmer-band: 250%; --shimmer-dur: 1800ms; --shimmer-ease: linear;
-  --matrix-base: rgba(27, 27, 24, 0.18); --matrix-active: #2F7A5E; --matrix-cycle: 1200ms; --matrix-ease: ease-in-out;
+  --shimmer-base: rgb(var(--c-ink) / 0.55); --shimmer-highlight: rgb(var(--c-ink) / 1); --shimmer-band: 250%; --shimmer-dur: 1800ms; --shimmer-ease: linear;
+  --matrix-base: rgb(var(--c-ink) / 0.18); --matrix-active: #2F7A5E; --matrix-cycle: 1200ms; --matrix-ease: ease-in-out;
 }
 
 /* Number pop-in (components/AnimatedNumber.jsx) */
@@ -433,7 +504,7 @@ aside nav a > span.rounded-full { animation: badge-pop var(--dur-base) var(--eas
 /* Checkbox check: every native checkbox gets the fill-then-draw treatment */
 input[type="checkbox"] {
   -webkit-appearance: none; appearance: none; flex-shrink: 0; width: 16px; height: 16px; margin: 0;
-  border: 1.5px solid rgba(27, 27, 24, 0.35); border-radius: 3px; background: #fff; cursor: pointer; vertical-align: middle;
+  border: 1.5px solid rgb(var(--c-ink) / 0.35); border-radius: 3px; background: #fff; cursor: pointer; vertical-align: middle;
   background-repeat: no-repeat; background-position: center; background-size: 0 0;
   transition: background-color 150ms var(--ease-out), border-color 150ms var(--ease-out), background-size 250ms var(--ease-out) 60ms;
 }
@@ -492,3 +563,142 @@ tbody tr:nth-child(n+13) { animation: none; }
   .t-digit, .t-pop, .t-success, .t-success path, .t-error-in, .t-input.is-shaking, .t-shimmer::before, .t-matrix i { animation: none !important; }
   .t-tabs-pill, .t-tab-label, .t-icon-swap .t-icon, input[type="checkbox"], details::details-content, [data-tip]::after { transition: none !important; }
 }
+
+/* ── Design rules layer ──────────────────────────────────────────────────
+   Typographic and spacing rules applied app-wide. Utilities still win, so any
+   element can opt out with an explicit class. */
+@layer base {
+  /* Tight headline line height, balanced wraps */
+  h1, h2, h3, h4, .font-display { line-height: 1.15; letter-spacing: -0.01em; }
+  /* Body text stays regular; weight is for labels and headings */
+  p, li, dd, blockquote { font-weight: 400; text-wrap: pretty; }
+  /* More space above a heading than below it (block flow only; flex/grid
+     parents control their own gaps) */
+  :where(div, section, form, article, main):not([class*="flex"]):not([class*="grid"]) > * + :where(h2, h3) { margin-top: 1.75rem; }
+  /* Labels sit one small line above their field */
+  label { display: block; }
+}
+
+/* Numbers line up on the right with tabular figures (see lib/numericAlign.js,
+   which tags whole numeric table columns) */
+.num-col { text-align: right !important; font-variant-numeric: tabular-nums; }
+td.font-nums, th.font-nums { text-align: right; }
+
+/* Baseline alignment for mixed-size inline groups */
+.baseline-row { display: flex; align-items: baseline; gap: 0.5rem; }
+
+/* Empty states: a message, one line of why, and a way forward */
+.empty-state { display: flex; flex-direction: column; align-items: center; gap: 1rem; text-align: left; padding: 2.5rem 2rem; }
+.empty-state .empty-title { font-weight: 600; color: rgb(var(--c-ink)); }
+.empty-state .empty-body { max-width: 28rem; text-align: left; }
+
+/* Dark mode: accent text is lifted and desaturated (the deep accent shades
+   are fills, they would vanish as text on a dark surface). */
+@media screen and (prefers-color-scheme: dark) {
+  :root { --t-jade: 150 190 172; --t-rust: 208 150 138; --t-ochre: 200 170 120; }
+  .text-jade-400, .text-jade-500, .text-jade-600, .text-jade-700,
+  .hover\:text-jade-700:hover, .hover\:text-jade-600:hover { color: rgb(var(--t-jade)); }
+  .text-rust-400, .text-rust-500, .text-rust-600, .hover\:text-rust-600:hover { color: rgb(var(--t-rust)); }
+  .text-ochre-400, .text-ochre-500, .text-ochre-600, .text-ochre-700 { color: rgb(var(--t-ochre)); }
+  .bg-jade-500\/15, .bg-jade-500\/10 { background-color: rgb(var(--c-jade-500) / 0.18); }
+  img:not([src*=".svg"]) { filter: brightness(0.92); }
+}
+
+/* ── Motion rules ────────────────────────────────────────────────────────
+   Entrances start at scale 0.97 (never 0), presses sink to 0.97, errors
+   shake, page slides follow the direction of travel, height:auto animates,
+   and everything moves by transform, never left/top. */
+:root { interpolate-size: allow-keywords; }
+
+/* Scale from 0.97 */
+@keyframes panel-in { from { opacity: 0; transform: translateY(8px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes pop-in { from { opacity: 0; transform: translateY(-4px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes toast-in { from { opacity: 0; transform: translateY(12px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes t-badge-pop { from { transform: scale(0.97); opacity: 0; filter: blur(var(--badge-blur)); } to { transform: scale(1); opacity: 1; filter: blur(0); } }
+@keyframes badge-pop { from { transform: scale(0.97); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+[data-tip]::after { transform: translate(-50%, 4px) scale(0.97); }
+
+/* Press feedback: buttons and clickable cards sink to 0.97 */
+button:active:not(:disabled), a.shadow-card:active, [role="button"]:active { transform: scale(0.97); }
+@media (prefers-reduced-motion: reduce) { button:active:not(:disabled), a.shadow-card:active { transform: none; } }
+
+/* Shake on error: any invalid field or error banner */
+@keyframes shake-x {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  50% { transform: translateX(5px); }
+  75% { transform: translateX(-3px); }
+}
+input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="true"], .is-shaking {
+  animation: shake-x 280ms var(--ease-out);
+  border-color: rgb(var(--c-rust-500));
+}
+@media (prefers-reduced-motion: reduce) { input[aria-invalid="true"], .is-shaking { animation: none; } }
+
+/* Directional slides: forward navigation enters from the right, back from the left */
+@keyframes page-in-fwd { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+@keyframes page-in-back { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+html[data-nav="forward"] .page-transition { animation-name: page-in-fwd; }
+html[data-nav="back"] .page-transition { animation-name: page-in-back; }
+.slide-in-right { animation: page-in-fwd var(--dur-base) var(--ease-out) backwards; }
+.slide-in-left { animation: page-in-back var(--dur-base) var(--ease-out) backwards; }
+
+/* Smooth height:auto for collapsible blocks */
+.grow { overflow: clip; transition: height var(--dur-base) var(--ease-out); }
+.grow[data-open="false"] { height: 0; }
+.grow[data-open="true"] { height: auto; }
+
+/* Instant theme switch: no cross-fade when the OS theme flips */
+html.theme-switching *, html.theme-switching *::before, html.theme-switching *::after { transition: none !important; animation: none !important; }
+
+/* Tooltip skip delay: once one is showing, neighbours appear immediately */
+html.tip-warm [data-tip]:hover::after, html.tip-warm [data-tip]:focus-visible::after { transition-delay: 0ms; transition-duration: 60ms; }
+
+/* Rubber banding: scroll containers bounce at the edges instead of chaining */
+html { overscroll-behavior-y: none; }
+main, .overflow-y-auto, .overflow-auto { overscroll-behavior: contain; }
+.drawer-in { will-change: transform; }
+
+/* ── Typography rules ────────────────────────────────────────────────────
+   Underline offset, superscripts, hyphenation, text-box trim, small-cap
+   acronyms, reserved bold width, line clamps and middle truncation. */
+a, .underline, u { text-underline-offset: 0.2em; text-decoration-thickness: from-font; text-decoration-skip-ink: auto; }
+.underline-offset-2 { text-underline-offset: 0.2em; }
+
+/* Superscript / subscript never push the line apart */
+sup, sub { font-size: 0.7em; line-height: 0; position: relative; vertical-align: baseline; margin-inline-start: 0.08em; }
+sup { top: -0.45em; }
+sub { top: 0.25em; }
+
+/* Auto hyphenation for running text (html lang="en"); numbers, codes and
+   headings are never split */
+p, li, dd, blockquote, td.text-left {
+  hyphens: auto; hyphenate-limit-chars: 6 3 3; overflow-wrap: break-word;
+}
+h1, h2, h3, h4, .font-nums, th, button, code { hyphens: manual; }
+
+/* Text box trim: cap height to baseline, so padding is the visible space.
+   Headlines, badges and big numbers only; buttons keep their line box so the
+   half-the-button text rule holds. */
+@supports (text-box: trim-both cap alphabetic) {
+  h1, h2, h3, .stamp, .font-display { text-box: trim-both cap alphabetic; }
+}
+
+/* Small-cap acronyms: PF, ESIC, TDS read as part of the sentence instead of
+   shouting. */
+.acr { font-variant-caps: all-small-caps; font-feature-settings: "smcp" 1, "c2sc" 1; letter-spacing: 0.04em; font-size: 1.05em; }
+abbr[title].acr { text-decoration: none; cursor: help; }
+
+/* Reserved bold width: the label is laid out at its bold width, so switching
+   to bold (active tab) never nudges its neighbours. */
+.rb { display: inline-flex; flex-direction: column; align-items: center; }
+.rb::after { content: attr(data-text); font-weight: 600; height: 0; overflow: hidden; visibility: hidden; user-select: none; pointer-events: none; }
+
+/* Line-clamped titles */
+.clamp-2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.clamp-3 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; overflow-wrap: anywhere; }
+
+/* Middle truncation: keep the start and the end (file extension, email domain) */
+.mid-trunc { display: inline-flex; max-width: 100%; min-width: 0; vertical-align: bottom; }
+.mid-trunc > .mt-start { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mid-trunc > .mt-end { flex: 0 0 auto; white-space: pre; }

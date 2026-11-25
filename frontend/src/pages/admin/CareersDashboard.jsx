@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
+import EmptyState from "../../components/EmptyState.jsx";
 import CareersNav from "../../components/CareersNav.jsx";
 import StatCard from "../../components/StatCard.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
@@ -10,8 +11,8 @@ import { formatDateTime, utcToDate } from "../../lib/careers.js";
 
 const JADE = "#2F7A5E";
 const RUST = "#C05A3F";
-const GRID = "rgba(27, 27, 24, 0.08)";
-const AXIS_TEXT = "rgba(27, 27, 24, 0.45)";
+const GRID = "rgb(var(--c-ink) / 0.08)";
+const AXIS_TEXT = "rgb(var(--c-ink) / 0.45)";
 const PERIODS = [
   { key: 30, label: "30 days" },
   { key: 90, label: "90 days" },
@@ -21,7 +22,7 @@ const PERIODS = [
 function Card({ title, sub, children, className = "" }) {
   return (
     <div className={`bg-paper rounded-sm shadow-card p-6 ${className}`}>
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/60">{title}</p>
+      <p className="text-[11px] font-semibold text-ink/60">{title}</p>
       {sub && <p className="text-xs text-ink/55 mt-0.5">{sub}</p>}
       <div className="mt-4">{children}</div>
     </div>
@@ -33,7 +34,7 @@ function WeekTooltip({ active, payload }) {
   const p = payload[0].payload;
   return (
     <div className="bg-paper border border-ink/10 rounded-sm shadow-stamp px-3 py-2 text-xs">
-      <p className="uppercase tracking-wider text-ink/60">Week of {p.label}</p>
+      <p className=" text-ink/60">Week of {p.label}</p>
       <p className="font-nums text-ink mt-1">{p.kept} kept · {p.auto_rejected} auto-rejected</p>
     </div>
   );
@@ -80,8 +81,8 @@ export default function CareersDashboard() {
               key={p.key}
               type="button"
               onClick={() => setDays(p.key)}
-              className={`px-3 py-1.5 rounded-sm text-xs font-semibold border ${
-                days === p.key ? "bg-ink text-manila border-ink" : "bg-paper border-ink/15 text-ink/70 hover:text-ink"
+              className={`px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold border ${
+                days === p.key ? "bg-ink text-on-jade border-ink" : "bg-paper border-ink/15 text-ink/70 hover:text-ink"
               }`}
             >
               {p.label}
@@ -112,7 +113,7 @@ export default function CareersDashboard() {
                   <Link
                     key={f.stage}
                     to={`/admin/careers/applicants?status=${encodeURIComponent(f.stage)}`}
-                    className="flex items-center gap-3 group"
+                    className="flex items-center gap-4 group"
                   >
                     <span className="w-40 text-xs text-ink/70 group-hover:text-ink">{f.stage}</span>
                     <span className="flex-1 h-5 bg-manila/60 rounded-sm overflow-hidden">
@@ -137,7 +138,7 @@ export default function CareersDashboard() {
                       <CartesianGrid stroke={GRID} vertical={false} />
                       <XAxis dataKey="label" tick={{ fontSize: 11, fill: AXIS_TEXT }} axisLine={false} tickLine={false} />
                       <YAxis allowDecimals={false} width={28} tick={{ fontSize: 11, fill: AXIS_TEXT }} axisLine={false} tickLine={false} />
-                      <Tooltip content={<WeekTooltip />} cursor={{ fill: "rgba(27,27,24,0.04)" }} />
+                      <Tooltip content={<WeekTooltip />} cursor={{ fill: "rgb(var(--c-ink) / 0.04)" }} />
                       <Bar dataKey="kept" stackId="a" fill={JADE} />
                       <Bar dataKey="auto_rejected" stackId="a" fill={RUST} radius={[2, 2, 0, 0]} />
                     </BarChart>
@@ -154,7 +155,7 @@ export default function CareersDashboard() {
           <div className="grid lg:grid-cols-3 gap-5 mb-5">
             <Card title="Upcoming interviews">
               {data.upcoming.length === 0 ? (
-                <p className="text-sm text-ink/60">Nothing scheduled.</p>
+                <EmptyState title="No interviews scheduled" action={{ label: "Open applicants", to: "/admin/careers/applicants" }}>Schedule one from an applicant’s page.</EmptyState>
               ) : (
                 <ul className="divide-y divide-ink/[0.06]">
                   {data.upcoming.map((i) => (
@@ -213,7 +214,7 @@ export default function CareersDashboard() {
               <div className="overflow-x-auto -mt-4">
                 <table className="w-full text-sm tabular-nums">
                   <thead className="text-left">
-                    <tr className="border-b-2 border-ink/10 text-[11px] uppercase tracking-wider text-ink/60">
+                    <tr className="border-b-2 border-ink/10 text-[11px] text-ink/60">
                       <th className="px-5 py-2.5 font-semibold">Role</th>
                       <th className="px-3 py-2.5 font-semibold text-right">Total</th>
                       <th className="px-3 py-2.5 font-semibold text-right">New</th>
@@ -256,7 +257,7 @@ export default function CareersDashboard() {
               </Card>
               <Card title="Recent activity">
                 {data.recent.length === 0 ? (
-                  <p className="text-sm text-ink/60">No activity logged yet.</p>
+                  <EmptyState title="No activity logged yet" action={{ label: "Open applicants", to: "/admin/careers/applicants" }}>Status changes and notes show up here.</EmptyState>
                 ) : (
                   <ul className="space-y-2">
                     {data.recent.map((e) => (

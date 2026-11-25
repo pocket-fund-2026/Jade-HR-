@@ -17,7 +17,7 @@ export default function Reports() {
       <div className="space-y-8">
         {visibleCategories.map((cat) => (
           <div key={cat.title}>
-            <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-3">{cat.title}</p>
+            <p className="text-xs font-semibold text-ink/70 mb-3">{cat.title}</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {cat.items.map(({ to, label, desc, icon: Icon }) => (
                 <Link

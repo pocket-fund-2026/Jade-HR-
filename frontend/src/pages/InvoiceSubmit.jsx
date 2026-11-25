@@ -3,8 +3,8 @@ import { useState } from "react";
 import api from "../lib/api.js";
 import { prepareUpload } from "../lib/upload.js";
 
-const labelCls = "block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5";
-const inputCls = "w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500";
+const labelCls = "block text-xs font-semibold text-ink/70 mb-1.5";
+const inputCls = "w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500";
 const EMPTY = { vendor_name: "", vendor_email: "", vendor_phone: "", invoice_number: "", amount: "", invoice_date: "", bill_details: "" };
 
 function Shell({ children }) {
@@ -14,8 +14,8 @@ function Shell({ children }) {
       <div className="relative max-w-2xl mx-auto px-4 py-12">
         <div className="text-center mb-8">
           <img src="/jade-logo.png" alt="" className="w-20 h-20 mx-auto mb-3" />
-          <p className="font-display text-manila text-2xl">Submit an Invoice</p>
-          <p className="text-manila/60 text-sm mt-1">JADE Lifestyles India · vendor invoice submission</p>
+          <p className="font-display text-on-jade text-2xl">Submit an invoice</p>
+          <p className="text-on-jade/60 text-sm mt-1">JADE Lifestyles India · vendor invoice submission</p>
         </div>
         {children}
       </div>
@@ -37,13 +37,13 @@ function Track() {
     } catch (err) { setError(err.response?.data?.detail || "Could not look that up"); }
   };
   return (
-    <form onSubmit={look} className="bg-paper rounded-sm shadow-card p-5 sm:p-6 mt-5 space-y-3">
+    <form onSubmit={look} className="bg-paper rounded-sm shadow-card p-5 sm:p-6 mt-5 space-y-4">
       <h3 className="font-display text-lg text-ink">Track an invoice</h3>
-      <div className="grid sm:grid-cols-2 gap-3">
-        <input value={ref} onChange={(e) => setRef(e.target.value)} placeholder="Reference number, e.g. #5001" className={inputCls} required />
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email you submitted with" className={inputCls} required />
+      <div className="grid sm:grid-cols-2 gap-4">
+        <div><label htmlFor="trk_ref" className={labelCls}>Reference number</label><input id="trk_ref" value={ref} onChange={(e) => setRef(e.target.value)} placeholder="e.g. #5001" className={inputCls} required /></div>
+        <div><label htmlFor="trk_email" className={labelCls}>Email you submitted with</label><input id="trk_email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} required /></div>
       </div>
-      <button className="rounded-sm border border-ink/20 px-4 py-2 text-sm font-semibold text-ink hover:border-jade-500">Check status</button>
+      <button className="rounded-sm border border-ink/20 px-[1.5em] py-[0.625em] leading-tight text-sm font-semibold text-ink hover:border-jade-500">Check status</button>
       {error && <p className="text-sm text-rust-500">{error}</p>}
       {result && (
         <div className="text-sm text-ink/80 bg-manila/40 rounded-sm p-3 space-y-1">
@@ -86,7 +86,7 @@ export default function InvoiceSubmit() {
     return (
       <Shell>
         <div className={`bg-paper rounded-sm shadow-stamp p-8 text-center border-t-4 ${rejected ? "border-rust-500" : "border-jade-500"}`}>
-          <p className="font-display text-ink text-xl mb-2">{rejected ? "We couldn't verify this invoice" : "Invoice received"}</p>
+          <p className="font-display text-ink text-xl mb-2">{rejected ? "We couldn’t verify this invoice" : "Invoice received"}</p>
           <p className="text-sm text-ink/70">Reference number <span className="font-nums font-semibold text-jade-700">#{done.reference_no}</span></p>
           <p className="text-sm text-ink/70 mt-1">Status: {done.status_label}</p>
           {rejected && <p className="text-sm text-rust-500 mt-3">{done.reason}</p>}
@@ -101,22 +101,22 @@ export default function InvoiceSubmit() {
     <Shell>
       <form onSubmit={submit} className="bg-paper rounded-sm shadow-card p-5 sm:p-6 space-y-4">
         <div className="grid sm:grid-cols-2 gap-4">
-          <div><label className={labelCls}>Vendor name *</label><input value={form.vendor_name} onChange={set("vendor_name")} className={inputCls} required /></div>
-          <div><label className={labelCls}>Email ID *</label><input type="email" value={form.vendor_email} onChange={set("vendor_email")} className={inputCls} required /></div>
-          <div><label className={labelCls}>Phone number *</label><input value={form.vendor_phone} onChange={set("vendor_phone")} className={inputCls} required /></div>
-          <div><label className={labelCls}>Invoice number *</label><input value={form.invoice_number} onChange={set("invoice_number")} className={inputCls} required /></div>
-          <div><label className={labelCls}>Amount (₹, incl. tax) *</label><input type="number" step="0.01" min="0.01" value={form.amount} onChange={set("amount")} className={inputCls} required /></div>
-          <div><label className={labelCls}>Invoice date</label><input type="date" value={form.invoice_date} onChange={set("invoice_date")} className={inputCls} /></div>
+          <div><label htmlFor="inv_vendor_name" className={labelCls}>Vendor name *</label><input id="inv_vendor_name" value={form.vendor_name} onChange={set("vendor_name")} className={inputCls} required /></div>
+          <div><label htmlFor="inv_vendor_email" className={labelCls}>Email ID *</label><input type="email" id="inv_vendor_email" value={form.vendor_email} onChange={set("vendor_email")} className={inputCls} required /></div>
+          <div><label htmlFor="inv_vendor_phone" className={labelCls}>Phone number *</label><input id="inv_vendor_phone" value={form.vendor_phone} onChange={set("vendor_phone")} className={inputCls} required /></div>
+          <div><label htmlFor="inv_invoice_number" className={labelCls}>Invoice number *</label><input id="inv_invoice_number" value={form.invoice_number} onChange={set("invoice_number")} className={inputCls} required /></div>
+          <div><label htmlFor="inv_amount" className={labelCls}>Amount (₹, incl. tax) *</label><input type="number" step="0.01" min="0.01" id="inv_amount" value={form.amount} onChange={set("amount")} className={inputCls} required /></div>
+          <div><label htmlFor="inv_invoice_date" className={labelCls}>Invoice date</label><input type="date" id="inv_invoice_date" value={form.invoice_date} onChange={set("invoice_date")} className={inputCls} /></div>
         </div>
-        <div><label className={labelCls}>Bill details</label><textarea rows={3} value={form.bill_details} onChange={set("bill_details")} placeholder="What is this invoice for?" className={inputCls} /></div>
+        <div><label htmlFor="inv_bill_details" className={labelCls}>Bill details</label><textarea rows={3} id="inv_bill_details" value={form.bill_details} onChange={set("bill_details")} placeholder="What is this invoice for?" className={inputCls} /></div>
         <div>
-          <label className={labelCls}>Invoice attachment (PDF or image) *</label>
-          <input type="file" accept="application/pdf,image/*" onChange={(e) => setFile(e.target.files?.[0] || null)}
-            className="w-full text-xs text-ink/70 file:mr-3 file:rounded-sm file:border-0 file:bg-ledger-800 file:text-manila file:px-3 file:py-2 file:text-xs file:font-semibold file:cursor-pointer" />
+          <label htmlFor="inv_file" className={labelCls}>Invoice attachment (<abbr className="acr">PDF</abbr> or image) *</label>
+          <input id="inv_file" type="file" accept="application/pdf,image/*" onChange={(e) => setFile(e.target.files?.[0] || null)}
+            className="w-full text-xs text-ink/70 file:mr-3 file:rounded-sm file:border-0 file:bg-ledger-800 file:text-on-jade file:px-3 file:py-2 file:text-xs file:font-semibold file:cursor-pointer" />
           <p className="text-xs text-ink/60 mt-1">The invoice number and amount you enter are checked against the document, so please make sure they match.</p>
         </div>
         {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
-        <button disabled={busy} className="w-full rounded-sm bg-jade-600 text-white py-3 font-semibold hover:bg-jade-700 disabled:opacity-50">{busy ? "Submitting…" : "Submit invoice"}</button>
+        <button disabled={busy} className="w-full rounded-sm bg-jade-600 text-on-jade py-3 font-semibold hover:bg-jade-700 disabled:opacity-50">{busy ? "Submitting…" : "Submit invoice"}</button>
       </form>
       <Track />
     </Shell>

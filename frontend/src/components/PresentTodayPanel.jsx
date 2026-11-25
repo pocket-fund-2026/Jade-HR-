@@ -21,7 +21,7 @@ function DepartmentRow({ d }) {
         aria-expanded={open}
         className="w-full text-left py-2.5 hover:bg-ink/[0.03] transition-colors"
       >
-        <div className="flex justify-between items-center gap-3 text-sm text-ink mb-1">
+        <div className="flex justify-between items-center gap-4 text-sm text-ink mb-1">
           <span className="flex items-center gap-1.5 min-w-0">
             <ChevronDown size={14} className={`flex-shrink-0 transition-transform ${open ? "" : "-rotate-90"}`} />
             <span className="truncate">{d.department}</span>
@@ -64,8 +64,8 @@ export default function PresentTodayPanel() {
         aria-expanded={open}
         className="w-full text-left"
       >
-        <div className="flex items-center justify-between gap-3 mb-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70 flex items-center gap-1.5">
+        <div className="flex items-center justify-between gap-4 mb-2">
+          <p className="text-[11px] font-semibold text-ink/70 flex items-center gap-1.5">
             <Users size={13} /> Present today
           </p>
           <span className="flex items-center gap-1 text-xs font-semibold text-jade-700">
@@ -78,7 +78,7 @@ export default function PresentTodayPanel() {
           <span className="text-sm text-ink/70 font-nums">{data.present} of {data.total} present</span>
         </div>
         <Bar percent={data.percent} />
-        <p className="text-[11px] text-ink/60 mt-1">Counted from today's biometric punches (active employees).</p>
+        <p className="text-[11px] text-ink/60 mt-1">Counted from today’s biometric punches (active employees).</p>
       </button>
       {open && (
         <ul className="mt-3">

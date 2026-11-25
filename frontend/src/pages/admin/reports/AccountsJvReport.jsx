@@ -6,6 +6,7 @@ import MonthPicker from "../../../components/MonthPicker.jsx";
 import api from "../../../lib/api.js";
 import { formatINR } from "../../../lib/format.js";
 
+import EmptyState from "../../../components/EmptyState.jsx";
 const today = new Date();
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -109,24 +110,24 @@ export default function AccountsJvReport() {
   return (
     <div>
       <Link to="/admin/reports" className="inline-flex items-center gap-1.5 text-xs text-ink/70 hover:text-ink transition-colors">
-        <ArrowLeft size={13} /> Back to Reports
+        <ArrowLeft size={13} /> Back to reports
       </Link>
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mt-2 mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mt-2 mb-6">
         <div>
           <h2 className="font-display text-2xl text-ink">Accounts JV — Payroll Journal Voucher</h2>
           <p className="text-xs text-ink/70 mt-1">Account names are generic defaults — edit them to match your chart of accounts. Saved to this browser only.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-4">
           <button
             onClick={() => setEditing((v) => !v)}
-            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
+            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
           >
             <Pencil size={14} /> {editing ? "Done Editing" : "Edit Account Names"}
           </button>
           <button
             onClick={() => exportExcel(entries, year, month)}
             disabled={!entries.length}
-            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
+            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
           >
             <FileSpreadsheet size={15} /> Export Excel
           </button>
@@ -138,12 +139,12 @@ export default function AccountsJvReport() {
         <div className="bg-paper rounded-sm shadow-card p-5 mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
           {Object.keys(DEFAULT_ACCOUNTS).map((key) => (
             <div key={key}>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">{DEFAULT_ACCOUNTS[key]}</label>
-              <input
+              <label htmlFor="fld-142" className="block text-xs font-semibold text-ink/70 mb-1.5">{DEFAULT_ACCOUNTS[key]}</label>
+              <input id="fld-142"
                 type="text"
                 value={accounts[key]}
                 onChange={(e) => saveAccounts({ ...accounts, [key]: e.target.value })}
-                className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+                className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
               />
             </div>
           ))}
@@ -153,15 +154,15 @@ export default function AccountsJvReport() {
       {loading ? (
         <p className="text-ink/70"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-ink/70">No payroll data for this month.</p>
+        <EmptyState title="No payroll data for this month" action={{ label: "Open payroll", to: "/admin/payroll" }}>The journal is built from processed payroll.</EmptyState>
       ) : (
         <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
           <table className="w-full text-sm tabular-nums">
-            <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
+            <thead className="text-left sticky top-0 z-10 bg-paper shadow-edge">
               <tr className="border-b-2 border-ink/10">
-                <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Account</th>
-                <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">Debit</th>
-                <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">Credit</th>
+                <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Account</th>
+                <th className="px-5 py-3 font-semibold text-[11px] text-ink/70 text-right">Debit</th>
+                <th className="px-5 py-3 font-semibold text-[11px] text-ink/70 text-right">Credit</th>
               </tr>
             </thead>
             <tbody>

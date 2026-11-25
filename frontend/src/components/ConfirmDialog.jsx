@@ -1,3 +1,4 @@
+import { typo } from "../lib/typo.jsx";
 import { createContext, useCallback, useContext, useRef, useState } from "react";
 
 // A themed stand-in for window.confirm() — the native browser dialog was the
@@ -38,8 +39,8 @@ export function ConfirmProvider({ children }) {
               state.danger ? "border-rust-500" : "border-jade-500"
             }`}
           >
-            <p className="text-sm text-ink leading-relaxed mb-6">{state.message}</p>
-            <div className="flex justify-end gap-3">
+            <p className="text-sm text-ink leading-relaxed mb-6">{typo(state.message)}</p>
+            <div className="flex justify-end gap-4">
               <button type="button" onClick={() => settle(false)} className="text-sm text-ink/70 hover:text-ink px-2">
                 Cancel
               </button>
@@ -49,8 +50,8 @@ export function ConfirmProvider({ children }) {
                 onClick={() => settle(true)}
                 className={
                   state.danger
-                    ? "bg-rust-500 text-white px-5 py-2.5 rounded-sm text-sm font-semibold hover:opacity-90 transition-opacity"
-                    : "bg-ledger-800 text-manila px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+                    ? "bg-rust-500 text-on-rust px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:opacity-90 transition-opacity"
+                    : "bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
                 }
               >
                 {state.confirmLabel}

@@ -1,3 +1,4 @@
+import EmptyState from "../../components/EmptyState.jsx";
 import { AlertTriangle, CheckCircle2, ChevronDown, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -24,7 +25,7 @@ const DIMENSIONS = {
 function Stat({ label, value, tone }) {
   return (
     <div className="bg-paper rounded-sm shadow-card p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/60">{label}</p>
+      <p className="text-[11px] font-semibold text-ink/60">{label}</p>
       <p className={`font-display text-2xl mt-1 ${tone || "text-ink"}`}>{value}</p>
     </div>
   );
@@ -51,13 +52,13 @@ function PeopleDropdown({ people, label }) {
       {open && (
         <div className="mt-2 border border-ink/10 rounded-sm bg-ink/[0.02]">
           {people.length > 8 && (
-            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name or code"
+            <input type="search" aria-label="Search employees by name or code" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name or code"
               className="w-full border-b border-ink/10 bg-paper px-2 py-1.5 text-xs text-ink focus:outline-none" />
           )}
           <div className="max-h-64 overflow-y-auto">
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-paper">
-                <tr className="text-left text-[10px] uppercase tracking-wider text-ink/60">
+                <tr className="text-left text-[10px] text-ink/60">
                   <th className="px-2 py-1.5 w-24">Emp code</th><th className="px-2 py-1.5">Employee name</th>
                   {people[0]?.missing && <th className="px-2 py-1.5">Not updated</th>}
                 </tr>
@@ -72,7 +73,7 @@ function PeopleDropdown({ people, label }) {
                     {p.missing && <td className="px-2 py-1.5 text-ink/70">{p.missing.join(", ")}</td>}
                   </tr>
                 ))}
-                {!shown.length && <tr><td colSpan={3} className="px-2 py-2 text-ink/60">No match.</td></tr>}
+                {!shown.length && <tr><td colSpan={3}><EmptyState title="No match" action={{ label: "Clear search", onClick: () => setQ("") }}>No employee fits that name or code.</EmptyState></td></tr>}
               </tbody>
             </table>
           </div>
@@ -122,7 +123,7 @@ function NotUpdatedPanel({ checks }) {
             <PeopleDropdown people={people} label={`all ${people.length} with what is missing`} />
           </>
         ) : (
-          <p className="text-sm text-jade-700">Every active employee's details are complete.</p>
+          <p className="text-sm text-jade-700">Every active employee’s details are complete.</p>
         )}
       </div>
     </section>
@@ -168,7 +169,7 @@ function WorkflowLog() {
     <section className="mb-8">
       <div className="flex items-center justify-between gap-4 mb-2">
         <h3 className="font-display text-lg text-ink">Recent workflow steps</h3>
-        <select value={workflow} onChange={(e) => setWorkflow(e.target.value)} className="rounded-sm border border-ink/15 bg-paper px-2 py-1 text-sm text-ink">
+        <select aria-label="Filter by workflow" value={workflow} onChange={(e) => setWorkflow(e.target.value)} className="rounded-sm border border-ink/15 bg-paper px-2 py-1 text-sm text-ink">
           <option value="">All workflows</option>
           {Object.entries(log?.workflows || {}).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
@@ -177,13 +178,13 @@ function WorkflowLog() {
       <div className="bg-paper rounded-sm shadow-card overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-[11px] uppercase tracking-wider text-ink/60">
+            <tr className="text-left text-[11px] text-ink/60">
               <th className="p-3">When</th><th className="p-3">Workflow</th><th className="p-3">Step</th><th className="p-3">Employee</th><th className="p-3">By</th><th className="p-3">Based on</th>
             </tr>
           </thead>
           <tbody>
             {!log && <tr><td className="p-3 text-ink/60" colSpan={6}>Loading...</td></tr>}
-            {log && log.events.length === 0 && <tr><td className="p-3 text-ink/60" colSpan={6}>Nothing recorded yet.</td></tr>}
+            {log && log.events.length === 0 && <tr><td colSpan={6}><EmptyState title="No workflow steps recorded yet" action={workflow ? { label: "Show all workflows", onClick: () => setWorkflow("") } : { label: "Open disputes", to: "/admin/disputes" }}>Approvals and rejections show up here once someone acts on a request.</EmptyState></td></tr>}
             {log?.events.map((e) => (
               <tr key={e.id} className="border-t border-ink/10 align-top">
                 <td className="p-3 whitespace-nowrap">{new Date(e.created_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</td>
@@ -229,7 +230,7 @@ export default function DataReadiness() {
   return (
     <div>
       <div className="flex items-start justify-between gap-4 mb-1">
-        <h2 className="font-display text-2xl text-ink">Data Readiness</h2>
+        <h2 className="font-display text-2xl text-ink">Data readiness</h2>
         <button type="button" onClick={load} disabled={loading} className="inline-flex items-center gap-1.5 text-sm text-jade-700 disabled:opacity-50">
           <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Re-check
         </button>
@@ -240,7 +241,7 @@ export default function DataReadiness() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div className="bg-paper rounded-sm shadow-card p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/60">Overall</p>
+          <p className="text-[11px] font-semibold text-ink/60">Overall</p>
           <span className={`inline-block mt-2 px-2 py-1 rounded-sm text-sm font-semibold ${verdict.cls}`}>{verdict.label}</span>
         </div>
         <Stat label="Active employees" value={data.active_employees} />
@@ -252,7 +253,7 @@ export default function DataReadiness() {
       <div className="bg-paper rounded-sm shadow-card overflow-x-auto mb-8">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-[11px] uppercase tracking-wider text-ink/60">
+            <tr className="text-left text-[11px] text-ink/60">
               <th className="p-3">Feed</th><th className="p-3">Owner</th><th className="p-3">Expected</th><th className="p-3">Last update</th><th className="p-3">Status</th><th className="p-3">Feeds</th>
             </tr>
           </thead>
@@ -286,7 +287,7 @@ export default function DataReadiness() {
 
       <section className="mb-8">
         <h3 className="font-display text-lg text-ink mb-2">What the terms mean, and which rule wins</h3>
-        <div className="bg-paper rounded-sm shadow-card p-5 text-sm space-y-3">
+        <div className="bg-paper rounded-sm shadow-card p-5 text-sm space-y-4">
           {v3 && (
             <p>
               <span className="font-semibold">In force:</span> {v3.version}, from {v3.effective_from}. Daily tolerance {v3.daily_tolerance_minutes} min,

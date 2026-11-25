@@ -52,9 +52,9 @@ export default function MyPayslip() {
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 no-print">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 no-print">
         <div>
-          <h2 className="font-display text-2xl text-ink">My Payslip</h2>
+          <h2 className="font-display text-2xl text-ink">My payslip</h2>
           {isHr && <p className="text-xs text-ink/70 mt-0.5">Your own payslip — submit each period to Accounts for sign-off.</p>}
         </div>
         <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
@@ -67,7 +67,7 @@ export default function MyPayslip() {
               <div className="flex items-center gap-2">
                 <StampBadge status={currentSubmission.status}>{currentSubmission.status}</StampBadge>
                 {currentSubmission.status === "approved" && (
-                  <span className="text-xs text-ink/70 flex items-center gap-1"><CheckCircle2 size={13} className="text-jade-600" /> Approved by Accounts</span>
+                  <span className="text-xs text-ink/70 flex items-center gap-1"><CheckCircle2 size={13} className="text-jade-600" /> Approved by accounts</span>
                 )}
                 {currentSubmission.admin_note && <span className="text-xs text-ink/70">— {currentSubmission.admin_note}</span>}
               </div>
@@ -79,7 +79,7 @@ export default function MyPayslip() {
             <button
               onClick={submit}
               disabled={submitting}
-              className="flex items-center gap-1.5 bg-jade-600 text-white px-3 py-2 rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors flex-shrink-0"
+              className="flex items-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors flex-shrink-0"
             >
               <Send size={13} /> {submitting ? "Submitting…" : currentSubmission ? "Resubmit for Approval" : "Submit for Approval"}
             </button>

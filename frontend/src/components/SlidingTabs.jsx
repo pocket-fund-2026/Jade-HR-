@@ -54,7 +54,7 @@ export default function SlidingTabs({ tabs, value, onChange, className = "flex g
             onClick={() => onChange(t.key)}
             className="px-4 py-2 rounded-sm text-sm font-medium bg-paper"
           >
-            <span className={`t-tab-label ${selected ? "text-manila" : "text-ink/70"}`}>{t.label}</span>
+            <span className={`t-tab-label ${selected ? "text-on-jade" : "text-ink/70"}`}>{t.label}</span>
           </button>
         );
       })}

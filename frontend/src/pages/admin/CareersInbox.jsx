@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
+import EmptyState from "../../components/EmptyState.jsx";
 import CareersNav from "../../components/CareersNav.jsx";
 import api from "../../lib/api.js";
 
@@ -58,11 +59,11 @@ export default function CareersInbox() {
       {st && !st.configured && <p className="text-xs text-ochre-700 mb-3">The mailbox is not connected yet. Messages will appear here once the careers@ login is added on the server.</p>}
       {st?.last_error && <p className="text-xs text-rust-500 mb-3">Last sync error: {st.last_error}</p>}
       {agent && (
-        <div className="mb-3 flex flex-wrap items-center gap-3 text-xs border border-ink/10 rounded-sm px-3 py-2 bg-manila/40">
+        <div className="mb-3 flex flex-wrap items-center gap-4 text-xs border border-ink/10 rounded-sm px-3 py-2 bg-manila/40">
           <span className="font-semibold text-ink">Inbox agent</span>
           <span className="text-ink/70">{agent.mode === "on" ? "files applicants automatically" : agent.mode === "suggest" ? "suggest only" : "off"} · {agent.engine === "claude" ? "Claude" : "rules"}</span>
           <span className="text-ink/60">{agent.counts?.review || 0} need review · {agent.counts?.pending || 0} waiting</span>
-          <button type="button" onClick={runAgent} className="ml-auto px-2.5 py-1 rounded-sm font-semibold border border-jade-500/40 text-jade-700 hover:bg-jade-500/10">Run now</button>
+          <button type="button" onClick={runAgent} className="ml-auto px-2.5 py-1 rounded-sm font-semibold border border-jade-500/40 text-jade-700 hover:bg-jade-500/10">Run inbox agent now</button>
         </div>
       )}
       <div className="flex gap-1.5 mb-3 text-xs">
@@ -71,9 +72,9 @@ export default function CareersInbox() {
         ))}
       </div>
       <div className="flex gap-2 mb-3 flex-wrap items-center">
-        <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && load()} placeholder="Search sender, subject, text" className={`${INPUT} max-w-xs`} />
+        <input aria-label="Search messages" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && load()} placeholder="Search sender, subject, text" className={`${INPUT} max-w-xs`} />
         <label className="text-xs text-ink/70 flex items-center gap-1"><input type="checkbox" checked={matched} onChange={(e) => setMatched(e.target.checked)} /> Applicants only</label>
-        <button type="button" onClick={sync} className="px-3 py-1.5 rounded-sm text-xs font-semibold border border-jade-500/40 text-jade-700 hover:bg-jade-500/10">Check now</button>
+        <button type="button" onClick={sync} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold border border-jade-500/40 text-jade-700 hover:bg-jade-500/10">Check now</button>
         {st?.last_sync && <span className="text-[11px] text-ink/50">Last checked {new Date(st.last_sync).toLocaleTimeString()}</span>}
         {note && <span className="text-xs text-ink/70">{note}</span>}
       </div>
@@ -83,12 +84,12 @@ export default function CareersInbox() {
             <li key={m.id}>
               <button type="button" onClick={() => select(m.id)} className={`w-full text-left px-3 py-2 hover:bg-manila/50 ${open?.id === m.id ? "bg-manila/60" : ""}`}>
                 <p className="text-sm text-ink truncate">{m.applicant || m.from_name || m.from_email}</p>
-                <p className="text-xs text-ink/80 truncate">{m.subject}</p>
+                <p className="text-xs text-ink/80 clamp-2" title={m.subject}>{m.subject}</p>
                 <p className="text-[11px] text-ink/50 truncate">{tag(m) && <span className={`font-semibold ${tag(m)[1]}`}>{tag(m)[0]} · </span>}{new Date(m.date).toLocaleString()} · {m.preview}</p>
               </button>
             </li>
           ))}
-          {data && !shown.length && <li className="px-3 py-6 text-sm text-ink/60">No messages.</li>}
+          {data && !shown.length && <li><EmptyState title="No messages" action={filter !== "all" ? { label: "Show all messages", onClick: () => setFilter("all") } : { label: "Check mailbox now", onClick: sync }}>{filter !== "all" ? "No message matches this filter." : "Nothing has arrived in the careers mailbox yet."}</EmptyState></li>}
         </ul>
         <div className="border border-ink/10 rounded-sm p-4 min-h-[200px]">
           {open ? (
@@ -106,11 +107,11 @@ export default function CareersInbox() {
                   {open.attachments?.length > 0 && <p className="text-ink/60 mt-0.5">Attached: {open.attachments.map((a) => a.original_name).join(", ")}</p>}
                   {open.agent_status === "review" && !open.application_id && (
                     <div className="mt-2 flex flex-wrap gap-2 items-center">
-                      <select value={pickJob} onChange={(e) => setPickJob(e.target.value)} className="border border-ink/15 rounded-sm px-2 py-1 bg-paper">
+                      <select aria-label="Role to file this applicant under" value={pickJob} onChange={(e) => setPickJob(e.target.value)} className="border border-ink/15 rounded-sm px-2 py-1 bg-paper">
                         <option value="">File under which role…</option>
                         {jobs.map((j) => <option key={j.id} value={j.id}>{j.title}</option>)}
                       </select>
-                      <button type="button" disabled={!pickJob} onClick={addApplicant} className="px-2.5 py-1 rounded-sm font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40">Add as applicant</button>
+                      <button type="button" disabled={!pickJob} onClick={addApplicant} className="px-2.5 py-1 rounded-sm font-semibold bg-jade-600 text-on-jade hover:bg-jade-700 disabled:opacity-40">Add as applicant</button>
                       <button type="button" onClick={dismiss} className="px-2.5 py-1 rounded-sm text-ink/70 hover:text-ink">Not a candidate</button>
                     </div>
                   )}
@@ -118,8 +119,9 @@ export default function CareersInbox() {
               )}
               <pre className="whitespace-pre-wrap text-sm text-ink font-sans">{open.body_text}</pre>
               <div className="mt-4 border-t border-ink/10 pt-3">
-                <textarea rows={5} value={reply} onChange={(e) => setReply(e.target.value)} placeholder={`Reply to ${open.from_email}`} className={INPUT} />
-                <button type="button" disabled={sending || !reply.trim()} onClick={send} className="mt-2 px-3 py-1.5 rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40">
+                <label htmlFor="inbox_reply" className="block text-xs font-semibold text-ink/70 mb-1.5">Your reply</label>
+                <textarea id="inbox_reply" rows={5} value={reply} onChange={(e) => setReply(e.target.value)} placeholder={`e.g. Hi, thanks for writing in…`} className={INPUT} />
+                <button type="button" disabled={sending || !reply.trim()} onClick={send} className="mt-2 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-on-jade hover:bg-jade-700 disabled:opacity-40">
                   {sending ? "Sending…" : "Send reply from careers@"}
                 </button>
               </div>

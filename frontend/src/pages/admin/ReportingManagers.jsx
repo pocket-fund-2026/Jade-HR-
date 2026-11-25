@@ -6,8 +6,9 @@ import PersonAvatar from "../../components/PersonAvatar.jsx";
 import ReportingManagerImportModal from "../../components/ReportingManagerImportModal.jsx";
 import api from "../../lib/api.js";
 
+import EmptyState from "../../components/EmptyState.jsx";
 const selectCls =
-  "rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
+  "rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
 
 // Status of a row once any unsaved edit is applied.
 const STATUS_META = {
@@ -89,7 +90,7 @@ function ManagerPicker({ value, managersById, managers, excludeId, onChange, pla
     <>
       <button
         ref={btnRef} type="button" onClick={() => setOpen((o) => !o)}
-        className={`w-full flex items-center gap-2 text-left rounded-sm border bg-manila/40 hover:border-jade-500 focus:outline-none focus:ring-2 focus:ring-jade-500 transition-colors ${open ? "border-jade-500" : "border-ink/15"} ${compact ? "px-2 py-1.5" : "px-2.5 py-2"}`}
+        className={`w-full flex items-center gap-2 text-left rounded-sm border bg-manila/40 hover:border-jade-500 focus:outline-none focus:ring-2 focus:ring-jade-500 transition-colors ${open ? "border-jade-500" : "border-ink/15"} ${compact ? "px-4 py-1.5" : "px-2.5 py-2"}`}
       >
         {current ? (
           <>
@@ -111,7 +112,7 @@ function ManagerPicker({ value, managersById, managers, excludeId, onChange, pla
         >
           <div className="relative border-b border-ink/10">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/50" />
-            <input
+            <input aria-label="Search name, code, designation, department"
               autoFocus value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onKey}
               placeholder="Search name, code, designation, department…"
               className="w-full bg-transparent pl-8 pr-3 py-2.5 text-sm text-ink focus:outline-none"
@@ -155,7 +156,7 @@ function FilterCard({ label, value, sub, active, onClick, accent, icon: Icon }) 
       type="button" onClick={onClick}
       className={`text-left bg-paper rounded-sm shadow-card px-4 py-3 border-t-2 transition-colors ${active ? "border-jade-500 ring-1 ring-jade-500/40" : "border-ink/10 hover:border-ink/30"}`}
     >
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70 flex items-center gap-1.5">
+      <p className="text-[11px] font-semibold text-ink/70 flex items-center gap-1.5">
         {Icon && <Icon size={12} />} {label}
       </p>
       <p className={`font-display text-2xl leading-tight mt-1 font-nums ${accent || "text-ink"}`}>{value}</p>
@@ -187,7 +188,7 @@ export default function ReportingManagers() {
       const { data } = await api.get("/api/employees/reporting-managers");
       setData(data);
     } catch (err) {
-      setLoadError(err.response?.data?.detail || "Couldn't load reporting managers");
+      setLoadError(err.response?.data?.detail || "Couldn’t load reporting managers");
     } finally {
       setLoading(false);
     }
@@ -296,12 +297,12 @@ export default function ReportingManagers() {
         kind: "ok",
         text: `Saved ${res.updated} reporting manager change${res.updated === 1 ? "" : "s"}.`,
         warn: res.no_manager_email.length
-          ? `No email on file for ${res.no_manager_email.join(", ")}: approvals and My Team work, but the late-coming digest can't reach them until an email is added.`
+          ? `No email on file for ${res.no_manager_email.join(", ")}: approvals and My Team work, but the late-coming digest can’t reach them until an email is added.`
           : "",
       });
       await load();
     } catch (err) {
-      setNotice({ kind: "error", text: err.response?.data?.detail || "Couldn't save. Nothing was changed, so try again." });
+      setNotice({ kind: "error", text: err.response?.data?.detail || "Couldn’t save. Nothing was changed, so try again." });
     } finally {
       setSaving(false);
     }
@@ -328,18 +329,18 @@ export default function ReportingManagers() {
 
   return (
     <div className="space-y-5 pb-24">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="font-display text-2xl text-ink flex items-center gap-2"><GitBranch size={22} /> Reporting Managers</h2>
+          <h2 className="font-display text-2xl text-ink flex items-center gap-2"><GitBranch size={22} /> Reporting managers</h2>
           <p className="text-sm text-ink/60 max-w-2xl">
-            Who each person reports to. This drives leave and WFH approvals, each manager's My Team view, the late-coming
-            digest email and the <Link to="/admin/org-chart" className="underline">Org Chart</Link>.
+            Who each person reports to. This drives leave and WFH approvals, each manager’s My Team view, the late-coming
+            digest email and the <Link to="/admin/org-chart" className="underline">Org chart</Link>.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex rounded-sm border border-ink/15 overflow-hidden text-sm">
             {[["people", "By employee"], ["teams", "By manager"]].map(([v, l]) => (
-              <button key={v} onClick={() => setView(v)} className={`px-3 py-2 ${view === v ? "bg-jade-500 text-white" : "bg-manila/40 text-ink"}`}>{l}</button>
+              <button key={v} onClick={() => setView(v)} className={`px-3 py-2 ${view === v ? "bg-jade-500 text-on-jade" : "bg-manila/40 text-ink"}`}>{l}</button>
             ))}
           </div>
           <button onClick={() => setShowImport(true)} className={`${selectCls} flex items-center gap-1.5`}>
@@ -353,7 +354,7 @@ export default function ReportingManagers() {
 
       {loadError && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{loadError}</p>}
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <FilterCard icon={Users} label="Everyone" value={counts.all} sub="active employees" active={!status} onClick={() => setStatus("")} />
         <FilterCard icon={Check} label="Assigned" value={counts.assigned} accent="text-jade-700"
           sub={counts.all ? `${Math.round((100 * (counts.assigned + counts.top)) / counts.all)}% covered` : ""}
@@ -367,13 +368,13 @@ export default function ReportingManagers() {
       </div>
 
       {suggestedRows.length > 0 && view === "people" && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-sm border border-jade-500/30 bg-jade-500/[0.06] px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-sm border border-jade-500/30 bg-jade-500/[0.06] px-4 py-3">
           <p className="text-sm text-ink">
             <Sparkles size={14} className="inline -mt-0.5 mr-1 text-jade-600" />
             <b>{suggestedRows.length}</b> people have a manager name on file that matches exactly one active employee.
             Accept them all, check the list, then save.
           </p>
-          <button onClick={acceptAllSuggestions} className="bg-jade-600 text-white px-3.5 py-2 rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors">
+          <button onClick={acceptAllSuggestions} className="bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors">
             Accept all {suggestedRows.length} suggestions
           </button>
         </div>
@@ -382,28 +383,28 @@ export default function ReportingManagers() {
       <div className="flex flex-col lg:flex-row gap-2">
         <div className="relative lg:max-w-xs flex-1">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/60" />
-          <input
+          <input aria-label="Search"
             value={q} onChange={(e) => setQ(e.target.value)}
             placeholder={view === "people" ? "Search employee, code, manager…" : "Search manager…"}
             className={`${selectCls} w-full pl-9`}
           />
         </div>
-        <select value={dept} onChange={(e) => setDept(e.target.value)} className={selectCls}>
+        <select aria-label="Filter by department" value={dept} onChange={(e) => setDept(e.target.value)} className={selectCls}>
           <option value="">All departments</option>
           {departments.map((d) => <option key={d} value={d}>{d}</option>)}
         </select>
-        <select value={location} onChange={(e) => setLocation(e.target.value)} className={selectCls}>
+        <select aria-label="Filter by location" value={location} onChange={(e) => setLocation(e.target.value)} className={selectCls}>
           <option value="">All locations</option>
           {locations.map((l) => <option key={l} value={l}>{l}</option>)}
         </select>
         {view === "people" && edits.size > 0 && (
           <button onClick={() => setStatus(status === "changed" ? "" : "changed")}
-            className={`${selectCls} ${status === "changed" ? "bg-jade-500 text-white" : ""}`}>
+            className={`${selectCls} ${status === "changed" ? "bg-jade-500 text-on-jade" : ""}`}>
             Unsaved only ({edits.size})
           </button>
         )}
         {filterManager && view === "people" && (
-          <span className="inline-flex items-center gap-1.5 rounded-sm bg-ledger-800 text-manila px-3 py-2 text-sm">
+          <span className="inline-flex items-center gap-1.5 rounded-sm bg-ledger-800 text-on-jade px-3 py-2 text-sm">
             Team of {filterManager.name}
             <button onClick={() => setManagerFilter("")} aria-label="Clear manager filter"><X size={14} /></button>
           </span>
@@ -423,7 +424,7 @@ export default function ReportingManagers() {
       {view === "people" ? (
         <div className="bg-paper rounded-sm shadow-card overflow-x-auto">
           {selected.size > 0 && (
-            <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 border-b border-ink/10 bg-manila/50">
+            <div className="flex flex-wrap items-center gap-4 px-4 py-2.5 border-b border-ink/10 bg-manila/50">
               <span className="text-sm text-ink font-semibold">{selected.size} selected</span>
               <span className="text-sm text-ink/60">Set their manager to</span>
               <div className="w-72">
@@ -434,7 +435,7 @@ export default function ReportingManagers() {
           )}
           <table className="w-full text-sm min-w-[860px]">
             <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-ink/50 border-b border-ink/10">
+              <tr className="text-left text-xs text-ink/50 border-b border-ink/10">
                 <th className="py-2.5 pl-4 pr-2 w-8">
                   <input type="checkbox" checked={allVisibleSelected} onChange={toggleAll} aria-label="Select all shown" className="accent-jade-600" />
                 </th>
@@ -477,7 +478,7 @@ export default function ReportingManagers() {
                         placeholder={r.status === "top" ? "Chairman (no record needed)" : "Choose manager…"}
                       />
                       {mgr && !mgr.email && (
-                        <p className="text-[11px] text-ochre-700 mt-1 flex items-center gap-1"><MailWarning size={11} /> No email on file, so the late digest can't reach them</p>
+                        <p className="text-[11px] text-ochre-700 mt-1 flex items-center gap-1"><MailWarning size={11} /> No email on file, so the late digest can’t reach them</p>
                       )}
                       {mgr && !mgr.is_active && (
                         <p className="text-[11px] text-rust-500 mt-1">This manager has left. Pick who they report to now.</p>
@@ -522,16 +523,14 @@ export default function ReportingManagers() {
             </tbody>
           </table>
           {!filtered.length && (
-            <p className="text-sm text-ink/60 px-4 py-8 text-center">
-              {loading ? "Loading…" : "Nobody matches these filters."}
-            </p>
+            loading ? <p className="text-sm text-ink/60 px-4 py-8">Loading…</p> : <EmptyState title="Nobody matches these filters" action={{ label: "Clear filters", onClick: clearFilters }}>Try a different status, department or location.</EmptyState>
           )}
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {teams.map(({ manager: m, members }) => (
             <div key={m.id} className="bg-paper rounded-sm shadow-card p-4">
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-4">
                 <PersonAvatar person={avatarPerson(m)} className="w-10 h-10" />
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-ink truncate">{m.name}</p>
@@ -558,19 +557,19 @@ export default function ReportingManagers() {
               </button>
             </div>
           ))}
-          {!teams.length && <p className="text-sm text-ink/60">{loading ? "Loading…" : "No managers match."}</p>}
+          {!teams.length && (loading ? <p className="text-sm text-ink/60">Loading…</p> : <EmptyState title="No managers match" action={{ label: "Clear filters", onClick: clearFilters }}>Try a different search, department or location.</EmptyState>)}
         </div>
       )}
 
       {edits.size > 0 && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-xl">
-          <div className="flex items-center justify-between gap-3 bg-ledger-800 text-manila rounded-sm shadow-stamp px-4 py-3">
+          <div className="flex items-center justify-between gap-4 bg-ledger-800 text-on-jade rounded-sm shadow-stamp px-4 py-3">
             <span className="text-sm"><b>{edits.size}</b> unsaved change{edits.size === 1 ? "" : "s"}</span>
             <div className="flex items-center gap-2">
-              <button onClick={() => { setEdits(new Map()); setNotice(null); }} disabled={saving} className="text-sm text-manila/80 hover:text-manila px-2">
+              <button onClick={() => { setEdits(new Map()); setNotice(null); }} disabled={saving} className="text-sm text-on-jade/80 hover:text-on-jade px-2">
                 Discard
               </button>
-              <button onClick={save} disabled={saving} className="bg-jade-500 text-white px-4 py-2 rounded-sm text-sm font-semibold hover:bg-jade-600 disabled:opacity-60 transition-colors">
+              <button onClick={save} disabled={saving} className="bg-jade-500 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-600 disabled:opacity-60 transition-colors">
                 {saving ? "Saving…" : "Save changes"}
               </button>
             </div>

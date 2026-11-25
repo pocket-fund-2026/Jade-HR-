@@ -4,7 +4,7 @@ import { useState } from "react";
 import api from "../lib/api.js";
 
 const inputCls =
-  "w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
+  "w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
 
 export default function ExitAssetsModal({ existing, onClose, onSubmitted }) {
   const [systemNo, setSystemNo] = useState(existing?.system_no || "");
@@ -34,29 +34,29 @@ export default function ExitAssetsModal({ existing, onClose, onSubmitted }) {
         <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-ink/70 hover:text-ink transition-colors">
           <X size={18} />
         </button>
-        <p className="text-xs font-semibold uppercase tracking-wider text-jade-600 mb-1">Before you go</p>
+        <p className="text-xs font-semibold text-jade-600 mb-1">Before you go</p>
         <p className="font-display text-lg text-ink mb-1">System handover</p>
         <p className="text-xs text-ink/70 mb-5">
           So your system can be handed over. This goes only to HR and IT. Your password is needed; the system number is optional.
         </p>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">System No. (optional)</label>
-            <input className={inputCls} value={systemNo} onChange={(e) => setSystemNo(e.target.value)} />
+            <label htmlFor="exit_system_no" className="block text-xs font-semibold text-ink/70 mb-1.5">System No. (optional)</label>
+            <input id="exit_system_no" className={inputCls} value={systemNo} onChange={(e) => setSystemNo(e.target.value)} />
           </div>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">System password (required)</label>
+            <label htmlFor="exit_system_password" className="block text-xs font-semibold text-ink/70 mb-1.5">System password (required)</label>
             <div className="flex gap-2">
-              <input className={inputCls} type={show ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="off" />
+              <input id="exit_system_password" className={inputCls} type={show ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="off" />
               <button type="button" onClick={() => setShow((v) => !v)} className="text-xs text-ink/70 hover:text-ink px-2">{show ? "Hide" : "Show"}</button>
             </div>
             {existing?.submitted && <p className="text-[11px] text-ink/60 mt-1">You already submitted one. Enter it again only to change it.</p>}
           </div>
           {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
-          <div className="flex justify-end gap-3">
+          <div className="flex justify-end gap-4">
             <button type="button" onClick={onClose} className="text-sm text-ink/70 hover:text-ink px-2">Cancel</button>
-            <button type="submit" disabled={busy} className="bg-ledger-800 text-manila px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors">
-              {busy ? "Saving…" : "Submit"}
+            <button type="submit" disabled={busy} className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors">
+              {busy ? "Submitting…" : "Submit handover details"}
             </button>
           </div>
         </form>

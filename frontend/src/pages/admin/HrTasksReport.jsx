@@ -1,3 +1,4 @@
+import EmptyState from "../../components/EmptyState.jsx";
 import { AlertTriangle, ArrowLeft, Clock, UserX } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -15,7 +16,7 @@ const PRIORITY_CLASS = {
 function Stat({ label, value, sub, tone }) {
   return (
     <div className="bg-paper rounded-sm shadow-card px-4 py-3">
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70">{label}</p>
+      <p className="text-[11px] font-semibold text-ink/70">{label}</p>
       <p className={`font-display text-2xl font-nums mt-0.5 ${tone || "text-ink"}`}>{value}</p>
       {sub && <p className="text-[11px] text-ink/60 mt-0.5">{sub}</p>}
     </div>
@@ -28,21 +29,21 @@ function TaskList({ icon: Icon, title, blurb, tasks, note, empty }) {
   return (
     <div className="bg-paper rounded-sm shadow-card overflow-hidden mb-5">
       <div className="px-5 pt-4 pb-3 border-b border-ink/[0.06]">
-        <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 flex items-center gap-1.5">
+        <p className="text-xs font-semibold text-ink/70 flex items-center gap-1.5">
           <Icon size={13} /> {title} {tasks.length > 0 && <span className="text-ink/40 normal-case font-normal">({tasks.length})</span>}
         </p>
         {blurb && <p className="text-[11px] text-ink/60 mt-1">{blurb}</p>}
       </div>
       {tasks.length === 0 ? (
-        <p className="px-5 py-6 text-sm text-ink/70 text-center">{empty}</p>
+        <EmptyState title={empty} action={{ label: "Open HR tasks", to: "/admin/hr-tasks" }} />
       ) : (
         <table className="w-full text-sm tabular-nums">
           <tbody>
             {tasks.map((t) => (
               <tr key={t.id} className="border-b border-ink/[0.06] last:border-0">
                 <td className="px-5 py-3">
-                  <span className="text-ink font-medium">{t.title}</span>
-                  <div className={`text-[11px] uppercase tracking-wide font-semibold ${PRIORITY_CLASS[t.priority] || ""}`}>
+                  <span className="text-ink font-medium clamp-2" title={t.title}>{t.title}</span>
+                  <div className={`text-[11px] font-semibold ${PRIORITY_CLASS[t.priority] || ""}`}>
                     {t.priority}
                   </div>
                 </td>
@@ -75,12 +76,12 @@ export default function HrTasksReport() {
       <Link to="/admin/hr-tasks" className="inline-flex items-center gap-1.5 text-xs text-ink/70 hover:text-ink transition-colors mb-4">
         <ArrowLeft size={13} /> Back to HR Tasks
       </Link>
-      <h2 className="font-display text-2xl text-ink mb-1">HR Tasks Report</h2>
+      <h2 className="font-display text-2xl text-ink mb-1"><abbr className="acr">HR</abbr> Tasks Report</h2>
       <p className="text-sm text-ink/70 mb-6">
-        Where the team's workload actually sits — what has slipped, what nobody owns, and how long things take to close.
+        Where the team’s workload actually sits — what has slipped, what nobody owns, and how long things take to close.
       </p>
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <Stat label="Open" value={totals.open} />
         <Stat
           label="Overdue" value={totals.overdue}
@@ -102,11 +103,11 @@ export default function HrTasksReport() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
         <div className="bg-paper rounded-sm shadow-card p-5">
-          <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-3">Open by priority</p>
+          <p className="text-xs font-semibold text-ink/70 mb-3">Open by priority</p>
           <div className="space-y-2">
             {["urgent", "high", "normal", "low"].map((p) => (
-              <div key={p} className="flex items-center gap-3">
-                <span className={`text-xs font-semibold uppercase tracking-wide w-16 ${PRIORITY_CLASS[p]}`}>{p}</span>
+              <div key={p} className="flex items-center gap-4">
+                <span className={`text-xs font-semibold w-16 ${PRIORITY_CLASS[p]}`}>{p}</span>
                 <div className="flex-1 h-2 bg-ink/[0.06] rounded-sm overflow-hidden">
                   <div
                     className={`h-full ${p === "urgent" ? "bg-rust-500" : p === "high" ? "bg-ochre-500" : "bg-ink/25"}`}
@@ -126,14 +127,14 @@ export default function HrTasksReport() {
         </div>
 
         <div className="bg-paper rounded-sm shadow-card overflow-hidden">
-          <p className="px-5 pt-4 pb-3 text-xs font-semibold uppercase tracking-wider text-ink/70">Load by person</p>
+          <p className="px-5 pt-4 pb-3 text-xs font-semibold text-ink/70">Load by person</p>
           <table className="w-full text-sm tabular-nums">
             <thead className="text-left">
               <tr className="border-b border-ink/10">
-                <th className="px-5 py-2 font-semibold text-[10px] uppercase tracking-wider text-ink/70">Person</th>
-                <th className="px-5 py-2 font-semibold text-[10px] uppercase tracking-wider text-ink/70 text-right">Open</th>
-                <th className="px-5 py-2 font-semibold text-[10px] uppercase tracking-wider text-ink/70 text-right">Overdue</th>
-                <th className="px-5 py-2 font-semibold text-[10px] uppercase tracking-wider text-ink/70 text-right">Done</th>
+                <th className="px-5 py-2 font-semibold text-[10px] text-ink/70">Person</th>
+                <th className="px-5 py-2 font-semibold text-[10px] text-ink/70 text-right">Open</th>
+                <th className="px-5 py-2 font-semibold text-[10px] text-ink/70 text-right">Overdue</th>
+                <th className="px-5 py-2 font-semibold text-[10px] text-ink/70 text-right">Done</th>
               </tr>
             </thead>
             <tbody>
@@ -142,7 +143,7 @@ export default function HrTasksReport() {
                   <td className="px-5 py-2.5">
                     <span className={p.name === "Unassigned" ? "text-ochre-700" : "text-ink"}>{p.name}</span>
                     {p.urgent_open > 0 && (
-                      <span className="ml-1.5 text-[10px] font-semibold uppercase text-rust-500">{p.urgent_open} urgent</span>
+                      <span className="ml-1.5 text-[10px] font-semibold text-rust-500">{p.urgent_open} urgent</span>
                     )}
                   </td>
                   <td className="px-5 py-2.5 font-nums text-ink text-right">{p.open}</td>

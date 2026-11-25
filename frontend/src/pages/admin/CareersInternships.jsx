@@ -1,6 +1,8 @@
+import MidTruncate from "../../components/MidTruncate.jsx";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
+import EmptyState from "../../components/EmptyState.jsx";
 import CareersNav from "../../components/CareersNav.jsx";
 import api from "../../lib/api.js";
 
@@ -64,11 +66,11 @@ export default function CareersInternships() {
       <CareersNav />
       {error && <p className="text-xs text-rust-500 mb-3">{error}</p>}
       <div className="flex gap-2 mb-3 flex-wrap items-center">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, email, college, course" className={`${INPUT} w-72`} />
-        <select value={status} onChange={(e) => setStatus(e.target.value)} className={INPUT}>
+        <input aria-label="Search intern applicants" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, email, college, course" className={`${INPUT} w-72`} />
+        <select aria-label="Filter by status" value={status} onChange={(e) => setStatus(e.target.value)} className={INPUT}>
           {statuses.map((s) => <option key={s} value={s}>{s === "all" ? "All statuses" : s}</option>)}
         </select>
-        <button type="button" disabled={busy} onClick={backfill} className="px-3 py-1.5 rounded-sm text-xs font-semibold border border-jade-500/40 text-jade-700 hover:bg-jade-500/10 disabled:opacity-40">Search whole mailbox</button>
+        <button type="button" disabled={busy} onClick={backfill} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold border border-jade-500/40 text-jade-700 hover:bg-jade-500/10 disabled:opacity-40">Search whole mailbox</button>
         {note && <span className="text-xs text-ink/70">{note}</span>}
       </div>
 
@@ -77,13 +79,13 @@ export default function CareersInternships() {
           <p className="px-3 py-2 text-xs font-semibold text-ochre-700">{data.unfiled.length} internship email(s) not filed yet</p>
           <ul className="divide-y divide-ink/10">
             {data.unfiled.map((m) => (
-              <li key={m.id} className="px-3 py-2 flex flex-wrap items-center gap-3">
+              <li key={m.id} className="px-3 py-2 flex flex-wrap items-center gap-4">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm text-ink truncate">{m.from_name || m.from_email} <span className="text-ink/50 text-xs">&lt;{m.from_email}&gt;</span></p>
+                  <p className="text-sm text-ink truncate">{m.from_name || m.from_email} <span className="text-ink/50 text-xs">&lt;<MidTruncate text={m.from_email} tail={14} />&gt;</span></p>
                   <p className="text-xs text-ink/70 truncate">{m.subject} · {when(m.date)}</p>
                 </div>
-                <Link to="/admin/careers/inbox" className="text-xs text-ink/60 hover:text-ink">Open in Inbox</Link>
-                <button type="button" onClick={() => addApplicant(m)} className="px-2.5 py-1 rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700">File as intern applicant</button>
+                <Link to="/admin/careers/inbox" className="text-xs text-ink/60 hover:text-ink">Open in inbox</Link>
+                <button type="button" onClick={() => addApplicant(m)} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-on-jade hover:bg-jade-700">File as intern applicant</button>
               </li>
             ))}
           </ul>
@@ -100,14 +102,14 @@ export default function CareersInternships() {
             {shown.map((a) => (
               <tr key={a.id} className="hover:bg-manila/30">
                 <td className="px-3 py-2"><Link className="text-jade-700 font-semibold hover:underline" to={`/admin/careers/applicants/${a.id}`}>{a.full_name}</Link><p className="text-[11px] text-ink/50">{a.job_title}</p></td>
-                <td className="px-3 py-2 text-xs"><p>{a.email}</p><p className="text-ink/60">{a.phone}{a.city ? ` · ${a.city}` : ""}</p></td>
+                <td className="px-3 py-2 text-xs"><p><MidTruncate text={a.email} tail={14} /></p><p className="text-ink/60">{a.phone}{a.city ? ` · ${a.city}` : ""}</p></td>
                 <td className="px-3 py-2 text-xs">{[a.education, a.course, a.study_stage].filter(Boolean).join(" · ") || <span className="text-ink/40">—</span>}</td>
                 <td className="px-3 py-2 text-xs"><p className="truncate max-w-[16rem]">{a.mail_subject || "—"}</p><p className="text-ink/50">{when(a.mail_date || a.created_at)}{a.mail_count > 1 ? ` · ${a.mail_count} emails` : ""}</p></td>
                 <td className="px-3 py-2 text-xs">{a.status}</td>
                 <td className="px-3 py-2 text-xs">{a.attachments || a.resume_path ? "Yes" : <span className="text-ink/40">—</span>}</td>
               </tr>
             ))}
-            {data && !shown.length && <tr><td colSpan={6} className="px-3 py-6 text-ink/60">No intern applications match.</td></tr>}
+            {data && !shown.length && <tr><td colSpan={6}><EmptyState title="No intern applications match" action={q || status !== "all" ? { label: "Clear filters", onClick: () => { setQ(""); setStatus("all"); } } : { label: "Search whole mailbox", onClick: backfill }}>{q || status !== "all" ? "Nothing fits the current search or status." : "No internship emails have been filed yet."}</EmptyState></td></tr>}
           </tbody>
         </table>
       </div>

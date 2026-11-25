@@ -21,8 +21,8 @@ function currentPayPeriod() {
     : { year: d.getFullYear(), month: d.getMonth() + 1 };
 }
 
-const label = "block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5";
-const input = "w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
+const label = "block text-xs font-semibold text-ink/70 mb-1.5";
+const input = "w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
 
 // Arrear entry for Accounts. Pending until approved; only APPROVED arrears
 // reach net pay / payslip / bank transfer, in the pay month chosen here.
@@ -96,7 +96,7 @@ export default function AddArrearModal({ employee, employees, defaultPeriod, onC
         <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-ink/70 hover:text-ink transition-colors">
           <X size={18} />
         </button>
-        <p className="text-xs font-semibold uppercase tracking-wider text-ochre-700 mb-1">Add arrear</p>
+        <p className="text-xs font-semibold text-ochre-700 mb-1">Add arrear</p>
         <p className="font-display text-lg text-ink mb-5">
           {employee ? (employee.name || `${employee.first_name} ${employee.last_name || ""}`) : "Arrear payment"}
         </p>
@@ -104,9 +104,9 @@ export default function AddArrearModal({ employee, employees, defaultPeriod, onC
         <form onSubmit={submit} className="space-y-4">
           {!employee && (
             <div>
-              <label className={label}>Employee</label>
-              <input type="text" placeholder="Search name or code…" value={query} onChange={(e) => setQuery(e.target.value)} className={`${input} mb-1.5`} />
-              <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} required className={input}>
+              <label htmlFor="arrear_employee" className={label}>Employee</label>
+              <input type="text" aria-label="Search employees by name or code" placeholder="Search name or code…" value={query} onChange={(e) => setQuery(e.target.value)} className={`${input} mb-1.5`} />
+              <select id="arrear_employee" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} required className={input}>
                 <option value="">Select employee…</option>
                 {filteredEmployees.map((e) => (
                   <option key={e.id} value={e.id}>{e.first_name} {e.last_name} — {e.employee_code}</option>
@@ -115,7 +115,7 @@ export default function AddArrearModal({ employee, employees, defaultPeriod, onC
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label htmlFor="arrear_reason" className={label}>Reason</label>
               <select id="arrear_reason" value={reason} onChange={(e) => setReason(e.target.value)} className={input}>
@@ -137,7 +137,7 @@ export default function AddArrearModal({ employee, employees, defaultPeriod, onC
 
           <div>
             <label className={label}>Relates to <span className="text-ink/50 normal-case font-normal">(period the arrear is for — optional)</span></label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               <input type="date" aria-label="Relates to from" value={from} onChange={(e) => setFrom(e.target.value)} className={`${input} font-nums`} />
               <input type="date" aria-label="Relates to to" value={to} onChange={(e) => setTo(e.target.value)} className={`${input} font-nums`} />
             </div>
@@ -148,13 +148,19 @@ export default function AddArrearModal({ employee, employees, defaultPeriod, onC
               <Calculator size={14} /> Calculate from a salary revision
             </button>
             {calc.open && (
-              <div className="p-3 border-t border-ink/10 space-y-3">
+              <div className="p-3 border-t border-ink/10 space-y-4">
                 <p className="text-xs text-ink/70">Arrear = (new − old monthly pay) pro-rated by days over each 23rd–22nd pay period in the “Relates to” range.</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <input type="number" min="0" placeholder="Old monthly pay" value={calc.old} onChange={(e) => setCalc((c) => ({ ...c, old: e.target.value }))} className={`${input} font-nums`} />
-                  <input type="number" min="0" placeholder="New monthly pay" value={calc.neu} onChange={(e) => setCalc((c) => ({ ...c, neu: e.target.value }))} className={`${input} font-nums`} />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="arrear_old_pay" className={label}>Old monthly pay (₹)</label>
+                    <input id="arrear_old_pay" type="number" min="0" placeholder="e.g. 30000" value={calc.old} onChange={(e) => setCalc((c) => ({ ...c, old: e.target.value }))} className={`${input} font-nums`} />
+                  </div>
+                  <div>
+                    <label htmlFor="arrear_new_pay" className={label}>New monthly pay (₹)</label>
+                    <input id="arrear_new_pay" type="number" min="0" placeholder="e.g. 35000" value={calc.neu} onChange={(e) => setCalc((c) => ({ ...c, neu: e.target.value }))} className={`${input} font-nums`} />
+                  </div>
                 </div>
-                <button type="button" onClick={runCalc} className="text-xs font-semibold bg-ledger-800 text-manila px-3 py-1.5 rounded-sm hover:bg-ledger-700">Calculate</button>
+                <button type="button" onClick={runCalc} className="text-xs font-semibold bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm hover:bg-ledger-700">Calculate arrear</button>
                 {calc.error && <p className="text-xs text-rust-500">{calc.error}</p>}
                 {calc.result && (
                   <div className="text-xs">
@@ -179,17 +185,17 @@ export default function AddArrearModal({ employee, employees, defaultPeriod, onC
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label htmlFor="arrear_amount" className={label}>Arrear amount (₹)</label>
               <input id="arrear_amount" type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className={`${input} font-nums`} required />
             </div>
             <div>
-              <label htmlFor="arrear_tds" className={label}>TDS on it (₹)</label>
+              <label htmlFor="arrear_tds" className={label}><abbr className="acr">TDS</abbr> on it (₹)</label>
               <input id="arrear_tds" type="number" step="0.01" min="0" value={tds} onChange={(e) => setTds(e.target.value)} className={`${input} font-nums`} />
             </div>
           </div>
-          <p className="text-[11px] text-ink/60 -mt-2">No PF/ESIC is charged on arrears. TDS is not recalculated automatically — enter what should be withheld. A negative amount recovers an overpayment.</p>
+          <p className="text-[11px] text-ink/60 -mt-2">No <abbr className="acr">PF</abbr>/<abbr className="acr">ESIC</abbr> is charged on arrears. <abbr className="acr">TDS</abbr> is not recalculated automatically — enter what should be withheld. A negative amount recovers an overpayment.</p>
 
           <div>
             <label htmlFor="arrear_remarks" className={label}>Remarks</label>
@@ -203,9 +209,9 @@ export default function AddArrearModal({ employee, employees, defaultPeriod, onC
 
           {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
 
-          <div className="flex justify-end gap-3 pt-1">
+          <div className="flex justify-end gap-4 pt-1">
             <button type="button" onClick={onClose} className="text-sm text-ink/70 hover:text-ink px-2">Cancel</button>
-            <button type="submit" disabled={busy} className="bg-ledger-800 text-manila px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors">
+            <button type="submit" disabled={busy} className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors">
               {busy ? "Saving…" : "Save arrear"}
             </button>
           </div>

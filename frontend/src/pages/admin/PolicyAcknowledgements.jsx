@@ -5,6 +5,7 @@ import api from "../../lib/api.js";
 import LoginLog from "./LoginLog.jsx";
 import TeamPulse from "./TeamPulse.jsx";
 
+import EmptyState from "../../components/EmptyState.jsx";
 const STATUS_OPTIONS = [
   { value: "all", label: "Everyone" },
   { value: "pending", label: "Not yet acknowledged" },
@@ -102,7 +103,7 @@ export default function PolicyAcknowledgements() {
             key={t.key}
             type="button"
             onClick={() => switchTab(t.key)}
-            className={`px-4 py-2 text-sm font-semibold -mb-px border-b-2 transition-colors ${tab === t.key ? "border-jade-600 text-ink" : "border-transparent text-ink/60 hover:text-ink"}`}
+            className={`px-[1.5em] py-[0.625em] leading-tight text-sm font-semibold -mb-px border-b-2 transition-colors ${tab === t.key ? "border-jade-600 text-ink" : "border-transparent text-ink/60 hover:text-ink"}`}
           >
             {t.label}
           </button>
@@ -113,7 +114,7 @@ export default function PolicyAcknowledgements() {
         <LoginLog />
       ) : tab === "pulse" ? (
         <>
-          <p className="text-sm text-ink/70 mb-5">Who has been signing in to JADE HR and how recently: last activity, last login and device, and a day-by-day strip for the last two weeks.</p>
+          <p className="text-sm text-ink/70 mb-5">Who has been signing in to JADE <abbr className="acr">HR</abbr> and how recently: last activity, last login and device, and a day-by-day strip for the last two weeks.</p>
           <TeamPulse />
         </>
       ) : (
@@ -132,34 +133,34 @@ export default function PolicyAcknowledgements() {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             <div className="bg-paper rounded-sm shadow-card p-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-ink/70">On roster</p>
+              <p className="text-xs font-semibold text-ink/70">On roster</p>
               <p className="font-display text-2xl text-ink font-nums mt-1">{data.total}</p>
             </div>
             <div className="bg-paper rounded-sm shadow-card p-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 flex items-center gap-1">
+              <p className="text-xs font-semibold text-ink/70 flex items-center gap-1">
                 <CheckCircle2 size={12} className="text-jade-600" /> Acknowledged
               </p>
               <p className="font-display text-2xl text-jade-700 font-nums mt-1">{data.acknowledged}</p>
             </div>
             <div className="bg-paper rounded-sm shadow-card p-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 flex items-center gap-1">
+              <p className="text-xs font-semibold text-ink/70 flex items-center gap-1">
                 <Clock size={12} className="text-rust-500" /> Pending
               </p>
               <p className="font-display text-2xl text-rust-500 font-nums mt-1">{data.pending}</p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 mb-3">
+          <div className="flex flex-wrap items-center gap-4 mb-3">
             <div className="relative">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/70" />
-              <input
+              <input aria-label="Search name, code, department"
                 type="text" value={search} onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search name, code, department…"
                 className="w-64 rounded-sm border border-ink/15 bg-paper pl-9 pr-3 py-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
               />
             </div>
-            <select value={status} onChange={(e) => setStatus(e.target.value)}
-              className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
+            <select aria-label="Filter by status" value={status} onChange={(e) => setStatus(e.target.value)}
+              className="rounded-sm border border-ink/15 bg-paper px-4 py-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
               {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
             <label className="flex items-center gap-1.5 text-xs text-ink/70">
@@ -168,7 +169,7 @@ export default function PolicyAcknowledgements() {
               Include inactive
             </label>
             <button type="button" onClick={exportCsv}
-              className="flex items-center gap-1.5 bg-paper border border-ink/15 text-ink/80 px-3 py-2 rounded-sm text-xs font-medium hover:border-ink/30 transition-colors">
+              className="flex items-center gap-1.5 bg-paper border border-ink/15 text-ink/80 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-medium hover:border-ink/30 transition-colors">
               <Download size={13} /> Export CSV
             </button>
             <span className="text-xs text-ink/70 font-nums ml-auto">{rows.length} shown</span>
@@ -177,26 +178,26 @@ export default function PolicyAcknowledgements() {
           <div className="bg-paper rounded-sm shadow-card overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="text-left text-xs font-semibold uppercase tracking-wider text-ink/70 border-b border-ink/10">
+                <tr className="text-left text-xs font-semibold text-ink/70 border-b border-ink/10">
                   <th className="px-5 py-3">Employee</th>
                   <th className="px-5 py-3">Department</th>
                   <th className="px-5 py-3">Location</th>
                   <th className="px-5 py-3">Status</th>
                   <th className="px-5 py-3">Quiz</th>
-                  <th className="px-5 py-3">Acknowledged (IST)</th>
-                  <th className="px-5 py-3">Last login (IST)</th>
+                  <th className="px-5 py-3">Acknowledged (<abbr className="acr">IST</abbr>)</th>
+                  <th className="px-5 py-3">Last login (<abbr className="acr">IST</abbr>)</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.length === 0 ? (
-                  <tr><td className="px-5 py-8 text-center text-ink/70" colSpan={7}>No employees match.</td></tr>
+                  <tr><td colSpan={7}><EmptyState title="No employees match" action={{ label: "Clear filters", onClick: () => { setStatus("all"); setSearch(""); } }}>Try a different status or name.</EmptyState></td></tr>
                 ) : (
                   rows.map((r) => (
                     <tr key={r.employee_id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
                       <td className="px-5 py-3">
                         <span className="text-ink font-medium">{r.name}</span>
                         {!r.is_active && (
-                          <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-ink/70">inactive</span>
+                          <span className="ml-1.5 text-[10px] font-semibold text-ink/70">inactive</span>
                         )}
                         <div className="text-xs text-ink/70 font-nums">{r.employee_code}</div>
                       </td>
@@ -204,11 +205,11 @@ export default function PolicyAcknowledgements() {
                       <td className="px-5 py-3 text-ink/70">{r.location || "—"}</td>
                       <td className="px-5 py-3">
                         {r.acknowledged ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-jade-700">
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-jade-700">
                             <CheckCircle2 size={12} /> Acknowledged
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-rust-500">
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-rust-500">
                             <Clock size={12} /> Pending
                           </span>
                         )}

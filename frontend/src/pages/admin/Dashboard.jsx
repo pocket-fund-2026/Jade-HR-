@@ -3,6 +3,7 @@ import { Award, Cake, CalendarPlus, Clock, FileSpreadsheet, LogOut, ShieldAlert,
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 
+import EmptyState from "../../components/EmptyState.jsx";
 import MonthPicker from "../../components/MonthPicker.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import LateTodayPanel from "../../components/LateTodayPanel.jsx";
@@ -42,14 +43,14 @@ function daysLabel(days) {
   return `in ${days}d`;
 }
 
-function ClockColumn({ icon: Icon, title, rows, empty, renderMeta, linkTo }) {
+function ClockColumn({ icon: Icon, title, rows, empty, emptyAction, renderMeta, linkTo }) {
   return (
     <div>
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70 mb-3 flex items-center gap-1.5">
+      <p className="text-[11px] font-semibold text-ink/70 mb-3 flex items-center gap-1.5">
         <Icon size={13} /> {title} {rows.length > 0 && <span className="text-ink/40 normal-case font-normal">({rows.length})</span>}
       </p>
       {rows.length === 0 ? (
-        <p className="text-xs text-ink/50">{empty}</p>
+        <EmptyState title={empty} action={emptyAction} />
       ) : (
         <div className="space-y-2.5">
           {rows.slice(0, 5).map((r) => (
@@ -77,7 +78,7 @@ function AccessRevokePanel({ items }) {
   if (!items.length) return null;
   return (
     <div className="bg-paper rounded-sm shadow-card px-5 py-4 mb-6 border-l-2 border-rust-500">
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-rust-600 mb-1 flex items-center gap-1.5">
+      <p className="text-[11px] font-semibold text-rust-600 mb-1 flex items-center gap-1.5">
         <LogOut size={13} /> Revoke system access
       </p>
       <p className="text-sm text-ink/70 mb-3">
@@ -86,7 +87,7 @@ function AccessRevokePanel({ items }) {
       </p>
       <ul className="divide-y divide-ink/10">
         {items.map((i) => (
-          <li key={i.id} className="py-2 flex items-center gap-3 text-sm">
+          <li key={i.id} className="py-2 flex items-center gap-4 text-sm">
             <span className="font-medium">{i.employee_name}</span>
             <span className="text-ink/50">{i.employee_code}</span>
             <span className={i.overdue ? "text-rust-600 font-semibold" : "text-ink/70"}>
@@ -105,29 +106,32 @@ function ClocksPanel({ clocks }) {
   if (aip.length === 0 && probation.length === 0 && notice.length === 0) return null;
   return (
     <div className="bg-paper rounded-sm shadow-card px-5 py-4 mb-6">
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70 mb-4 flex items-center gap-1.5">
-        <Clock size={13} /> Upcoming Clocks
+      <p className="text-[11px] font-semibold text-ink/70 mb-4 flex items-center gap-1.5">
+        <Clock size={13} /> Upcoming clocks
       </p>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <ClockColumn
           icon={ShieldAlert}
           title="Active AIPs"
           rows={aip}
-          empty="No active Attendance Improvement Plans."
+          empty="No active Attendance Improvement Plans"
+          emptyAction={{ label: "Open AIPs", to: "/admin/aip" }}
           linkTo={() => "/admin/aip"}
         />
         <ClockColumn
           icon={UserCheck}
           title="Probation Ending"
           rows={probation}
-          empty="No probation completions due soon."
+          empty="No probation completions due soon"
+          emptyAction={{ label: "Open probation list", to: "/admin/confirmations" }}
           linkTo={() => "/admin/confirmations"}
         />
         <ClockColumn
           icon={LogOut}
           title="On Notice"
           rows={notice}
-          empty="No one currently serving notice."
+          empty="No one currently serving notice"
+          emptyAction={{ label: "Open exits", to: "/admin/exit" }}
         />
       </div>
     </div>
@@ -330,14 +334,14 @@ export default function Dashboard() {
     <div>
       <OfferNotices />
       <LettersAwaitingSignature />
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-1">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-1">
         <h2 className="font-display text-2xl text-ink">Dashboard</h2>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-4">
           <Link
             to="/admin/my-leave"
-            className="flex items-center gap-1.5 bg-jade-600 text-white px-3 py-2 rounded-sm text-xs font-semibold hover:bg-jade-700 transition-colors whitespace-nowrap"
+            className="flex items-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 transition-colors whitespace-nowrap"
           >
-            <CalendarPlus size={13} /> Apply Leave
+            <CalendarPlus size={13} /> Apply leave
           </Link>
           {canPayroll && (
             <>
@@ -345,7 +349,7 @@ export default function Dashboard() {
                 aria-label="Filter by location"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+                className="rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
               >
                 <option value="all">All locations</option>
                 {locations.map((loc) => (
@@ -367,7 +371,7 @@ export default function Dashboard() {
 
       {hasNew && (
         <section className="rise-in mb-6 rounded-sm border border-ochre-400/50 bg-ochre-50 shadow-card" aria-labelledby="new-items-title">
-          <div className="flex items-center justify-between gap-3 px-4 pt-3 pb-2">
+          <div className="flex items-center justify-between gap-4 px-4 pt-3 pb-2">
             <h3 id="new-items-title" className="flex items-center gap-2 text-sm font-semibold text-ink">
               <span className="relative flex w-2.5 h-2.5">
                 <span className="absolute inline-flex h-full w-full rounded-full bg-rust-500 opacity-60 animate-ping motion-reduce:hidden" />
@@ -384,7 +388,7 @@ export default function Dashboard() {
               const tone = TONES[g.tone];
               const Icon = g.icon;
               return (
-                <Link key={g.key} to={g.to} className="group flex items-center gap-3 bg-paper rounded-sm px-3.5 py-3 border border-ink/[0.07] hover:border-jade-500 hover:shadow-stamp transition-all">
+                <Link key={g.key} to={g.to} className="group flex items-center gap-4 bg-paper rounded-sm px-3.5 py-3 border border-ink/[0.07] hover:border-jade-500 hover:shadow-stamp transition-all">
                   <span className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${tone.chip}`}><Icon size={17} /></span>
                   <span className="min-w-0">
                     <span className="flex items-baseline gap-1.5">
@@ -417,9 +421,9 @@ export default function Dashboard() {
             </p>
             <button
               onClick={dismissBirthday}
-              className="mt-6 bg-ledger-800 text-manila px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+              className="mt-6 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
             >
-              Got it
+              Dismiss birthday notice
             </button>
           </div>
         </div>
@@ -435,7 +439,7 @@ export default function Dashboard() {
       {showLateRail && <PresentTodayPanel />}
       {upcomingBirthdays.length > 0 && (
         <div className="bg-paper rounded-sm shadow-card px-5 py-4 mb-6">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70 mb-3 flex items-center gap-1.5">
+          <p className="text-[11px] font-semibold text-ink/70 mb-3 flex items-center gap-1.5">
             <Cake size={13} /> Upcoming Birthdays (HQ)
           </p>
           <div className="flex flex-wrap gap-x-6 gap-y-2">
@@ -476,9 +480,9 @@ export default function Dashboard() {
             </p>
             <button
               onClick={dismissAnniversary}
-              className="mt-6 bg-ledger-800 text-manila px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+              className="mt-6 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
             >
-              Got it
+              Dismiss anniversary notice
             </button>
           </div>
         </div>
@@ -486,7 +490,7 @@ export default function Dashboard() {
 
       {upcomingAnniversaries.length > 0 && (
         <div className="bg-paper rounded-sm shadow-card px-5 py-4 mb-6">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70 mb-3 flex items-center gap-1.5">
+          <p className="text-[11px] font-semibold text-ink/70 mb-3 flex items-center gap-1.5">
             <Award size={13} /> Upcoming Work Anniversaries (HQ)
           </p>
           <div className="flex flex-wrap gap-x-6 gap-y-2">
@@ -514,10 +518,10 @@ export default function Dashboard() {
       {canPayroll ? (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 stagger-rise">
-            <StatCard label="Active Employees" value={filtered.length} />
+            <StatCard label="Active employees" value={filtered.length} />
             <StatCard label="Total OT Hours" value={formatHoursMins(totals.otHours)} />
             <StatCard label="Total OT Amount" value={formatINR(totals.otAmount)} accent="text-ochre-700" />
-            <StatCard label="Total Payable" value={formatINR(totals.payable)} accent="text-jade-600" />
+            <StatCard label="Total payable" value={formatINR(totals.payable)} accent="text-jade-600" />
           </div>
 
           {trend.length > 0 && (
@@ -528,21 +532,21 @@ export default function Dashboard() {
 
           <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
             <table className="w-full text-sm tabular-nums">
-              <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
+              <thead className="text-left sticky top-0 z-10 bg-paper shadow-edge">
                 <tr className="border-b-2 border-ink/10">
-                  <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
-                  <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Present</th>
-                  <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Absent</th>
-                  <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">OT Hours</th>
-                  <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">OT Amount</th>
-                  <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Total Payable</th>
+                  <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Employee</th>
+                  <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Present</th>
+                  <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Absent</th>
+                  <th className="px-5 py-3 font-semibold text-[11px] text-ink/70"><abbr className="acr">OT</abbr> Hours</th>
+                  <th className="px-5 py-3 font-semibold text-[11px] text-ink/70"><abbr className="acr">OT</abbr> Amount</th>
+                  <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Total payable</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={6}>Loading ledger…</td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={6}>No employees match.</td></tr>
+                  <tr><td colSpan={6}><EmptyState title="No employees match" action={location !== "all" ? { label: "Show all locations", onClick: () => setLocation("all") } : { label: "Open employees", to: "/admin/employees" }}>{location !== "all" ? "No active employee is in the selected location." : "No active employees are on the ledger for this month."}</EmptyState></td></tr>
                 ) : (
                   filtered.map((r) => (
                     <tr key={r.employee_id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
@@ -570,31 +574,31 @@ export default function Dashboard() {
         <>
           {canEmployees && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 stagger-rise">
-              <StatCard label="Active Employees" value={employeeCount ?? "—"} />
+              <StatCard label="Active employees" value={employeeCount ?? "—"} />
             </div>
           )}
           {canAttendance && (
             <div className="bg-paper rounded-sm shadow-card px-6 py-5 mb-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <p className="text-sm font-semibold text-ink">Attendance</p>
                   <p className="text-xs text-ink/70 mt-0.5">
                     Export the full attendance sheet for every active employee.
                   </p>
                 </div>
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap items-center gap-4">
                   <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
                   <button
                     onClick={() => exportAttendanceExcel(attendanceRows, year, month)}
                     disabled={!attendanceRows.length}
-                    className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
+                    className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
                   >
                     <FileSpreadsheet size={15} /> {attendanceLoading ? "Loading…" : "Export Excel"}
                   </button>
                   <button
                     onClick={() => exportAttendanceTimingsExcel(attendanceRows, year, month)}
                     disabled={!attendanceRows.length}
-                    className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
+                    className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
                   >
                     <FileSpreadsheet size={15} /> {attendanceLoading ? "Loading…" : "Export Timings (Datewise)"}
                   </button>
@@ -606,7 +610,7 @@ export default function Dashboard() {
             </div>
           )}
           <div className="bg-paper rounded-sm shadow-card px-6 py-10 text-center">
-            <p className="text-sm text-ink/70">Payroll &amp; OT figures are managed by Accounts.</p>
+            <p className="text-sm text-ink/70">Payroll &amp; <abbr className="acr">OT</abbr> figures are managed by Accounts.</p>
             <p className="text-xs text-ink/65 mt-1">Use Disputes and Leave in the sidebar for pending approvals.</p>
           </div>
         </>

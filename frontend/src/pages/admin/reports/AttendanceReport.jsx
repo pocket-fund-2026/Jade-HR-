@@ -11,6 +11,7 @@ import { LEAVE_LABELS } from "../../../lib/leaveTypes.js";
 import { dayCode, dayNumber, dayRemark, parseRemarkNumber, totalPaidDays, exportAttendanceExcel, isWop, missedPunch, exportAttendanceTimingsExcel, statusColorKey, summarize } from "../../../lib/attendanceExport.js";
 import { formatHoursMins, formatTime, lateAllowanceInfo } from "../../../lib/format.js";
 
+import EmptyState from "../../../components/EmptyState.jsx";
 const today = new Date();
 
 const STATUS_CLASS = {
@@ -118,52 +119,52 @@ function EditCellModal({ employee, day, onClose, onSaved, canCorrect }) {
   return (
     <div className="fixed inset-0 bg-ledger-900/60 flex items-center justify-center px-4 z-50">
       <div className="bg-paper rounded-sm shadow-stamp w-full max-w-sm p-6 border-t-4 border-jade-500">
-        <p className="text-xs font-semibold uppercase tracking-wider text-jade-600 mb-1">{canCorrect ? "Edit attendance" : "Remark"}</p>
+        <p className="text-xs font-semibold text-jade-600 mb-1">{canCorrect ? "Edit attendance" : "Remark"}</p>
         <p className="font-display text-lg text-ink mb-4">{employee.name} — {day.date}</p>
 
-        <div className="space-y-3">
+        <div className="space-y-4">
           {canCorrect && (<>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Status</label>
-            <select
-              className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+            <label htmlFor="fld-128" className="block text-xs font-semibold text-ink/70 mb-1.5">Status</label>
+            <select id="fld-128"
+              className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
               value={statusOverride}
               onChange={(e) => setStatusOverride(e.target.value)}
             >
               <option value="present">Present</option>
-              <option value="half_day">Half Day</option>
+              <option value="half_day">Half day</option>
               <option value="absent">Absent</option>
               {can("leave.manage") && <option value="comp_off">Comp-Off (uses their comp-off balance)</option>}
             </select>
           </div>
           {statusOverride === "present" && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">In time</label>
-                <input type="time" value={inVal} onChange={(e) => setInVal(e.target.value)}
-                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm font-nums focus:outline-none focus:ring-2 focus:ring-jade-500" />
+                <label htmlFor="fld-143" className="block text-xs font-semibold text-ink/70 mb-1.5">In time</label>
+                <input id="fld-143" type="time" value={inVal} onChange={(e) => setInVal(e.target.value)}
+                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-sm font-nums focus:outline-none focus:ring-2 focus:ring-jade-500" />
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Out time</label>
-                <input type="time" value={outVal} onChange={(e) => setOutVal(e.target.value)}
-                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm font-nums focus:outline-none focus:ring-2 focus:ring-jade-500" />
+                <label htmlFor="fld-148" className="block text-xs font-semibold text-ink/70 mb-1.5">Out time</label>
+                <input id="fld-148" type="time" value={outVal} onChange={(e) => setOutVal(e.target.value)}
+                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-sm font-nums focus:outline-none focus:ring-2 focus:ring-jade-500" />
               </div>
             </div>
           )}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Note</label>
-            <input value={note} onChange={(e) => setNote(e.target.value)}
-              className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+            <label htmlFor="fld-155" className="block text-xs font-semibold text-ink/70 mb-1.5">Note</label>
+            <input id="fld-155" value={note} onChange={(e) => setNote(e.target.value)}
+              className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
           </div>
           </>)}
           <div className={canCorrect ? "border-t border-ink/10 pt-3" : ""}>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">
+            <label htmlFor="fld-163" className="block text-xs font-semibold text-ink/70 mb-1.5">
               Remark — day earned <span className="normal-case font-normal">(a number, 0 to 1; exported as a number so it can be totalled; sheet value: {dayRemark(day) || "blank"})</span>
             </label>
-            <input value={remark} onChange={(e) => setRemark(e.target.value)} maxLength={10} inputMode="decimal" placeholder="e.g. 1, 0.75, 0.5 — leave empty to clear"
-              className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+            <input id="fld-163" value={remark} onChange={(e) => setRemark(e.target.value)} maxLength={10} inputMode="decimal" placeholder="e.g. 1, 0.75, 0.5 — leave empty to clear"
+              className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
             <button type="button" onClick={saveRemark} disabled={remarkBusy || busy}
-              className="mt-2 bg-jade-600 text-white px-4 py-2 rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors">
+              className="mt-2 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors">
               {remarkBusy ? "Saving…" : "Save remark"}
             </button>
           </div>
@@ -171,14 +172,14 @@ function EditCellModal({ employee, day, onClose, onSaved, canCorrect }) {
 
         {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5 mt-3">{error}</p>}
 
-        <div className="flex justify-end gap-3 pt-4">
+        <div className="flex justify-end gap-4 pt-4">
           <button type="button" onClick={onClose} className="text-sm text-ink/70 hover:text-ink px-2">Cancel</button>
           {canCorrect && <button
             onClick={save}
             disabled={busy}
-            className="bg-ledger-800 text-manila px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
+            className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
           >
-            {busy ? "Saving…" : "Save"}
+            {busy ? "Saving…" : "Save changes"}
           </button>}
         </div>
       </div>
@@ -249,45 +250,45 @@ export default function AttendanceReport() {
   return (
     <div>
       <Link to="/admin/reports" className="inline-flex items-center gap-1.5 text-xs text-ink/70 hover:text-ink transition-colors">
-        <ArrowLeft size={13} /> Back to Reports
+        <ArrowLeft size={13} /> Back to reports
       </Link>
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mt-2 mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mt-2 mb-6">
         <div>
-          <h2 className="font-display text-2xl text-ink">Attendance Sheet</h2>
+          <h2 className="font-display text-2xl text-ink">Attendance sheet</h2>
           <p className="text-xs text-ink/70 font-nums mt-0.5 flex items-center gap-1.5 flex-wrap">
-            <span>P = Present · A = Absent · WO = Weekoff · H = Holiday · HD = Half Day · PL = Paid Leave · CO = Comp-Off · LWP = Leave Without Pay · ML/PTL/CL = Maternity/Paternity/Compassionate — hover a cell for hours &amp; OT. Green dot = Comp-Off eligible. Orange dot = has a remark. Orange cell = WOP (worked their weekly off). Yellow cell = missed check-in/out.</span>
+            <span>P = Present · A = Absent · WO = Weekoff · H = Holiday · HD = Half Day · PL = Paid Leave · CO = Comp-Off · LWP = Leave Without Pay · ML/PTL/CL = Maternity/Paternity/Compassionate — hover a cell for hours &amp; <abbr className="acr">OT</abbr>. Green dot = Comp-Off eligible. Orange dot = has a remark. Orange cell = WOP (worked their weekly off). Yellow cell = missed check-in/out.</span>
             <span className="inline-flex items-center gap-1 text-jade-700">
               <Pencil size={11} /> {canEdit ? "Click any cell to correct it or add a remark." : "Click any cell to add a remark."}
             </span>
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-4">
           {canEdit && (
             <button
               onClick={() => setShowImport(true)}
-              className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
+              className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
             >
-              <Upload size={15} /> Import Attendance
+              <Upload size={15} /> Import attendance
             </button>
           )}
           <button
             onClick={() => exportAttendanceExcel(rows, year, month, exportLabel)}
             disabled={!rows.length}
-            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
+            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
           >
             <FileSpreadsheet size={15} /> Export Excel
           </button>
           <button
             onClick={() => exportAttendanceTimingsExcel(rows, year, month, exportLabel)}
             disabled={!rows.length}
-            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
+            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
           >
             <FileSpreadsheet size={15} /> Export Timings (Datewise)
           </button>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 mb-4">
+      <div className="flex flex-wrap items-center gap-4 mb-4">
         <select
           value={store}
           onChange={(e) => setStore(e.target.value)}
@@ -300,15 +301,15 @@ export default function AttendanceReport() {
         <div className="flex items-center gap-1 bg-paper rounded-sm shadow-card p-1">
           <button
             onClick={() => setMode("month")}
-            className={`px-3 py-1.5 rounded-sm text-xs font-semibold transition-colors ${mode === "month" ? "bg-ledger-800 text-manila" : "text-ink/70 hover:text-ink"}`}
+            className={`px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold transition-colors ${mode === "month" ? "bg-ledger-800 text-on-jade" : "text-ink/70 hover:text-ink"}`}
           >
             Month
           </button>
           <button
             onClick={() => { setMode("range"); if (!appliedRange) setRows([]); }}
-            className={`px-3 py-1.5 rounded-sm text-xs font-semibold transition-colors ${mode === "range" ? "bg-ledger-800 text-manila" : "text-ink/70 hover:text-ink"}`}
+            className={`px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold transition-colors ${mode === "range" ? "bg-ledger-800 text-on-jade" : "text-ink/70 hover:text-ink"}`}
           >
-            Custom Range
+            Custom range
           </button>
         </div>
         {mode === "month" ? (
@@ -319,9 +320,9 @@ export default function AttendanceReport() {
             <button
               onClick={applyRange}
               disabled={loading || !rangeFrom || !rangeTo}
-              className="text-xs font-semibold text-ink bg-paper border border-ink/15 rounded-sm px-2.5 py-2 hover:border-jade-500 transition-colors disabled:opacity-50"
+              className="text-xs font-semibold text-ink bg-paper border border-ink/15 rounded-sm px-[1.5em] py-[0.625em] leading-tight hover:border-jade-500 transition-colors disabled:opacity-50"
             >
-              {loading ? "Loading…" : "Apply"}
+              {loading ? "Loading…" : "Apply date range"}
             </button>
             {rangeError && <p className="text-xs text-rust-500">{rangeError}</p>}
           </>
@@ -332,22 +333,22 @@ export default function AttendanceReport() {
         <table className="w-full min-w-max text-xs">
           <thead className="text-left [&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-paper [&_th]:shadow-[0_1px_0_rgba(0,0,0,0.12)]">
             <tr className="border-b-2 border-ink/10">
-              <th className="px-3 py-2 font-semibold text-[11px] uppercase tracking-wider text-ink/70 !left-0 !z-20">Employee</th>
+              <th className="px-3 py-2 font-semibold text-[11px] text-ink/70 !left-0 !z-20">Employee</th>
               {days.map((d) => (
                 <th key={d.date} className="px-1 py-2 font-semibold text-ink/70 text-center w-14">{dayNumber(d.date)}</th>
               ))}
-              <th className="px-2 py-2 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-center">P</th>
-              <th className="px-2 py-2 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-center">A</th>
-              <th className="px-2 py-2 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-center">L</th>
-              <th className="px-2 py-2 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-center">Late</th>
-              <th className="px-2 py-2 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-center">Total</th>
+              <th className="px-2 py-2 font-semibold text-[11px] text-ink/70 text-center">P</th>
+              <th className="px-2 py-2 font-semibold text-[11px] text-ink/70 text-center">A</th>
+              <th className="px-2 py-2 font-semibold text-[11px] text-ink/70 text-center">L</th>
+              <th className="px-2 py-2 font-semibold text-[11px] text-ink/70 text-center">Late</th>
+              <th className="px-2 py-2 font-semibold text-[11px] text-ink/70 text-center">Total</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={days.length + 6}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : rows.length === 0 ? (
-              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={days.length + 6}>No employees found.</td></tr>
+              <tr><td colSpan={days.length + 6}><EmptyState title="No employees found" action={{ label: "Open employees", to: "/admin/employees" }}>Employees show here once they are added and active.</EmptyState></td></tr>
             ) : (
               visibleRows.map((r, i) => {
                 const s = summarize(r.daily);
@@ -356,7 +357,7 @@ export default function AttendanceReport() {
                   <Fragment key={r.employee_id}>
                   {showStoreHeader && (
                     <tr className="bg-manila">
-                      <td colSpan={days.length + 6} className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink/70 sticky left-0">
+                      <td colSpan={days.length + 6} className="px-3 py-1.5 text-[11px] font-semibold text-ink/70 sticky left-0">
                         {storeOf(r)} <span className="font-nums normal-case text-ink/60">· {visibleRows.filter((x) => storeOf(x) === storeOf(r)).length}</span>
                       </td>
                     </tr>

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import CareersNav from "../../components/CareersNav.jsx";
+import EmptyState from "../../components/EmptyState.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
 
@@ -69,32 +70,32 @@ export default function Careers() {
         </div>
         <Link
           to="/admin/careers/new"
-          className="flex items-center gap-1.5 bg-jade-600 text-white px-4 py-2 rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors"
+          className="flex items-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors"
         >
-          <Plus size={15} /> New Job
+          <Plus size={15} /> New job
         </Link>
       </div>
       <CareersNav />
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm tabular-nums">
-          <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
+          <thead className="text-left sticky top-0 z-10 bg-paper shadow-edge">
             <tr className="border-b-2 border-ink/10">
               <th className="w-10 px-2 py-3" aria-label="Reorder"></th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Title</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Department</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Location</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Type</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Status</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Applicants</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Actions</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Title</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Department</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Location</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Type</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Status</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Applicants</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={8}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : jobs.length === 0 ? (
-              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={8}>No job postings yet.</td></tr>
+              <tr><td colSpan={8}><EmptyState title="No job postings yet" action={{ label: "Create the first job", to: "/admin/careers/new" }}>Postings you publish here appear on the JADE Careers site.</EmptyState></td></tr>
             ) : (
               [...active, ...hidden].map((job) => (
                 <tr
@@ -114,7 +115,7 @@ export default function Careers() {
                     {newByJob[job.id] > 0 && (
                       <Link
                         to={`/admin/careers/applicants?job_id=${job.id}&status=New`}
-                        className="ml-2 inline-flex items-center gap-1 rounded-full bg-rust-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white align-middle"
+                        className="ml-2 inline-flex items-center gap-1 rounded-full bg-rust-500 px-2 py-0.5 text-[10px] font-bold text-on-rust align-middle"
                       >
                         <Bell size={10} /> {newByJob[job.id]} new
                       </Link>
@@ -133,13 +134,13 @@ export default function Careers() {
                     <div className="flex gap-2">
                       <Link
                         to={`/admin/careers/${job.id}/edit`}
-                        className="flex items-center gap-1 bg-paper border border-ink/15 text-ink px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-manila/50 transition-colors"
+                        className="flex items-center gap-1 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-manila/50 transition-colors"
                       >
                         <Pencil size={13} /> Edit
                       </Link>
                       <button
                         onClick={() => remove(job)}
-                        className="flex items-center gap-1 bg-paper border border-rust-500 text-rust-500 px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-rust-50 transition-colors"
+                        className="flex items-center gap-1 bg-paper border border-rust-500 text-rust-500 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-rust-50 transition-colors"
                       >
                         <Trash2 size={13} /> Delete
                       </button>

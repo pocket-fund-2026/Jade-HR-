@@ -38,7 +38,7 @@ export default function WFHRequestModal({ onClose, onSubmitted }) {
         <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-ink/70 hover:text-ink transition-colors">
           <X size={18} />
         </button>
-        <p className="text-xs font-semibold uppercase tracking-wider text-jade-600 mb-1">Request Work From Home</p>
+        <p className="text-xs font-semibold text-jade-600 mb-1">Request work from home</p>
         <p className="font-display text-lg text-ink mb-1">Not an entitlement — approved only in exceptional circumstances</p>
         <p className="text-xs text-ink/70 mb-5">
           Needs Senior Management / HR Head approval, and your Reporting Manager confirming the assigned work was
@@ -48,43 +48,43 @@ export default function WFHRequestModal({ onClose, onSubmitted }) {
         <form onSubmit={submit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">From</label>
-              <input
+              <label htmlFor="wfh_from" className="block text-xs font-semibold text-ink/70 mb-1.5">From</label>
+              <input id="wfh_from"
                 type="date" required
-                className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+                className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
                 value={startDate} onChange={(e) => setStartDate(e.target.value)}
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">To</label>
-              <input
+              <label htmlFor="wfh_to" className="block text-xs font-semibold text-ink/70 mb-1.5">To</label>
+              <input id="wfh_to"
                 type="date" required
-                className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+                className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
                 value={endDate} onChange={(e) => setEndDate(e.target.value)}
               />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Reason</label>
-            <textarea
+            <label htmlFor="wfh_reason" className="block text-xs font-semibold text-ink/70 mb-1.5">Reason</label>
+            <textarea id="wfh_reason"
               required
-              className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm min-h-[70px] text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+              className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm min-h-[70px] text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
               value={reason} onChange={(e) => setReason(e.target.value)}
             />
           </div>
 
           {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
 
-          <div className="flex justify-end gap-3 pt-1">
+          <div className="flex justify-end gap-4 pt-1">
             <button type="button" onClick={onClose} className="text-sm text-ink/70 hover:text-ink px-2">
               Cancel
             </button>
             <button
               type="submit"
               disabled={busy}
-              className="bg-ledger-800 text-manila px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
+              className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
             >
-              {busy ? "Submitting…" : "Submit"}
+              {busy ? "Submitting…" : "Submit WFH request"}
             </button>
           </div>
         </form>

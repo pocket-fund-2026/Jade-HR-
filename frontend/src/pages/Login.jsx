@@ -31,7 +31,7 @@ export default function Login() {
       const role = await login(employeeCode, password);
       navigate(role === "accounts" || role === "hr" ? "/admin" : "/employee");
     } catch (err) {
-      setError(err.response?.data?.detail || "That code and password don't match our records.");
+      setError(err.response?.data?.detail || "That code and password don’t match our records.");
       // Error shake (transitions.dev): restart the animation on every failed try.
       const el = formRef.current;
       if (el) { el.classList.remove("is-shaking"); void el.offsetWidth; el.classList.add("is-shaking"); }
@@ -70,26 +70,26 @@ export default function Login() {
     }
   };
 
-  const inputCls = "w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-3 min-h-[44px] text-base text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500";
-  const btnCls = "w-full rounded-sm bg-ledger-800 text-manila py-3 min-h-[44px] font-semibold tracking-wide hover:bg-ledger-700 active:bg-ledger-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
+  const inputCls = "w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-3 min-h-[44px] text-base text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500";
+  const btnCls = "w-full rounded-sm bg-ledger-800 text-on-jade py-4 min-h-[56px] text-lg font-semibold shadow-lift hover:bg-ledger-700 active:bg-ledger-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-ledger-900 px-4 py-12 relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
 
-      <div className="w-full max-w-sm relative">
+      <div className="w-full max-w-md relative">
         <div className="text-center mb-10">
           <img src="/jade-logo.png" alt="JADE" className="w-24 h-24 mx-auto -rotate-2 mb-3" />
-          <p className="font-display text-manila text-lg tracking-[0.15em] uppercase">HR</p>
-          <p className="text-manila/75 text-sm font-nums tracking-wide mt-1">Madhu Estate &middot; Mumbai</p>
+          <p className="font-display text-on-jade text-lg"><abbr className="acr">HR</abbr></p>
+          <p className="text-on-jade/75 text-sm font-nums mt-1">Madhu Estate &middot; Mumbai</p>
         </div>
 
-        <div className="bg-paper rounded-sm shadow-stamp px-6 sm:px-8 pt-8 pb-7 border-t-4 border-jade-500 rise-in">
+        <div className="bg-paper rounded-sm shadow-stamp px-8 sm:px-10 pt-8 pb-8 border-t-4 border-jade-500 rise-in">
           <p className="font-display text-ink text-lg mb-6">Clock in to your account</p>
 
           {magicToken ? (
             <div className="space-y-5">
-              <p className="text-sm text-ink/80">Your sign-in link is ready. Continue to open JADE HR.</p>
+              <p className="text-sm text-ink/80">Your sign-in link is ready. Continue to open JADE <abbr className="acr">HR</abbr>.</p>
               {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
               <button type="button" onClick={confirmMagic} disabled={busy} className={btnCls}>{busy ? "Signing in…" : "Continue to JADE HR"}</button>
               <p className="text-center text-xs text-ink/60">
@@ -100,17 +100,17 @@ export default function Login() {
             linkMsg ? (
               <div className="space-y-4">
                 <p className="text-sm text-ink/80">{linkMsg}</p>
-                <p className="text-xs text-ink/70">The link only works if your email is registered with HR against your employee code. Nothing arrived? Check spam, or ask HR to add or correct your email.</p>
+                <p className="text-xs text-ink/70">The link only works if your email is registered with <abbr className="acr">HR</abbr> against your employee code. Nothing arrived? Check spam, or ask <abbr className="acr">HR</abbr> to add or correct your email.</p>
                 <button type="button" onClick={() => { setLinkMsg(""); setMode("password"); }} className="text-xs text-jade-600 underline underline-offset-2">Back to sign in</button>
               </div>
             ) : (
               <form onSubmit={sendLink} className="space-y-5">
                 <div>
-                  <label htmlFor="link_id" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Employee code or email</label>
+                  <label htmlFor="link_id" className="block text-xs font-semibold text-ink/70 mb-1.5">Employee code or email</label>
                   <input id="link_id" className={inputCls} value={linkId} onChange={(e) => setLinkId(e.target.value)} autoFocus required />
                 </div>
                 <p className="text-xs text-ink/70 bg-manila/60 border-l-2 border-jade-500 pl-2.5 py-1.5">
-                  Note: the sign-in link only works if your email address is registered with HR and linked to your employee code. If you don't receive it, ask HR to add or correct your email.
+                  Note: the sign-in link only works if your email address is registered with HR and linked to your employee code. If you don’t receive it, ask HR to add or correct your email.
                 </p>
                 {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
                 <button type="submit" disabled={busy} className={btnCls}>{busy ? "Sending…" : "Email me a sign-in link"}</button>
@@ -123,12 +123,12 @@ export default function Login() {
           <>
           <form ref={formRef} onSubmit={submit} onAnimationEnd={(e) => e.currentTarget.classList.remove("is-shaking")} className="t-input space-y-5">
             <div>
-              <label htmlFor="employee_code" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">
-                Employee Code
+              <label htmlFor="employee_code" className="block text-xs font-semibold text-ink/70 mb-1.5">
+                Employee code
               </label>
               <input
                 id="employee_code"
-                className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-3 min-h-[44px] text-base font-nums text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500"
+                className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-3 min-h-[44px] text-base font-nums text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500"
                 value={employeeCode}
                 onChange={(e) => setEmployeeCode(e.target.value)}
                 autoFocus
@@ -136,14 +136,14 @@ export default function Login() {
               />
             </div>
             <div>
-              <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">
+              <label htmlFor="password" className="block text-xs font-semibold text-ink/70 mb-1.5">
                 Password
               </label>
               <div className="relative">
                 <input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-3 min-h-[44px] pr-12 text-base text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500"
+                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-3 min-h-[44px] pr-12 text-base text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -173,9 +173,9 @@ export default function Login() {
             <button
               type="submit"
               disabled={busy}
-              className="w-full rounded-sm bg-ledger-800 text-manila py-3 min-h-[44px] font-semibold tracking-wide hover:bg-ledger-700 active:bg-ledger-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full rounded-sm bg-ledger-800 text-on-jade py-4 min-h-[56px] text-lg font-semibold shadow-lift hover:bg-ledger-700 active:bg-ledger-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {busy ? "Checking…" : "Sign in"}
+              {busy ? "Checking…" : "Sign in to JADE HR"}
             </button>
           </form>
           <div className="mt-5 pt-4 border-t border-ink/10 text-center">
@@ -189,7 +189,7 @@ export default function Login() {
 
         {showLinkPopup && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" role="dialog" aria-modal="true" aria-labelledby="link-popup-title">
-            <div className="w-full max-w-sm bg-paper rounded-sm shadow-stamp border-t-4 border-jade-500 p-6 space-y-3">
+            <div className="w-full max-w-sm bg-paper rounded-sm shadow-stamp border-t-4 border-jade-500 p-6 space-y-4">
               <p id="link-popup-title" className="font-display text-ink text-lg">Check your email to log in</p>
               <p className="text-sm text-ink/80">
                 You need to open the sign-in link we emailed you to log in. It works once and expires in 15 minutes.
@@ -202,9 +202,9 @@ export default function Login() {
           </div>
         )}
 
-        <p className="text-center text-xs text-manila/75 mt-6">
+        <p className="text-center text-xs text-on-jade/75 mt-6">
           First time setting up?{" "}
-          <Link to="/setup" className="text-manila/85 hover:text-manila underline underline-offset-2">
+          <Link to="/setup" className="text-on-jade/85 hover:text-on-jade underline underline-offset-2">
             Create admin account
           </Link>
         </p>

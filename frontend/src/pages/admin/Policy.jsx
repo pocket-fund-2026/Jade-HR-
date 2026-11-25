@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../../lib/api.js";
 import { daysUntilAnnualDate, formatDate, formatHolidayDate } from "../../lib/format.js";
 
+import EmptyState from "../../components/EmptyState.jsx";
 const DAY_TYPE_LABELS = {
   closed: "Store closed",
   day_off: "Day Off (paid, same as store closed)",
@@ -15,7 +16,7 @@ const DAY_TYPE_LABELS = {
 };
 
 const LOCATION_OPTIONS = [
-  { value: "", label: "All Locations" },
+  { value: "", label: "All locations" },
   { value: "Mumbai", label: "Mumbai" },
   { value: "Delhi", label: "Delhi" },
   { value: "Ahmedabad", label: "Ahmedabad" },
@@ -55,7 +56,7 @@ function HolidayCalendar({ holidays, onAdd, onRemove, adding, year, onYearChange
   return (
     <div>
       <p className="text-sm text-ink/70 mb-4">
-        Company holiday calendar for corporate staff, editable per store. Leave Location as "All Locations" for a
+        Company holiday calendar for corporate staff, editable per store. Leave Location as "All locations" for a
         holiday that applies everywhere; pick a city or "HQ" (Madhu Estate specifically) to scope it to just that
         store. A "Store closed" day is paid like a weekly off instead of showing absent — "Anniversary" entries are
         informational only and never affect attendance or pay.
@@ -63,67 +64,67 @@ function HolidayCalendar({ holidays, onAdd, onRemove, adding, year, onYearChange
 
       <form onSubmit={submit} className="bg-paper rounded-sm shadow-card p-5 mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label htmlFor="holiday_date" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Date</label>
+          <label htmlFor="holiday_date" className="block text-xs font-semibold text-ink/70 mb-1.5">Date</label>
           <input id="holiday_date" type="date" required value={date} onChange={(e) => setDate(e.target.value)}
-            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
         </div>
         <div>
-          <label htmlFor="holiday_desc" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Description</label>
+          <label htmlFor="holiday_desc" className="block text-xs font-semibold text-ink/70 mb-1.5">Description</label>
           <input id="holiday_desc" type="text" required value={description} onChange={(e) => setDescription(e.target.value)}
             placeholder="e.g. Diwali"
-            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
         </div>
         <div>
-          <label htmlFor="holiday_location" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Location</label>
+          <label htmlFor="holiday_location" className="block text-xs font-semibold text-ink/70 mb-1.5">Location</label>
           <select id="holiday_location" value={location} onChange={(e) => setLocation(e.target.value)}
-            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
             {LOCATION_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
         <div>
-          <label htmlFor="holiday_type" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Type</label>
+          <label htmlFor="holiday_type" className="block text-xs font-semibold text-ink/70 mb-1.5">Type</label>
           <select id="holiday_type" value={dayType} onChange={(e) => setDayType(e.target.value)}
-            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
             {Object.entries(DAY_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </div>
         {dayType === "open_till_4pm" && (
           <div>
-            <label htmlFor="holiday_close_time" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Closing Time</label>
+            <label htmlFor="holiday_close_time" className="block text-xs font-semibold text-ink/70 mb-1.5">Closing time</label>
             <input id="holiday_close_time" type="time" value={closeTime} onChange={(e) => setCloseTime(e.target.value)}
-              className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+              className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
           </div>
         )}
         <div>
-          <label htmlFor="holiday_remarks" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Remarks</label>
+          <label htmlFor="holiday_remarks" className="block text-xs font-semibold text-ink/70 mb-1.5">Remarks</label>
           <input id="holiday_remarks" type="text" value={remarks} onChange={(e) => setRemarks(e.target.value)}
             placeholder="Optional"
-            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
         </div>
         {error && <p className="sm:col-span-2 text-sm text-rust-500">{error}</p>}
         <div className="sm:col-span-2">
           <button type="submit" disabled={adding}
-            className="flex items-center gap-1.5 bg-jade-600 text-white px-4 py-2 rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors">
+            className="flex items-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors">
             <Plus size={14} /> Add holiday
           </button>
         </div>
       </form>
 
-      <div className="flex flex-wrap items-center gap-3 mb-3">
-        <select value={year} onChange={(e) => onYearChange(Number(e.target.value))}
-          className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
+      <div className="flex flex-wrap items-center gap-4 mb-3">
+        <select aria-label="Year" value={year} onChange={(e) => onYearChange(Number(e.target.value))}
+          className="rounded-sm border border-ink/15 bg-paper px-4 py-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
           {YEAR_OPTIONS.map((y) => <option key={y} value={y}>{y}</option>)}
         </select>
-        <select value={locationFilter} onChange={(e) => onLocationFilterChange(e.target.value)}
-          className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
-          <option value="">All Locations</option>
+        <select aria-label="Filter by location" value={locationFilter} onChange={(e) => onLocationFilterChange(e.target.value)}
+          className="rounded-sm border border-ink/15 bg-paper px-4 py-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
+          <option value="">All locations</option>
           {LOCATION_OPTIONS.filter((o) => o.value).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </div>
 
       <div className="bg-paper rounded-sm shadow-card divide-y divide-ink/[0.06]">
         {holidays.length === 0 ? (
-          <p className="px-5 py-8 text-ink/70 text-center text-sm">No holidays recorded for this filter.</p>
+          <EmptyState title="No holidays for this filter" action={{ label: "Add a holiday", onClick: () => document.querySelector('input[placeholder="e.g. Diwali"]')?.focus() }}>Try another year or location, or add one.</EmptyState>
         ) : (
           holidays.map((h) => (
             <div key={h.id} className="flex items-center justify-between gap-4 px-5 py-3.5">
@@ -131,7 +132,7 @@ function HolidayCalendar({ holidays, onAdd, onRemove, adding, year, onYearChange
                 <p className="text-sm text-ink font-medium">
                   {h.description}
                   {h.location && (
-                    <span className="ml-2 text-[10px] font-semibold uppercase tracking-wider text-jade-700 bg-jade-500/15 rounded-full px-2 py-0.5 align-middle">
+                    <span className="ml-2 text-[10px] font-semibold text-jade-700 bg-jade-500/15 rounded-full px-2 py-0.5 align-middle">
                       {h.location}
                     </span>
                   )}
@@ -179,12 +180,12 @@ function BirthdayRow({ b, onSave }) {
           {b.date_of_birth && ` · ${formatDate(b.date_of_birth)}`}
         </p>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4">
         {editing ? (
           <>
-            <input type="date" value={dob} onChange={(e) => setDob(e.target.value)}
-              className="rounded-sm border border-ink/15 bg-manila/40 px-2 py-1.5 text-xs font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
-            <button onClick={save} disabled={saving || !dob} className="text-xs font-semibold text-jade-600 hover:underline disabled:opacity-50">Save</button>
+            <input aria-label="Date of birth" type="date" value={dob} onChange={(e) => setDob(e.target.value)}
+              className="rounded-sm border border-ink/15 bg-manila/40 px-4 py-1.5 text-xs font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+            <button onClick={save} disabled={saving || !dob} className="text-xs font-semibold text-jade-600 hover:underline disabled:opacity-50">Save date of birth</button>
             <button onClick={() => setEditing(false)} aria-label="Cancel" className="text-ink/70 hover:text-ink">
               <X size={14} />
             </button>
@@ -192,7 +193,7 @@ function BirthdayRow({ b, onSave }) {
         ) : (
           <>
             {days !== null && (
-              <span className={`flex items-center gap-1 text-xs font-semibold uppercase tracking-wide ${days === 0 ? "text-jade-600" : "text-ink/70"}`}>
+              <span className={`flex items-center gap-1 text-xs font-semibold ${days === 0 ? "text-jade-600" : "text-ink/70"}`}>
                 {days === 0 && <Cake size={12} />}
                 {days === 0 ? "Today!" : days === 1 ? "Tomorrow" : `in ${days} days`}
               </span>
@@ -238,11 +239,11 @@ function Birthdays() {
     <div>
       <p className="text-sm text-ink/70 mb-4">
         Upcoming birthdays for the HQ team (Madhu Estate, Mumbai), soonest first. Click the pencil to add or correct
-        anyone's date of birth — this is the same field shown on their Employee Details page.
+        anyone’s date of birth — this is the same field shown on their Employee Details page.
       </p>
       <div className="bg-paper rounded-sm shadow-card divide-y divide-ink/[0.06] mb-6">
         {withDob.length === 0 ? (
-          <p className="px-5 py-8 text-ink/70 text-center text-sm">No birthdays on file yet.</p>
+          <EmptyState title="No birthdays on file yet" action={{ label: "Open employees", to: "/admin/employees" }}>Dates of birth come from each employee’s details.</EmptyState>
         ) : (
           withDob.map((b) => <BirthdayRow key={b.employee_id} b={b} onSave={saveDob} />)
         )}
@@ -250,7 +251,7 @@ function Birthdays() {
 
       {missingDob.length > 0 && (
         <>
-          <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-2">Missing date of birth ({missingDob.length})</p>
+          <p className="text-xs font-semibold text-ink/70 mb-2">Missing date of birth ({missingDob.length})</p>
           <div className="bg-paper rounded-sm shadow-card divide-y divide-ink/[0.06]">
             {missingDob.map((b) => <BirthdayRow key={b.employee_id} b={b} onSave={saveDob} />)}
           </div>
@@ -361,29 +362,29 @@ function LateMarkCards() {
       </p>
 
       <div className="bg-paper rounded-sm shadow-card p-5 mb-6">
-        <div className="flex flex-wrap items-end gap-3">
+        <div className="flex flex-wrap items-end gap-4">
           <div>
-            <label htmlFor="qrc_fy" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Financial year</label>
+            <label htmlFor="qrc_fy" className="block text-xs font-semibold text-ink/70 mb-1.5">Financial year</label>
             <select id="qrc_fy" value={financialYear} onChange={(e) => setFinancialYear(e.target.value)}
-              className="rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
+              className="rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
               {FY_OPTIONS.map((fy) => <option key={fy} value={fy}>{fy}</option>)}
             </select>
           </div>
           <div>
-            <label htmlFor="qrc_q" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Quarter</label>
+            <label htmlFor="qrc_q" className="block text-xs font-semibold text-ink/70 mb-1.5">Quarter</label>
             <select id="qrc_q" value={quarter} onChange={(e) => setQuarter(Number(e.target.value))}
-              className="rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
+              className="rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
               {Object.entries(QUARTER_LABELS).map(([q, l]) => <option key={q} value={q}>{l}</option>)}
             </select>
           </div>
           <button type="button" onClick={runQuarter} disabled={running || loading || pending.length === 0}
-            className="flex items-center gap-1.5 bg-rust-500 text-white px-4 py-2.5 rounded-sm text-sm font-semibold hover:opacity-90 disabled:opacity-40 transition-opacity">
+            className="flex items-center gap-1.5 bg-rust-500 text-on-rust px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:opacity-90 disabled:opacity-40 transition-opacity">
             <ShieldAlert size={14} />
             {pending.length === 0 ? "No Quarter Red Cards to issue" : `Issue ${pending.length} Quarter Red Card${pending.length === 1 ? "" : "s"}`}
           </button>
         </div>
         <p className="text-xs text-ink/70 mt-3">
-          Issuing generates each employee's Final Warning letter and posts a {data?.pl_forfeit ?? 2}-day Paid Leave
+          Issuing generates each employee’s Final Warning letter and posts a {data?.pl_forfeit ?? 2}-day Paid Leave
           debit to their ledger. It runs once per employee per quarter — re-running never double-deducts.
         </p>
         {message && <p className="text-sm text-jade-700 mt-3">{message}</p>}
@@ -400,7 +401,7 @@ function LateMarkCards() {
         <div className="bg-paper rounded-sm shadow-card overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="text-left text-xs font-semibold uppercase tracking-wider text-ink/70 border-b border-ink/10">
+              <tr className="text-left text-xs font-semibold text-ink/70 border-b border-ink/10">
                 <th className="px-5 py-3">Employee</th>
                 {(data?.months || []).map((m) => <th key={m} className="px-3 py-3 font-nums">{m}</th>)}
                 <th className="px-5 py-3">Quarter</th>
@@ -418,18 +419,18 @@ function LateMarkCards() {
                       <span className={m.red_card ? "text-rust-500 font-semibold" : "text-ink/70"}>
                         {m.late_mark_count}
                       </span>
-                      {!m.in_policy && <span className="ml-1 text-[10px] text-ink/70 uppercase">pre-policy</span>}
-                      {m.in_policy && !m.complete && <span className="ml-1 text-[10px] text-ink/70 uppercase">running</span>}
+                      {!m.in_policy && <span className="ml-1 text-[10px] text-ink/70">pre-policy</span>}
+                      {m.in_policy && !m.complete && <span className="ml-1 text-[10px] text-ink/70">running</span>}
                     </td>
                   ))}
                   <td className="px-5 py-3">
                     {e.quarter_red_card ? (
                       e.action ? (
-                        <span className="text-xs font-semibold uppercase tracking-wide text-ink/70">
+                        <span className="text-xs font-semibold text-ink/70">
                           Issued — {e.action.pl_forfeited} PL forfeited
                         </span>
                       ) : (
-                        <span className="text-xs font-semibold uppercase tracking-wide text-rust-500">
+                        <span className="text-xs font-semibold text-rust-500">
                           Quarter Red Card — pending
                         </span>
                       )
@@ -518,27 +519,27 @@ function StoreTimings() {
   return (
     <div>
       <p className="text-sm text-ink/70 mb-4">
-        Time slots feed the Time Slot field on every employee's Details page and are what payroll grades lateness
+        Time slots feed the Time Slot field on every employee’s Details page and are what payroll grades lateness
         against — adding one here makes it selectable and enforced immediately, no deploy needed. Store timings are
         the per-store defaults Nimit/HR set for new starters at that store, and are also what the employee-facing
         policy page shows under "Retail store timings".
       </p>
 
-      <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-2">Time slots</p>
+      <p className="text-xs font-semibold text-ink/70 mb-2">Time slots</p>
       <form onSubmit={addSlot} className="bg-paper rounded-sm shadow-card p-5 mb-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
-          <label htmlFor="slot_label" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Label</label>
+          <label htmlFor="slot_label" className="block text-xs font-semibold text-ink/70 mb-1.5">Label</label>
           <input id="slot_label" type="text" required value={slotLabel} onChange={(e) => setSlotLabel(e.target.value)}
             placeholder="e.g. 9:30 AM – 6:00 PM"
-            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
         </div>
         <div>
-          <label htmlFor="slot_start" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Shift start</label>
+          <label htmlFor="slot_start" className="block text-xs font-semibold text-ink/70 mb-1.5">Shift start</label>
           <input id="slot_start" type="time" required value={slotStart} onChange={(e) => setSlotStart(e.target.value)}
-            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
         </div>
         <div className="flex items-end">
-          <button type="submit" className="flex items-center gap-1.5 bg-jade-600 text-white px-4 py-2.5 rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors">
+          <button type="submit" className="flex items-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors">
             <Plus size={14} /> Add slot
           </button>
         </div>
@@ -546,7 +547,7 @@ function StoreTimings() {
       </form>
       <div className="bg-paper rounded-sm shadow-card divide-y divide-ink/[0.06] mb-6">
         {timeSlots.length === 0 ? (
-          <p className="px-5 py-8 text-ink/70 text-center text-sm">No time slots on file.</p>
+          <EmptyState title="No time slots on file" action={{ label: "Add a time slot", onClick: () => document.querySelector('input[placeholder="e.g. 9:30 AM – 6:00 PM"]')?.focus() }}>Add a slot below so it can be selected for shifts.</EmptyState>
         ) : (
           timeSlots.map((t) => (
             <div key={t.id} className="flex items-center justify-between gap-4 px-5 py-3">
@@ -559,61 +560,61 @@ function StoreTimings() {
         )}
       </div>
 
-      <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-2">Store timings</p>
+      <p className="text-xs font-semibold text-ink/70 mb-2">Store timings</p>
       <form onSubmit={addStore} className="bg-paper rounded-sm shadow-card p-5 mb-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label htmlFor="store_name" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Store</label>
+          <label htmlFor="store_name" className="block text-xs font-semibold text-ink/70 mb-1.5">Store</label>
           <input id="store_name" type="text" required value={storeName} onChange={(e) => setStoreName(e.target.value)}
             placeholder="e.g. Pedder Road"
-            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
         </div>
         <div>
-          <label htmlFor="store_state" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">State</label>
+          <label htmlFor="store_state" className="block text-xs font-semibold text-ink/70 mb-1.5">State</label>
           <input id="store_state" type="text" value={storeState} onChange={(e) => setStoreState(e.target.value)}
             placeholder="e.g. Maharashtra"
-            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
         </div>
         <div>
-          <label htmlFor="store_default_slot" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Default time slot</label>
+          <label htmlFor="store_default_slot" className="block text-xs font-semibold text-ink/70 mb-1.5">Default time slot</label>
           <select id="store_default_slot" value={storeDefaultSlot} onChange={(e) => setStoreDefaultSlot(e.target.value)}
-            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
             <option value="">— None —</option>
             {timeSlots.map((t) => <option key={t.id} value={t.label}>{t.label}</option>)}
           </select>
         </div>
         <div>
-          <label htmlFor="store_opening" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Opening</label>
+          <label htmlFor="store_opening" className="block text-xs font-semibold text-ink/70 mb-1.5">Opening</label>
           <input id="store_opening" type="text" value={storeOpening} onChange={(e) => setStoreOpening(e.target.value)}
             placeholder="9:00 am"
-            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
         </div>
         <div>
-          <label htmlFor="store_trading" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Trading time</label>
+          <label htmlFor="store_trading" className="block text-xs font-semibold text-ink/70 mb-1.5">Trading time</label>
           <input id="store_trading" type="text" value={storeTrading} onChange={(e) => setStoreTrading(e.target.value)}
             placeholder="10:30 am – 8:00 pm"
-            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
         </div>
         <div>
-          <label htmlFor="store_closing" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Closing</label>
+          <label htmlFor="store_closing" className="block text-xs font-semibold text-ink/70 mb-1.5">Closing</label>
           <input id="store_closing" type="text" value={storeClosing} onChange={(e) => setStoreClosing(e.target.value)}
             placeholder="8:30 pm"
-            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
         </div>
         {storeError && <p className="sm:col-span-2 text-sm text-rust-500">{storeError}</p>}
         <div className="sm:col-span-2">
-          <button type="submit" className="flex items-center gap-1.5 bg-jade-600 text-white px-4 py-2 rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors">
+          <button type="submit" className="flex items-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors">
             <Plus size={14} /> Add store
           </button>
         </div>
       </form>
       {stores.length === 0 ? (
         <div className="bg-paper rounded-sm shadow-card">
-          <p className="px-5 py-8 text-ink/70 text-center text-sm">No store timings on file.</p>
+          <EmptyState title="No store timings on file" action={{ label: "Add a store", onClick: () => document.querySelector('input[placeholder="e.g. Pedder Road"]')?.focus() }}>Add a store to set its opening hours.</EmptyState>
         </div>
       ) : (
         [...new Map(stores.map((s) => [s.state || "Other", null])).keys()].sort().map((state) => (
           <div key={state} className="mb-4">
-            <p className="text-xs font-semibold uppercase tracking-wider text-ink/60 mb-1.5">{state}</p>
+            <p className="text-xs font-semibold text-ink/60 mb-1.5">{state}</p>
             <div className="bg-paper rounded-sm shadow-card divide-y divide-ink/[0.06]">
               {stores.filter((s) => (s.state || "Other") === state).map((s) => (
                 <div key={s.id} className="flex items-center justify-between gap-4 px-5 py-3">
@@ -679,19 +680,19 @@ function NewJoinerRecipients() {
       </p>
       <form onSubmit={addRecipient} className="bg-paper rounded-sm shadow-card p-5 mb-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
-          <label htmlFor="recipient_email" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Email</label>
+          <label htmlFor="recipient_email" className="block text-xs font-semibold text-ink/70 mb-1.5">Email</label>
           <input id="recipient_email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
             placeholder="name@jadecouture.com"
-            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
         </div>
         <div>
-          <label htmlFor="recipient_label" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Label (optional)</label>
+          <label htmlFor="recipient_label" className="block text-xs font-semibold text-ink/70 mb-1.5">Label (optional)</label>
           <input id="recipient_label" type="text" value={label} onChange={(e) => setLabel(e.target.value)}
             placeholder="e.g. OMS admin"
-            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
         </div>
         <div className="flex items-end">
-          <button type="submit" className="flex items-center gap-1.5 bg-jade-600 text-white px-4 py-2.5 rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors">
+          <button type="submit" className="flex items-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 transition-colors">
             <Plus size={14} /> Add recipient
           </button>
         </div>
@@ -699,7 +700,7 @@ function NewJoinerRecipients() {
       </form>
       <div className="bg-paper rounded-sm shadow-card divide-y divide-ink/[0.06]">
         {recipients.length === 0 ? (
-          <p className="px-5 py-8 text-ink/70 text-center text-sm">No recipients on file — the new-joiner email won't send until at least one is added.</p>
+          <EmptyState title="No recipients on file" action={{ label: "Add a recipient", onClick: () => document.querySelector('input[placeholder="name@jadecouture.com"]')?.focus() }}>The new-joiner email won’t send until at least one recipient is added.</EmptyState>
         ) : (
           recipients.map((r) => (
             <div key={r.id} className="flex items-center justify-between gap-4 px-5 py-3">
@@ -764,7 +765,7 @@ export default function Policy() {
     <div className={tab === "latemarks" || tab === "timings" || tab === "newjoiner" ? "max-w-5xl" : "max-w-2xl"}>
       <div className="flex items-center gap-2 mb-1">
         <CalendarDays size={20} className="text-jade-600" />
-        <h2 className="font-display text-2xl text-ink">Leave Policy</h2>
+        <h2 className="font-display text-2xl text-ink">Leave policy</h2>
       </div>
       <p className="text-sm text-ink/70 mb-6">
         Corporate Leave &amp; Attendance Policy v1.1 plus the Attendance, Punctuality, Leave &amp; WFH Policy v2.0 in
@@ -774,28 +775,28 @@ export default function Policy() {
 
       <div className="flex gap-1 mb-6">
         <button onClick={() => setTab("holidays")}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-sm text-sm font-medium transition-colors ${tab === "holidays" ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}>
-          <CalendarDays size={14} /> Holiday Calendar
+          className={`flex items-center gap-1.5 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-medium transition-colors ${tab === "holidays" ? "bg-ledger-800 text-on-jade" : "bg-paper text-ink/70 hover:text-ink"}`}>
+          <CalendarDays size={14} /> Holiday calendar
         </button>
         <button onClick={() => setTab("compoff")}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-sm text-sm font-medium transition-colors ${tab === "compoff" ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}>
+          className={`flex items-center gap-1.5 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-medium transition-colors ${tab === "compoff" ? "bg-ledger-800 text-on-jade" : "bg-paper text-ink/70 hover:text-ink"}`}>
           <Clock3 size={14} /> Comp-Off
         </button>
         <button onClick={() => setTab("latemarks")}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-sm text-sm font-medium transition-colors ${tab === "latemarks" ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}>
-          <ShieldAlert size={14} /> Late Marks
+          className={`flex items-center gap-1.5 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-medium transition-colors ${tab === "latemarks" ? "bg-ledger-800 text-on-jade" : "bg-paper text-ink/70 hover:text-ink"}`}>
+          <ShieldAlert size={14} /> Late marks
         </button>
         <button onClick={() => setTab("birthdays")}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-sm text-sm font-medium transition-colors ${tab === "birthdays" ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}>
+          className={`flex items-center gap-1.5 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-medium transition-colors ${tab === "birthdays" ? "bg-ledger-800 text-on-jade" : "bg-paper text-ink/70 hover:text-ink"}`}>
           <Cake size={14} /> Birthdays
         </button>
         <button onClick={() => setTab("timings")}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-sm text-sm font-medium transition-colors ${tab === "timings" ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}>
-          <Store size={14} /> Store Timings
+          className={`flex items-center gap-1.5 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-medium transition-colors ${tab === "timings" ? "bg-ledger-800 text-on-jade" : "bg-paper text-ink/70 hover:text-ink"}`}>
+          <Store size={14} /> Store timings
         </button>
         <button onClick={() => setTab("newjoiner")}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-sm text-sm font-medium transition-colors ${tab === "newjoiner" ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}>
-          <Mail size={14} /> New Joiner Email
+          className={`flex items-center gap-1.5 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-medium transition-colors ${tab === "newjoiner" ? "bg-ledger-800 text-on-jade" : "bg-paper text-ink/70 hover:text-ink"}`}>
+          <Mail size={14} /> New joiner email
         </button>
       </div>
 

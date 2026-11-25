@@ -31,10 +31,10 @@ function Toast({ toast, onClose, onOpen }) {
   return (
     <div role="status" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} className="toast-in pointer-events-auto w-[340px] max-w-[calc(100vw-2rem)] bg-paper rounded-sm shadow-stamp border border-ink/10 overflow-hidden flex">
       <span className={`w-1 flex-shrink-0 ${tone.bar}`} />
-      <button type="button" onClick={onOpen} className="flex-1 flex items-start gap-3 p-3.5 text-left hover:bg-manila/40 transition-colors">
+      <button type="button" onClick={onOpen} className="flex-1 flex items-start gap-4 p-3.5 text-left hover:bg-manila/40 transition-colors">
         <span className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${tone.chip}`}><Icon size={15} /></span>
         <span className="min-w-0">
-          <span className="block text-sm font-semibold text-ink">{toast.title}</span>
+          <span className="block text-sm font-semibold text-ink clamp-2" title={toast.title}>{toast.title}</span>
           <span className="block text-xs text-ink/65 mt-0.5">{toast.body}</span>
           <span className={`block text-xs font-semibold mt-1.5 ${tone.text}`}>{t?.cta} →</span>
         </span>
@@ -161,12 +161,12 @@ export default function NotificationBell({ pending, variant = "desktop" }) {
           aria-label={`Notifications${totalFresh ? `, ${totalFresh} new` : ""}`}
           aria-expanded={open}
           className={`relative flex items-center justify-center w-9 h-9 rounded-full transition-colors ${onDark
-            ? (totalFresh ? "bg-ochre-400 text-ledger-900 hover:bg-ochre-500" : "text-manila/75 hover:text-manila hover:bg-manila/10")
-            : (totalFresh ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink border border-ink/10")}`}
+            ? (totalFresh ? "bg-ochre-400 text-ledger-900 hover:bg-ochre-500" : "text-on-jade/75 hover:text-on-jade hover:bg-on-jade/10")
+            : (totalFresh ? "bg-ledger-800 text-on-jade" : "bg-paper text-ink/70 hover:text-ink border border-ink/10")}`}
         >
           <Bell size={18} className={totalFresh ? "bell-ring" : ""} />
           {totalPending > 0 && (
-            <span key={totalPending} className={`t-pop absolute -top-1 -right-1 min-w-[19px] h-[19px] px-1 rounded-full text-[10.5px] font-bold font-nums flex items-center justify-center ring-2 ${onDark ? "ring-ledger-800" : "ring-manila"} ${totalFresh ? "bg-rust-500 text-white" : "bg-ink/40 text-white"}`}>
+            <span key={totalPending} className={`t-pop absolute -top-1 -right-1 min-w-[19px] h-[19px] px-1 rounded-full text-[10.5px] font-bold font-nums flex items-center justify-center ring-2 ${onDark ? "ring-ledger-800" : "ring-manila"} ${totalFresh ? "bg-rust-500 text-on-rust" : "bg-ink/40 text-on-rust"}`}>
               {totalPending > 99 ? "99+" : totalPending}
             </span>
           )}
@@ -183,7 +183,7 @@ export default function NotificationBell({ pending, variant = "desktop" }) {
               )}
             </div>
             {groups.length === 0 ? (
-              <p className="px-4 py-6 text-sm text-ink/60 text-center">You're all caught up.</p>
+              <p className="px-4 py-6 text-sm text-ink/60 text-center">You’re all caught up.</p>
             ) : (
               <ul className="max-h-[60vh] overflow-y-auto divide-y divide-ink/[0.07]">
                 {groups.map((g) => {
@@ -191,7 +191,7 @@ export default function NotificationBell({ pending, variant = "desktop" }) {
                   const Icon = g.icon;
                   return (
                     <li key={g.key}>
-                      <button type="button" onClick={() => go(g.to)} className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-manila/40 transition-colors">
+                      <button type="button" onClick={() => go(g.to)} className="w-full flex items-center gap-4 px-4 py-3 text-left hover:bg-manila/40 transition-colors">
                         <span className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${tone.chip}`}><Icon size={15} /></span>
                         <span className="flex-1 min-w-0">
                           <span className="block text-sm text-ink font-medium">{countLabel(g, g.items.length)} pending</span>

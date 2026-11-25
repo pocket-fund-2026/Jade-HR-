@@ -7,6 +7,7 @@ import api from "../../lib/api.js";
 import { formatDate } from "../../lib/format.js";
 import SlidingTabs from "../../components/SlidingTabs.jsx";
 
+import EmptyState from "../../components/EmptyState.jsx";
 const TABS = [
   { key: "pending", label: "Pending" },
   { key: "approved", label: "Approved" },
@@ -57,24 +58,24 @@ function ResolveRow({ request, onResolved }) {
           value={note}
           onChange={(e) => setNote(e.target.value)}
           aria-label="Note (optional)" placeholder="Note (optional)"
-          className="w-40 rounded-sm border border-ink/15 bg-manila/40 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-jade-500"
+          className="w-40 rounded-sm border border-ink/15 bg-manila/40 px-4 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-jade-500"
         />
       </td>
       <td className="px-5 py-3.5">
-        <div className="flex gap-2">
+        <div className="flex gap-6">
           <button
             disabled={busy}
             onClick={() => resolve("approve")}
-            className="flex items-center gap-1 bg-jade-600 text-white px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-1 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
           >
-            <Check size={13} /> Approve
+            <Check size={13} /> Approve absence
           </button>
           <button
             disabled={busy}
             onClick={() => resolve("reject")}
-            className="flex items-center gap-1 bg-paper border border-rust-500 text-rust-500 px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-rust-50 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-1 bg-paper border border-rust-500 text-rust-500 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-rust-50 disabled:opacity-50 transition-colors"
           >
-            <X size={13} /> Reject
+            <X size={13} /> Reject absence
           </button>
         </div>
       </td>
@@ -120,16 +121,16 @@ export default function WorkAbsence() {
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h2 className="font-display text-2xl text-ink">Work Absence Requests</h2>
-          <p className="text-xs text-ink/70 font-nums mt-0.5">Work-related absences, notified to the employee's own named approver</p>
+          <h2 className="font-display text-2xl text-ink">Work absence requests</h2>
+          <p className="text-xs text-ink/70 font-nums mt-0.5">Work-related absences, notified to the employee’s own named approver</p>
         </div>
         <select
           aria-label="Filter by location"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
-          className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+          className="rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
         >
           <option value="all">All locations</option>
           {locations.map((loc) => (
@@ -142,23 +143,23 @@ export default function WorkAbsence() {
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm tabular-nums">
-          <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
+          <thead className="text-left sticky top-0 z-10 bg-paper shadow-edge">
             <tr className="border-b-2 border-ink/10">
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Dept.</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Dates</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Details</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Approver</th>
-              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Note</th>}
-              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Action</th>}
-              {tab !== "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Status</th>}
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Employee</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Dept.</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Dates</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Details</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Approver</th>
+              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Note</th>}
+              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Action</th>}
+              {tab !== "pending" && <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Status</th>}
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={7}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={7}>No {tab} absence requests.</td></tr>
+              <tr><td colSpan={7}><EmptyState title={`No ${tab} absence requests`} action={tab === "pending" ? { label: "View approved", onClick: () => setTab("approved") } : { label: "View pending", onClick: () => setTab("pending") }}>Requests show here once an employee files one.</EmptyState></td></tr>
             ) : tab === "pending" ? (
               filtered.map((r) => <ResolveRow key={r.id} request={r} onResolved={load} />)
             ) : (

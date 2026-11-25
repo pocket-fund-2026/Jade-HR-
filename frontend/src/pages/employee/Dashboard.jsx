@@ -13,6 +13,7 @@ import ExitSignoffModal from "../../components/ExitSignoffModal.jsx";
 import LeaveRequestModal from "../../components/LeaveRequestModal.jsx";
 import LoanRequestModal from "../../components/LoanRequestModal.jsx";
 import MarketVisitCheckinCard from "../../components/MarketVisitCheckinCard.jsx";
+import EmptyState from "../../components/EmptyState.jsx";
 import MonthPicker from "../../components/MonthPicker.jsx";
 import PayslipDetail from "../../components/PayslipDetail.jsx";
 import SelfieCheckinCard from "../../components/SelfieCheckinCard.jsx";
@@ -143,14 +144,14 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 no-print">
-        <h2 className="font-display text-2xl text-ink">My Dashboard</h2>
-        <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 no-print">
+        <h2 className="font-display text-2xl text-ink">My dashboard</h2>
+        <div className="flex flex-wrap items-center gap-4">
           <button
             onClick={() => window.print()}
-            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
+            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
           >
-            <Printer size={15} /> Print Payslip
+            <Printer size={15} /> Print payslip
           </button>
           <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
         </div>
@@ -159,7 +160,7 @@ export default function Dashboard() {
       <OfferNotices />
 
       {!dismissedNotice && freshUpdates.length > 0 && (
-        <div className="bg-ochre-50 border border-ochre-400/40 rounded-sm px-4 py-3 mb-6 flex items-start gap-3">
+        <div className="bg-ochre-50 border border-ochre-400/40 rounded-sm px-4 py-3 mb-6 flex items-start gap-4">
           <Bell size={16} className="text-ochre-700 flex-shrink-0 mt-0.5" />
           <div className="flex-1 space-y-1">
             {freshUpdates.map((u) => (
@@ -182,17 +183,17 @@ export default function Dashboard() {
       ) : (
         <div className="print-area">
           {signoffs.length > 0 && (
-            <div className="bg-rust-50 border border-rust-500/40 rounded-sm px-4 py-3 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
+            <div className="bg-rust-50 border border-rust-500/40 rounded-sm px-4 py-3 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
               <div className="text-sm text-ink/80">
                 <strong className="text-ink">Exit clearance</strong> — {signoffs.length === 1 ? `${signoffs[0].employee_name} is leaving and` : `${signoffs.length} people are leaving and`} needs your e-sign.
               </div>
-              <button onClick={() => setShowSignoffs(true)} className="bg-ledger-800 text-manila px-3 py-2 rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors whitespace-nowrap self-start sm:self-auto">
-                Review &amp; sign
+              <button onClick={() => setShowSignoffs(true)} className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors whitespace-nowrap self-start sm:self-auto">
+                Review and sign exit clearance
               </button>
             </div>
           )}
           {myExit?.has_exit && (
-            <div className="bg-manila border border-ink/20 rounded-sm px-4 py-3 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
+            <div className="bg-manila border border-ink/20 rounded-sm px-4 py-3 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
               <div className="text-sm text-ink/80">
                 <strong className="text-ink">Exit interview</strong> — your last working day is{" "}
                 {formatDate(myExit.last_working_day)}.{" "}
@@ -202,14 +203,14 @@ export default function Dashboard() {
               </div>
               <button
                 onClick={() => setShowExitInterview(true)}
-                className="flex items-center gap-1.5 bg-ledger-800 text-manila px-3 py-2 rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors whitespace-nowrap self-start sm:self-auto"
+                className="flex items-center gap-1.5 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors whitespace-nowrap self-start sm:self-auto"
               >
                 {myExit.submitted ? "Review answers" : "Fill exit interview"}
               </button>
               {myAssets?.has_exit && (
                 <button
                   onClick={() => setShowAssets(true)}
-                  className="flex items-center gap-1.5 border border-ledger-800 text-ledger-800 px-3 py-2 rounded-sm text-xs font-semibold hover:bg-ledger-800 hover:text-manila transition-colors whitespace-nowrap self-start sm:self-auto"
+                  className="flex items-center gap-1.5 border border-ledger-800 text-ledger-800 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-800 hover:text-on-jade transition-colors whitespace-nowrap self-start sm:self-auto"
                 >
                   {myAssets.submitted ? "System handover ✓" : "System handover (required)"}
                 </button>
@@ -221,7 +222,7 @@ export default function Dashboard() {
               <strong>You are on an Attendance Improvement Plan</strong> — {formatDate(aip.start_date)} to{" "}
               {formatDate(aip.end_date)} ({aip.duration_days} days). Only one late arrival is permitted for its
               entire length; a further one is a failure of the AIP. This stays in effect across pay cycles until HR
-              closes it, even in a cycle where you haven't earned a new Red Card.
+              closes it, even in a cycle where you haven’t earned a new Red Card.
             </div>
           )}
           {summary.red_card && (
@@ -235,7 +236,7 @@ export default function Dashboard() {
               ) : summary.late_policy_version === 2 ? (
                 <>
                   <strong>Red Card this cycle</strong> — {summary.late_mark_count} late marks recorded (23rd–22nd
-                  cycle). New Paid Leave and Comp-Off requests can't be self-submitted for the rest of this cycle. A
+                  cycle). New Paid Leave and Comp-Off requests can’t be self-submitted for the rest of this cycle. A
                   Red Card in every month of the quarter is a Quarter Red Card: Final Warning letter and 2 Paid Leave
                   days forfeited.
                 </>
@@ -266,39 +267,39 @@ export default function Dashboard() {
           </div>
 
           <div className="bg-paper rounded-sm shadow-card p-5 mb-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-ink/70">Leave balance ({today.getFullYear()})</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+              <p className="text-xs font-semibold text-ink/70">Leave balance ({today.getFullYear()})</p>
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => setShowLeaveModal(true)}
-                  className="flex items-center gap-1.5 bg-jade-600 text-white px-3 py-2 rounded-sm text-xs font-semibold hover:bg-jade-700 transition-colors whitespace-nowrap"
+                  className="flex items-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 transition-colors whitespace-nowrap"
                 >
-                  <Plane size={13} /> Request Leave
+                  <Plane size={13} /> Request leave
                 </button>
                 <button
                   onClick={() => setShowAbsenceModal(true)}
-                  className="flex items-center gap-1.5 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-xs font-semibold hover:border-jade-500 transition-colors whitespace-nowrap"
+                  className="flex items-center gap-1.5 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:border-jade-500 transition-colors whitespace-nowrap"
                 >
-                  <Briefcase size={13} /> Report Work Absence
+                  <Briefcase size={13} /> Report work absence
                 </button>
                 <button
                   onClick={() => setShowWfhModal(true)}
-                  className="flex items-center gap-1.5 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-xs font-semibold hover:border-jade-500 transition-colors whitespace-nowrap"
+                  className="flex items-center gap-1.5 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:border-jade-500 transition-colors whitespace-nowrap"
                 >
                   <Home size={13} /> Request WFH
                 </button>
                 <button
                   onClick={() => setShowLoanModal(true)}
-                  className="flex items-center gap-1.5 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-xs font-semibold hover:border-jade-500 transition-colors whitespace-nowrap"
+                  className="flex items-center gap-1.5 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:border-jade-500 transition-colors whitespace-nowrap"
                 >
-                  <Wallet size={13} /> Request Loan
+                  <Wallet size={13} /> Request loan
                 </button>
               </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {leaveBalance.filter((b) => !["unpaid", "maternity", "compassionate"].includes(b.leave_type)).map((b) => (
                 <div key={b.leave_type}>
-                  <p className="text-[11px] uppercase tracking-wider text-ink/70">{LEAVE_LABELS[b.leave_type]}</p>
+                  <p className="text-[11px] text-ink/70">{LEAVE_LABELS[b.leave_type]}</p>
                   <p className="font-nums text-lg text-ink mt-0.5">
                     <AnimatedNumber value={String(b.remaining)} /> <span className="text-ink/65 text-sm">/ {b.allocated}</span>
                   </p>
@@ -315,7 +316,7 @@ export default function Dashboard() {
           {compOff?.entries?.length > 0 && (
             <div className="bg-paper rounded-sm shadow-card p-5 mb-6 no-print">
               <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-ink/70">Comp-Off earned</p>
+                <p className="text-xs font-semibold text-ink/70">Comp-Off earned</p>
                 <p className="text-xs text-ink/70">
                   Balance <span className="font-nums text-ink font-semibold"><AnimatedNumber value={String(compOff.balance)} /></span> day(s) ·
                   valid {compOff.validity_days} days from the day worked
@@ -351,9 +352,11 @@ export default function Dashboard() {
           )}
 
           <div className="bg-paper rounded-sm shadow-card p-5 mb-6">
-            <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-4">Holidays ({today.getFullYear()})</p>
+            <p className="text-xs font-semibold text-ink/70 mb-4">Holidays ({today.getFullYear()})</p>
             {holidays.length === 0 ? (
-              <p className="text-sm text-ink/70">No holidays scheduled for {today.getFullYear()}.</p>
+              <EmptyState title={`No holidays for ${today.getFullYear()} yet`} action={{ label: "Read the leave policy", to: "/employee/policy" }}>
+                HR has not published this year’s holiday list. The policy page explains how holidays are declared.
+              </EmptyState>
             ) : (
               <table className="w-full text-sm">
                 <tbody>
@@ -370,15 +373,15 @@ export default function Dashboard() {
           </div>
 
           <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
-            <p className="px-5 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-ink/70">Daily attendance</p>
+            <p className="px-5 pt-4 pb-1 text-xs font-semibold text-ink/70">Daily attendance</p>
             <table className="w-full min-w-[560px] text-sm mt-2">
               <thead className="text-left sticky top-0 z-10 bg-paper">
                 <tr className="border-b-2 border-ink/10">
-                  <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Date</th>
-                  <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">In</th>
-                  <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Out</th>
-                  <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Hours</th>
-                  <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Status</th>
+                  <th className="px-5 py-2.5 font-semibold text-[11px] text-ink/70">Date</th>
+                  <th className="px-5 py-2.5 font-semibold text-[11px] text-ink/70">In</th>
+                  <th className="px-5 py-2.5 font-semibold text-[11px] text-ink/70">Out</th>
+                  <th className="px-5 py-2.5 font-semibold text-[11px] text-ink/70">Hours</th>
+                  <th className="px-5 py-2.5 font-semibold text-[11px] text-ink/70">Status</th>
                   <th className="px-5 py-2.5"></th>
                 </tr>
               </thead>
@@ -388,14 +391,14 @@ export default function Dashboard() {
                     <td className="px-5 py-2.5 font-nums text-ink/70">{formatDate(d.date)}</td>
                     <td className="px-5 py-2.5 font-nums text-ink/70">
                       {formatTime(d.first_in)}
-                      {d.late && <span className="ml-1.5 text-[10px] font-sans font-semibold text-rust-500 uppercase tracking-wide">Late</span>}
+                      {d.late && <span className="ml-1.5 text-[10px] font-sans font-semibold text-rust-500">Late</span>}
                       {lateAllowanceInfo(d) && (
-                      <span title={lateAllowanceInfo(d).text} className={`ml-1.5 text-[10px] font-sans font-semibold uppercase tracking-wide ${lateAllowanceInfo(d).used ? "text-jade-600" : "text-ochre-700"}`}>
+                      <span title={lateAllowanceInfo(d).text} className={`ml-1.5 text-[10px] font-sans font-semibold ${lateAllowanceInfo(d).used ? "text-jade-600" : "text-ochre-700"}`}>
                         {lateAllowanceInfo(d).short}
                       </span>
               )}
                       {d.lop_days > 0 && (
-                        <span className="ml-1.5 text-[10px] font-sans font-semibold text-rust-500 uppercase tracking-wide">
+                        <span className="ml-1.5 text-[10px] font-sans font-semibold text-rust-500">
                           {{ 0.25: "¼", 0.5: "½", 0.75: "¾", 1: "1" }[Number(d.lop_days)] || Number(d.lop_days)} LOP
                         </span>
                       )}
@@ -433,14 +436,14 @@ export default function Dashboard() {
 
           {disputes.length > 0 && (
             <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto mt-6">
-              <p className="px-5 pt-4 pb-3 text-xs font-semibold uppercase tracking-wider text-ink/70">My reported issues</p>
+              <p className="px-5 pt-4 pb-3 text-xs font-semibold text-ink/70">My reported issues</p>
               <table className="w-full min-w-[520px] text-sm">
                 <tbody>
                   {disputes.map((d) => (
                     <tr key={d.id} className="border-t border-ink/[0.06]">
                       <td className="px-5 py-3 font-nums text-ink/70 w-28">{formatDate(d.date)}</td>
                       <td className="px-5 py-3 text-ink/70">
-                        {d.appeal_of && <span className="mr-1.5 text-[10px] font-semibold uppercase tracking-wide text-ochre-700">Appeal</span>}
+                        {d.appeal_of && <span className="mr-1.5 text-[10px] font-semibold text-ochre-700">Appeal</span>}
                         {d.reason}
                         {d.photo_url && (
                           <a href={d.photo_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-jade-700 hover:underline mt-1">
@@ -464,7 +467,7 @@ export default function Dashboard() {
 
           {leaveRequests.length > 0 && (
             <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto mt-6">
-              <p className="px-5 pt-4 pb-3 text-xs font-semibold uppercase tracking-wider text-ink/70">My leave requests</p>
+              <p className="px-5 pt-4 pb-3 text-xs font-semibold text-ink/70">My leave requests</p>
               <table className="w-full min-w-[520px] text-sm">
                 <tbody>
                   {leaveRequests.map((l) => (
@@ -485,7 +488,7 @@ export default function Dashboard() {
 
           {absenceRequests.length > 0 && (
             <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto mt-6">
-              <p className="px-5 pt-4 pb-3 text-xs font-semibold uppercase tracking-wider text-ink/70">My work absence requests</p>
+              <p className="px-5 pt-4 pb-3 text-xs font-semibold text-ink/70">My work absence requests</p>
               <table className="w-full min-w-[520px] text-sm">
                 <tbody>
                   {absenceRequests.map((a) => (
@@ -506,7 +509,7 @@ export default function Dashboard() {
           )}
           {loanRequests.length > 0 && (
             <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto mt-6">
-              <p className="px-5 pt-4 pb-3 text-xs font-semibold uppercase tracking-wider text-ink/70">My loan requests</p>
+              <p className="px-5 pt-4 pb-3 text-xs font-semibold text-ink/70">My loan requests</p>
               <table className="w-full min-w-[520px] text-sm">
                 <tbody>
                   {loanRequests.map((l) => (
@@ -526,7 +529,7 @@ export default function Dashboard() {
           )}
           {wfhRequests.length > 0 && (
             <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto mt-6">
-              <p className="px-5 pt-4 pb-3 text-xs font-semibold uppercase tracking-wider text-ink/70">My WFH requests</p>
+              <p className="px-5 pt-4 pb-3 text-xs font-semibold text-ink/70">My <abbr className="acr">WFH</abbr> requests</p>
               <table className="w-full min-w-[520px] text-sm">
                 <tbody>
                   {wfhRequests.map((w) => (
@@ -541,7 +544,7 @@ export default function Dashboard() {
                               ? "Completion confirmed — 50% pay"
                               : w.work_completed === false
                               ? "Completion not confirmed — normal attendance/leave rules apply"
-                              : "Awaiting Reporting Manager's completion confirmation"}
+                              : "Awaiting Reporting Manager’s completion confirmation"}
                           </div>
                         )}
                         {w.resolution_note && <div className="text-xs text-ink/70 mt-1">{w.resolution_note}</div>}

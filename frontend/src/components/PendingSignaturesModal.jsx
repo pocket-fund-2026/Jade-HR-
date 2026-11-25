@@ -29,7 +29,7 @@ export default function PendingSignaturesModal() {
   if (!current) return null;
   if (hidden) {
     return (
-      <button onClick={() => setHidden(false)} className="fixed bottom-5 right-5 z-40 bg-jade-600 text-white rounded-sm shadow-stamp px-4 py-3 text-sm font-semibold inline-flex items-center gap-2">
+      <button onClick={() => setHidden(false)} className="fixed bottom-5 right-5 z-40 bg-jade-600 text-on-jade rounded-sm shadow-stamp px-4 py-3 text-sm font-semibold inline-flex items-center gap-2">
         <FileSignature size={16} /> {pending.length} letter{pending.length > 1 ? "s" : ""} waiting for your e-signature
       </button>
     );
@@ -68,10 +68,10 @@ export default function PendingSignaturesModal() {
           </article>
         </div>
         <div className="px-5 py-4 border-t border-ink/10 space-y-2">
-          <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70">Type your full name to sign</label>
-          <input
+          <label htmlFor="sign_full_name" className="block text-xs font-semibold text-ink/70">Type your full name to sign</label>
+          <input id="sign_full_name"
             value={fullName} onChange={(e) => setFullName(e.target.value)} maxLength={80} placeholder="First and last name"
-            className="w-full max-w-sm rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+            className="w-full max-w-sm rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
           />
           <div className="border-b border-ink/40 min-h-[60px] max-w-sm flex items-end px-2 pb-1" aria-label="Signature preview">
             <span style={{ fontFamily: SIGNATURE_FONT_STACK, fontSize: 38, color: "#1a2a6c", lineHeight: 1.2 }}>{fullName}</span>
@@ -82,7 +82,7 @@ export default function PendingSignaturesModal() {
           </label>
           {error && <p className="text-sm text-rust-500">{error}</p>}
           <div className="flex gap-2">
-            <button onClick={sign} disabled={busy || fullName.trim().split(/\s+/).length < 2 || !confirm} className="flex-1 bg-jade-600 text-white rounded-sm px-4 py-2.5 text-sm font-semibold disabled:opacity-50 inline-flex items-center justify-center gap-1.5">
+            <button onClick={sign} disabled={busy || fullName.trim().split(/\s+/).length < 2 || !confirm} className="flex-1 bg-jade-600 text-on-jade rounded-sm px-4 py-2.5 text-sm font-semibold disabled:opacity-50 inline-flex items-center justify-center gap-1.5">
               <CheckCircle2 size={15} /> {busy ? "Signing…" : "Sign letter"}
             </button>
             <button onClick={() => setHidden(true)} className="px-4 py-2.5 text-sm text-ink/70 hover:text-ink">Later</button>

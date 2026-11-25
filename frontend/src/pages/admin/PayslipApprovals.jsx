@@ -7,6 +7,7 @@ import api from "../../lib/api.js";
 import { formatINR } from "../../lib/format.js";
 import SlidingTabs from "../../components/SlidingTabs.jsx";
 
+import EmptyState from "../../components/EmptyState.jsx";
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
@@ -43,29 +44,29 @@ function ResolveRow({ approval, onResolved }) {
       <td className="px-5 py-3.5 text-ink/70">{MONTH_NAMES[approval.period_month - 1]} {approval.period_year}</td>
       <td className="px-5 py-3.5 font-nums text-ink text-right">{formatINR(approval.net_salary)}</td>
       <td className="px-5 py-3.5">
-        <input
+        <input aria-label="Note"
           type="text"
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="Note (optional)"
-          className="w-full rounded-sm border border-ink/15 bg-manila/40 px-2 py-1.5 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+          className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-1.5 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
         />
       </td>
       <td className="px-5 py-3.5">
-        <div className="flex gap-2">
+        <div className="flex gap-6">
           <button
             disabled={busy}
             onClick={() => resolve("approve")}
-            className="flex items-center gap-1 bg-jade-600 text-white px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-1 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
           >
-            <Check size={13} /> Approve
+            <Check size={13} /> Approve payslip
           </button>
           <button
             disabled={busy}
             onClick={() => resolve("reject")}
-            className="flex items-center gap-1 bg-paper border border-rust-500 text-rust-500 px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-rust-50 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-1 bg-paper border border-rust-500 text-rust-500 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-rust-50 disabled:opacity-50 transition-colors"
           >
-            <X size={13} /> Reject
+            <X size={13} /> Reject payslip
           </button>
         </div>
       </td>
@@ -97,30 +98,30 @@ export default function PayslipApprovals() {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="font-display text-2xl text-ink">Payslip Approvals</h2>
-        <p className="text-xs text-ink/70 font-nums mt-0.5">HR team's own payslip submissions, awaiting Accounts sign-off</p>
+        <h2 className="font-display text-2xl text-ink">Payslip approvals</h2>
+        <p className="text-xs text-ink/70 font-nums mt-0.5"><abbr className="acr">HR</abbr> team’s own payslip submissions, awaiting Accounts sign-off</p>
       </div>
 
       <SlidingTabs tabs={TABS} value={tab} onChange={setTab} className="flex gap-1 mb-4" />
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm tabular-nums">
-          <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
+          <thead className="text-left sticky top-0 z-10 bg-paper shadow-edge">
             <tr className="border-b-2 border-ink/10">
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Location</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Period</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">Net Salary</th>
-              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Note</th>}
-              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Action</th>}
-              {tab !== "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Status</th>}
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Employee</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Location</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Period</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70 text-right">Net salary</th>
+              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Note</th>}
+              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Action</th>}
+              {tab !== "pending" && <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Status</th>}
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={6}>Loading ledger…</td></tr>
             ) : rows.length === 0 ? (
-              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={6}>No {tab} submissions.</td></tr>
+              <tr><td colSpan={6}><EmptyState title={`No ${tab} payslip submissions`} action={tab === "pending" ? { label: "View approved", onClick: () => setTab("approved") } : { label: "View pending", onClick: () => setTab("pending") }}>Submissions show here once an employee sends a payslip for approval.</EmptyState></td></tr>
             ) : tab === "pending" ? (
               rows.map((r) => <ResolveRow key={r.id} approval={r} onResolved={load} />)
             ) : (

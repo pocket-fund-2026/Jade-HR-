@@ -70,11 +70,12 @@ export default function CareersPipeline() {
       </div>
       <CareersNav />
 
-      <div className="flex gap-3 mb-4 items-center flex-wrap">
+      <div className="flex gap-4 mb-4 items-center flex-wrap">
         <select
+          aria-label="Filter by job"
           value={jobId}
           onChange={(e) => setJobId(e.target.value)}
-          className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-jade-500"
+          className="rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-jade-500"
         >
           <option value="">All jobs</option>
           {jobs.map((j) => <option key={j.id} value={j.id}>{j.title}{j.is_active ? "" : " (closed)"}</option>)}
@@ -96,7 +97,7 @@ export default function CareersPipeline() {
       {loading ? (
         <p className="text-ink/70 text-sm"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>
       ) : (
-        <div className="flex gap-3 overflow-x-auto pb-4">
+        <div className="flex gap-4 overflow-x-auto pb-4">
           {columns.map((col) => {
             const cards = applications.filter((a) => a.status === col);
             return (
@@ -108,7 +109,7 @@ export default function CareersPipeline() {
                 className={`flex-shrink-0 w-64 rounded-sm bg-manila/50 border-t-4 ${COLUMN_TONE[col]} ${overCol === col ? "ring-2 ring-jade-500" : ""}`}
               >
                 <div className="px-3 py-2.5 flex justify-between items-baseline">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70">{col}</p>
+                  <p className="text-[11px] font-semibold text-ink/70">{col}</p>
                   <span className="font-nums text-xs text-ink/50">{cards.length}</span>
                 </div>
                 <div className="px-2 pb-2 space-y-2 min-h-[120px] max-h-[70vh] overflow-y-auto">
@@ -146,6 +147,7 @@ export default function CareersPipeline() {
                             type="button"
                             onClick={() => move(a.id, nextOf(a.status))}
                             title={`Move to ${nextOf(a.status)}`}
+                            aria-label={`Move ${a.full_name} to ${nextOf(a.status)}`}
                             className="flex-shrink-0 rounded-sm bg-jade-600 hover:bg-jade-700 text-paper text-[11px] px-2 py-1"
                           >
                             Next →

@@ -10,8 +10,8 @@ const EMPTY = {
   assignment_deadline_days: 5, is_active: true, sort_order: 0,
 };
 
-const FIELD = "w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink placeholder:text-ink/35 focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500 transition-shadow";
-const LABEL = "block text-xs font-semibold uppercase tracking-wider text-ink/60 mb-1.5";
+const FIELD = "w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink placeholder:text-ink/35 focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500 transition-shadow";
+const LABEL = "block text-xs font-semibold text-ink/60 mb-1.5";
 const HINT = "text-[11px] text-ink/45 mt-1.5";
 
 const QUESTION_TYPES = [
@@ -64,7 +64,7 @@ function QuestionsEditor({ jobId }) {
         <p className="text-xs text-ink/50">No custom questions yet — applicants only see the standard fields.</p>
       )}
       {questions.map((q) => (
-        <div key={q.id} className="flex items-start gap-3 rounded-sm border border-ink/10 bg-manila/25 px-4 py-3">
+        <div key={q.id} className="flex items-start gap-4 rounded-sm border border-ink/10 bg-manila/25 px-4 py-3">
           <div className="flex-1 min-w-0">
             <p className="text-sm text-ink font-medium">{q.question_text}</p>
             <p className="text-[11px] text-ink/50 mt-0.5">
@@ -87,14 +87,18 @@ function QuestionsEditor({ jobId }) {
       ))}
 
       <form onSubmit={addQuestion} className="flex flex-col gap-2.5 rounded-sm border border-dashed border-ink/20 p-4">
+        <label htmlFor="job_new_question_text" className={LABEL}>New question</label>
         <input
+          id="job_new_question_text"
           className={FIELD}
-          placeholder="Question text, e.g. What's your notice period?"
+          placeholder="e.g. What’s your notice period?"
           value={draft.question_text}
           onChange={(e) => setDraft((d) => ({ ...d, question_text: e.target.value }))}
         />
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-4">
+          <label htmlFor="job_new_question_type" className="text-xs text-ink/60">Answer type</label>
           <select
+            id="job_new_question_type"
             className={`${FIELD} w-auto`}
             value={draft.type}
             onChange={(e) => setDraft((d) => ({ ...d, type: e.target.value }))}
@@ -114,7 +118,7 @@ function QuestionsEditor({ jobId }) {
           <button
             type="submit"
             disabled={saving || !draft.question_text.trim()}
-            className="ml-auto flex items-center gap-1.5 bg-jade-600 text-white px-3 py-2 rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
+            className="ml-auto flex items-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
           >
             <Plus size={13} /> Add question
           </button>
@@ -127,7 +131,7 @@ function QuestionsEditor({ jobId }) {
 function SectionCard({ icon: Icon, title, subtitle, children }) {
   return (
     <div className="bg-paper rounded-sm shadow-card overflow-hidden">
-      <div className="px-6 py-4 border-b border-ink/[0.08] bg-manila/25 flex items-start gap-3">
+      <div className="px-6 py-4 border-b border-ink/[0.08] bg-manila/25 flex items-start gap-4">
         <div className="w-8 h-8 rounded-sm bg-jade-500/10 text-jade-600 flex items-center justify-center flex-shrink-0">
           <Icon size={16} />
         </div>
@@ -177,7 +181,7 @@ export default function CareersJobForm() {
     <div className="w-full pb-24">
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-ink/50 mb-1">
+          <p className="text-xs font-semibold text-ink/50 mb-1">
             {editing ? "Editing job posting" : "New job posting"}
           </p>
           <h2 className="font-display text-2xl text-ink">{form.title || "Untitled role"}</h2>
@@ -202,39 +206,39 @@ export default function CareersJobForm() {
         <div className="space-y-5 min-w-0">
           <SectionCard icon={AlignLeft} title="Listing Content" subtitle="What candidates see on the job page">
             <div>
-              <label className={LABEL}>Summary</label>
-              <textarea className={FIELD} rows={2} value={form.summary} onChange={set("summary")} placeholder="One or two sentences shown on the jobs list" />
+              <label htmlFor="job_summary" className={LABEL}>Summary</label>
+              <textarea id="job_summary" className={FIELD} rows={2} value={form.summary} onChange={set("summary")} placeholder="One or two sentences shown on the jobs list" />
               <p className={HINT}>Shown on the careers listing page, above the fold.</p>
             </div>
             <div>
-              <label className={LABEL}>Description</label>
-              <textarea className={FIELD} rows={6} value={form.description} onChange={set("description")} />
+              <label htmlFor="job_description" className={LABEL}>Description</label>
+              <textarea id="job_description" className={FIELD} rows={6} value={form.description} onChange={set("description")} />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <label className={LABEL}>Responsibilities</label>
-                <textarea className={FIELD} rows={8} value={form.responsibilities} onChange={set("responsibilities")} placeholder={"- One responsibility per line\n- Renders as plain text with line breaks preserved"} />
+                <label htmlFor="job_responsibilities" className={LABEL}>Responsibilities</label>
+                <textarea id="job_responsibilities" className={FIELD} rows={8} value={form.responsibilities} onChange={set("responsibilities")} placeholder={"- One responsibility per line\n- Renders as plain text with line breaks preserved"} />
               </div>
               <div>
-                <label className={LABEL}>Requirements</label>
-                <textarea className={FIELD} rows={8} value={form.requirements} onChange={set("requirements")} placeholder={"- One requirement per line"} />
+                <label htmlFor="job_requirements" className={LABEL}>Requirements</label>
+                <textarea id="job_requirements" className={FIELD} rows={8} value={form.requirements} onChange={set("requirements")} placeholder={"- One requirement per line"} />
               </div>
             </div>
-            <p className={HINT}>Plain text only — no markdown. Line breaks carry over as-is, so lead each bullet with "- ".</p>
+            <p className={HINT}>Plain text only — no markdown. Line breaks carry over as-is, so lead each bullet with “- “.</p>
           </SectionCard>
 
           <SectionCard icon={ClipboardCheck} title="Candidate Assignment" subtitle="The take-home brief applicants complete after applying">
             <div>
-              <label className={LABEL}>Assignment Brief</label>
-              <textarea className={FIELD} rows={8} value={form.assignment_brief} onChange={set("assignment_brief")} />
+              <label htmlFor="job_assignment_brief" className={LABEL}>Assignment brief</label>
+              <textarea id="job_assignment_brief" className={FIELD} rows={8} value={form.assignment_brief} onChange={set("assignment_brief")} />
             </div>
             <div className="max-w-xs">
-              <label className={LABEL}>Deadline to submit (days after applying)</label>
-              <input type="number" min={1} className={FIELD} value={form.assignment_deadline_days} onChange={set("assignment_deadline_days")} />
+              <label htmlFor="job_deadline_to_submit_days_after_applying" className={LABEL}>Deadline to submit (days after applying)</label>
+              <input id="job_deadline_to_submit_days_after_applying" type="number" min={1} className={FIELD} value={form.assignment_deadline_days} onChange={set("assignment_deadline_days")} />
             </div>
           </SectionCard>
 
-          <SectionCard icon={HelpCircle} title="Application Questions" subtitle="Custom screening questions candidates answer on the Apply form, before the resume upload">
+          <SectionCard icon={HelpCircle} title="Application questions" subtitle="Custom screening questions candidates answer on the Apply form, before the resume upload">
             {editing ? (
               <QuestionsEditor jobId={id} />
             ) : (
@@ -247,20 +251,20 @@ export default function CareersJobForm() {
         <div className="space-y-5 lg:sticky lg:top-8">
           <SectionCard icon={Briefcase} title="Basics" subtitle="Title and where the role appears">
             <div>
-              <label className={LABEL}>Job Title</label>
-              <input className={FIELD} value={form.title} onChange={set("title")} placeholder="e.g. Design Associate" required />
+              <label htmlFor="job_job_title" className={LABEL}>Job title</label>
+              <input id="job_job_title" className={FIELD} value={form.title} onChange={set("title")} placeholder="e.g. Design Associate" required />
             </div>
             <div>
-              <label className={LABEL}>Department</label>
-              <input className={FIELD} value={form.department} onChange={set("department")} />
+              <label htmlFor="job_department" className={LABEL}>Department</label>
+              <input id="job_department" className={FIELD} value={form.department} onChange={set("department")} />
             </div>
             <div>
-              <label className={LABEL}><MapPin size={11} className="inline -mt-0.5 mr-1" />Location</label>
-              <input className={FIELD} value={form.location} onChange={set("location")} />
+              <label htmlFor="job_location" className={LABEL}><MapPin size={11} className="inline -mt-0.5 mr-1" />Location</label>
+              <input id="job_location" className={FIELD} value={form.location} onChange={set("location")} />
             </div>
             <div>
-              <label className={LABEL}>Employment Type</label>
-              <input className={FIELD} value={form.employment_type} onChange={set("employment_type")} />
+              <label htmlFor="job_employment_type" className={LABEL}>Employment type</label>
+              <input id="job_employment_type" className={FIELD} value={form.employment_type} onChange={set("employment_type")} />
             </div>
           </SectionCard>
 
@@ -289,19 +293,19 @@ export default function CareersJobForm() {
         </div>
       </form>
 
-      <div className="fixed bottom-0 left-0 right-0 md:left-60 bg-paper/95 backdrop-blur border-t border-ink/10 px-4 md:px-8 py-4 flex gap-3 z-20">
+      <div className="fixed bottom-0 left-0 right-0 md:left-60 bg-paper/95 backdrop-blur border-t border-ink/10 px-4 md:px-8 py-4 flex gap-4 z-20">
         <button
           type="submit"
           onClick={save}
           disabled={saving}
-          className="bg-jade-600 text-white px-6 py-2.5 rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
+          className="bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
         >
-          {saving ? "Saving…" : editing ? "Save Changes" : "Create Job"}
+          {saving ? "Saving…" : editing ? "Save job changes" : "Create job"}
         </button>
         <button
           type="button"
           onClick={() => navigate("/admin/careers")}
-          className="bg-paper border border-ink/15 text-ink px-6 py-2.5 rounded-sm text-sm font-semibold hover:bg-manila/50 transition-colors"
+          className="bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-manila/50 transition-colors"
         >
           Cancel
         </button>

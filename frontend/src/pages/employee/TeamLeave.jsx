@@ -3,6 +3,7 @@ import { LeaveProofLink } from "../../components/LeaveProofField.jsx";
 import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 
+import EmptyState from "../../components/EmptyState.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
 import { formatDate } from "../../lib/format.js";
@@ -49,24 +50,24 @@ function ResolveRow({ request, onResolved }) {
           onChange={(e) => setNote(e.target.value)}
           aria-label="Note (optional)"
           placeholder="Note (optional)"
-          className="w-full sm:w-40 rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-jade-500"
+          className="w-full sm:w-40 rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-jade-500"
         />
       </td>
       <td className="px-5 py-3.5">
-        <div className="flex gap-2">
-          <button
-            disabled={busy}
-            onClick={() => resolve("approve")}
-            className="flex items-center justify-center gap-1.5 min-h-[44px] bg-jade-600 text-white px-4 py-2 rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
-          >
-            <Check size={13} /> Approve
-          </button>
+        <div className="flex gap-6">
           <button
             disabled={busy}
             onClick={() => resolve("reject")}
-            className="flex items-center justify-center gap-1.5 min-h-[44px] bg-paper border border-rust-500 text-rust-500 px-4 py-2 rounded-sm text-sm font-semibold hover:bg-rust-50 disabled:opacity-50 transition-colors"
+            className="flex items-center justify-center gap-1.5 min-h-[44px] bg-paper border border-rust-500 text-rust-500 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-rust-50 disabled:opacity-50 transition-colors"
           >
-            <X size={13} /> Reject
+            <X size={13} /> Reject leave
+          </button>
+          <button
+            disabled={busy}
+            onClick={() => resolve("approve")}
+            className="flex items-center justify-center gap-1.5 min-h-[44px] bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
+          >
+            <Check size={13} /> Approve leave
           </button>
         </div>
       </td>
@@ -105,7 +106,7 @@ export default function TeamLeave() {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="font-display text-2xl text-ink">Team Leave</h2>
+        <h2 className="font-display text-2xl text-ink">Team leave</h2>
         <p className="text-xs text-ink/70 font-nums mt-0.5">Leave requests from people who report to you for approval</p>
       </div>
 
@@ -115,20 +116,27 @@ export default function TeamLeave() {
         <table className="w-full min-w-[640px] text-sm">
           <thead className="text-left sticky top-0 z-10 bg-paper">
             <tr className="border-b-2 border-ink/10">
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Type</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Dates</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Reason</th>
-              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Note</th>}
-              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Action</th>}
-              {tab !== "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Status</th>}
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Employee</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Type</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Dates</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Reason</th>
+              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Note</th>}
+              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Action</th>}
+              {tab !== "pending" && <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Status</th>}
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={6}>Loading ledger…</td></tr>
             ) : requests.length === 0 ? (
-              <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={6}>No {tab} leave requests from your team.</td></tr>
+              <tr><td colSpan={6}>
+                <EmptyState
+                  title={`No ${tab} leave requests`}
+                  action={tab === "pending" ? { label: "Back to my dashboard", to: "/employee" } : { label: "View pending requests", onClick: () => setTab("pending") }}
+                >
+                  {tab === "pending" ? "Leave requests from your team wait here for your decision." : `Requests you have ${tab} will be listed here.`}
+                </EmptyState>
+              </td></tr>
             ) : tab === "pending" ? (
               requests.map((r) => <ResolveRow key={r.id} request={r} onResolved={onResolved} />)
             ) : (

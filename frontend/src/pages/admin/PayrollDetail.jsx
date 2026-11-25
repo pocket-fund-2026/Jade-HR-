@@ -27,9 +27,9 @@ export default function PayrollDetail() {
   return (
     <div>
       <Link to="/admin/payroll" className="inline-flex items-center gap-1.5 text-xs text-ink/70 hover:text-ink transition-colors">
-        <ArrowLeft size={13} /> Back to Payroll
+        <ArrowLeft size={13} /> Back to payroll
       </Link>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-2 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-2 mb-6">
         <h2 className="font-display text-2xl text-ink">{summary?.name || "Payslip"}</h2>
         <MonthPicker year={year} month={month} onChange={(y, m) => setParams({ year: y, month: m })} />
       </div>

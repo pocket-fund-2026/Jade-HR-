@@ -1,3 +1,4 @@
+import ReserveBold from "./ReserveBold.jsx";
 import { NavLink } from "react-router-dom";
 
 const TABS = [
@@ -22,12 +23,12 @@ export default function CareersNav() {
           to={t.to}
           end={t.end}
           className={({ isActive }) =>
-            `px-4 py-2 text-sm -mb-px border-b-2 whitespace-nowrap transition-colors ${
+            `px-[1.5em] py-[0.625em] leading-tight text-sm -mb-px border-b-2 whitespace-nowrap transition-colors ${
               isActive ? "border-jade-600 text-ink font-semibold" : "border-transparent text-ink/60 hover:text-ink"
             }`
           }
         >
-          {t.label}
+          <ReserveBold>{t.label}</ReserveBold>
         </NavLink>
       ))}
     </nav>

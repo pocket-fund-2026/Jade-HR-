@@ -152,13 +152,13 @@ export default function PersonalInfoGate() {
 
   return (
     <div className="min-h-screen bg-manila flex flex-col">
-      <header className="bg-ledger-800 text-manila px-5 sm:px-8 py-5">
+      <header className="bg-ledger-800 text-on-jade px-5 sm:px-8 py-5">
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center gap-2">
-            <HeartPulse size={20} className="text-manila/80" />
+            <HeartPulse size={20} className="text-on-jade/80" />
             <h1 className="font-display text-xl sm:text-2xl">Personal information</h1>
           </div>
-          <p className="text-sm text-manila/70 mt-1.5">
+          <p className="text-sm text-on-jade/70 mt-1.5">
             {user?.name ? `${user.name}, before` : "Before"} you use the HR Console, please fill in your personal,
             ID, bank, medical and emergency contact details. This is required once and is stored on your employee record.
           </p>
@@ -169,7 +169,7 @@ export default function PersonalInfoGate() {
         <form onSubmit={submit} className="bg-paper rounded-sm shadow-card p-5 space-y-6">
           {SECTIONS.map((section) => (
             <div key={section.label} className="space-y-4">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-ink/50">{section.label}</h2>
+              <h2 className="text-xs font-semibold text-ink/50">{section.label}</h2>
               {section.fields.map((f) => (
                 <div key={f.k} className="space-y-4">
                   {renderField(f)}
@@ -183,7 +183,7 @@ export default function PersonalInfoGate() {
           <button
             type="submit"
             disabled={!allFilled || submitting}
-            className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-jade-600 text-white px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-40 transition-colors"
+            className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-40 transition-colors"
           >
             <HeartPulse size={15} />
             {submitting ? "Saving…" : "Save and continue"}

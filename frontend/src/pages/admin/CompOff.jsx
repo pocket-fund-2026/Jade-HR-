@@ -2,6 +2,7 @@ import { CalendarClock, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
+import EmptyState from "../../components/EmptyState.jsx";
 import CompOffPolicy from "../../components/CompOffPolicy.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
@@ -16,7 +17,7 @@ const TABS = [
 ];
 
 const inputCls =
-  "w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
+  "w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
 
 function istToday() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
@@ -90,7 +91,7 @@ function GrantForm({ onGranted, onCancel }) {
       </div>
       <fieldset disabled={busy} className="space-y-4 disabled:opacity-70">
         <legend className="text-xs font-semibold text-jade-600 mb-3">1. Find an active employee</legend>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <label className="block text-xs text-ink/70 space-y-1.5"><span className="font-semibold">Search name or code</span>
             <input type="search" className={inputCls} placeholder="Name or employee code" value={search} onChange={(e) => filterChange(setSearch)(e.target.value)} />
           </label>
@@ -127,11 +128,11 @@ function GrantForm({ onGranted, onCancel }) {
       </fieldset>
       <p className="text-xs text-ink/70">Eligible biometric attendance is credited nightly. Use manual grants for verified work missing from those records.</p>
       {error && <p role="alert" className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5">{error}</p>}
-      <div className="flex justify-end gap-3">
+      <div className="flex justify-end gap-4">
         <button type="button" disabled={busy} onClick={onCancel} className="text-sm text-ink/70 hover:text-ink px-2">Cancel</button>
         <button type="submit" disabled={busy || !employeeId || !earnedDate || !confirmed || Number(hours) <= 0 || loading || !!loadError}
-          className="bg-ledger-800 text-manila px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors">
-          {busy ? "Granting…" : "Confirm grant"}
+          className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors">
+          {busy ? "Granting…" : "Grant comp-off"}
         </button>
       </div>
     </form>
@@ -169,14 +170,14 @@ export default function CompOff() {
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-1">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-1">
         <div className="flex items-center gap-2">
           <CalendarClock size={20} className="text-jade-600" />
           <h2 className="font-display text-2xl text-ink">Comp-Off</h2>
         </div>
         <button
           onClick={() => setShowGrant((v) => !v)}
-          className="flex items-center gap-1.5 bg-ledger-800 text-manila px-4 py-2 rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+          className="flex items-center gap-1.5 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
         >
           <Plus size={15} /> Grant Comp-Off
         </button>
@@ -185,7 +186,7 @@ export default function CompOff() {
       <CompOffPolicy className="mb-5" />
       {success && <p role="status" className="text-sm text-jade-700 bg-jade-500/10 p-3 mb-4">{success}</p>}
       {showGrant && <GrantForm onGranted={(message) => { setSuccess(message); setShowGrant(false); load(); }} onCancel={() => setShowGrant(false)} />}
-      <div className="bg-paper p-4 mb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="bg-paper p-4 mb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <label className="block text-xs text-ink/70 space-y-1.5"><span className="font-semibold">Search employee</span>
           <input type="search" className={inputCls} placeholder="Name or employee code" value={search} onChange={(e) => setSearch(e.target.value)} />
         </label>
@@ -199,7 +200,7 @@ export default function CompOff() {
         {hasFilters && <button type="button" onClick={clearFilters} className="text-sm text-jade-600 underline justify-self-start">Clear filters</button>}
       </div>
       {error && <p role="alert" className="text-sm text-rust-500 mb-4">{error} <button onClick={load} className="underline">Retry</button></p>}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-4">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-4">
         <SlidingTabs tabs={TABS} value={tab} onChange={(value) => { setTab(value); if (value !== "available") setExpiryFilter(""); }} className="flex flex-wrap gap-1" />
         {tab === "available" && filtered.length > 0 && (
           <span className="text-xs text-ink/70 ml-auto font-nums">
@@ -212,12 +213,12 @@ export default function CompOff() {
         <table className="w-full text-sm tabular-nums">
           <thead className="text-left">
             <tr className="border-b-2 border-ink/10">
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Day worked</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Units</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Expires</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Used on</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Status</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Employee</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Day worked</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Units</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Expires</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Used on</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -227,8 +228,13 @@ export default function CompOff() {
               <tr><td colSpan={6} className="p-8 text-center text-rust-500">Ledger unavailable. Retry above.</td></tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={6}>
-                  {hasFilters ? "No entries match these filters. Adjust or clear filters to see more." : `No ${tab || "Comp-Off"} entries. Eligible work appears after nightly accrual or a verified manual grant.`}
+                <td colSpan={6}>
+                  <EmptyState
+                    title={hasFilters ? "No entries match these filters" : `No ${tab || "comp-off"} entries`}
+                    action={hasFilters ? { label: "Clear filters", onClick: clearFilters } : { label: "Grant comp-off", onClick: () => setShowGrant(true) }}
+                  >
+                    {hasFilters ? "Adjust or clear the filters to see more." : "Eligible work appears after nightly accrual or a verified manual grant."}
+                  </EmptyState>
                 </td>
               </tr>
             ) : (

@@ -7,6 +7,7 @@ import MonthPicker from "../../../components/MonthPicker.jsx";
 import api from "../../../lib/api.js";
 import { formatDate } from "../../../lib/format.js";
 
+import EmptyState from "../../../components/EmptyState.jsx";
 const today = new Date();
 
 export default function SalaryPaidReport() {
@@ -39,13 +40,13 @@ export default function SalaryPaidReport() {
   return (
     <div>
       <Link to="/admin/reports" className="inline-flex items-center gap-1.5 text-xs text-ink/70 hover:text-ink transition-colors">
-        <ArrowLeft size={13} /> Back to Reports
+        <ArrowLeft size={13} /> Back to reports
       </Link>
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mt-2 mb-2">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mt-2 mb-2">
         <div>
-          <h2 className="font-display text-2xl text-ink">Salary Paid Report</h2>
+          <h2 className="font-display text-2xl text-ink">Salary paid report</h2>
           <p className="text-xs text-ink/70 font-nums mt-0.5">
-            Check off each employee once their salary for the month is paid out. If a past month wasn't paid, add it as an arrear.
+            Check off each employee once their salary for the month is paid out. If a past month wasn’t paid, add it as an arrear.
           </p>
         </div>
         <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
@@ -54,20 +55,20 @@ export default function SalaryPaidReport() {
       <div className="bg-ledger-800 rounded-sm shadow-card p-6 relative overflow-hidden mb-6">
         <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
         <div className="relative flex justify-between items-baseline">
-          <span className="font-display text-manila text-lg">Paid this month</span>
-          <span className="font-nums font-semibold text-3xl text-manila">{paidCount} / {rows.length}</span>
+          <span className="font-display text-on-jade text-lg">Paid this month</span>
+          <span className="font-nums font-semibold text-3xl text-on-jade">{paidCount} / {rows.length}</span>
         </div>
       </div>
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm tabular-nums">
-          <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
+          <thead className="text-left sticky top-0 z-10 bg-paper shadow-edge">
             <tr className="border-b-2 border-ink/10">
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Location</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Arrear this pay month</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Marked</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-center">Paid</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Employee</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Location</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Arrear this pay month</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Marked</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70 text-center">Paid</th>
               <th></th>
             </tr>
           </thead>
@@ -75,7 +76,7 @@ export default function SalaryPaidReport() {
             {loading ? (
               <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={6}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : rows.length === 0 ? (
-              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={6}>No active employees.</td></tr>
+              <tr><td colSpan={6}><EmptyState title="No active employees" action={{ label: "Open employees", to: "/admin/employees" }}>Employees show here once they are added and active.</EmptyState></td></tr>
             ) : (
               rows.map((r) => (
                 <tr key={r.employee_id} className={`border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors ${!r.paid ? "bg-rust-50/40" : ""}`}>
@@ -107,7 +108,7 @@ export default function SalaryPaidReport() {
                         onClick={() => setArrearFor(r)}
                         className="flex items-center gap-1 text-ochre-700 hover:text-ochre-800 hover:underline text-xs font-medium"
                       >
-                        <Plus size={12} /> Add Arrear
+                        <Plus size={12} /> Add arrear
                       </button>
                     )}
                   </td>

@@ -1,6 +1,7 @@
 import { HelpCircle, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import EmptyState from "../components/EmptyState.jsx";
 import api from "../lib/api.js";
 import { useAuth } from "../lib/auth.jsx";
 
@@ -15,15 +16,15 @@ function Topic({ title, keywords = "", tag, children, open, onToggle }) {
       onToggle={(e) => onToggle(e.target.open)}
       className="bg-paper rounded-sm shadow-card overflow-hidden"
     >
-      <summary className="cursor-pointer select-none list-none px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-manila/30 transition-colors">
+      <summary className="cursor-pointer select-none list-none px-5 py-3.5 flex items-baseline justify-between gap-4 hover:bg-manila/30 transition-colors">
         <span className="font-display text-base text-ink">{title}</span>
         {tag && (
-          <span className="flex-shrink-0 text-[10px] uppercase tracking-wider font-semibold text-jade-700 bg-jade-500/10 px-2 py-0.5 rounded-sm">
+          <span className="flex-shrink-0 text-[10px] font-semibold text-jade-700 bg-jade-500/10 px-2 py-0.5 rounded-sm">
             {tag}
           </span>
         )}
       </summary>
-      <div className="px-5 pb-5 pt-1 text-sm text-ink/80 space-y-3 leading-relaxed" data-search-text={keywords}>
+      <div className="px-5 pb-5 pt-1 text-sm text-ink/80 space-y-4 leading-relaxed" data-search-text={keywords}>
         {children}
       </div>
     </details>
@@ -37,7 +38,7 @@ function Table({ head, rows }) {
         <thead>
           <tr>
             {head.map((h) => (
-              <th key={h} className="text-left text-[11px] uppercase tracking-wider text-ink/60 border-b border-ink/10 py-1.5 pr-4">
+              <th key={h} className="text-left text-[11px] text-ink/60 border-b border-ink/10 py-1.5 pr-4">
                 {h}
               </th>
             ))}
@@ -74,12 +75,12 @@ const GETTING_STARTED = [
     keywords: "login password locked account employee code",
     body: (
       <>
-        <p>Go to <strong>jade-hr.vercel.app</strong> and sign in with your <strong>Employee Code</strong> and password.</p>
+        <p>Go to <strong>jade-hr.vercel.app</strong> and sign in with your <strong>Employee code</strong> and password.</p>
         <ul className="list-disc pl-5 space-y-1">
-          <li>Employee Code is assigned once your biometric attendance is set up (see "New joinee onboarding" below) — you can't log in before that.</li>
-          <li>5 wrong password attempts locks the account temporarily; HR/Accounts can clear this from your Employees profile.</li>
-          <li>No self-service password reset yet — ask HR/Accounts, or use "Change password" in the header once you're logged in to set your own.</li>
-          <li>What you see in the sidebar depends on your role (employee vs. HR vs. Accounts) and, for HR logins, which specific permissions Accounts has switched on for you. A missing section usually means a permission hasn't been granted — not a bug.</li>
+          <li>Employee Code is assigned once your biometric attendance is set up (see “New joinee onboarding” below) — you can’t log in before that.</li>
+          <li>5 wrong password attempts locks the account temporarily; <abbr className="acr">HR</abbr>/Accounts can clear this from your Employees profile.</li>
+          <li>No self-service password reset yet — ask <abbr className="acr">HR</abbr>/Accounts, or use “Change password” in the header once you’re logged in to set your own.</li>
+          <li>What you see in the sidebar depends on your role (employee vs. <abbr className="acr">HR</abbr> vs. Accounts) and, for <abbr className="acr">HR</abbr> logins, which specific permissions Accounts has switched on for you. A missing section usually means a permission hasn’t been granted — not a bug.</li>
         </ul>
       </>
     ),
@@ -90,15 +91,15 @@ const GETTING_STARTED = [
     keywords: "onboarding new employee form biometric employee code public join",
     body: (
       <>
-        <p>Before a new joinee has any login at all, they fill in the <strong>public onboarding form</strong> at <code className="bg-manila/50 px-1 rounded-sm">/onboarding/new</code> — no employee code or password needed to reach it. It replaces the old external form and collects personal details, employment details, bank details, and document uploads (Aadhar, PAN, photo, resume).</p>
+        <p>Before a new joinee has any login at all, they fill in the <strong>public onboarding form</strong> at <code className="bg-manila/50 px-1 rounded-sm">/onboarding/new</code> — no employee code or password needed to reach it. It replaces the old external form and collects personal details, employment details, bank details, and document uploads (Aadhar, <abbr className="acr">PAN</abbr>, photo, resume).</p>
         <p className="font-semibold text-ink">What happens after submitting:</p>
         <ol className="list-decimal pl-5 space-y-1">
           <li>The submission lands in a review queue (Onboarding, in the admin console) — it is <strong>not</strong> yet an employee record.</li>
-          <li>Separately, HR enrolls the new joinee on the biometric attendance device. Their first punch, or the next nightly roster sync from that device, assigns them a real <strong>Employee Code</strong>.</li>
+          <li>Separately, <abbr className="acr">HR</abbr> enrolls the new joinee on the biometric attendance device. Their first punch, or the next nightly roster sync from that device, assigns them a real <strong>Employee code</strong>.</li>
           <li>The system automatically matches the pending submission to that new code by name (and, where possible, work location) and resolves it — filling in the employee record with everything from the form (bank details, address, documents, etc.).</li>
-          <li>If the automatic match can't uniquely tell who's who (e.g. two pending submissions with very similar names), it's left for HR to resolve by hand rather than guessing — this is a deliberate safety choice so one person's bank/Aadhar details never get attached to someone else's record.</li>
+          <li>If the automatic match can’t uniquely tell who’s who (e.g. two pending submissions with very similar names), it’s left for <abbr className="acr">HR</abbr> to resolve by hand rather than guessing — this is a deliberate safety choice so one person’s bank/Aadhar details never get attached to someone else’s record.</li>
         </ol>
-        <p>Once resolved, the new employee can log in with their Employee Code, and (once linked) can see everything they originally submitted under <strong>My Onboarding Details</strong> in their own dashboard.</p>
+        <p>Once resolved, the new employee can log in with their Employee Code, and (once linked) can see everything they originally submitted under <strong>My onboarding details</strong> in their own dashboard.</p>
       </>
     ),
   },
@@ -111,7 +112,7 @@ const GETTING_STARTED = [
         <StatusDot color="bg-ochre-500" label="Amber / Pending — waiting on a decision" />
         <StatusDot color="bg-jade-600" label="Green / Approved — signed off" />
         <StatusDot color="bg-rust-500" label="Red / Rejected — sent back, check the note" />
-        <p className="mt-2">This convention is the same everywhere in the app — leave, WFH, disputes, loans, work absence, onboarding, payslip approvals.</p>
+        <p className="mt-2">This convention is the same everywhere in the app — leave, <abbr className="acr">WFH</abbr>, disputes, loans, work absence, onboarding, payslip approvals.</p>
       </div>
     ),
   },
@@ -145,11 +146,11 @@ const GETTING_STARTED = [
     keywords: "cant see missing section permission error problem broken",
     body: (
       <ul className="list-disc pl-5 space-y-1">
-        <li><strong>Can't see a section this guide describes</strong> — it's permission-gated; ask Accounts to switch it on for you (HR logins only — Accounts logins already see everything).</li>
-        <li><strong>Forgot your password</strong> — ask HR/Accounts to reset it from your Employees profile.</li>
+        <li><strong>Can’t see a section this guide describes</strong> — it’s permission-gated; ask Accounts to switch it on for you (<abbr className="acr">HR</abbr> logins only — Accounts logins already see everything).</li>
+        <li><strong>Forgot your password</strong> — ask <abbr className="acr">HR</abbr>/Accounts to reset it from your Employees profile.</li>
         <li><strong>A leave balance looks off</strong> — remember Paid Leave accrues monthly (2 days/completed month, not a Jan 1 lump sum) and carries forward into the next year up to a location cap, rather than resetting to zero; the first pay period of a new year can look slightly off for a day or two around the boundary.</li>
-        <li><strong>Just submitted the onboarding form and nothing shows up yet</strong> — that's expected. It only becomes a real employee record once a biometric employee code is assigned and matched (see "New joinee onboarding" above); this can take up to a day (the roster sync runs nightly).</li>
-        <li><strong>Redirected to the login page when visiting a public link</strong> — clear your browser cache/cookies for jade-hr.vercel.app and try again; if it persists, tell HR/Accounts which link you used.</li>
+        <li><strong>Just submitted the onboarding form and nothing shows up yet</strong> — that’s expected. It only becomes a real employee record once a biometric employee code is assigned and matched (see “New joinee onboarding” above); this can take up to a day (the roster sync runs nightly).</li>
+        <li><strong>Redirected to the login page when visiting a public link</strong> — clear your browser cache/cookies for jade-hr.vercel.app and try again; if it persists, tell <abbr className="acr">HR</abbr>/Accounts which link you used.</li>
       </ul>
     ),
   },
@@ -159,7 +160,7 @@ const GETTING_STARTED = [
 const EMPLOYEE_SECTIONS = [
   {
     id: "my-onboarding",
-    title: "My Onboarding Details",
+    title: "My onboarding details",
     keywords: "my onboarding view submitted form bank documents",
     body: (
       <p>
@@ -172,11 +173,11 @@ const EMPLOYEE_SECTIONS = [
   },
   {
     id: "my-leave",
-    title: "My Leave",
+    title: "My leave",
     keywords: "leave paid casual sick privilege PL earned comp off maternity paternity unified merged",
     body: (
       <>
-        <p>Since the <strong>Jul 2026 policy change</strong>, Casual/Sick/Earned (Privilege) Leave no longer exist as separate types — they're merged company-wide (every roster) into one unified pool:</p>
+        <p>Since the <strong>Jul 2026 policy change</strong>, Casual/Sick/Earned (Privilege) Leave no longer exist as separate types — they’re merged company-wide (every roster) into one unified pool:</p>
         <Table
           head={["Type", "Allocation", "Notes"]}
           rows={[
@@ -186,22 +187,22 @@ const EMPLOYEE_SECTIONS = [
             ["Comp-Off", "earned, not allocated — see below", "Everyone (corporate and retail/factory alike)"],
           ]}
         />
-        <p>Old Casual/Sick/Earned/Unpaid/Other requests from before the change still display correctly with their original labels — they simply aren't offered for new requests anymore (Unpaid and Other were retired too: unpaid days are now derived automatically from attendance/LOP instead of being requested).</p>
-        <p><strong>Comp-Off:</strong> earned by working a declared weekly-off or a "Store closed"/"Day Off" holiday — but it's not automatic; HR has to confirm it happened before it lands in your balance. It expires <strong>120 days</strong> after being earned, and a maximum of <strong>2 Comp-Off days</strong> can be clubbed at a time. They cannot be clubbed with weekly offs, public holidays or festival breaks, encashed or transferred.</p>
+        <p>Old Casual/Sick/Earned/Unpaid/Other requests from before the change still display correctly with their original labels — they simply aren’t offered for new requests anymore (Unpaid and Other were retired too: unpaid days are now derived automatically from attendance/<abbr className="acr">LOP</abbr> instead of being requested).</p>
+        <p><strong>Comp-Off:</strong> earned by working a declared weekly-off or a “Store closed”/“Day Off” holiday — but it’s not automatic; <abbr className="acr">HR</abbr> has to confirm it happened before it lands in your balance. It expires <strong>120 days</strong> after being earned, and a maximum of <strong>2 Comp-Off days</strong> can be clubbed at a time. They cannot be clubbed with weekly offs, public holidays or festival breaks, encashed or transferred.</p>
         <p><strong>Submitting a request:</strong> pick a type, start date, end date, an optional reason, Submit Request. It goes to your leave approver/manager. No self-service cancel/edit once submitted — ask your approver if you need to withdraw one. A Red Card month (see My Payslip below) blocks new Paid Leave and Comp-Off requests until it clears.</p>
-        <p>If you approve other people's leave (you're set as someone's leave approver or reporting manager), you'll also see <strong>My Team</strong> and a <strong>Team Leave</strong> view — both scoped to just your reports. See "For Reporting Managers" below.</p>
+        <p>If you approve other people’s leave (you’re set as someone’s leave approver or reporting manager), you’ll also see <strong>My team</strong> and a <strong>Team leave</strong> view — both scoped to just your reports. See “For Reporting Managers” below.</p>
       </>
     ),
   },
   {
     id: "my-payslip",
-    title: "My Payslip",
+    title: "My payslip",
     keywords: "payslip salary pay period overtime OT deductions PF ESIC PT LWF TDS late red card",
     body: (
       <>
-        <p>The pay period runs <strong>23rd of one month to the 22nd of the next</strong> — "July" covers June 23 – July 22.</p>
+        <p>The pay period runs <strong>23rd of one month to the 22nd of the next</strong> — “July” covers June 23 – July 22.</p>
         <p><strong>Attendance summary:</strong> Present / WeeklyOff / Holiday / LeaveAdj / Paid Days / Without Pay / Total Days.</p>
-        <p><strong>Earnings</strong> — Basic, HRA, Conveyance, Other Allowance, Monthly Bonus, Retention, Incentive, plus OT. Attendance-prorated (a Without Pay day reduces these); OT is calculated separately and always uses the full monthly rate:</p>
+        <p><strong>Earnings</strong> — Basic, HRA, Conveyance, Other Allowance, Monthly Bonus, Retention, Incentive, plus <abbr className="acr">OT</abbr>. Attendance-prorated (a Without Pay day reduces these); <abbr className="acr">OT</abbr> is calculated separately and always uses the full monthly rate:</p>
         <pre className="bg-manila/50 rounded-sm p-3 text-xs font-nums whitespace-pre-wrap">{`Total Salary    = Basic + HRA + Conveyance
 Per Day Salary  = Total Salary ÷ Days in the month
 Per Hour Salary = Per Day Salary ÷ Standard Hours per Day (default 8)
@@ -214,19 +215,19 @@ OT Amount       = Per Hour Salary × Total OT Hours worked that period`}</pre>
             ["ESIC", "0.75% of gross wages — only if gross is ≤ ₹21,000/month"],
             ["PT (Professional Tax)", "State-specific — e.g. Maharashtra ₹200/month (₹300 in Feb) above ₹7,500 gross; Delhi has no PT at all"],
             ["LWF", "Small state-specific amount, only deducted on the June and December payslips"],
-            ["TDS", "Projected annual income tax, divided across the financial year's remaining months"],
+            ["TDS", "Projected annual income tax, divided across the financial year’s remaining months"],
           ]}
         />
-        <p><strong>Late-coming, Yellow Card &amp; Red Card:</strong> the exact grace time, free-mark count, and LOP tiers have changed versions over time (there have been three revisions), so the specific numbers depend on which policy version currently applies to you. Whenever a late mark counts against you, your own Dashboard shows a live banner explaining exactly where you stand for the current cycle (e.g. "Yellow Card — 2 of 3 free late marks used") — that banner is always accurate for you; treat any older printed numbers as historical. A Red Card can also result in an <strong>Attendance Improvement Plan (AIP)</strong> — a stricter monitoring window shown as its own banner on your Dashboard.</p>
-        <p>Print / Save as PDF is available at the top of the payslip.</p>
+        <p><strong>Late-coming, Yellow Card &amp; Red Card:</strong> the exact grace time, free-mark count, and <abbr className="acr">LOP</abbr> tiers have changed versions over time (there have been three revisions), so the specific numbers depend on which policy version currently applies to you. Whenever a late mark counts against you, your own Dashboard shows a live banner explaining exactly where you stand for the current cycle (e.g. “Yellow Card — 2 of 3 free late marks used”) — that banner is always accurate for you; treat any older printed numbers as historical. A Red Card can also result in an <strong>Attendance Improvement Plan (AIP)</strong> — a stricter monitoring window shown as its own banner on your Dashboard.</p>
+        <p>Print / Save as <abbr className="acr">PDF</abbr> is available at the top of the payslip.</p>
       </>
     ),
   },
   {
     id: "tax-declaration",
-    title: "Tax Declaration",
+    title: "Tax declaration",
     keywords: "tax declaration 80c HRA exemption investment",
-    body: <p>Declare your planned tax-saving investments and exemptions for the financial year, so your TDS projection (see My Payslip) reflects them instead of assuming zero deductions.</p>,
+    body: <p>Declare your planned tax-saving investments and exemptions for the financial year, so your <abbr className="acr">TDS</abbr> projection (see My Payslip) reflects them instead of assuming zero deductions.</p>,
   },
   {
     id: "dashboard-requests",
@@ -234,14 +235,14 @@ OT Amount       = Per Hour Salary × Total OT Hours worked that period`}</pre>
     keywords: "how do i apply request leave absence wfh work from home loan advance dashboard button",
     body: (
       <>
-        <p>All four live as buttons right on your <strong>Dashboard</strong> (the "My Dashboard" tab), next to your leave balance:</p>
+        <p>All four live as buttons right on your <strong>Dashboard</strong> (the “My dashboard” tab), next to your leave balance:</p>
         <ul className="list-disc pl-5 space-y-1">
-          <li><strong>Request Leave</strong> — pick a type, start/end date, optional reason. See "My Leave" above for balances and rules.</li>
-          <li><strong>Report Work Absence</strong> — for reporting an absence separately from a formal leave request; can only be backdated within the <em>current</em> pay cycle (23rd–22nd), never into an already-closed cycle or a future date.</li>
-          <li><strong>Request WFH</strong> — start date, end date, reason.</li>
-          <li><strong>Request Loan</strong> — request an advance/loan; once approved it becomes a standing EMI that's deducted from your payslip automatically each period.</li>
+          <li><strong>Request leave</strong> — pick a type, start/end date, optional reason. See “My leave” above for balances and rules.</li>
+          <li><strong>Report work absence</strong> — for reporting an absence separately from a formal leave request; can only be backdated within the <em>current</em> pay cycle (23rd–22nd), never into an already-closed cycle or a future date.</li>
+          <li><strong>Request <abbr className="acr">WFH</abbr></strong> — start date, end date, reason.</li>
+          <li><strong>Request loan</strong> — request an advance/loan; once approved it becomes a standing EMI that’s deducted from your payslip automatically each period.</li>
         </ul>
-        <p>Each shows up as its own list further down your Dashboard (e.g. "My work absence requests") with a Pending/Approved/Rejected status — see "Status colors, everywhere" above.</p>
+        <p>Each shows up as its own list further down your Dashboard (e.g. “My work absence requests”) with a Pending/Approved/Rejected status — see “Status colors, everywhere” above.</p>
       </>
     ),
   },
@@ -251,10 +252,10 @@ OT Amount       = Per Hour Salary × Total OT Hours worked that period`}</pre>
     keywords: "dispute missed punch clock in out forgot attendance correction",
     body: (
       <p>
-        On your Dashboard's attendance calendar, a day with a missed punch is marked so you can click it and open a
+        On your Dashboard’s attendance calendar, a day with a missed punch is marked so you can click it and open a
         dispute — choose whether you forgot to clock in, clock out, or both, enter what the actual time should have
         been, an explanation, and optionally attach a photo/note. It goes to whoever handles Disputes for your
-        location; once resolved you'll see it reflected on that day's attendance and (if approved) it stops counting
+        location; once resolved you’ll see it reflected on that day’s attendance and (if approved) it stops counting
         against you.
       </p>
     ),
@@ -265,9 +266,9 @@ OT Amount       = Per Hour Salary × Total OT Hours worked that period`}</pre>
     keywords: "selfie photo clock in out camera checkin",
     body: (
       <p>
-        Only shown if your profile has this turned on (for people who don't clock in on a biometric device). A card
+        Only shown if your profile has this turned on (for people who don’t clock in on a biometric device). A card
         at the top of your Dashboard lets you take a photo right in the browser to clock in/out — it records the
-        time of the photo as your punch. Ask HR if you think this should (or shouldn't) apply to you.
+        time of the photo as your punch. Ask HR if you think this should (or shouldn’t) apply to you.
       </p>
     ),
   },
@@ -278,18 +279,18 @@ OT Amount       = Per Hour Salary × Total OT Hours worked that period`}</pre>
     body: (
       <p>
         Only shown if your role does field/market visits. A card on your Dashboard lets you check in with a photo
-        plus your device's location — it goes to whoever reviews Market Visits for approval. If you approve other
-        people's market visits, you'll also see a <strong>Team Market Visits</strong> tab.
+        plus your device’s location — it goes to whoever reviews Market Visits for approval. If you approve other
+        people’s market visits, you’ll also see a <strong>Team market visits</strong> tab.
       </p>
     ),
   },
   {
     id: "company-policy-employee",
-    title: "Company Policy",
+    title: "Company policy",
     keywords: "policy acknowledge quiz read",
     body: (
       <p>
-        The company policy document. You're required to read and acknowledge it (and may need to pass a short
+        The company policy document. You’re required to read and acknowledge it (and may need to pass a short
         comprehension quiz) — this gate reappears whenever HR publishes a new policy version, not just once at
         joining.
       </p>
@@ -306,13 +307,13 @@ OT Amount       = Per Hour Salary × Total OT Hours worked that period`}</pre>
 const MANAGER_SECTIONS = [
   {
     id: "my-team",
-    title: "My Team",
+    title: "My team",
     keywords: "reporting manager team members roster direct reports who reports to me",
     body: (
       <p>
         A simple roster of exactly the people who report to you — name, designation, department, location, and
-        active/inactive status. Nothing else: no salary, no attendance, no documents. It's scoped strictly to your
-        own direct reports (whether that's via being set as their leave approver or their reporting manager) —
+        active/inactive status. Nothing else: no salary, no attendance, no documents. It’s scoped strictly to your
+        own direct reports (whether that’s via being set as their leave approver or their reporting manager) —
         never the wider company directory, even if you also happen to have an HR/Accounts login elsewhere. If this
         looks empty, nobody currently lists you as their approver or reporting manager; ask HR to set that on their
         Employees record.
@@ -321,13 +322,13 @@ const MANAGER_SECTIONS = [
   },
   {
     id: "team-leave-manager",
-    title: "Team Leave",
+    title: "Team leave",
     keywords: "approver manager team leave requests approve reject",
     body: (
       <p>
         The leave requests from your direct reports specifically, tabbed Pending / Approved / Rejected — approve or
-        reject with an optional note. This is different from the admin console's "Leave" page (if you also have
-        that), which shows every leave request company-wide, not just your team's.
+        reject with an optional note. This is different from the admin console’s "Leave" page (if you also have
+        that), which shows every leave request company-wide, not just your team’s.
       </p>
     ),
   },
@@ -339,7 +340,7 @@ const MANAGER_SECTIONS = [
   },
   {
     id: "team-market-visits-manager",
-    title: "Team Market Visits",
+    title: "Team market visits",
     keywords: "approver manager team market visit field checkin",
     body: <p>Field/market-visit check-ins from your direct reports, awaiting review — location, time, and notes for each visit.</p>,
   },
@@ -356,11 +357,11 @@ const ADMIN_SECTIONS = [
       <>
         <p>The full staff directory — search/browse everyone, active or exited.</p>
         <ul className="list-disc pl-5 space-y-1">
-          <li>Open a record to see/edit basic info, designation, department, location, salary components, compliance details (PF/ESIC/PT/LWF applicability, PAN/UAN/Aadhar/bank details), personal info, and key dates (Date of Joining, Exit Date, Scheduled Exit Date, gratuity service-start date).</li>
+          <li>Open a record to see/edit basic info, designation, department, location, salary components, compliance details (<abbr className="acr">PF</abbr>/<abbr className="acr">ESIC</abbr>/<abbr className="acr">PT</abbr>/<abbr className="acr">LWF</abbr> applicability, <abbr className="acr">PAN</abbr>/<abbr className="acr">UAN</abbr>/Aadhar/bank details), personal info, and key dates (Date of Joining, Exit Date, Scheduled Exit Date, gratuity service-start date).</li>
           <li>Add a new employee directly (separate from the onboarding-form flow below), reset a password, or unlock a login.</li>
-          <li>View Salary Structure history (versioned CTC snapshots over time).</li>
-          <li>Turn on <strong>selfie check-in</strong> for someone without biometric device access, or <strong>market-visit check-in</strong> for field/retail-visit roles — both then show up as cards on that employee's own Dashboard.</li>
-          <li>Change someone's <strong>Console Role</strong> (Employee / HR / Accounts) — gated separately by <code className="bg-manila/50 px-1 rounded-sm">roles.manage</code>, not <code className="bg-manila/50 px-1 rounded-sm">employees.manage</code>, so an HR login that can edit employee records doesn't automatically get to mint new HR/Accounts logins. Accounts always has this; see Team Access below for granting/revoking it.</li>
+          <li>View Salary Structure history (versioned <abbr className="acr">CTC</abbr> snapshots over time).</li>
+          <li>Turn on <strong>selfie check-in</strong> for someone without biometric device access, or <strong>market-visit check-in</strong> for field/retail-visit roles — both then show up as cards on that employee’s own Dashboard.</li>
+          <li>Change someone’s <strong>Console role</strong> (Employee / <abbr className="acr">HR</abbr> / Accounts) — gated separately by <code className="bg-manila/50 px-1 rounded-sm">roles.manage</code>, not <code className="bg-manila/50 px-1 rounded-sm">employees.manage</code>, so an <abbr className="acr">HR</abbr> login that can edit employee records doesn’t automatically get to mint new <abbr className="acr">HR</abbr>/Accounts logins. Accounts always has this; see Team Access below for granting/revoking it.</li>
         </ul>
         <p>Exit Date / Scheduled Exit Date set here is what makes exit-related figures (final settlement, gratuity) calculate correctly for that person.</p>
       </>
@@ -374,11 +375,11 @@ const ADMIN_SECTIONS = [
     body: (
       <>
         <p>Where submissions from the public <code className="bg-manila/50 px-1 rounded-sm">/onboarding/new</code> form land, tabbed Pending / Approved / Rejected. Open one to see everything the joinee submitted, including compensation figures and bank details if you also have <code className="bg-manila/50 px-1 rounded-sm">salary.view</code>.</p>
-        <p><strong>Most submissions now resolve themselves</strong> — the nightly roster sync matches a newly-assigned biometric employee code back to the right pending submission by name and fills in the employee record automatically (see "New joinee onboarding" under Getting Started). You'll mainly need to act here when:</p>
+        <p><strong>Most submissions now resolve themselves</strong> — the nightly roster sync matches a newly-assigned biometric employee code back to the right pending submission by name and fills in the employee record automatically (see “New joinee onboarding” under Getting Started). You’ll mainly need to act here when:</p>
         <ul className="list-disc pl-5 space-y-1">
-          <li>The automatic match couldn't uniquely identify who's who (e.g. duplicate-looking names) — resolve it manually with the correct Employee Code, Initial Password, and Employee Category (Factory/Retail vs. Corporate).</li>
-          <li>A submission should be rejected outright (didn't actually join, duplicate submission, etc.).</li>
-          <li>Someone needs their record created before any biometric device involvement at all — you can still enter an Employee Code manually the same way; if that code doesn't exist yet, it creates a brand-new employee record, and if it already exists (e.g. from a first punch), it attaches these details onto that existing record instead.</li>
+          <li>The automatic match couldn’t uniquely identify who’s who (e.g. duplicate-looking names) — resolve it manually with the correct Employee Code, Initial Password, and Employee Category (Factory/Retail vs. Corporate).</li>
+          <li>A submission should be rejected outright (didn’t actually join, duplicate submission, etc.).</li>
+          <li>Someone needs their record created before any biometric device involvement at all — you can still enter an Employee Code manually the same way; if that code doesn’t exist yet, it creates a brand-new employee record, and if it already exists (e.g. from a first punch), it attaches these details onto that existing record instead.</li>
         </ul>
       </>
     ),
@@ -402,28 +403,28 @@ const ADMIN_SECTIONS = [
     title: "Confirmations",
     tag: "employees.manage",
     keywords: "probation confirm due date",
-    body: <p>Tracks who's due for confirmation after probation, who has no probation date set at all, and who's already confirmed — so nobody's confirmation date is missed.</p>,
+    body: <p>Tracks who’s due for confirmation after probation, who has no probation date set at all, and who’s already confirmed — so nobody’s confirmation date is missed.</p>,
   },
   {
     id: "exit-procedure",
-    title: "Exit Procedure",
+    title: "Exit procedure",
     tag: "exit.manage",
     keywords: "resignation offboarding checklist final settlement",
     body: <p>The full offboarding checklist for an exiting employee — sign-offs from each relevant department, notes, and status — feeding into final settlement and gratuity calculations (which rely on the Exit Date / Scheduled Exit Date set on their Employees record).</p>,
   },
   {
     id: "leave-admin",
-    title: "Leave (managing the team's requests)",
+    title: "Leave (managing the team’s requests)",
     tag: "leave.manage",
     keywords: "approve reject leave requests all employees",
-    body: <p>Every leave request across the whole roster awaiting a decision — not just people reporting to you. Approve or reject with an optional note. Approving a Comp-Off request deducts it from that person's ledger (blocked if their balance no longer covers it).</p>,
+    body: <p>Every leave request across the whole roster awaiting a decision — not just people reporting to you. Approve or reject with an optional note. Approving a Comp-Off request deducts it from that person’s ledger (blocked if their balance no longer covers it).</p>,
   },
   {
     id: "leave-entry",
-    title: "Leave Entry",
+    title: "Leave entry",
     tag: "leave.manage",
     keywords: "manual leave record backdate",
-    body: <p>Record leave on someone's behalf when it didn't come through their own leave request — same types and rules as My Leave apply.</p>,
+    body: <p>Record leave on someone’s behalf when it didn’t come through their own leave request — same types and rules as My Leave apply.</p>,
   },
   {
     id: "wfh-requests",
@@ -451,17 +452,17 @@ const ADMIN_SECTIONS = [
     title: "AIP (Attendance Improvement Plan)",
     tag: "leave.manage",
     keywords: "attendance monitoring plan warning",
-    body: <p>Tracks employees placed on an attendance monitoring period — Active, Passed, or Failed — with the plan's end date and outcome. Under the newest late-mark policy, a Red Card (7 Yellow Cards in a cycle) places someone on an AIP automatically; while it's active, only one late arrival is tolerated for its entire length before it's marked Failed. The employee sees their own AIP status as a banner on their Dashboard.</p>,
+    body: <p>Tracks employees placed on an attendance monitoring period — Active, Passed, or Failed — with the plan’s end date and outcome. Under the newest late-mark policy, a Red Card (7 Yellow Cards in a cycle) places someone on an AIP automatically; while it’s active, only one late arrival is tolerated for its entire length before it’s marked Failed. The employee sees their own AIP status as a banner on their Dashboard.</p>,
   },
   {
     id: "leave-policy",
-    title: "Leave Policy",
+    title: "Leave policy",
     tag: "employees.manage or policy.manage",
     keywords: "holiday calendar comp off birthdays store closed late marks quarter red card store timings time slots",
     body: (
       <>
         <p>Five tabs:</p>
-        <p><strong>Holiday Calendar</strong> — company holidays, which can vary per store. Each entry has a Type:</p>
+        <p><strong>Holiday calendar</strong> — company holidays, which can vary per store. Each entry has a Type:</p>
         <Table
           head={["Type", "Effect"]}
           rows={[
@@ -475,8 +476,8 @@ const ADMIN_SECTIONS = [
         />
         <p>Only Store closed and Day Off count toward Comp-Off if worked (corporate roster only).</p>
         <p><strong>Comp-Off</strong> — same as the standalone Comp-Off page above.</p>
-        <p><strong>Late Marks</strong> — the Quarter Red Card mechanism (a Red Card in every month of a financial-year quarter ⇒ a Final Warning letter plus automatic forfeiture of 2 Paid Leave days). This was superseded from the pay cycle beginning 23 Aug 2026 by the newer Yellow/Red Card ⇒ AIP system (see the AIP section below) — this tab now mainly shows historical quarters that finished under the older mechanism, plus any quarter still straddling the change-over date. The banner at the top of this tab always states which policy is currently in force.</p>
-        <p><strong>Store Timings</strong> — two related lists: <strong>Time slots</strong> (the shift-start options selectable on an employee's Details page, and what payroll grades lateness against — adding one here takes effect immediately, no deploy needed) and <strong>Store timings</strong> (per-store opening/trading/closing hours and a default time slot for new starters at that store, which also feeds the "Retail store timings" shown on the employee-facing policy page).</p>
+        <p><strong>Late marks</strong> — the Quarter Red Card mechanism (a Red Card in every month of a financial-year quarter ⇒ a Final Warning letter plus automatic forfeiture of 2 Paid Leave days). This was superseded from the pay cycle beginning 23 Aug 2026 by the newer Yellow/Red Card ⇒ AIP system (see the AIP section below) — this tab now mainly shows historical quarters that finished under the older mechanism, plus any quarter still straddling the change-over date. The banner at the top of this tab always states which policy is currently in force.</p>
+        <p><strong>Store timings</strong> — two related lists: <strong>Time slots</strong> (the shift-start options selectable on an employee’s Details page, and what payroll grades lateness against — adding one here takes effect immediately, no deploy needed) and <strong>Store timings</strong> (per-store opening/trading/closing hours and a default time slot for new starters at that store, which also feeds the “Retail store timings” shown on the employee-facing policy page).</p>
         <p><strong>Birthdays</strong> — upcoming birthdays for the HQ team, soonest first, with a quick way to add/correct a date of birth.</p>
       </>
     ),
@@ -486,14 +487,14 @@ const ADMIN_SECTIONS = [
     title: "Payroll & OT",
     tag: "payroll.view",
     keywords: "payroll overtime salary run process",
-    body: <p>Company-wide payroll figures and overtime calculations for a given pay period — the source data behind every employee's individual payslip.</p>,
+    body: <p>Company-wide payroll figures and overtime calculations for a given pay period — the source data behind every employee’s individual payslip.</p>,
   },
   {
     id: "payslip-approvals",
-    title: "Payslip Approvals",
+    title: "Payslip approvals",
     tag: "payslip_approvals.manage",
     keywords: "approve payslip sign off",
-    body: <p>Payslips submitted for sign-off (mainly HR's own — see My Payslip) awaiting a decision, tabbed Pending / Approved / Rejected.</p>,
+    body: <p>Payslips submitted for sign-off (mainly <abbr className="acr">HR</abbr>’s own — see My Payslip) awaiting a decision, tabbed Pending / Approved / Rejected.</p>,
   },
   {
     id: "reports",
@@ -511,7 +512,7 @@ const ADMIN_SECTIONS = [
   },
   {
     id: "loans",
-    title: "Loan Requests",
+    title: "Loan requests",
     tag: "loans.manage",
     keywords: "employee loan advance EMI",
     body: <p>Employee-requested loans/advances awaiting approval, and the standing EMI schedule once approved (which then feeds payroll deductions).</p>,
@@ -525,10 +526,10 @@ const ADMIN_SECTIONS = [
       <>
         <p>Issue employee letters on JADE letterhead: offers (employment and internship), confirmation, the probation review form, warnings, termination, and relieving.</p>
         <ol className="list-decimal pl-5 space-y-1">
-          <li>Click <strong>Generate</strong> on a letter type and pick the employee. Their name, code, designation, department, joining date, email and address fill in automatically. For a candidate who isn't in the system yet, choose <strong>New / not in system</strong> and type their details.</li>
+          <li>Click <strong>Generate</strong> on a letter type and pick the employee. Their name, code, designation, department, joining date, email and address fill in automatically. For a candidate who isn’t in the system yet, choose <strong>New / not in system</strong> and type their details.</li>
           <li>Fill in the rest. Anything still blank is highlighted in the live preview on the right. Fields like KRAs or termination reasons take one item per line and become a numbered or bulleted list.</li>
           <li>Click <strong>Issue letter</strong>. It is saved under <strong>Issued letters</strong> at the bottom of the Letters page.</li>
-          <li>From the issued letter you can <strong>Print</strong>, <strong>Download PDF</strong>, or <strong>Email this letter</strong>. The email goes from Tina at JADE HR with the PDF attached and team.hr@ in CC; replies come back to team.hr@.</li>
+          <li>From the issued letter you can <strong>Print</strong>, <strong>Download <abbr className="acr">PDF</abbr></strong>, or <strong>Email this letter</strong>. The email goes from Tina at JADE <abbr className="acr">HR</abbr> with the <abbr className="acr">PDF</abbr> attached and team.hr@ in CC; replies come back to team.hr@.</li>
         </ol>
         <p>Offer letters include a sign-and-return acceptance slip; warnings include an acknowledgement of receipt. Final Warning letters (Quarter Red Card) are issued automatically by the late-arrival policy run and show up under Issued letters, ready to email.</p>
         <p><code className="bg-manila/50 px-1 rounded-sm">letters.manage</code> additionally lets you create/edit the templates; <code className="bg-manila/50 px-1 rounded-sm">letters.generate</code> alone just lets you produce letters from existing ones.</p>
@@ -537,19 +538,19 @@ const ADMIN_SECTIONS = [
   },
   {
     id: "email-log",
-    title: "Email Log",
+    title: "Email log",
     tag: "email_log.view",
     keywords: "email not received mail tina resend delivered bounced spam test notification digest",
     body: (
       <>
-        <p>Every email the console sends as <strong>Tina at JADE HR</strong> (leave requests and decisions, late-arrival digests, new joiner, onboarding, loans, salary hold, exit, letters) is listed here with its status:</p>
+        <p>Every email the console sends as <strong>Tina at JADE <abbr className="acr">HR</abbr></strong> (leave requests and decisions, late-arrival digests, new joiner, onboarding, loans, salary hold, exit, letters) is listed here with its status:</p>
         <ul className="list-disc pl-5 space-y-1">
           <li><strong>Sent</strong>: accepted for delivery. Click <strong>Check</strong> to see whether it was actually delivered, bounced, or marked as spam.</li>
           <li><strong>Skipped</strong>: there was nobody to send it to, most often because the employee has no email on their record. Add the email on their Employees profile.</li>
           <li><strong>Failed</strong>: the send was rejected; the reason is shown underneath.</li>
         </ul>
-        <p>If someone says they never got an email, search their address here first. Use <strong>Send a test email</strong> to confirm an inbox receives HR mail, and ask them to check Spam. The page also shows who receives HR notifications, and how many active staff have no email or no leave approver on file.</p>
-        <p>The daily late-arrival digest goes to HR and to each late person's reporting manager (managers only see their own reportees), not to the late employees themselves.</p>
+        <p>If someone says they never got an email, search their address here first. Use <strong>Send a test email</strong> to confirm an inbox receives <abbr className="acr">HR</abbr> mail, and ask them to check Spam. The page also shows who receives <abbr className="acr">HR</abbr> notifications, and how many active staff have no email or no leave approver on file.</p>
+        <p>The daily late-arrival digest goes to <abbr className="acr">HR</abbr> and to each late person’s reporting manager (managers only see their own reportees), not to the late employees themselves.</p>
       </>
     ),
   },
@@ -558,11 +559,11 @@ const ADMIN_SECTIONS = [
     title: "Disputes",
     tag: "disputes.manage",
     keywords: "missed punch clock in out attendance correction",
-    body: <p>Where employees' reported missed-punch issues land — they report a day where clock-in or clock-out didn't register, with what they claim the actual time was and why. For each pending one: confirm/adjust the actual times and Approve (corrects their attendance for that day) or Reject with a note. Filter by store location if you only handle certain stores.</p>,
+    body: <p>Where employees' reported missed-punch issues land — they report a day where clock-in or clock-out didn’t register, with what they claim the actual time was and why. For each pending one: confirm/adjust the actual times and Approve (corrects their attendance for that day) or Reject with a note. Filter by store location if you only handle certain stores.</p>,
   },
   {
     id: "company-policy-admin",
-    title: "Company Policy",
+    title: "Company policy",
     keywords: "policy document view",
     body: <p>The company policy document, viewable by every console login regardless of permissions.</p>,
   },
@@ -573,8 +574,8 @@ const ADMIN_SECTIONS = [
     keywords: "acknowledgement quiz score register who has read team pulse activity last login last seen logged in device",
     body: (
       <>
-        <p><strong>Sign-off register</strong>: who has and hasn't acknowledged the current policy version, with their quiz score if applicable. Bumping the policy version re-prompts everyone to read and acknowledge it again.</p>
-        <p><strong>Team Pulse</strong>: who has been signing in to JADE HR. For each person it shows when they were last active, their last login and the device used (phone or desktop), a strip of the last 14 days with active days filled in, and how many times they logged in. Click a tile (Active today, This week, Quiet 7+ days, No login recorded) to filter, and export to CSV. Sign-ins are recorded from 1 October 2026; before that, a person's policy sign-off time is shown as their last known activity.</p>
+        <p><strong>Sign-off register</strong>: who has and hasn’t acknowledged the current policy version, with their quiz score if applicable. Bumping the policy version re-prompts everyone to read and acknowledge it again.</p>
+        <p><strong>Team pulse</strong>: who has been signing in to JADE <abbr className="acr">HR</abbr>. For each person it shows when they were last active, their last login and the device used (phone or desktop), a strip of the last 14 days with active days filled in, and how many times they logged in. Click a tile (Active today, This week, Quiet 7+ days, No login recorded) to filter, and export to CSV. Sign-ins are recorded from 1 October 2026; before that, a person’s policy sign-off time is shown as their last known activity.</p>
       </>
     ),
   },
@@ -583,40 +584,40 @@ const ADMIN_SECTIONS = [
     title: "HR Tasks",
     tag: "HR-team only",
     keywords: "internal task list assign priority",
-    body: <p>An internal task tracker for the HR team specifically — Accounts logins don't see this (except the shared "jadehr" account, which is treated as HR for this one feature). Create, assign, and prioritize tasks, with a reporting view.</p>,
+    body: <p>An internal task tracker for the <abbr className="acr">HR</abbr> team specifically — Accounts logins don’t see this (except the shared “jadehr” account, which is treated as <abbr className="acr">HR</abbr> for this one feature). Create, assign, and prioritize tasks, with a reporting view.</p>,
   },
   {
     id: "my-leave-payslip-admin",
     title: "My Leave / My Payslip (your own)",
     keywords: "personal own leave payslip hr accounts",
-    body: <p>Same as the employee-facing My Leave / My Payslip pages — your own leave balance and requests, and your own payslip (which also needs its own sign-off before it's final).</p>,
+    body: <p>Same as the employee-facing My Leave / My Payslip pages — your own leave balance and requests, and your own payslip (which also needs its own sign-off before it’s final).</p>,
   },
   {
     id: "my-team-admin",
-    title: "My Team / Team Leave / Team WFH / Team Market Visits (if you're someone's approver)",
+    title: "My Team / Team Leave / Team WFH / Team Market Visits (if you’re someone’s approver)",
     keywords: "reporting manager team members roster direct reports approver hr accounts",
     body: (
       <p>
-        Only shown if you're set as someone's Leave Approver or Reporting To on their Employees record — the
-        picker there doesn't restrict by role, so an HR or Accounts login can be assigned this the same as any
-        employee. These are the exact same pages described under "For Reporting Managers" — your own team's
+        Only shown if you’re set as someone’s Leave Approver or Reporting To on their Employees record — the
+        picker there doesn’t restrict by role, so an HR or Accounts login can be assigned this the same as any
+        employee. These are the exact same pages described under "For Reporting Managers" — your own team’s
         roster, and their leave/WFH/market-visit requests awaiting your decision — just reachable here in the
-        admin console instead of the employee console, since an HR/Accounts login doesn't have access to
+        admin console instead of the employee console, since an HR/Accounts login doesn’t have access to
         <code className="bg-manila/50 px-1 rounded-sm">/employee/*</code>.
       </p>
     ),
   },
   {
     id: "team-access",
-    title: "Team Access",
+    title: "Team access",
     tag: "permissions.manage or roles.manage",
     keywords: "permissions grant hr role console access roles manage assign",
     body: (
       <>
-        <p>Controls which permissions each HR-role login has (Accounts logins always have full access and aren't configured here). Reachable two ways:</p>
+        <p>Controls which permissions each <abbr className="acr">HR</abbr>-role login has (Accounts logins always have full access and aren’t configured here). Reachable two ways:</p>
         <ul className="list-disc pl-5 space-y-1">
-          <li><code className="bg-manila/50 px-1 rounded-sm">permissions.manage</code> — full access. Set the HR-role-wide default for any permission (applies to anyone without an individual override), and grant/deny any specific permission for any specific person.</li>
-          <li><code className="bg-manila/50 px-1 rounded-sm">roles.manage</code> only (no <code className="bg-manila/50 px-1 rounded-sm">permissions.manage</code>) — a narrower version of this same page: you can only grant/revoke the <code className="bg-manila/50 px-1 rounded-sm">roles.manage</code> override itself, for other HR logins. Lets HR manage who else on the team can assign console roles, without opening up every other permission (salary visibility, payroll, etc).</li>
+          <li><code className="bg-manila/50 px-1 rounded-sm">permissions.manage</code> — full access. Set the <abbr className="acr">HR</abbr>-role-wide default for any permission (applies to anyone without an individual override), and grant/deny any specific permission for any specific person.</li>
+          <li><code className="bg-manila/50 px-1 rounded-sm">roles.manage</code> only (no <code className="bg-manila/50 px-1 rounded-sm">permissions.manage</code>) — a narrower version of this same page: you can only grant/revoke the <code className="bg-manila/50 px-1 rounded-sm">roles.manage</code> override itself, for other <abbr className="acr">HR</abbr> logins. Lets <abbr className="acr">HR</abbr> manage who else on the team can assign console roles, without opening up every other permission (salary visibility, payroll, etc).</li>
         </ul>
       </>
     ),
@@ -641,7 +642,7 @@ function WalkthroughVideo() {
       .catch((err) => setError(err.response?.data?.detail || "The walkthrough video could not be loaded."));
   }, []);
   if (error) {
-    return <div className="w-full aspect-[8/5] bg-ledger-800 text-manila/80 text-sm flex items-center justify-center p-6 text-center">{error}</div>;
+    return <div className="w-full aspect-[8/5] bg-ledger-800 text-on-jade/80 text-sm flex items-center justify-center p-6 text-center">{error}</div>;
   }
   return (
     <video
@@ -652,7 +653,7 @@ function WalkthroughVideo() {
       poster="/help/walkthrough-poster.jpg"
       src={src || undefined}
       className="w-full aspect-[8/5] bg-ledger-800"
-      onError={() => src && setError("The video didn't load. Refresh the page to get a fresh link.")}
+      onError={() => src && setError("The video didn’t load. Refresh the page to get a fresh link.")}
     />
   );
 }
@@ -710,7 +711,7 @@ export default function Help({ scope }) {
         <div className="bg-paper rounded-sm shadow-card overflow-hidden mb-6">
           <WalkthroughVideo />
           <div className="px-5 py-3.5 flex flex-wrap items-baseline justify-between gap-2">
-            <p className="font-display text-base text-ink">Video walkthrough of the HR console</p>
+            <p className="font-display text-base text-ink">Video walkthrough of the <abbr className="acr">HR</abbr> console</p>
             <p className="text-xs text-ink/60">3 min, with narration · Dashboard, Employees, Leave, Reports, Letters, Email Log, Help</p>
           </div>
         </div>
@@ -719,6 +720,7 @@ export default function Help({ scope }) {
       <div className="relative mb-6">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
         <input
+          aria-label="Search help topics"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search help topics — e.g. “red card”, “onboarding”, “comp-off”…"
@@ -727,13 +729,15 @@ export default function Help({ scope }) {
       </div>
 
       {filtered.length === 0 && (
-        <p className="text-sm text-ink/60">No help topics match “{query}”.</p>
+        <EmptyState title={`No help topics match "${query}"`} action={{ label: "Clear search", onClick: () => setQuery("") }}>
+          Try a shorter word, or clear the search to browse every topic.
+        </EmptyState>
       )}
 
       <div className="space-y-8">
         {filtered.map((g) => (
           <div key={g.group}>
-            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-ink/50 mb-2.5">{g.group}</h3>
+            <h3 className="text-[11px] font-semibold text-ink/50 mb-2.5">{g.group}</h3>
             <div className="space-y-2.5">
               {g.items.map((item) => (
                 <Topic

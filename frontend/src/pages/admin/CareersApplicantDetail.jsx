@@ -1,3 +1,4 @@
+import MidTruncate from "../../components/MidTruncate.jsx";
 import { Check, FileText, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -17,7 +18,7 @@ function Field({ label, value }) {
   if (!value) return null;
   return (
     <div>
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/50">{label}</p>
+      <p className="text-[11px] font-semibold text-ink/50">{label}</p>
       <p className="text-sm text-ink mt-0.5">{value}</p>
     </div>
   );
@@ -59,40 +60,44 @@ export default function CareersApplicantDetail() {
       <button onClick={() => navigate(-1)} className="text-xs text-ink/60 hover:text-ink mb-4">&larr; Back</button>
       <div className="mb-6 flex items-start justify-between">
         <div>
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-baseline gap-2.5">
             <h2 className="font-display text-2xl text-ink">{a.full_name}</h2>
             <StampBadge status={a.status?.toLowerCase()}>{a.status}</StampBadge>
           </div>
           <p className="text-sm text-ink/70 mt-0.5">Applied for {job?.title}</p>
         </div>
-        <select
-          value={a.status}
-          disabled={saving}
-          onChange={(e) => setStatus(e.target.value)}
-          className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-jade-500"
-        >
-          {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
+        <div>
+          <label htmlFor="applicant_status" className="block text-[11px] font-semibold text-ink/60 mb-1">Status</label>
+          <select
+            id="applicant_status"
+            value={a.status}
+            disabled={saving}
+            onChange={(e) => setStatus(e.target.value)}
+            className="rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-jade-500"
+          >
+            {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
       </div>
 
       {(a.status === "Offered" || a.status === "Hired") && can("letters.generate") && (
-        <div className="mb-5 bg-paper rounded-sm shadow-card px-4 py-3 text-sm text-ink flex items-center justify-between gap-3 flex-wrap">
-          <span><strong>Offer letter:</strong> create it in Letters with this candidate's name, role, department and email already filled in. You add the pay and joining details, then send it for approval as usual.</span>
-          <Link to={`/admin/letters?type=${job?.employment_type === "Internship" ? "offer_internship" : "offer_employment"}&candidate=${a.id}`} className="px-3 py-1.5 rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 whitespace-nowrap">Create offer letter</Link>
+        <div className="mb-5 bg-paper rounded-sm shadow-card px-4 py-3 text-sm text-ink flex items-center justify-between gap-4 flex-wrap">
+          <span><strong>Offer letter:</strong> create it in Letters with this candidate’s name, role, department and email already filled in. You add the pay and joining details, then send it for approval as usual.</span>
+          <Link to={`/admin/letters?type=${job?.employment_type === "Internship" ? "offer_internship" : "offer_employment"}&candidate=${a.id}`} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-on-jade hover:bg-jade-700 whitespace-nowrap">Create offer letter</Link>
         </div>
       )}
 
       {suggestion && (
-        <div className="mb-5 border border-jade-500/40 bg-jade-500/10 rounded-sm px-4 py-3 text-sm text-ink flex items-center justify-between gap-3 flex-wrap">
+        <div className="mb-5 border border-jade-500/40 bg-jade-500/10 rounded-sm px-4 py-3 text-sm text-ink flex items-center justify-between gap-4 flex-wrap">
           <span><strong>Suggested next step:</strong> move to {suggestion.to} <span className="text-ink/60">({suggestion.why})</span>. A draft email is prepared for you to review; nothing is sent automatically.</span>
-          <button type="button" disabled={saving} onClick={() => setStatus(suggestion.to)} className="px-3 py-1.5 rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40">Move to {suggestion.to}</button>
+          <button type="button" disabled={saving} onClick={() => setStatus(suggestion.to)} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-on-jade hover:bg-jade-700 disabled:opacity-40">Move to {suggestion.to}</button>
         </div>
       )}
 
       {a.screen_verdict && (
         <div className="bg-paper rounded-sm shadow-card p-6 mb-5">
           <div className="flex items-center gap-2.5 mb-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/50">Auto-Screening</p>
+            <p className="text-[11px] font-semibold text-ink/50">Auto-Screening</p>
             <StampBadge status={a.screen_verdict}>{VERDICT_LABEL[a.screen_verdict] || a.screen_verdict}</StampBadge>
           </div>
           <p className="text-sm text-ink">{a.screen_reasons}</p>
@@ -101,25 +106,25 @@ export default function CareersApplicantDetail() {
               type="button"
               disabled={saving}
               onClick={() => setStatus("New")}
-              className="mt-3 px-3 py-1.5 rounded-sm text-xs font-semibold border border-ink/20 text-ink hover:bg-manila/40 disabled:opacity-50"
+              className="mt-3 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold border border-ink/20 text-ink hover:bg-manila/40 disabled:opacity-50"
             >
-              Restore to New
+              Restore to New status
             </button>
           )}
         </div>
       )}
 
       <div className="bg-paper rounded-sm shadow-card p-6 mb-5">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/50 mb-1">Interview Decision</p>
+        <p className="text-[11px] font-semibold text-ink/50 mb-1">Interview decision</p>
         <p className="text-xs text-ink/55 mb-4">Accept to move the candidate to Offered, or reject to close out the application.</p>
-        <div className="flex gap-3">
+        <div className="flex gap-4">
           <button
             type="button"
             disabled={saving}
             onClick={() => setStatus("Offered")}
-            className={`flex items-center gap-1.5 px-4 py-2.5 rounded-sm text-sm font-semibold border transition-colors disabled:opacity-50 ${
+            className={`flex items-center gap-1.5 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold border transition-colors disabled:opacity-50 ${
               isAccepted
-                ? "bg-jade-600 border-jade-600 text-white"
+                ? "bg-jade-600 border-jade-600 text-on-jade"
                 : "bg-paper border-jade-500/40 text-jade-700 hover:bg-jade-500/10"
             }`}
           >
@@ -129,9 +134,9 @@ export default function CareersApplicantDetail() {
             type="button"
             disabled={saving}
             onClick={() => setStatus("Rejected")}
-            className={`flex items-center gap-1.5 px-4 py-2.5 rounded-sm text-sm font-semibold border transition-colors disabled:opacity-50 ${
+            className={`ml-auto flex items-center gap-1.5 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold border transition-colors disabled:opacity-50 ${
               isRejected
-                ? "bg-rust-500 border-rust-500 text-white"
+                ? "bg-rust-500 border-rust-500 text-on-rust"
                 : "bg-paper border-rust-500/40 text-rust-500 hover:bg-rust-50"
             }`}
           >
@@ -157,19 +162,19 @@ export default function CareersApplicantDetail() {
         <Field label="Assignment Deadline" value={a.assignment_deadline_at ? formatFullDate(a.assignment_deadline_at) : null} />
         {a.linkedin_url && (
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/50">LinkedIn</p>
+            <p className="text-[11px] font-semibold text-ink/50">LinkedIn</p>
             <a href={a.linkedin_url} target="_blank" rel="noreferrer" className="text-sm text-jade-600 underline">{a.linkedin_url}</a>
           </div>
         )}
         {a.portfolio_url && (
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/50">Portfolio</p>
+            <p className="text-[11px] font-semibold text-ink/50">Portfolio</p>
             <a href={a.portfolio_url} target="_blank" rel="noreferrer" className="text-sm text-jade-600 underline">{a.portfolio_url}</a>
           </div>
         )}
         {a.portfolio_path && (
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/50">Portfolio (PDF)</p>
+            <p className="text-[11px] font-semibold text-ink/50">Portfolio (<abbr className="acr">PDF</abbr>)</p>
             <a
               href={`${CAREERS_SITE_URL}/uploads/${a.portfolio_path}`}
               target="_blank" rel="noreferrer"
@@ -181,7 +186,7 @@ export default function CareersApplicantDetail() {
         )}
         {a.resume_path && (
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/50">Resume</p>
+            <p className="text-[11px] font-semibold text-ink/50">Resume</p>
             <a
               href={`${CAREERS_SITE_URL}/uploads/${a.resume_path}`}
               target="_blank" rel="noreferrer"
@@ -195,14 +200,14 @@ export default function CareersApplicantDetail() {
 
       {a.about && (
         <div className="bg-paper rounded-sm shadow-card p-6 mb-5">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/50 mb-2">About</p>
+          <p className="text-[11px] font-semibold text-ink/50 mb-2">About</p>
           <p className="text-sm text-ink whitespace-pre-wrap">{a.about}</p>
         </div>
       )}
 
       {answers && answers.length > 0 && (
         <div className="bg-paper rounded-sm shadow-card p-6 mb-5 space-y-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/50">Application Questions</p>
+          <p className="text-[11px] font-semibold text-ink/50">Application questions</p>
           {answers.map((ans) => (
             <div key={ans.id}>
               <p className="text-xs font-medium text-ink/70">{ans.question_text}</p>
@@ -228,13 +233,13 @@ export default function CareersApplicantDetail() {
 
       {job?.assignment_brief && (
         <div className="bg-paper rounded-sm shadow-card p-6 mb-5">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/50 mb-2">Assignment Brief</p>
+          <p className="text-[11px] font-semibold text-ink/50 mb-2">Assignment brief</p>
           <p className="text-sm text-ink whitespace-pre-wrap">{job.assignment_brief}</p>
         </div>
       )}
 
       <div className="bg-paper rounded-sm shadow-card p-6">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/50 mb-2">Assignment Submission</p>
+        <p className="text-[11px] font-semibold text-ink/50 mb-2">Assignment submission</p>
         {!submission ? (
           <p className="text-sm text-ink/70">No submission yet.</p>
         ) : (
@@ -248,7 +253,7 @@ export default function CareersApplicantDetail() {
                   target="_blank" rel="noreferrer"
                   className="flex items-center gap-1 text-sm text-jade-600 underline w-fit"
                 >
-                  <FileText size={14} /> {f.name}
+                  <FileText size={14} className="flex-shrink-0" /> <MidTruncate text={f.name} tail={12} />
                 </a>
               ))}
             </div>
@@ -264,7 +269,7 @@ export default function CareersApplicantDetail() {
         <EmailsCard emails={emails} onChange={load} />
         {inbox.length > 0 && (
           <section className="mb-4 border border-ink/10 rounded-sm p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/50 mb-2">Replies from candidate ({inbox.length})</p>
+            <p className="text-[11px] font-semibold text-ink/50 mb-2">Replies from candidate ({inbox.length})</p>
             {inbox.map((m) => (
               <div key={m.id} className="mb-2 text-xs"><p className="text-ink font-medium">{m.subject}</p><p className="text-ink/50">{new Date(m.date).toLocaleString()}</p><p className="text-ink/80 whitespace-pre-wrap line-clamp-4">{m.body_text}</p></div>
             ))}

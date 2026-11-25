@@ -10,12 +10,12 @@ const REASON_OPTIONS = [
 const YES_NO_MAYBE = ["Yes", "No", "Maybe"];
 
 const inputCls =
-  "w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
+  "w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
 
-function Field({ label, children }) {
+function Field({ label, id, children }) {
   return (
     <div>
-      <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">{label}</label>
+      <label htmlFor={id} className="block text-xs font-semibold text-ink/70 mb-1.5">{label}</label>
       {children}
     </div>
   );
@@ -63,10 +63,10 @@ export default function ExitInterviewModal({ existing, onClose, onSubmitted }) {
         <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-ink/70 hover:text-ink transition-colors">
           <X size={18} />
         </button>
-        <p className="text-xs font-semibold uppercase tracking-wider text-jade-600 mb-1">Before you go</p>
-        <p className="font-display text-lg text-ink mb-1">Exit Interview</p>
+        <p className="text-xs font-semibold text-jade-600 mb-1">Before you go</p>
+        <p className="font-display text-lg text-ink mb-1">Exit interview</p>
         <p className="text-xs text-ink/70 mb-5">
-          Your answers go to HR. Nothing here affects your final settlement — it's to help us understand what we
+          Your answers go to HR. Nothing here affects your final settlement — it’s to help us understand what we
           could do better.
         </p>
 
@@ -88,7 +88,7 @@ export default function ExitInterviewModal({ existing, onClose, onSubmitted }) {
             {form.reasons_for_leaving.includes("Other") && (
               <input
                 className={`${inputCls} mt-2`}
-                placeholder="Please specify"
+                placeholder="Please specify" aria-label="Other reason for leaving"
                 value={form.reason_other}
                 onChange={(e) => setField("reason_other", e.target.value)}
               />
@@ -101,8 +101,9 @@ export default function ExitInterviewModal({ existing, onClose, onSubmitted }) {
             ["work_environment_feedback", "Work environment & the organisation"],
             ["retention_insight", "What could we have done to keep you?"],
           ].map(([key, label]) => (
-            <Field key={key} label={label}>
+            <Field key={key} label={label} id={`exit_${key}`}>
               <textarea
+                id={`exit_${key}`}
                 className={`${inputCls} min-h-[60px]`}
                 value={form[key]}
                 onChange={(e) => setField(key, e.target.value)}
@@ -111,22 +112,23 @@ export default function ExitInterviewModal({ existing, onClose, onSubmitted }) {
           ))}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Would you rejoin JADE?">
-              <select className={inputCls} value={form.would_rejoin} onChange={(e) => setField("would_rejoin", e.target.value)}>
+            <Field label="Would you rejoin JADE?" id="exit_would_rejoin">
+              <select id="exit_would_rejoin" className={inputCls} value={form.would_rejoin} onChange={(e) => setField("would_rejoin", e.target.value)}>
                 <option value="">—</option>
                 {YES_NO_MAYBE.map((v) => <option key={v} value={v}>{v}</option>)}
               </select>
             </Field>
-            <Field label="Would you recommend JADE?">
-              <select className={inputCls} value={form.would_recommend} onChange={(e) => setField("would_recommend", e.target.value)}>
+            <Field label="Would you recommend JADE?" id="exit_would_recommend">
+              <select id="exit_would_recommend" className={inputCls} value={form.would_recommend} onChange={(e) => setField("would_recommend", e.target.value)}>
                 <option value="">—</option>
                 {YES_NO_MAYBE.map((v) => <option key={v} value={v}>{v}</option>)}
               </select>
             </Field>
           </div>
 
-          <Field label="Your name (as signature)">
+          <Field label="Your name (as signature)" id="exit_signature">
             <input
+              id="exit_signature"
               className={inputCls}
               value={form.interviewee_signature}
               onChange={(e) => setField("interviewee_signature", e.target.value)}
@@ -135,14 +137,14 @@ export default function ExitInterviewModal({ existing, onClose, onSubmitted }) {
 
           {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
 
-          <div className="flex justify-end gap-3 pt-1">
+          <div className="flex justify-end gap-4 pt-1">
             <button type="button" onClick={onClose} className="text-sm text-ink/70 hover:text-ink px-2">Cancel</button>
             <button
               type="submit"
               disabled={busy}
-              className="bg-ledger-800 text-manila px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
+              className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
             >
-              {busy ? "Submitting…" : existing ? "Update answers" : "Submit"}
+              {busy ? "Submitting…" : existing ? "Save updated answers" : "Submit exit interview"}
             </button>
           </div>
         </form>

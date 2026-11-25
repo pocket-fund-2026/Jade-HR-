@@ -9,6 +9,7 @@ import api from "../../lib/api.js";
 import { useAuth } from "../../lib/auth.jsx";
 import SlidingTabs from "../../components/SlidingTabs.jsx";
 
+import EmptyState from "../../components/EmptyState.jsx";
 const TABS = [
   { key: "pending", label: "Pending" },
   { key: "approved", label: "Approved" },
@@ -20,7 +21,7 @@ const FIELD_TYPES = [
   ["text", "Short text"], ["textarea", "Long text"], ["number", "Number"], ["date", "Date"],
   ["select", "Dropdown"], ["checkbox", "Tick box"], ["file", "File upload"],
 ];
-const inputCls = "w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-jade-500";
+const inputCls = "w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-jade-500";
 
 // HR-managed "Place of Work" options (name + full address, HQ flag).
 function Locations() {
@@ -49,17 +50,17 @@ function Locations() {
       <div className="flex items-center justify-between px-5 py-3 border-b border-ink/10">
         <p className="text-xs text-ink/70">Place of Work choices on the public form. The name is what gets stored on the employee; the full address is shown to the joiner.</p>
         <button onClick={() => setDraft({ value: "", address: "", is_hq: false, sort_order: visible.length + 1 })}
-          className="flex items-center gap-1.5 bg-ledger-800 text-manila px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-ledger-700 flex-shrink-0 ml-3"><Plus size={13} /> Add place</button>
+          className="flex items-center gap-1.5 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 flex-shrink-0 ml-3"><Plus size={13} /> Add place</button>
       </div>
       {draft && (
-        <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-3 border-b border-ink/10 bg-manila/30">
-          <input value={draft.value} onChange={(e) => setDraft({ ...draft, value: e.target.value })} placeholder="Name, e.g. Pedder Road, Mumbai" className={inputCls} />
-          <input value={draft.address} onChange={(e) => setDraft({ ...draft, address: e.target.value })} placeholder="Full address" className={inputCls} />
+        <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-ink/10 bg-manila/30">
+          <label className="block"><span className="block text-xs font-semibold text-ink/70 mb-1">Place name</span><input value={draft.value} onChange={(e) => setDraft({ ...draft, value: e.target.value })} placeholder="Name, e.g. Pedder Road, Mumbai" className={inputCls} /></label>
+          <label className="block"><span className="block text-xs font-semibold text-ink/70 mb-1">Full address</span><input value={draft.address} onChange={(e) => setDraft({ ...draft, address: e.target.value })} placeholder="Full address" className={inputCls} /></label>
           <label className="flex items-center gap-2 text-xs text-ink/70"><input type="checkbox" checked={!!draft.is_hq} onChange={(e) => setDraft({ ...draft, is_hq: e.target.checked })} /> This is HQ</label>
           {error && <p className="text-sm text-rust-500 sm:col-span-2">{error}</p>}
           <div className="sm:col-span-2 flex justify-end gap-2">
             <button onClick={() => setDraft(null)} className="text-xs text-ink/70 px-3 py-1.5">Cancel</button>
-            <button onClick={save} className="bg-jade-600 text-white px-4 py-1.5 rounded-sm text-xs font-semibold hover:bg-jade-700">Save</button>
+            <button onClick={save} className="bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700">Save place</button>
           </div>
         </div>
       )}
@@ -67,7 +68,7 @@ function Locations() {
         as="ul" className="divide-y divide-ink/[0.07]" items={visible} getKey={(r) => r.id || r.value}
         onReorder={reorderPlaces} arrows
         renderItem={(r, _i, handle) => (
-          <div className="flex items-center gap-3 px-5 py-3">
+          <div className="flex items-center gap-4 px-5 py-3">
             {r.id ? handle : <span className="w-4" />}
             <div className="flex-1 min-w-0">
               <p className="text-sm text-ink font-medium">{r.is_hq && <span className="text-jade-600">HQ · </span>}{r.value}</p>
@@ -119,9 +120,9 @@ function BuiltInFields() {
 
   return (
     <div className="bg-paper rounded-sm shadow-card mb-6">
-      <div className="flex items-center justify-between px-5 py-3 border-b border-ink/10 gap-3">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-ink/10 gap-4">
         <p className="text-xs text-ink/70">
-          Every question on the joining form. Choose who fills each one: the <strong>candidate</strong>, <strong>HR</strong> (hidden from the candidate; you fill it in on their submission,
+          Every question on the joining form. Choose who fills each one: the <strong>candidate</strong>, <strong><abbr className="acr">HR</abbr></strong> (hidden from the candidate; you fill it in on their submission,
           e.g. KRA), or <strong>hidden</strong> altogether. You can also rename a question or make it optional. Name and email are fixed.
         </p>
         {Object.keys(overrides).length > 0 && (
@@ -131,7 +132,7 @@ function BuiltInFields() {
       {error && <p className="px-5 py-2 text-sm text-rust-500">{error}</p>}
       {CORE_SECTIONS.map((section) => (
         <div key={section} className="border-b border-ink/[0.07] last:border-0">
-          <p className="px-5 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-ink/60">{section}</p>
+          <p className="px-5 pt-3 pb-1 text-[11px] font-semibold text-ink/60">{section}</p>
           <SortableList
             items={orderedCoreFields(section, overrides)} getKey={(f) => f.key}
             onReorder={(next) => reorderSection(next.map((f) => f.key))}
@@ -139,11 +140,11 @@ function BuiltInFields() {
               const e = f;
               const who = f.locked ? "candidate" : e.hrOnly ? "hr" : e.hidden ? "hidden" : "candidate";
               return (
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-2">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-2">
                   {handle}
                   <div className="flex-1 min-w-[180px]">
                     {renaming === f.key ? (
-                      <input
+                      <input aria-label="Field label"
                         autoFocus defaultValue={e.label} className={inputCls}
                         onBlur={(ev) => { const v = ev.target.value.trim(); setRenaming(null); if (v !== e.label) save(f, { label: v === f.label ? null : v }); }}
                         onKeyDown={(ev) => { if (ev.key === "Enter") ev.target.blur(); if (ev.key === "Escape") setRenaming(null); }}
@@ -219,37 +220,37 @@ function FormFields() {
       <div className="flex items-center justify-between px-5 py-3 border-b border-ink/10">
         <p className="text-xs text-ink/70">Your own extra questions, shown after the built-in sections. Existing answers stay on each submission if you remove a field.</p>
         <button onClick={() => setDraft({ label: "", field_type: "text", section: "Additional Details", help_text: "", required: false, sort_order: visible.length + 1, optionsText: "" })}
-          className="flex items-center gap-1.5 bg-ledger-800 text-manila px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-ledger-700 flex-shrink-0 ml-3"><Plus size={13} /> Add field</button>
+          className="flex items-center gap-1.5 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 flex-shrink-0 ml-3"><Plus size={13} /> Add field</button>
       </div>
       {draft && (
-        <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-3 border-b border-ink/10 bg-manila/30">
-          <input value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} placeholder="Question / label" className={inputCls} />
-          <select value={draft.field_type} onChange={(e) => setDraft({ ...draft, field_type: e.target.value })} className={inputCls}>
+        <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-ink/10 bg-manila/30">
+          <label className="block"><span className="block text-xs font-semibold text-ink/70 mb-1">Question or label</span><input value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} placeholder="Question / label" className={inputCls} /></label>
+          <label className="block"><span className="block text-xs font-semibold text-ink/70 mb-1">Answer type</span><select value={draft.field_type} onChange={(e) => setDraft({ ...draft, field_type: e.target.value })} className={inputCls}>
             {FIELD_TYPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-          </select>
-          <input value={draft.section} onChange={(e) => setDraft({ ...draft, section: e.target.value })} placeholder="Section heading" className={inputCls} />
-          <input value={draft.help_text} onChange={(e) => setDraft({ ...draft, help_text: e.target.value })} placeholder="Help text (optional)" className={inputCls} />
+          </select></label>
+          <label className="block"><span className="block text-xs font-semibold text-ink/70 mb-1">Section heading</span><input value={draft.section} onChange={(e) => setDraft({ ...draft, section: e.target.value })} placeholder="Section heading" className={inputCls} /></label>
+          <label className="block"><span className="block text-xs font-semibold text-ink/70 mb-1">Help text</span><input value={draft.help_text} onChange={(e) => setDraft({ ...draft, help_text: e.target.value })} placeholder="Help text (optional)" className={inputCls} /></label>
           {draft.field_type === "select" && (
-            <textarea value={draft.optionsText} onChange={(e) => setDraft({ ...draft, optionsText: e.target.value })} rows={3} placeholder="One choice per line" className={`${inputCls} sm:col-span-2`} />
+            <label className="block"><span className="block text-xs font-semibold text-ink/70 mb-1">Choices</span><textarea value={draft.optionsText} onChange={(e) => setDraft({ ...draft, optionsText: e.target.value })} rows={3} placeholder="One choice per line" className={`${inputCls} sm:col-span-2`} /></label>
           )}
           <label className="flex items-center gap-2 text-xs text-ink/70"><input type="checkbox" checked={!!draft.required} onChange={(e) => setDraft({ ...draft, required: e.target.checked })} /> Required</label>
-          <label className="flex items-center gap-2 text-xs text-ink/70"><input type="checkbox" checked={!!draft.hr_only} onChange={(e) => setDraft({ ...draft, hr_only: e.target.checked })} /> HR fills this in (not shown to the candidate)</label>
+          <label className="flex items-center gap-2 text-xs text-ink/70"><input type="checkbox" checked={!!draft.hr_only} onChange={(e) => setDraft({ ...draft, hr_only: e.target.checked })} /> <abbr className="acr">HR</abbr> fills this in (not shown to the candidate)</label>
           {error && <p className="text-sm text-rust-500 sm:col-span-2">{error}</p>}
           <div className="sm:col-span-2 flex justify-end gap-2">
             <button onClick={() => setDraft(null)} className="text-xs text-ink/70 px-3 py-1.5">Cancel</button>
-            <button onClick={save} className="bg-jade-600 text-white px-4 py-1.5 rounded-sm text-xs font-semibold hover:bg-jade-700">Save field</button>
+            <button onClick={save} className="bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700">Save field</button>
           </div>
         </div>
       )}
-      {fields && visible.length === 0 && <p className="px-5 py-6 text-sm text-ink/60 text-center">No extra fields yet.</p>}
+      {fields && visible.length === 0 && <EmptyState title="No extra fields yet" action={{ label: "Add a field", onClick: () => setDraft({ label: "", field_type: "text", section: "Additional Details", help_text: "", required: false, sort_order: visible.length + 1, optionsText: "" }) }}>Extra questions you add appear on the joining form.</EmptyState>}
       <SortableList
         as="ul" className="divide-y divide-ink/[0.07]" items={visible} getKey={(f) => f.id}
         onReorder={reorderCustom}
         renderItem={(f, _i, handle) => (
-          <div className="flex items-center gap-3 px-5 py-3">
+          <div className="flex items-center gap-4 px-5 py-3">
             {handle}
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-ink font-medium">{f.label}{f.required && <span className="text-rust-500"> *</span>}{f.hr_only && <span className="ml-2 text-[10px] font-semibold uppercase tracking-wider text-jade-700 bg-jade-50 px-1.5 py-0.5 rounded-sm">HR fills</span>}</p>
+              <p className="text-sm text-ink font-medium">{f.label}{f.required && <span className="text-rust-500"> *</span>}{f.hr_only && <span className="ml-2 text-[10px] font-semibold text-jade-700 bg-jade-50 px-1.5 py-0.5 rounded-sm"><abbr className="acr">HR</abbr> fills</span>}</p>
               <p className="text-xs text-ink/60">{f.section} · {FIELD_TYPES.find(([k]) => k === f.field_type)?.[1]}{f.field_type === "select" ? ` (${f.options.length} choices)` : ""}</p>
             </div>
             <button onClick={() => setDraft({ ...f, optionsText: (f.options || []).join("\n") })} className="text-xs text-jade-600 font-semibold">Edit</button>
@@ -273,7 +274,7 @@ function DocLink({ label, url }) {
 function DetailField({ label, value }) {
   return (
     <div>
-      <p className="text-[10px] uppercase tracking-wider text-ink/70">{label}</p>
+      <p className="text-[10px] text-ink/70">{label}</p>
       <p className="text-sm text-ink">{value || "—"}</p>
     </div>
   );
@@ -282,7 +283,7 @@ function DetailField({ label, value }) {
 function DetailGroup({ title, children }) {
   return (
     <div>
-      <h4 className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-2">{title}</h4>
+      <h4 className="text-xs font-semibold text-ink/70 mb-2">{title}</h4>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">{children}</div>
     </div>
   );
@@ -328,7 +329,7 @@ function HrDetailsCard({ submission, canViewSalary, onSaved }) {
     }
     return (
       <div key={key} className={type === "textarea" ? "sm:col-span-2" : ""}>
-        <label className="block text-[10px] uppercase tracking-wider text-ink/70 mb-1">{label}</label>
+        <label className="block text-[10px] text-ink/70 mb-1">{label}</label>
         {type === "textarea"
           ? <textarea rows={4} className={inputCls} value={v ?? ""} onChange={(e) => set(e.target.value)} />
           : <input type={type === "date" ? "date" : type === "number" ? "number" : "text"} className={inputCls} value={v ?? ""} onChange={(e) => set(e.target.value)} />}
@@ -339,20 +340,20 @@ function HrDetailsCard({ submission, canViewSalary, onSaved }) {
   return (
     <div className="border border-jade-500/30 bg-jade-50/40 rounded-sm p-4">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-jade-700">Filled by HR</h4>
+        <h4 className="text-xs font-semibold text-jade-700">Filled by <abbr className="acr">HR</abbr></h4>
         <label className="flex items-center gap-1.5 text-xs text-ink/70"><input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> Edit any detail</label>
       </div>
       {coreShown.length + customShown.length === 0 && !canViewSalary && (
-        <p className="text-xs text-ink/60">Nothing is set to "HR fills". Mark questions as HR-filled in the Form builder, or tick "Edit any detail".</p>
+        <p className="text-xs text-ink/60">Nothing is set to “<abbr className="acr">HR</abbr> fills”. Mark questions as <abbr className="acr">HR</abbr>-filled in the Form builder, or tick “Edit any detail”.</p>
       )}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {coreShown.map((f) => input(f.key, f.type, f.label, val(f.key), (v) => setEdits((e) => ({ ...e, [f.key]: v }))))}
         {customShown.map((f) => input(`c-${f.field_key}`, f.field_type === "textarea" ? "textarea" : f.field_type === "date" ? "date" : f.field_type === "checkbox" ? "checkbox" : f.field_type === "number" ? "number" : "text", f.label, cval(f.field_key), (v) => setCustomEdits((e) => ({ ...e, [f.field_key]: v }))))}
         {canViewSalary && PAY_FIELDS.map(([k, label]) => input(k, "number", label, val(k), (v) => setEdits((e) => ({ ...e, [k]: v }))))}
       </div>
-      <div className="flex items-center justify-end gap-3 mt-3">
+      <div className="flex items-center justify-end gap-4 mt-3">
         {msg && <span className={`text-xs ${msg === "Saved" ? "text-jade-700" : "text-rust-500"}`}>{msg}</span>}
-        <button onClick={save} disabled={!dirty || busy} className="bg-jade-600 text-white px-4 py-1.5 rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-40">{busy ? "Saving…" : "Save details"}</button>
+        <button onClick={save} disabled={!dirty || busy} className="bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-40">{busy ? "Saving…" : "Save details"}</button>
       </div>
     </div>
   );
@@ -429,7 +430,7 @@ function SubmissionDetail({ id, onBack, onResolved, canViewSalary }) {
         </DetailGroup>
 
         <div>
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-2">Permanent Address</h4>
+          <h4 className="text-xs font-semibold text-ink/70 mb-2">Permanent address</h4>
           <p className="text-sm text-ink whitespace-pre-line">{address || "—"}</p>
         </div>
 
@@ -437,14 +438,14 @@ function SubmissionDetail({ id, onBack, onResolved, canViewSalary }) {
           <DetailGroup title="Employment">
             <DetailField label="Designation" value={submission.designation} />
             <DetailField label="Department" value={submission.department} />
-            <DetailField label="Place of Work" value={submission.place_of_work} />
-            <DetailField label="Date of Joining" value={submission.date_of_joining} />
+            <DetailField label="Place of work" value={submission.place_of_work} />
+            <DetailField label="Date of joining" value={submission.date_of_joining} />
             <DetailField label="Timings + Days" value={submission.timings_and_days} />
             <DetailField label="Date of Offer Letter" value={submission.date_of_offer_letter} />
           </DetailGroup>
           {submission.kra && (
             <div className="mt-3">
-              <p className="text-[10px] uppercase tracking-wider text-ink/70">KRA</p>
+              <p className="text-[10px] text-ink/70">KRA</p>
               <p className="text-sm text-ink whitespace-pre-line">{submission.kra}</p>
             </div>
           )}
@@ -459,13 +460,13 @@ function SubmissionDetail({ id, onBack, onResolved, canViewSalary }) {
         {canViewSalary && (
           <DetailGroup title="Bank">
             <DetailField label="Bank Name and Branch" value={submission.bank_name} />
-            <DetailField label="Account No" value={submission.bank_account_no} />
+            <DetailField label="Account no" value={submission.bank_account_no} />
             <DetailField label="IFSC" value={submission.bank_ifsc} />
           </DetailGroup>
         )}
 
         <div>
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-2">Documents</h4>
+          <h4 className="text-xs font-semibold text-ink/70 mb-2">Documents</h4>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-2">
             <DetailField label="Aadhar No" value={submission.aadhar_no} />
             <DetailField label="PAN No" value={submission.pan_no} />
@@ -510,11 +511,11 @@ function SubmissionDetail({ id, onBack, onResolved, canViewSalary }) {
         </DetailGroup>
 
         {submission.status !== "rejected" && (
-          <div className="border-t border-ink/10 pt-5 flex flex-wrap items-center justify-between gap-3">
+          <div className="border-t border-ink/10 pt-5 flex flex-wrap items-center justify-between gap-4">
             <p className="text-xs text-ink/70">Next step: the offer letter fills in from this form. Add pay and any other details, then send it for approval.</p>
             <Link
               to={`/admin/letters?type=offer_employment&submission=${submission.id}`}
-              className="px-3 py-1.5 rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 whitespace-nowrap"
+              className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-on-jade hover:bg-jade-700 whitespace-nowrap"
             >
               Create offer letter
             </Link>
@@ -523,62 +524,62 @@ function SubmissionDetail({ id, onBack, onResolved, canViewSalary }) {
 
         {submission.status === "pending" ? (
           <div className="border-t border-ink/10 pt-5">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1">Resolve</h4>
+            <h4 className="text-xs font-semibold text-ink/70 mb-1">Resolve</h4>
             <p className="text-xs text-ink/70 mb-3">
               Approving creates the real employee record. Leave Employee Code and Password blank to auto-assign the next free ID and a temporary password (shown to you here, NOT emailed — send it with the signed offer letter). If you type a code, it must match the biometric device.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-3">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Employee Code</label>
-                <input
+                <label htmlFor="fld-533" className="block text-xs font-semibold text-ink/70 mb-1.5">Employee code</label>
+                <input id="fld-533"
                   value={employeeCode}
                   onChange={(e) => setEmployeeCode(e.target.value)}
                   placeholder={nextCode ? `Auto: ${nextCode}` : "Auto-assign next free ID"}
-                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Initial Password</label>
-                <input
+                <label htmlFor="fld-542" className="block text-xs font-semibold text-ink/70 mb-1.5">Initial password</label>
+                <input id="fld-542"
                   value={password}
                   placeholder="Auto-generate"
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Employee Category</label>
-                <select
+                <label htmlFor="fld-551" className="block text-xs font-semibold text-ink/70 mb-1.5">Employee category</label>
+                <select id="fld-551"
                   value={employeeCategory}
                   onChange={(e) => setEmployeeCategory(e.target.value)}
-                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
                 >
                   <option value="factory_retail">Factory / Retail</option>
                   <option value="corporate">Corporate</option>
                 </select>
               </div>
             </div>
-            <input
+            <input aria-label="Note"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="Note (optional)"
-              className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 mb-3"
+              className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 mb-3"
             />
             {error && <p className="text-sm text-rust-500 mb-3">{error}</p>}
-            <div className="flex gap-2">
+            <div className="flex gap-6">
               <button
                 disabled={busy}
                 onClick={() => resolve("approve")}
-                className="flex items-center gap-1.5 bg-jade-600 text-white px-4 py-2 rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
+                className="flex items-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
               >
-                <Check size={14} /> Approve &amp; Create Employee
+                <Check size={14} /> Approve and create employee
               </button>
               <button
                 disabled={busy}
                 onClick={() => resolve("reject")}
-                className="flex items-center gap-1.5 bg-paper border border-rust-500 text-rust-500 px-4 py-2 rounded-sm text-sm font-semibold hover:bg-rust-50 disabled:opacity-50 transition-colors"
+                className="flex items-center gap-1.5 bg-paper border border-rust-500 text-rust-500 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-rust-50 disabled:opacity-50 transition-colors"
               >
-                <X size={14} /> Reject
+                <X size={14} /> Reject submission
               </button>
             </div>
           </div>
@@ -640,7 +641,7 @@ export default function Onboarding() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h2 className="font-display text-2xl text-ink">New Joinee Onboarding</h2>
+          <h2 className="font-display text-2xl text-ink">New joinee onboarding</h2>
           <p className="text-xs text-ink/70 font-nums mt-0.5">Submissions from the public joining-formalities form</p>
         </div>
         <a href="/onboarding/new" target="_blank" rel="noreferrer" className="text-xs text-jade-600 underline">
@@ -653,22 +654,22 @@ export default function Onboarding() {
       {tab === "form" ? <><Locations /><BuiltInFields /><FormFields /></> : (
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm tabular-nums">
-          <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
+          <thead className="text-left sticky top-0 z-10 bg-paper shadow-edge">
             <tr className="border-b-2 border-ink/10">
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Ref</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Name</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Designation</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Place of Work</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Date of Joining</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Submitted</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70"></th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Ref</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Name</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Designation</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Place of work</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Date of joining</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Submitted</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70"></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={7}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : rows.length === 0 ? (
-              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={7}>No {tab} submissions.</td></tr>
+              <tr><td colSpan={7}><EmptyState title={`No ${tab} joining forms`} action={tab === "pending" ? { label: "View approved", onClick: () => setTab("approved") } : { label: "View pending", onClick: () => setTab("pending") }}>Forms show here once a candidate submits the joining form.</EmptyState></td></tr>
             ) : (
               rows.map((r) => (
                 <tr

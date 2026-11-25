@@ -84,7 +84,7 @@ export default function Avatar({ className = "w-9 h-9", editable = true }) {
   );
 
   if (!editable) {
-    return <span className={`${className} rounded-full bg-manila/15 text-manila flex items-center justify-center overflow-hidden flex-shrink-0`}>{face}</span>;
+    return <span className={`${className} rounded-full bg-on-jade/15 text-on-jade flex items-center justify-center overflow-hidden flex-shrink-0`}>{face}</span>;
   }
   return (
     <>
@@ -94,18 +94,18 @@ export default function Avatar({ className = "w-9 h-9", editable = true }) {
           onClick={() => setOpen(true)}
           title="Change profile photo"
           aria-label="Change profile photo"
-          className={`${className} rounded-full bg-manila/15 text-manila flex items-center justify-center overflow-hidden relative focus:outline-none focus-visible:ring-2 focus-visible:ring-manila`}
+          className={`${className} rounded-full bg-on-jade/15 text-on-jade flex items-center justify-center overflow-hidden relative focus:outline-none focus-visible:ring-2 focus-visible:ring-on-jade`}
         >
           {face}
-          <span className="absolute inset-0 bg-ledger-900/55 text-manila flex items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity">
+          <span className="absolute inset-0 bg-ledger-900/55 text-on-jade flex items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity">
             <Camera size={14} />
           </span>
         </button>
       </span>
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4" role="dialog" aria-modal="true" aria-label="Profile photo" onClick={close}>
-          <div className="bg-paper rounded-md shadow-card w-full max-w-sm p-6 text-center" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-display text-xl text-ink mb-4">Profile photo</h3>
+          <div className="bg-paper rounded-md shadow-card w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-display text-xl text-ink mb-4 text-center">Profile photo</h3>
             <div className="mx-auto w-32 h-32 rounded-full overflow-hidden bg-manila flex items-center justify-center text-ink/60 text-4xl font-semibold">
               {preview ? <img src={preview} alt="Preview" className="w-full h-full object-cover" /> : user?.avatar_url ? <img src={user.avatar_url} alt="" className="w-full h-full object-cover" /> : initial}
             </div>
@@ -113,13 +113,13 @@ export default function Avatar({ className = "w-9 h-9", editable = true }) {
             {error && <p className="text-sm text-rust-500 mt-3">{error}</p>}
             <div className="mt-5 flex flex-col gap-2">
               {preview ? (
-                <button type="button" onClick={save} disabled={busy} className="min-h-[44px] rounded-sm bg-ledger-800 text-manila text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50">{busy ? "Saving…" : "Save photo"}</button>
+                <button type="button" onClick={save} disabled={busy} className="min-h-[44px] rounded-sm bg-ledger-800 text-on-jade text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50">{busy ? "Saving…" : "Save photo"}</button>
               ) : null}
               <button type="button" onClick={() => input.current?.click()} disabled={busy} className="min-h-[44px] rounded-sm border border-ink/15 bg-paper text-ink text-sm font-semibold hover:border-jade-500">{preview ? "Choose a different photo" : "Choose a photo"}</button>
-              {!preview && user?.avatar_url && (
-                <button type="button" onClick={remove} disabled={busy} className="min-h-[44px] rounded-sm text-rust-500 text-sm font-semibold hover:bg-rust-50 flex items-center justify-center gap-2"><Trash2 size={14} /> Remove current photo</button>
-              )}
               <button type="button" onClick={close} className="min-h-[44px] text-sm text-ink/60 hover:text-ink">Cancel</button>
+              {!preview && user?.avatar_url && (
+                <button type="button" onClick={remove} disabled={busy} className="mt-4 min-h-[44px] rounded-sm border border-rust-500/40 text-rust-500 text-sm font-semibold hover:bg-rust-50 flex items-center justify-center gap-2"><Trash2 size={14} /> Remove current photo</button>
+              )}
             </div>
           </div>
         </div>

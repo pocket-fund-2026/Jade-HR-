@@ -8,7 +8,7 @@ export default function CompOffPolicy({ className = "" }) {
         <li>Use it within 120 days of the day worked. Club a maximum of 2 Comp-Off days at a time.</li>
         <li>Do not club it with weekly offs, public holidays or festival breaks. It cannot be encashed or transferred.</li>
       </ul>
-      <p className="mt-3">Confirm the work with HR, then apply under <strong>Comp-Off</strong> in the leave request form. Your reporting manager/HOD approves the request. Check the expiry date in your balance before choosing your leave dates.</p>
+      <p className="mt-3">Confirm the work with <abbr className="acr">HR</abbr>, then apply under <strong>Comp-Off</strong> in the leave request form. Your reporting manager/HOD approves the request. Check the expiry date in your balance before choosing your leave dates.</p>
     </section>
   );
 }

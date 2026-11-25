@@ -1,3 +1,6 @@
+import { typo } from "../lib/typo.jsx";
+import { sentence } from "../lib/text.js";
+
 const VARIANTS = {
   present: "text-jade-600",
   active: "text-jade-600",
@@ -25,5 +28,5 @@ const VARIANTS = {
 
 export default function StampBadge({ status, children }) {
   const tone = VARIANTS[status] || "text-ink/70";
-  return <span className={`stamp ${tone}`}>{children ?? status}</span>;
+  return <span className={`stamp ${tone}`}>{typo(typeof children === "string" ? sentence(children) : children ?? sentence(status))}</span>;
 }

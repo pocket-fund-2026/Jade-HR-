@@ -6,6 +6,7 @@ import MonthPicker from "../../../components/MonthPicker.jsx";
 import api from "../../../lib/api.js";
 import { formatINR } from "../../../lib/format.js";
 
+import EmptyState from "../../../components/EmptyState.jsx";
 const today = new Date();
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -49,15 +50,15 @@ export default function BankTransferReport() {
   return (
     <div>
       <Link to="/admin/reports" className="inline-flex items-center gap-1.5 text-xs text-ink/70 hover:text-ink transition-colors">
-        <ArrowLeft size={13} /> Back to Reports
+        <ArrowLeft size={13} /> Back to reports
       </Link>
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mt-2 mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mt-2 mb-6">
         <h2 className="font-display text-2xl text-ink">Bank Transfer — Salary</h2>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-4">
           <button
             onClick={() => exportExcel(byTransfer, year, month)}
             disabled={!byTransfer.length}
-            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
+            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
           >
             <FileSpreadsheet size={15} /> Export Excel
           </button>
@@ -66,32 +67,32 @@ export default function BankTransferReport() {
       </div>
 
       <div className="bg-paper rounded-sm shadow-card px-5 py-4 border-t-2 border-jade-500 mb-6 max-w-xs">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70">Total to transfer ({byTransfer.length} employees)</p>
+        <p className="text-[11px] font-semibold text-ink/70">Total to transfer ({byTransfer.length} employees)</p>
         <p className="font-display text-2xl text-jade-700 mt-1">{formatINR(total)}</p>
       </div>
 
       {missingDetails.length > 0 && (
         <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5 mb-4">
-          {missingDetails.length} employee{missingDetails.length === 1 ? "" : "s"} on Bank Transfer {missingDetails.length === 1 ? "is" : "are"} missing an account number or IFSC — add these on the employee's Official tab.
+          {missingDetails.length} employee{missingDetails.length === 1 ? "" : "s"} on Bank Transfer {missingDetails.length === 1 ? "is" : "are"} missing an account number or IFSC — add these on the employee’s Official tab.
         </p>
       )}
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto mb-6">
         <table className="w-full text-sm tabular-nums">
-          <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
+          <thead className="text-left sticky top-0 z-10 bg-paper shadow-edge">
             <tr className="border-b-2 border-ink/10">
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Bank</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Account No</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">IFSC</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Net Salary</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Employee</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Bank</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Account no</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70"><abbr className="acr">IFSC</abbr></th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Net salary</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={5}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : byTransfer.length === 0 ? (
-              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={5}>No employees on Bank Transfer.</td></tr>
+              <tr><td colSpan={5}><EmptyState title="No employees on bank transfer" action={{ label: "Open employees", to: "/admin/employees" }}>Set an employee’s payment mode to bank transfer to list them here.</EmptyState></td></tr>
             ) : (
               byTransfer.map((r) => (
                 <tr key={r.employee_id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
@@ -112,7 +113,7 @@ export default function BankTransferReport() {
 
       {others.length > 0 && (
         <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
-          <p className="px-4 pt-3 pb-2 text-xs font-semibold uppercase tracking-wider text-ink/70">Paid by Cheque / Cash (not part of the transfer file)</p>
+          <p className="px-4 pt-3 pb-2 text-xs font-semibold text-ink/70">Paid by Cheque / Cash (not part of the transfer file)</p>
           <table className="w-full text-sm tabular-nums">
             <tbody>
               {others.map((r) => (

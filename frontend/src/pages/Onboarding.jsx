@@ -1,5 +1,5 @@
 import { ChevronDown, HelpCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 import api from "../lib/api.js";
 import { CORE_FIELDS, CORE_SECTIONS, effectiveField, orderedCoreFields } from "../lib/onboardingFields.js";
@@ -32,7 +32,7 @@ function Section({ title, step, children }) {
   return (
     <div id={`step-${step}`} className="bg-paper rounded-sm shadow-card p-5 sm:p-6 scroll-mt-4">
       <h3 className="font-display text-lg text-ink mb-4 flex items-center gap-2.5">
-        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-jade-600 text-white text-xs font-semibold flex items-center justify-center">
+        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-jade-600 text-on-jade text-xs font-semibold flex items-center justify-center">
           {step}
         </span>
         {title}
@@ -43,35 +43,39 @@ function Section({ title, step, children }) {
 }
 
 function TextField({ label, value, onChange, type = "text", span, required, placeholder }) {
+  const id = useId();
   return (
     <div className={span ? "sm:col-span-2" : ""}>
-      <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">
+      <label htmlFor={id} className="block text-xs font-semibold text-ink/70 mb-1.5">
         {label}{required && <span className="text-rust-500"> *</span>}
       </label>
       <input
+        id={id}
         type={type}
         value={value}
         onChange={onChange}
         required={required}
         placeholder={placeholder}
-        className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500"
+        className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500"
       />
     </div>
   );
 }
 
 function TextAreaField({ label, value, onChange, required }) {
+  const id = useId();
   return (
     <div className="sm:col-span-2">
-      <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">
+      <label htmlFor={id} className="block text-xs font-semibold text-ink/70 mb-1.5">
         {label}{required && <span className="text-rust-500"> *</span>}
       </label>
       <textarea
+        id={id}
         value={value}
         onChange={onChange}
         required={required}
         rows={3}
-        className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500"
+        className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500"
       />
     </div>
   );
@@ -80,16 +84,18 @@ function TextAreaField({ label, value, onChange, required }) {
 function SelectField({ label, value, onChange, options, required }) {
   // options: strings, or {value, label} pairs
   const opts = options.map((o) => (typeof o === "string" ? { value: o, label: o } : o));
+  const id = useId();
   return (
     <div>
-      <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">
+      <label htmlFor={id} className="block text-xs font-semibold text-ink/70 mb-1.5">
         {label}{required && <span className="text-rust-500"> *</span>}
       </label>
       <select
+        id={id}
         value={value}
         onChange={onChange}
         required={required}
-        className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500"
+        className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500"
       >
         {opts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
@@ -110,6 +116,7 @@ function FileField({ label, hint, multiple, count, onUploaded }) {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const id = useId();
 
   const handleFiles = async (e) => {
     const files = Array.from(e.target.files || []);
@@ -137,15 +144,16 @@ function FileField({ label, hint, multiple, count, onUploaded }) {
 
   return (
     <div>
-      <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">{label}</label>
+      <label htmlFor={id} className="block text-xs font-semibold text-ink/70 mb-1.5">{label}</label>
       {hint && <p className="text-xs text-ink/70 mb-1.5">{hint}</p>}
       <input
+        id={id}
         type="file"
         accept="image/*,.pdf"
         multiple={multiple}
         disabled={busy}
         onChange={handleFiles}
-        className="w-full text-xs text-ink/70 file:mr-3 file:rounded-sm file:border-0 file:bg-ledger-800 file:text-manila file:px-3 file:py-2 file:text-xs file:font-semibold file:cursor-pointer disabled:opacity-50"
+        className="w-full text-xs text-ink/70 file:mr-3 file:rounded-sm file:border-0 file:bg-ledger-800 file:text-on-jade file:px-3 file:py-2 file:text-xs file:font-semibold file:cursor-pointer disabled:opacity-50"
       />
       {(status || count > 0) && (
         <p className="text-xs text-jade-600 mt-1">{status || `${count} file(s) on file`}</p>
@@ -177,12 +185,12 @@ function StepStrip({ titles }) {
           key={title}
           href={`#step-${i + 1}`}
           title={title}
-          className="flex-shrink-0 w-7 h-7 rounded-full bg-manila/20 border border-manila/30 text-manila/70 text-xs font-semibold flex items-center justify-center hover:bg-manila/30 hover:text-manila transition-colors"
+          className="flex-shrink-0 w-7 h-7 rounded-full bg-on-jade/20 border border-on-jade/30 text-on-jade/70 text-xs font-semibold flex items-center justify-center hover:bg-on-jade/30 hover:text-on-jade transition-colors"
         >
           {i + 1}
         </a>
       ))}
-      <span className="text-manila/50 text-xs ml-1">{titles.length} short sections — jump to any of them</span>
+      <span className="text-on-jade/50 text-xs ml-1">{titles.length} short sections — jump to any of them</span>
     </div>
   );
 }
@@ -203,14 +211,14 @@ function FaqPanel() {
       </button>
       {open && (
         <div className="px-4 pb-4 text-sm text-ink/80 space-y-2">
-          <p>You don't need an Employee Code or login to fill in or submit this form.</p>
+          <p>You don’t need an Employee Code or login to fill in or submit this form.</p>
           <ol className="list-decimal pl-5 space-y-1">
-            <li>Your details go straight to JADE HR's review queue.</li>
-            <li>Once you're enrolled on the biometric attendance device and your first punch/the next roster sync assigns you an Employee Code, this submission is automatically matched to it by name.</li>
+            <li>Your details go straight to JADE <abbr className="acr">HR</abbr>’s review queue.</li>
+            <li>Once you’re enrolled on the biometric attendance device and your first punch/the next roster sync assigns you an Employee Code, this submission is automatically matched to it by name.</li>
             <li>Your employee record then gets filled in from what you submitted here — no need to re-enter anything.</li>
-            <li>You can then log in with your Employee Code and password (given to you by HR) and see everything you submitted under "My Onboarding" in your dashboard.</li>
+            <li>You can then log in with your Employee Code and password (given to you by <abbr className="acr">HR</abbr>) and see everything you submitted under “My Onboarding” in your dashboard.</li>
           </ol>
-          <p className="text-xs text-ink/60">This usually takes a day or so. If it's been longer and you still can't log in, check with HR.</p>
+          <p className="text-xs text-ink/60">This usually takes a day or so. If it’s been longer and you still can’t log in, check with <abbr className="acr">HR</abbr>.</p>
         </div>
       )}
     </div>
@@ -321,27 +329,27 @@ export default function Onboarding() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-ledger-900 px-4 py-12 relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
-        <div className="w-full max-w-md relative bg-paper rounded-sm shadow-stamp px-8 pt-8 pb-7 border-t-4 border-jade-500 rise-in text-center">
+        <div className="w-full max-w-md relative bg-paper rounded-sm shadow-stamp px-8 pt-8 pb-7 border-t-4 border-jade-500 rise-in">
           <p className="font-display text-ink text-xl mb-2">Thank you, {form.full_name.split(" ")[0] || "there"}</p>
           <p className="text-sm text-ink/70 mb-5">
-            Your details have been submitted for JADE HR's review.
+            Your details have been submitted for JADE HR’s review.
           </p>
           {refNo && (
             <p className="text-sm text-ink mb-5">
               Your reference number: <span className="font-nums font-semibold text-jade-700">#{refNo}</span>
-              <span className="block text-xs text-ink/60 mt-0.5">Quote this if you contact HR about your joining.</span>
+              <span className="block text-xs text-ink/60 mt-0.5">Quote this if you contact <abbr className="acr">HR</abbr> about your joining.</span>
             </p>
           )}
           <div className="text-left bg-manila/40 rounded-sm p-4 space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-ink/70">What happens next</p>
+            <p className="text-xs font-semibold text-ink/70">What happens next</p>
             <ol className="list-decimal pl-5 text-sm text-ink/80 space-y-1.5">
-              <li>HR will enroll you on the biometric attendance device at your work location.</li>
+              <li><abbr className="acr">HR</abbr> will enroll you on the biometric attendance device at your work location.</li>
               <li>Your first punch (or the next nightly sync) assigns you an Employee Code and links it back to this submission automatically.</li>
-              <li>HR will share your Employee Code and an initial password with you so you can log in.</li>
-              <li>Once logged in, you'll find everything you submitted here under "My Onboarding" in your dashboard.</li>
+              <li><abbr className="acr">HR</abbr> will share your Employee Code and an initial password with you so you can log in.</li>
+              <li>Once logged in, you’ll find everything you submitted here under “My Onboarding” in your dashboard.</li>
             </ol>
           </div>
-          <p className="text-xs text-ink/50 mt-4">This usually takes a day or so — reach out to HR if it's been longer.</p>
+          <p className="text-xs text-ink/50 mt-4">This usually takes a day or so — reach out to <abbr className="acr">HR</abbr> if it’s been longer.</p>
         </div>
       </div>
     );
@@ -353,8 +361,8 @@ export default function Onboarding() {
       <div className="relative max-w-3xl mx-auto px-4 py-12">
         <div className="text-center mb-8">
           <img src="/jade-logo.png" alt="" className="w-24 h-24 mx-auto mb-3" />
-          <p className="font-display text-manila text-2xl">New Joinee Details</p>
-          <p className="text-manila/60 text-sm mt-1">Please fill in your details to complete your joining formalities with JADE</p>
+          <p className="font-display text-on-jade text-2xl">New joinee details</p>
+          <p className="text-on-jade/60 text-sm mt-1">Please fill in your details to complete your joining formalities with JADE</p>
         </div>
 
         <StepStrip titles={stepTitles} />
@@ -391,9 +399,9 @@ export default function Onboarding() {
           <button
             type="submit"
             disabled={busy}
-            className="w-full rounded-sm bg-jade-600 text-white py-3 font-semibold tracking-wide hover:bg-jade-700 disabled:opacity-50 transition-colors"
+            className="w-full rounded-sm bg-jade-600 text-on-jade py-3 font-semibold tracking-wide hover:bg-jade-700 disabled:opacity-50 transition-colors"
           >
-            {busy ? "Submitting…" : "Submit Details"}
+            {busy ? "Submitting…" : "Submit joining details"}
           </button>
         </form>
       </div>

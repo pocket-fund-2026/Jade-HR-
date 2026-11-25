@@ -11,7 +11,7 @@ export default function OfferNotices() {
   }, []);
   if (!rows.length) return null;
   return (
-    <div className="bg-jade-50 border border-jade-500/30 rounded-sm px-4 py-3 mb-6 flex items-start gap-3">
+    <div className="bg-jade-50 border border-jade-500/30 rounded-sm px-4 py-3 mb-6 flex items-start gap-4">
       <FileSignature size={16} className="text-jade-700 flex-shrink-0 mt-0.5" />
       <div className="flex-1 space-y-1 text-sm text-ink">
         {rows.map((r) => (

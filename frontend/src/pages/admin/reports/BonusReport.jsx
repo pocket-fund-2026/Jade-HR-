@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import api from "../../../lib/api.js";
 import { formatINR } from "../../../lib/format.js";
 
+import EmptyState from "../../../components/EmptyState.jsx";
 // FY month order: April(4) through March(3) of the following year.
 const FY_MONTH_ORDER = [4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3];
 const MONTH_NAMES = [
@@ -65,23 +66,23 @@ export default function BonusReport() {
   return (
     <div>
       <Link to="/admin/reports" className="inline-flex items-center gap-1.5 text-xs text-ink/70 hover:text-ink transition-colors">
-        <ArrowLeft size={13} /> Back to Reports
+        <ArrowLeft size={13} /> Back to reports
       </Link>
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mt-2 mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mt-2 mb-6">
         <div>
-          <h2 className="font-display text-2xl text-ink">Bonus Calculation</h2>
+          <h2 className="font-display text-2xl text-ink">Bonus calculation</h2>
           <p className="text-xs text-ink/70 font-nums mt-0.5">
             Payment of Bonus Act, 1965 — eligibility ₹21,000/mo; bonus paid on actual Basic drawn each month, uncapped (company policy)
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-4">
           <label className="flex items-center gap-2 text-sm text-ink/70">
             Rate
             <input
               type="number" step="0.01" min="8.33" max="20"
               value={rate}
               onChange={(e) => setRate(Number(e.target.value))}
-              className="w-20 rounded-sm border border-ink/15 bg-paper px-2 py-1.5 text-sm font-nums focus:outline-none focus:ring-2 focus:ring-jade-500"
+              className="w-20 rounded-sm border border-ink/15 bg-paper px-4 py-1.5 text-sm font-nums focus:outline-none focus:ring-2 focus:ring-jade-500"
             />
             %
           </label>
@@ -89,14 +90,14 @@ export default function BonusReport() {
             aria-label="Financial year"
             value={financialYear}
             onChange={(e) => setFinancialYear(e.target.value)}
-            className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+            className="rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
           >
             {fyOptions().map((fy) => <option key={fy} value={fy}>FY {fy}</option>)}
           </select>
           <button
             onClick={() => exportExcel(rows, financialYear)}
             disabled={!rows.length}
-            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
+            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
           >
             <FileSpreadsheet size={15} /> Export Excel
           </button>
@@ -106,38 +107,38 @@ export default function BonusReport() {
       <div className="bg-ledger-800 rounded-sm shadow-card p-6 relative overflow-hidden mb-6">
         <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
         <div className="relative flex flex-wrap justify-between items-baseline gap-4">
-          <span className="font-display text-manila text-lg">Total bonus payable ({eligible.length} of {rows.length} eligible)</span>
-          <span className="font-nums font-semibold text-3xl text-manila">{formatINR(totalBonus)}</span>
+          <span className="font-display text-on-jade text-lg">Total bonus payable ({eligible.length} of {rows.length} eligible)</span>
+          <span className="font-nums font-semibold text-3xl text-on-jade">{formatINR(totalBonus)}</span>
         </div>
         {totalExgratia > 0 && (
-          <div className="relative flex justify-between text-sm text-manila/60 mt-2">
-            <span>Total ex-gratia</span><span className="font-nums text-manila">{formatINR(totalExgratia)}</span>
+          <div className="relative flex justify-between text-sm text-on-jade/60 mt-2">
+            <span>Total ex-gratia</span><span className="font-nums text-on-jade">{formatINR(totalExgratia)}</span>
           </div>
         )}
       </div>
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm tabular-nums">
-          <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
+          <thead className="text-left sticky top-0 z-10 bg-paper shadow-edge">
             <tr className="border-b-2 border-ink/10">
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Emp Code</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Emp Name</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Emp code</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Emp name</th>
               {FY_MONTH_ORDER.map((m) => (
-                <th key={m} className="px-3 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">
+                <th key={m} className="px-3 py-3 font-semibold text-[11px] text-ink/70 text-right">
                   {MONTH_NAMES[m].slice(0, 3)}
                 </th>
               ))}
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">Salary Amt</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">Bonus Per</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">Bonus Amt</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">Exgratia Amt</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70 text-right">Salary amt</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70 text-right">Bonus per</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70 text-right">Bonus amt</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70 text-right">Exgratia amt</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={FY_MONTH_ORDER.length + 6}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : rows.length === 0 ? (
-              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={FY_MONTH_ORDER.length + 6}>No employees found.</td></tr>
+              <tr><td colSpan={FY_MONTH_ORDER.length + 6}><EmptyState title="No employees found" action={{ label: "Open employees", to: "/admin/employees" }}>Employees show here once they are added and active.</EmptyState></td></tr>
             ) : (
               rows.map((r) => (
                 <tr key={r.employee_id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">

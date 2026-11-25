@@ -3,9 +3,9 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import api from "../lib/api.js";
 
-const inputCls = "w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-3 min-h-[44px] text-base text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500";
-const labelCls = "block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5";
-const buttonCls = "w-full rounded-sm bg-ledger-800 text-manila py-3 min-h-[44px] font-semibold tracking-wide hover:bg-ledger-700 disabled:opacity-50 transition-colors";
+const inputCls = "w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-3 min-h-[44px] text-base text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500";
+const labelCls = "block text-xs font-semibold text-ink/70 mb-1.5";
+const buttonCls = "w-full rounded-sm bg-ledger-800 text-on-jade py-3 min-h-[44px] font-semibold tracking-wide hover:bg-ledger-700 disabled:opacity-50 transition-colors";
 
 function Shell({ title, children }) {
   return (
@@ -13,14 +13,14 @@ function Shell({ title, children }) {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <img src="/jade-logo.png" alt="JADE" className="w-20 h-20 mx-auto mb-3" />
-          <p className="font-display text-manila text-lg tracking-[0.15em] uppercase">HR</p>
+          <p className="font-display text-on-jade text-lg"><abbr className="acr">HR</abbr></p>
         </div>
         <div className="bg-paper rounded-sm shadow-stamp px-6 sm:px-8 pt-8 pb-7 border-t-4 border-jade-500">
           <p className="font-display text-ink text-lg mb-5">{title}</p>
           {children}
         </div>
-        <p className="text-center text-xs text-manila/75 mt-6">
-          <Link to="/login" className="underline underline-offset-2 hover:text-manila">Back to sign in</Link>
+        <p className="text-center text-xs text-on-jade/75 mt-6">
+          <Link to="/login" className="underline underline-offset-2 hover:text-on-jade">Back to sign in</Link>
         </p>
       </div>
     </div>
@@ -54,7 +54,7 @@ export function ForgotPassword() {
       ) : (
         <form onSubmit={submit} className="space-y-5">
           <div>
-            <label htmlFor="employee_code" className={labelCls}>Employee Code</label>
+            <label htmlFor="employee_code" className={labelCls}>Employee code</label>
             <input id="employee_code" className={`${inputCls} font-nums`} value={code} onChange={(e) => setCode(e.target.value)} autoFocus required />
           </div>
           {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5">{error}</p>}
@@ -78,7 +78,7 @@ export function ResetPassword() {
     e.preventDefault();
     setError("");
     if (password.length < 6) return setError("Password must be at least 6 characters");
-    if (password !== confirm) return setError("The two passwords don't match");
+    if (password !== confirm) return setError("The two passwords don’t match");
     setBusy(true);
     try {
       await api.post("/api/auth/reset-password", { token, password });

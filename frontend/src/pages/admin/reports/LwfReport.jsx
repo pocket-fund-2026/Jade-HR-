@@ -8,6 +8,7 @@ import api from "../../../lib/api.js";
 import { formatINR } from "../../../lib/format.js";
 import { useAuth } from "../../../lib/auth.jsx";
 
+import EmptyState from "../../../components/EmptyState.jsx";
 const today = new Date();
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -54,24 +55,24 @@ export default function LwfReport() {
   return (
     <div>
       <Link to="/admin/reports" className="inline-flex items-center gap-1.5 text-xs text-ink/70 hover:text-ink transition-colors">
-        <ArrowLeft size={13} /> Back to Reports
+        <ArrowLeft size={13} /> Back to reports
       </Link>
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mt-2 mb-6">
-        <h2 className="font-display text-2xl text-ink">LWF Sheet &amp; Challan</h2>
-        <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mt-2 mb-6">
+        <h2 className="font-display text-2xl text-ink"><abbr className="acr">LWF</abbr> Sheet &amp; Challan</h2>
+        <div className="flex flex-wrap items-center gap-4">
           <button
             onClick={() => exportExcel(rows, year, month)}
             disabled={!rows.length}
-            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
+            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
           >
             <FileSpreadsheet size={15} /> Export Excel
           </button>
           {can("salary.edit") && (
             <button
               onClick={() => setShowFlagsImport(true)}
-              className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
+              className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
             >
-              <Settings2 size={15} /> Set Applicability
+              <Settings2 size={15} /> Set applicability
             </button>
           )}
           <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
@@ -80,38 +81,38 @@ export default function LwfReport() {
 
       {!isHalfYearlyMonth && (
         <p className="text-sm text-ink/70 border-l-2 border-ink/20 pl-2.5 py-0.5 mb-4">
-          LWF is deducted half-yearly (June and December cycles only) — this month isn't one of them, so no LWF is due.
+          LWF is deducted half-yearly (June and December cycles only) — this month isn’t one of them, so no LWF is due.
         </p>
       )}
 
       <div className="bg-ledger-800 rounded-sm shadow-card p-6 relative overflow-hidden mb-6">
         <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
         <div className="relative space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wider text-manila/60 mb-3">Challan — {rows.length} employees</p>
-          <div className="flex justify-between text-sm text-manila/60"><span>Employee LWF</span><span className="font-nums text-manila">{formatINR(totals.employee)}</span></div>
-          <div className="flex justify-between text-sm text-manila/60"><span>Employer LWF</span><span className="font-nums text-manila">{formatINR(totals.employer)}</span></div>
+          <p className="text-xs font-semibold text-on-jade/60 mb-3">Challan — {rows.length} employees</p>
+          <div className="flex justify-between text-sm text-on-jade/60"><span>Employee <abbr className="acr">LWF</abbr></span><span className="font-nums text-on-jade">{formatINR(totals.employee)}</span></div>
+          <div className="flex justify-between text-sm text-on-jade/60"><span>Employer <abbr className="acr">LWF</abbr></span><span className="font-nums text-on-jade">{formatINR(totals.employer)}</span></div>
           <div className="flex justify-between items-baseline pt-4 mt-2 border-t border-manila/15">
-            <span className="font-display text-manila text-lg">Total to deposit</span>
-            <span className="font-nums font-semibold text-3xl text-manila">{formatINR(totals.employee + totals.employer)}</span>
+            <span className="font-display text-on-jade text-lg">Total to deposit</span>
+            <span className="font-nums font-semibold text-3xl text-on-jade">{formatINR(totals.employee + totals.employer)}</span>
           </div>
         </div>
       </div>
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm tabular-nums">
-          <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
+          <thead className="text-left sticky top-0 z-10 bg-paper shadow-edge">
             <tr className="border-b-2 border-ink/10">
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Location</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee LWF</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employer LWF</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Employee</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Location</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Employee <abbr className="acr">LWF</abbr></th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Employer <abbr className="acr">LWF</abbr></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={4}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : rows.length === 0 ? (
-              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={4}>No LWF due this month.</td></tr>
+              <tr><td colSpan={4}><EmptyState title="No LWF due this month" action={{ label: "Open payroll", to: "/admin/payroll" }}>Labour welfare fund falls due only in certain months.</EmptyState></td></tr>
             ) : (
               rows.map((r) => (
                 <tr key={r.employee_id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">

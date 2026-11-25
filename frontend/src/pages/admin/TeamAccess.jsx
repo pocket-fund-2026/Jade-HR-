@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../../lib/api.js";
 import { useAuth } from "../../lib/auth.jsx";
 
+import EmptyState from "../../components/EmptyState.jsx";
 function Toggle({ checked, onChange, disabled }) {
   return (
     <button
@@ -75,13 +76,13 @@ function PersonOverrides({ permissionKeys, hrEmployees, overrides, onApplyBulk, 
       </p>
 
       <div className="bg-paper rounded-sm shadow-card p-5 mb-6">
-        <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-3">Apply to selected people</p>
+        <p className="text-xs font-semibold text-ink/70 mb-3">Apply to selected people</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
-            <label htmlFor="override_permission" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Permission</label>
+            <label htmlFor="override_permission" className="block text-xs font-semibold text-ink/70 mb-1.5">Permission</label>
             <select
               id="override_permission"
-              className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+              className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
               value={selectedKey}
               onChange={(e) => setSelectedKey(e.target.value)}
             >
@@ -92,10 +93,10 @@ function PersonOverrides({ permissionKeys, hrEmployees, overrides, onApplyBulk, 
           </div>
         </div>
 
-        <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-2">HR logins</p>
+        <p className="text-xs font-semibold text-ink/70 mb-2"><abbr className="acr">HR</abbr> logins</p>
         <div className="max-h-48 overflow-y-auto border border-ink/10 rounded-sm mb-4">
           {hrEmployees.length === 0 ? (
-            <p className="px-3 py-4 text-sm text-ink/70">No HR-role employees yet.</p>
+            <EmptyState title="No HR logins yet" action={{ label: "Open employees", to: "/admin/employees" }}>Give an employee the <abbr className="acr">HR</abbr> role to list them here.</EmptyState>
           ) : (
             hrEmployees.map((e) => (
               <label key={e.id} className="flex items-center gap-2.5 px-3 py-2 border-b border-ink/[0.06] last:border-0 cursor-pointer hover:bg-manila/30">
@@ -112,12 +113,12 @@ function PersonOverrides({ permissionKeys, hrEmployees, overrides, onApplyBulk, 
           )}
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex gap-4">
           <button
             type="button"
             disabled={applying || !selectedIds.length}
             onClick={() => onApplyBulk(selectedKey, true, selectedIds)}
-            className="bg-jade-600 text-white px-4 py-2 rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
+            className="bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
           >
             Grant to selected
           </button>
@@ -125,16 +126,16 @@ function PersonOverrides({ permissionKeys, hrEmployees, overrides, onApplyBulk, 
             type="button"
             disabled={applying || !selectedIds.length}
             onClick={() => onApplyBulk(selectedKey, false, selectedIds)}
-            className="bg-paper border border-rust-500 text-rust-500 px-4 py-2 rounded-sm text-sm font-semibold hover:bg-rust-50 disabled:opacity-50 transition-colors"
+            className="bg-paper border border-rust-500 text-rust-500 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-rust-50 disabled:opacity-50 transition-colors"
           >
             Deny for selected
           </button>
         </div>
       </div>
 
-      <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-3">Current overrides</p>
+      <p className="text-xs font-semibold text-ink/70 mb-3">Current overrides</p>
       {overrides.length === 0 ? (
-        <p className="text-sm text-ink/70">No per-person overrides set.</p>
+        <EmptyState title="No per-person overrides" action={{ label: "Choose a permission", onClick: () => document.getElementById("override_permission")?.focus() }}>Choose a permission and people above to add the first one.</EmptyState>
       ) : (
         <div className="bg-paper rounded-sm shadow-card divide-y divide-ink/[0.06]">
           {overrides.map((o) => (
@@ -256,7 +257,7 @@ export default function TeamAccess() {
     <div className="max-w-2xl">
       <div className="flex items-center gap-2 mb-1">
         <ShieldCheck size={20} className="text-jade-600" />
-        <h2 className="font-display text-2xl text-ink">Team Access</h2>
+        <h2 className="font-display text-2xl text-ink">Team access</h2>
       </div>
       <p className="text-sm text-ink/70 mb-6">
         Control what the HR role can see and do in the admin console. Accounts ({user?.name}) always has full

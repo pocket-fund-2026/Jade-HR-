@@ -27,9 +27,9 @@ export default function MyPayslip() {
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 no-print">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 no-print">
         <div>
-          <h2 className="font-display text-2xl text-ink">My Payslip</h2>
+          <h2 className="font-display text-2xl text-ink">My payslip</h2>
           <p className="text-xs text-ink/70 mt-0.5">Pick a month to view or print your payslip</p>
         </div>
         <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />

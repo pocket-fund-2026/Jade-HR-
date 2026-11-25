@@ -28,7 +28,7 @@ export default function CareersAgents() {
     <div>
       <div className="mb-4">
         <h2 className="font-display text-2xl text-ink">Careers — Agents</h2>
-        <p className="text-xs text-ink/70 mt-0.5">Each agent has one job. Switch one off to pause it without affecting the others. Decisions (offer, hire, reject) always stay with HR.</p>
+        <p className="text-xs text-ink/70 mt-0.5">Each agent has one job. Switch one off to pause it without affecting the others. Decisions (offer, hire, reject) always stay with <abbr className="acr">HR</abbr>.</p>
       </div>
       <CareersNav />
       <div className="grid md:grid-cols-2 gap-4">
@@ -36,7 +36,7 @@ export default function CareersAgents() {
           const [emailLabel, emailTone] = EMAIL_NOTE[a.emails] || [a.emails, "text-ink/60"];
           return (
             <section key={a.id} className={`bg-paper rounded-sm shadow-card p-5 ${a.enabled ? "" : "opacity-70"}`}>
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start justify-between gap-4">
                 <div>
                   <h3 className="font-display text-lg text-ink">{a.name}</h3>
                   <p className="text-xs mt-0.5"><span className={`font-semibold ${a.enabled ? "text-jade-700" : "text-rust-500"}`}>{a.enabled ? "On" : "Off"}</span>
@@ -44,7 +44,7 @@ export default function CareersAgents() {
                     {a.mode && <><span className="text-ink/40"> · </span><span className="text-ink/60">{a.mode}</span></>}</p>
                 </div>
                 <button type="button" disabled={busy === a.id} onClick={() => toggle(a)}
-                  className={`px-3 py-1.5 rounded-sm text-xs font-semibold border ${a.enabled ? "border-ink/20 text-ink/70 hover:bg-manila/60" : "border-jade-500/50 text-jade-700 hover:bg-jade-500/10"}`}>
+                  className={`px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold border ${a.enabled ? "border-ink/20 text-ink/70 hover:bg-manila/60" : "border-jade-500/50 text-jade-700 hover:bg-jade-500/10"}`}>
                   {a.enabled ? "Switch off" : "Switch on"}
                 </button>
               </div>

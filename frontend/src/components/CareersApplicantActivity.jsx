@@ -5,8 +5,8 @@ import api from "../lib/api.js";
 import { INTERVIEW_MODES, INTERVIEW_STATUSES, RECOMMENDATIONS, formatDateTime, utcToDate } from "../lib/careers.js";
 import StampBadge from "./StampBadge.jsx";
 
-const INPUT = "w-full rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-jade-500";
-const LABEL = "text-[11px] font-semibold uppercase tracking-wider text-ink/50";
+const INPUT = "w-full rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-jade-500";
+const LABEL = "text-[11px] font-semibold text-ink/50";
 const INTERVIEW_TONE = { Scheduled: "pending", Completed: "approved", Cancelled: "inactive", "No-show": "rejected" };
 
 function Card({ title, children }) {
@@ -44,12 +44,13 @@ export function NotesCard({ applicationId, notes, onChange }) {
   return (
     <Card title={`Notes (${notes.length})`}>
       <form onSubmit={add}>
-        <textarea rows={3} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Call notes, portfolio impressions, references…" className={INPUT} />
-        <button type="submit" disabled={saving || !body.trim()} className="mt-2 px-3 py-1.5 rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40">
+        <label htmlFor="applicant_note_body" className={LABEL}>New note</label>
+        <textarea id="applicant_note_body" rows={3} value={body} onChange={(e) => setBody(e.target.value)} placeholder="e.g. Call notes, portfolio impressions, references" className={`${INPUT} mt-1`} />
+        <button type="submit" disabled={saving || !body.trim()} className="mt-2 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-on-jade hover:bg-jade-700 disabled:opacity-40">
           {saving ? "Saving…" : "Add note"}
         </button>
       </form>
-      <ul className="mt-4 space-y-3">
+      <ul className="mt-4 space-y-4">
         {notes.map((n) => (
           <li key={n.id} className="border-l-2 border-ink/10 pl-3 group">
             <p className="text-sm text-ink whitespace-pre-wrap">{n.body}</p>
@@ -117,8 +118,8 @@ function InterviewForm({ initial = EMPTY, submitLabel, onSubmit, onCancel, full 
   };
 
   return (
-    <form onSubmit={submit} className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
+    <form onSubmit={submit} className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
         <label className="block col-span-2">
           <span className={LABEL}>Round</span>
           <input value={f.round} onChange={set("round")} required placeholder="e.g. Round 1 – HR screen" className={`${INPUT} mt-1`} list="careers-rounds" />
@@ -155,7 +156,7 @@ function InterviewForm({ initial = EMPTY, submitLabel, onSubmit, onCancel, full 
           <input type="number" min="10" max="480" step="5" value={f.duration_min || 30} onChange={set("duration_min")} className={`${INPUT} mt-1`} />
         </label>
         <label className="block">
-          <span className={LABEL}>Interviewer email (cc'd)</span>
+          <span className={LABEL}>Interviewer email (cc’d)</span>
           <input type="email" value={f.interviewer_email || ""} onChange={set("interviewer_email")} className={`${INPUT} mt-1`} />
         </label>
         <div className="col-span-2 text-[11px] text-ink/60 -mt-1">
@@ -170,7 +171,7 @@ function InterviewForm({ initial = EMPTY, submitLabel, onSubmit, onCancel, full 
       </div>
       {full && (
         <>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-4">
             <label className="block">
               <span className={LABEL}>Status</span>
               <select value={f.status} onChange={set("status")} className={`${INPUT} mt-1`}>
@@ -196,7 +197,7 @@ function InterviewForm({ initial = EMPTY, submitLabel, onSubmit, onCancel, full 
         </>
       )}
       <div className="flex gap-2">
-        <button type="submit" disabled={saving || !f.round.trim()} className="px-3 py-1.5 rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40">
+        <button type="submit" disabled={saving || !f.round.trim()} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-on-jade hover:bg-jade-700 disabled:opacity-40">
           {saving ? "Saving…" : submitLabel}
         </button>
         {onCancel && <button type="button" onClick={onCancel} className="px-3 py-1.5 rounded-sm text-xs text-ink/70 hover:text-ink">Cancel</button>}
@@ -271,9 +272,9 @@ export function EmailsCard({ emails = [], onChange }) {
       {sl && (
         <div className="fixed inset-0 z-50 bg-ink/50 flex items-center justify-center p-3" onClick={() => !slBusy && setSl(null)}>
           <div className="bg-paper rounded-sm shadow-card w-full max-w-xl max-h-[92vh] overflow-y-auto p-4" onClick={(e) => e.stopPropagation()}>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/50 mb-1">Second mail: interview times</p>
+            <p className="text-[11px] font-semibold text-ink/50 mb-1">Second mail: interview times</p>
             <p className="text-xs text-ink/70 mb-3">The candidate gets one email with a button for each time. They tap one, confirm, and the interview is booked (Meet link for video calls). The interviewer receives the invite and a brief.</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               <label className="block col-span-2"><span className={LABEL}>Round</span><input value={sl.f.round} onChange={slSet("round")} className={`${INPUT} mt-1`} list="careers-rounds" /></label>
               <label className="block"><span className={LABEL}>Mode</span><select value={sl.f.mode} onChange={slSet("mode")} className={`${INPUT} mt-1`}>{INTERVIEW_MODES.map((m) => <option key={m}>{m}</option>)}</select></label>
               <label className="block"><span className={LABEL}>Duration (min)</span><input type="number" min="10" max="480" step="5" value={sl.f.duration_min} onChange={slSet("duration_min")} className={`${INPUT} mt-1`} /></label>
@@ -282,10 +283,10 @@ export function EmailsCard({ emails = [], onChange }) {
               <label className="block"><span className={LABEL}>Interviewer email (gets invite + brief)</span><input type="email" value={sl.f.interviewer_email} onChange={slSet("interviewer_email")} className={`${INPUT} mt-1`} /></label>
             </div>
             <div className="mt-3">
-              <span className={LABEL}>Times to offer (1–6, IST)</span>
+              <span className={LABEL}>Times to offer (1–6, <abbr className="acr">IST</abbr>)</span>
               {sl.f.slots.map((v, i) => (
                 <div key={i} className="flex gap-2 mt-1.5">
-                  <input type="datetime-local" value={v} onChange={(e) => setSl({ ...sl, f: { ...sl.f, slots: sl.f.slots.map((x, j) => (j === i ? e.target.value : x)) } })} className={INPUT} />
+                  <input type="datetime-local" aria-label={`Interview time ${i + 1}`} value={v} onChange={(e) => setSl({ ...sl, f: { ...sl.f, slots: sl.f.slots.map((x, j) => (j === i ? e.target.value : x)) } })} className={INPUT} />
                   {sl.f.slots.length > 1 && <button type="button" onClick={() => setSl({ ...sl, f: { ...sl.f, slots: sl.f.slots.filter((_, j) => j !== i) } })} className="text-xs text-rust-500 px-1">✕</button>}
                 </div>
               ))}
@@ -299,9 +300,9 @@ export function EmailsCard({ emails = [], onChange }) {
             <label className="block mt-3"><span className={LABEL}>Personal note (optional)</span><textarea rows={2} value={sl.f.note} onChange={slSet("note")} className={`${INPUT} mt-1`} /></label>
             {slErr && <p className="text-xs text-rust-500 mt-2">{slErr}</p>}
             <div className="flex gap-2 mt-3">
-              <button type="button" disabled={slBusy || !slFilled.length || !sl.f.round.trim()} onClick={slSend} className="px-3 py-1.5 rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40">{slBusy ? "Sending…" : "Send interview times"}</button>
+              <button type="button" disabled={slBusy} onClick={() => discard(sl.id).then(() => setSl(null))} className="mr-auto px-3 py-1.5 rounded-sm text-xs text-rust-500 hover:underline">Discard draft</button>
+              <button type="button" disabled={slBusy || !slFilled.length || !sl.f.round.trim()} onClick={slSend} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-on-jade hover:bg-jade-700 disabled:opacity-40">{slBusy ? "Sending…" : "Send interview times"}</button>
               <button type="button" disabled={slBusy} onClick={() => setSl(null)} className="px-3 py-1.5 rounded-sm text-xs text-ink/70 hover:text-ink">Close</button>
-              <button type="button" disabled={slBusy} onClick={() => discard(sl.id).then(() => setSl(null))} className="ml-auto px-3 py-1.5 rounded-sm text-xs text-rust-500 hover:underline">Discard draft</button>
             </div>
           </div>
         </div>
@@ -309,15 +310,15 @@ export function EmailsCard({ emails = [], onChange }) {
       {draft && (
         <div className="fixed inset-0 z-50 bg-ink/50 flex items-center justify-center p-3" onClick={() => !busy && setDraft(null)}>
           <div className="bg-paper rounded-sm shadow-card w-full max-w-3xl max-h-[92vh] overflow-y-auto p-4" onClick={(e) => e.stopPropagation()}>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/50 mb-2">Review email to {draft.to}</p>
+            <p className="text-[11px] font-semibold text-ink/50 mb-2">Review email to {draft.to}</p>
             <label className="block mb-2"><span className={LABEL}>Subject</span><input value={draft.subject} onChange={(e) => setDraft({ ...draft, subject: e.target.value })} className={`${INPUT} mt-1`} /></label>
             <label className="block mb-2"><span className={LABEL}>Personal note (optional, shown inside the email)</span><textarea rows={3} value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} className={`${INPUT} mt-1`} placeholder="e.g. We loved your portfolio." /></label>
             <button type="button" disabled={busy} onClick={refreshPreview} className="mb-2 text-xs font-semibold text-jade-700 hover:underline">Update preview</button>
             <iframe title="Email preview" sandbox="" srcDoc={draft.html} className="w-full h-[52vh] border border-ink/10 rounded-sm bg-white" />
             <div className="flex gap-2 mt-3">
-              <button type="button" disabled={busy} onClick={sendDraft} className="px-3 py-1.5 rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40">{busy ? "Working…" : "Send from careers@"}</button>
+              <button type="button" disabled={busy} onClick={() => discard(draft.id)} className="mr-auto px-3 py-1.5 rounded-sm text-xs text-rust-500 hover:underline">Discard draft</button>
+              <button type="button" disabled={busy} onClick={sendDraft} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-on-jade hover:bg-jade-700 disabled:opacity-40">{busy ? "Working…" : "Send from careers@"}</button>
               <button type="button" disabled={busy} onClick={() => setDraft(null)} className="px-3 py-1.5 rounded-sm text-xs text-ink/70 hover:text-ink">Close</button>
-              <button type="button" disabled={busy} onClick={() => discard(draft.id)} className="ml-auto px-3 py-1.5 rounded-sm text-xs text-rust-500 hover:underline">Discard draft</button>
             </div>
           </div>
         </div>
@@ -348,11 +349,11 @@ export function InterviewsCard({ applicationId, interviews, onChange }) {
 
   return (
     <Card title={`Interviews (${interviews.length})`}>
-      <div className="space-y-3">
+      <div className="space-y-4">
         {interviews.map((i) =>
           editingId === i.id ? (
             <div key={i.id} className="border border-ink/10 rounded-sm p-3">
-              <InterviewForm initial={i} full submitLabel="Save" onSubmit={(f) => update(i.id, f)} onCancel={() => setEditingId(null)} />
+              <InterviewForm initial={i} full submitLabel="Save interview" onSubmit={(f) => update(i.id, f)} onCancel={() => setEditingId(null)} />
             </div>
           ) : (
             <div key={i.id} className="border border-ink/10 rounded-sm p-3">
@@ -376,7 +377,7 @@ export function InterviewsCard({ applicationId, interviews, onChange }) {
                 </p>
               )}
               {i.feedback && <p className="text-xs text-ink/75 mt-1.5 whitespace-pre-wrap">{i.feedback}</p>}
-              <div className="flex gap-3 mt-2 text-xs">
+              <div className="flex gap-4 mt-2 text-xs">
                 <button type="button" onClick={() => setEditingId(i.id)} className="text-jade-700 font-semibold hover:underline">
                   {i.status === "Scheduled" ? "Add feedback / edit" : "Edit"}
                 </button>
@@ -388,11 +389,11 @@ export function InterviewsCard({ applicationId, interviews, onChange }) {
       </div>
       {adding ? (
         <div className="mt-3 border border-ink/10 rounded-sm p-3">
-          <InterviewForm submitLabel="Schedule" onSubmit={create} onCancel={() => setAdding(false)} />
+          <InterviewForm submitLabel="Schedule interview" onSubmit={create} onCancel={() => setAdding(false)} />
           <p className="text-[11px] text-ink/50 mt-2">Scheduling moves a New / Shortlisted / Auto-Rejected applicant to Interviewing. The candidate is emailed the invite automatically unless unticked.</p>
         </div>
       ) : (
-        <button type="button" onClick={() => setAdding(true)} className="mt-3 px-3 py-1.5 rounded-sm text-xs font-semibold border border-jade-500/40 text-jade-700 hover:bg-jade-500/10">
+        <button type="button" onClick={() => setAdding(true)} className="mt-3 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold border border-jade-500/40 text-jade-700 hover:bg-jade-500/10">
           + Schedule interview
         </button>
       )}
@@ -466,7 +467,7 @@ export function OffersCard({ applicationId, onChange }) {
             <p className="text-ink font-medium">{o.round} <span className={`font-semibold ${OFFER_TONE[o.status] || ""}`}>· {o.status}</span></p>
             <p className="text-ink/60 font-nums mt-0.5">{o.status === "booked" ? `Chose ${fmtSlot(o.chosen_slot)}` : o.slots.map(fmtSlot).join("  ·  ")}</p>
             {o.status === "open" && (
-              <p className="mt-1.5 flex gap-3 flex-wrap">
+              <p className="mt-1.5 flex gap-4 flex-wrap">
                 <button type="button" onClick={() => copy(o.link)} className="text-jade-700 font-semibold hover:underline">Copy link</button>
                 <button type="button" onClick={() => act(`/api/careers/offers/${o.id}/resend`)} className="text-jade-700 hover:underline">Resend email</button>
                 <button type="button" onClick={() => act(`/api/careers/offers/${o.id}/cancel`, "Withdraw this offer?")} className="text-rust-500 hover:underline">Withdraw</button>
@@ -476,8 +477,8 @@ export function OffersCard({ applicationId, onChange }) {
         ))}
       </ul>
       {adding ? (
-        <form onSubmit={submit} className="mt-3 border border-ink/10 rounded-sm p-3 space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+        <form onSubmit={submit} className="mt-3 border border-ink/10 rounded-sm p-3 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
             <label className="block col-span-2"><span className={LABEL}>Round</span><input required value={f.round} onChange={set("round")} className={`${INPUT} mt-1`} list="careers-rounds" placeholder="e.g. Round 1 – HR" /></label>
             <label className="block"><span className={LABEL}>Mode</span><select value={f.mode} onChange={set("mode")} className={`${INPUT} mt-1`}>{INTERVIEW_MODES.map((m) => <option key={m}>{m}</option>)}</select></label>
             <label className="block"><span className={LABEL}>Duration (min)</span><input type="number" min="10" max="480" step="5" value={f.duration_min} onChange={set("duration_min")} className={`${INPUT} mt-1`} /></label>
@@ -486,10 +487,10 @@ export function OffersCard({ applicationId, onChange }) {
             <label className="block"><span className={LABEL}>Interviewer email (gets the invite + brief)</span><input type="email" value={f.interviewer_email} onChange={set("interviewer_email")} className={`${INPUT} mt-1`} /></label>
           </div>
           <div>
-            <span className={LABEL}>Times to offer (1–6, IST)</span>
+            <span className={LABEL}>Times to offer (1–6, <abbr className="acr">IST</abbr>)</span>
             {f.slots.map((v, i) => (
               <div key={i} className="flex gap-2 mt-1.5">
-                <input type="datetime-local" value={v} onChange={(e) => setSlot(i, e.target.value)} className={INPUT} />
+                <input type="datetime-local" aria-label={`Offered time ${i + 1}`} value={v} onChange={(e) => setSlot(i, e.target.value)} className={INPUT} />
                 {f.slots.length > 1 && <button type="button" onClick={() => setF({ ...f, slots: f.slots.filter((_, j) => j !== i) })} className="text-xs text-rust-500 px-1">✕</button>}
               </div>
             ))}
@@ -503,13 +504,13 @@ export function OffersCard({ applicationId, onChange }) {
           <label className="block"><span className={LABEL}>Personal note (optional)</span><textarea rows={2} value={f.note} onChange={set("note")} className={`${INPUT} mt-1`} /></label>
           {err && <p className="text-xs text-rust-500">{err}</p>}
           <div className="flex gap-2">
-            <button type="submit" disabled={saving || !filled.length || !f.round.trim()} className="px-3 py-1.5 rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40">{saving ? "Saving…" : "Send times to candidate"}</button>
+            <button type="submit" disabled={saving || !filled.length || !f.round.trim()} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-on-jade hover:bg-jade-700 disabled:opacity-40">{saving ? "Saving…" : "Send times to candidate"}</button>
             <button type="button" onClick={() => setAdding(false)} className="px-3 py-1.5 rounded-sm text-xs text-ink/70 hover:text-ink">Cancel</button>
           </div>
           <p className="text-[11px] text-ink/50">The candidate gets an email with a button for each time; tapping one and confirming books the interview automatically (Meet link for video calls), and the interviewer gets a brief. If interview emails are switched off, copy the link and share it yourself.</p>
         </form>
       ) : (
-        <button type="button" onClick={() => setAdding(true)} className="mt-3 px-3 py-1.5 rounded-sm text-xs font-semibold border border-jade-500/40 text-jade-700 hover:bg-jade-500/10">+ Offer times</button>
+        <button type="button" onClick={() => setAdding(true)} className="mt-3 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold border border-jade-500/40 text-jade-700 hover:bg-jade-500/10">+ Offer times</button>
       )}
     </Card>
   );

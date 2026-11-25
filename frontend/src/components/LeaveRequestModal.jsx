@@ -1,6 +1,6 @@
 import CompOffPolicy from "./CompOffPolicy.jsx";
 import { X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { cloneElement, isValidElement, useEffect, useId, useState } from "react";
 
 import api from "../lib/api.js";
 import { useAuth } from "../lib/auth.jsx";
@@ -14,18 +14,20 @@ function daysBetween(start, end) {
 }
 
 function Field({ label, required, children }) {
+  const fid = useId();
+  const child = isValidElement(children) && !children.props.id ? cloneElement(children, { id: fid }) : children;
   return (
     <div>
-      <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">
+      <label htmlFor={fid} className="block text-xs font-semibold text-ink/70 mb-1.5">
         {label} {required && <span className="text-rust-500 normal-case font-normal">*Required</span>}
       </label>
-      {children}
+      {child}
     </div>
   );
 }
 
 const inputCls =
-  "w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
+  "w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
 const readOnlyCls =
   "w-full rounded-sm border border-ink/10 bg-ink/[0.04] px-3 py-2.5 text-sm text-ink/70";
 
@@ -95,7 +97,7 @@ export default function LeaveRequestModal({ onClose, onSubmitted, onBehalfOf }) 
         <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-ink/70 hover:text-ink transition-colors">
           <X size={18} />
         </button>
-        <p className="text-xs font-semibold uppercase tracking-wider text-jade-600 mb-1">
+        <p className="text-xs font-semibold text-jade-600 mb-1">
           {onBehalfOf ? "Red Card exception" : "Leave Application"}
         </p>
         <p className="font-display text-lg text-ink mb-5">
@@ -105,12 +107,12 @@ export default function LeaveRequestModal({ onClose, onSubmitted, onBehalfOf }) 
         </p>
 
         <form onSubmit={submit} className="space-y-6">
-          <div className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-ink/70">Employee Details</p>
+          <div className="space-y-4">
+            <p className="text-xs font-semibold text-ink/70">Employee details</p>
             <Field label="Dept." required>
               <input className={readOnlyCls} value={subject?.department || ""} disabled />
             </Field>
-            <Field label="Employee Code">
+            <Field label="Employee code">
               <input className={readOnlyCls} value={subject?.employee_code || ""} disabled />
             </Field>
             <Field label="Name" required>
@@ -121,8 +123,8 @@ export default function LeaveRequestModal({ onClose, onSubmitted, onBehalfOf }) 
             </Field>
           </div>
 
-          <div className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-ink/70">Details</p>
+          <div className="space-y-4">
+            <p className="text-xs font-semibold text-ink/70">Details</p>
             <Field label="Type of leave" required>
               <select
                 className={inputCls}
@@ -174,8 +176,8 @@ export default function LeaveRequestModal({ onClose, onSubmitted, onBehalfOf }) 
             <LeaveProofField file={proof} onChange={setProof} />
           </div>
 
-          <div className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-ink/70">Approver Details</p>
+          <div className="space-y-4">
+            <p className="text-xs font-semibold text-ink/70">Approver details</p>
             <p className="text-xs text-ink/70 -mt-1">
               Routed automatically to your reporting manager on file — contact HR if this looks wrong.
             </p>
@@ -186,16 +188,16 @@ export default function LeaveRequestModal({ onClose, onSubmitted, onBehalfOf }) 
 
           {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
 
-          <div className="flex justify-end gap-3 pt-1">
+          <div className="flex justify-end gap-4 pt-1">
             <button type="button" onClick={onClose} className="text-sm text-ink/70 hover:text-ink px-2">
               Cancel
             </button>
             <button
               type="submit"
               disabled={busy}
-              className="bg-ledger-800 text-manila px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
+              className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
             >
-              {busy ? "Submitting…" : onBehalfOf ? "File exception" : "Submit to admin"}
+              {busy ? "Submitting…" : onBehalfOf ? "File exception" : "Submit leave request"}
             </button>
           </div>
         </form>

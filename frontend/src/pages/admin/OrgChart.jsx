@@ -5,6 +5,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import api from "../../lib/api.js";
 import { formatDate } from "../../lib/format.js";
 
+import EmptyState from "../../components/EmptyState.jsx";
 const STATUSES = ["On Probation", "Confirmed", "Resigned", "Absconded", "Terminated"];
 const STATUS_CLS = {
   "On Probation": "bg-ochre-500/15 text-ochre-700",
@@ -15,7 +16,7 @@ const STATUS_CLS = {
 };
 
 const selectCls =
-  "rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
+  "rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
 
 function StatusBadge({ status }) {
   return <span className={`inline-block whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[10px] font-medium ${STATUS_CLS[status] || ""}`}>{status}</span>;
@@ -274,25 +275,25 @@ export default function OrgChart() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="font-display text-2xl text-ink flex items-center gap-2"><Network size={22} /> Organisation Chart</h2>
+          <h2 className="font-display text-2xl text-ink flex items-center gap-2"><Network size={22} /> Organisation chart</h2>
           <p className="text-sm text-ink/60">
             Live from employee records{data ? ` · as of ${formatDate(data.as_of)} · ${data.headcount} active` : ""}. People drop off after their last working day but stay in the database.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <select value={location} onChange={(e) => setLocation(e.target.value)} className={selectCls}>
+          <select aria-label="Filter by location" value={location} onChange={(e) => setLocation(e.target.value)} className={selectCls}>
             <option value="">All locations</option>
             {(data?.locations || []).map((l) => <option key={l} value={l}>{l}</option>)}
           </select>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className={selectCls}>
+          <select aria-label="Filter by status" value={status} onChange={(e) => setStatus(e.target.value)} className={selectCls}>
             <option value="">All statuses</option>
             {STATUSES.map((s) => <option key={s} value={s}>{s} ({data?.status_counts?.[s] || 0})</option>)}
           </select>
           <div className="flex rounded-sm border border-ink/15 overflow-hidden text-sm">
             {["chart", "list"].map((v) => (
-              <button key={v} onClick={() => setView(v)} className={`px-3 py-2 capitalize ${view === v ? "bg-jade-500 text-white" : "bg-manila/40 text-ink"}`}>{v}</button>
+              <button key={v} onClick={() => setView(v)} className={`px-3 py-2 capitalize ${view === v ? "bg-jade-500 text-on-jade" : "bg-manila/40 text-ink"}`}>{v}</button>
             ))}
           </div>
           {view === "chart" && (
@@ -304,7 +305,7 @@ export default function OrgChart() {
               <button className={`${selectCls} flex items-center gap-1`} title="Zoom in" onClick={() => { setFit(false); setZoom((z) => Math.min(2, +(z + 0.15).toFixed(2))); }}>
                 <ZoomIn size={16} /> <span className="hidden sm:inline">Zoom in</span>
               </button>
-              <button className={`${selectCls} ${fit ? "bg-jade-500 text-white" : ""}`} onClick={() => setFit(true)}>Fit</button>
+              <button className={`${selectCls} ${fit ? "bg-jade-500 text-on-jade" : ""}`} onClick={() => setFit(true)}>Fit</button>
               <button className={selectCls} onClick={() => setCollapsed(new Set())}>Expand all</button>
               <button
                 className={`${selectCls} flex items-center gap-1`} title="Reset zoom, fit to screen and collapse back to the first level"
@@ -323,20 +324,20 @@ export default function OrgChart() {
 
       {data && (data.status_counts?.["On Probation"] || 0) > 0.5 * data.headcount && (
         <div className="rounded-sm border border-ochre-500/40 bg-ochre-500/10 px-4 py-3 text-sm text-ink">
-          Most people show as <b>On Probation</b> because their confirmation date hasn't been entered yet. HR team: please add confirmation dates under{" "}
-          <Link to="/admin/confirmations" className="underline">Confirmations</Link> or on each employee's Employment tab.
+          Most people show as <b>On probation</b> because their confirmation date hasn’t been entered yet. HR team: please add confirmation dates under{" "}
+          <Link to="/admin/confirmations" className="underline">Confirmations</Link> or on each employee’s Employment tab.
         </div>
       )}
 
       {data && (data.data_gaps.no_reporting_manager > 0 || data.data_gaps.no_designation > 0) && (
         <p className="text-xs text-ink/60">
           <button onClick={downloadGaps} className="underline mr-2">Download missing-data list</button>
-          Gaps in this view: {data.data_gaps.name_pending} still named by biometric code only, {data.data_gaps.no_reporting_manager} without a reporting manager, {data.data_gaps.manager_not_linked} with a manager name that isn't linked to an employee record, {data.data_gaps.no_designation} without a designation.
+          Gaps in this view: {data.data_gaps.name_pending} still named by biometric code only, {data.data_gaps.no_reporting_manager} without a reporting manager, {data.data_gaps.manager_not_linked} with a manager name that isn’t linked to an employee record, {data.data_gaps.no_designation} without a designation.
         </p>
       )}
 
       {rows.length > 0 && (
-        <div className="grid gap-3 sm:grid-cols-4 text-sm">
+        <div className="grid gap-4 sm:grid-cols-4 text-sm">
           <div className="bg-paper rounded-sm shadow-card p-3"><div className="text-xs text-ink/50">Managers</div><b className="text-lg">{ins.managers}</b> <span className="text-ink/60">avg span {ins.avg}</span></div>
           <div className="bg-paper rounded-sm shadow-card p-3"><div className="text-xs text-ink/50">Widest spans</div>{ins.spans.slice(0, 3).map((s) => <div key={s.name} className={s.n > 15 ? "text-rust-500" : ""}>{s.name} · {s.n}</div>)}</div>
           <div className="bg-paper rounded-sm shadow-card p-3"><div className="text-xs text-ink/50">No manager on record</div><b className="text-lg">{ins.unplaced}</b> <span className="text-ink/60">grouped by location</span></div>
@@ -370,11 +371,11 @@ export default function OrgChart() {
                 </div>
               </div>
             </>
-          ) : <p className="text-sm text-ink/60">{loading ? "Loading…" : "No employees match."}</p>
+          ) : loading ? <p className="text-sm text-ink/60">Loading…</p> : <EmptyState title="No employees match" action={{ label: "Clear filters", onClick: () => { setLocation(""); setStatus(""); } }}>Try a different location or status.</EmptyState>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-ink/50 border-b border-ink/10">
+              <tr className="text-left text-xs text-ink/50 border-b border-ink/10">
                 <th className="py-2 pr-4">Employee</th><th className="pr-4">Designation</th><th className="pr-4">Reporting manager</th>
                 <th className="pr-4">Location</th><th className="pr-4">Status</th><th className="pr-4">Resigned on</th><th>Last working day</th>
               </tr>

@@ -6,6 +6,7 @@ import api from "../../lib/api.js";
 import { formatFullDate, formatTime } from "../../lib/format.js";
 import SlidingTabs from "../../components/SlidingTabs.jsx";
 
+import EmptyState from "../../components/EmptyState.jsx";
 function formatDateTime(iso) {
   if (!iso) return "-";
   return `${formatFullDate(iso)}, ${formatTime(iso)}`;
@@ -64,24 +65,24 @@ function ResolveRow({ visit, onResolved }) {
           value={note}
           onChange={(e) => setNote(e.target.value)}
           aria-label="Note (optional)" placeholder="Note (optional)"
-          className="w-40 rounded-sm border border-ink/15 bg-manila/40 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-jade-500"
+          className="w-40 rounded-sm border border-ink/15 bg-manila/40 px-4 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-jade-500"
         />
       </td>
       <td className="px-5 py-3.5">
-        <div className="flex gap-2">
+        <div className="flex gap-6">
           <button
             disabled={busy}
             onClick={() => resolve("approve")}
-            className="flex items-center gap-1 bg-jade-600 text-white px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-1 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
           >
-            <Check size={13} /> Approve
+            <Check size={13} /> Approve check-in
           </button>
           <button
             disabled={busy}
             onClick={() => resolve("reject")}
-            className="flex items-center gap-1 bg-paper border border-rust-500 text-rust-500 px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-rust-50 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-1 bg-paper border border-rust-500 text-rust-500 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-rust-50 disabled:opacity-50 transition-colors"
           >
-            <X size={13} /> Reject
+            <X size={13} /> Reject check-in
           </button>
         </div>
       </td>
@@ -112,22 +113,22 @@ export default function MarketVisits() {
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm tabular-nums">
-          <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
+          <thead className="text-left sticky top-0 z-10 bg-paper shadow-edge">
             <tr className="border-b-2 border-ink/10">
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Photo</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Checked in</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Location</th>
-              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Note</th>}
-              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Action</th>}
-              {tab !== "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Status</th>}
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Photo</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Employee</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Checked in</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Location</th>
+              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Note</th>}
+              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Action</th>}
+              {tab !== "pending" && <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Status</th>}
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={6}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : visits.length === 0 ? (
-              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={6}>No {tab} check-ins.</td></tr>
+              <tr><td colSpan={6}><EmptyState title={`No ${tab} check-ins`} action={tab === "pending" ? { label: "View approved", onClick: () => setTab("approved") } : { label: "View pending", onClick: () => setTab("pending") }}>Check-ins show here once an employee checks in at a market visit.</EmptyState></td></tr>
             ) : tab === "pending" ? (
               visits.map((v) => <ResolveRow key={v.id} visit={v} onResolved={load} />)
             ) : (

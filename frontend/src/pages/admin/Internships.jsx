@@ -5,13 +5,14 @@ import { Link } from "react-router-dom";
 import api from "../../lib/api.js";
 import { formatOrdinalDate } from "../../lib/format.js";
 
+import EmptyState from "../../components/EmptyState.jsx";
 // Internships: every internship letter issued, who it went to, every email that
 // went out about it (the letter, the e-sign links, the signed copy) with its
 // delivery status, and whether the intern has signed.
 const STATUS = {
   none: { label: "Not sent for signing", cls: "text-ink/50" },
-  awaiting_approval: { label: "Waiting for approver's e-signature", cls: "text-ochre-600" },
-  awaiting_candidate: { label: "Intern's signature remaining", cls: "text-rust-500" },
+  awaiting_approval: { label: "Waiting for approver’s e-signature", cls: "text-ochre-600" },
+  awaiting_candidate: { label: "Intern’s signature remaining", cls: "text-rust-500" },
   accepted: { label: "Signed by both", cls: "text-jade-700" },
   signed: { label: "Signed", cls: "text-jade-700" },
 };
@@ -61,22 +62,22 @@ export default function Internships() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-1">
         <div className="flex items-center gap-2">
           <GraduationCap size={20} className="text-jade-600" />
           <h2 className="font-display text-2xl text-ink">Internships</h2>
         </div>
-        <Link to="/admin/letters?type=offer_internship" className="inline-flex items-center gap-1.5 bg-jade-600 text-white px-3 py-2 rounded-sm text-xs font-semibold hover:bg-jade-700 transition-colors">
+        <Link to="/admin/letters?type=offer_internship" className="inline-flex items-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 transition-colors">
           <Plus size={13} /> New internship letter
         </Link>
       </div>
       <p className="text-sm text-ink/70 mb-5">Every internship letter and every email sent about it, with delivery and signature status.</p>
 
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-5">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-5">
         {[["Issued", stats.total], ["Emailed", stats.emailed], ["Waiting on a signature", stats.waiting], ["Signed", stats.signed], ["Email problems", stats.failed]].map(([label, n]) => (
           <div key={label} className="bg-paper rounded-sm shadow-card px-4 py-3">
             <p className="font-nums text-2xl text-ink">{n}</p>
-            <p className="text-[11px] uppercase tracking-wider text-ink/60">{label}</p>
+            <p className="text-[11px] text-ink/60">{label}</p>
           </div>
         ))}
       </div>
@@ -84,10 +85,10 @@ export default function Internships() {
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <div className="relative">
           <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink/40" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, email, role…" className="pl-8 pr-3 py-2 rounded-sm border border-ink/15 bg-paper text-sm text-ink w-64 focus:outline-none focus:ring-2 focus:ring-jade-500" />
+          <input aria-label="Search name, email, role" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, email, role…" className="pl-8 pr-3 py-2 rounded-sm border border-ink/15 bg-paper text-sm text-ink w-64 focus:outline-none focus:ring-2 focus:ring-jade-500" />
         </div>
         {FILTERS.map(([k, label]) => (
-          <button key={k} onClick={() => setFilter(k)} className={`px-3 py-1.5 rounded-sm text-xs font-semibold border ${filter === k ? "bg-ledger-800 text-manila border-ledger-800" : "bg-paper text-ink/70 border-ink/15 hover:text-ink"}`}>{label}</button>
+          <button key={k} onClick={() => setFilter(k)} className={`px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold border ${filter === k ? "bg-ledger-800 text-on-jade border-ledger-800" : "bg-paper text-ink/70 border-ink/15 hover:text-ink"}`}>{label}</button>
         ))}
       </div>
 
@@ -96,11 +97,11 @@ export default function Internships() {
         {rows === null ? (
           <p className="p-5 text-sm text-ink/70">Loading…</p>
         ) : shown.length === 0 ? (
-          <p className="px-4 py-4 text-sm text-ink/60">{rows.length ? "No internship letters match that." : "No internship letters issued yet. Use “New internship letter” to issue the first one."}</p>
+          rows.length ? <EmptyState title="No internship letters match" action={{ label: "Clear filters", onClick: () => { setQ(""); setFilter("all"); } }}>Try a different name or filter.</EmptyState> : <EmptyState title="No internship letters yet" action={{ label: "New internship letter", to: "/admin/letters?type=offer_internship" }}>Issued internship letters are tracked here.</EmptyState>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-[11px] uppercase tracking-wider text-ink/60 border-b border-ink/10">
+              <tr className="text-left text-[11px] text-ink/60 border-b border-ink/10">
                 <th className="px-4 py-2.5 w-6" />
                 <th className="px-4 py-2.5 font-semibold">Intern</th>
                 <th className="px-4 py-2.5 font-semibold">Role</th>
@@ -150,13 +151,13 @@ export default function Internships() {
                       <tr className="bg-manila/30 border-b border-ink/5">
                         <td />
                         <td colSpan={6} className="px-4 py-3">
-                          <p className="text-[11px] uppercase tracking-wider text-ink/60 mb-1.5 flex items-center gap-1"><Mail size={12} /> Emails about this letter</p>
+                          <p className="text-[11px] text-ink/60 mb-1.5 flex items-center gap-1"><Mail size={12} /> Emails about this letter</p>
                           {r.mails.length === 0 ? (
                             <p className="text-xs text-ink/60">Nothing has been emailed yet.</p>
                           ) : (
                             <ul className="space-y-1">
                               {r.mails.map((m, i) => (
-                                <li key={i} className="text-xs text-ink flex flex-wrap gap-x-3">
+                                <li key={i} className="text-xs text-ink flex flex-wrap gap-x-4">
                                   <span className="text-ink/60 w-28">{stamp(m.at)}</span>
                                   <span className="w-48">{KIND[m.kind] || m.kind}</span>
                                   <span className="text-ink/70">{m.to}</span>

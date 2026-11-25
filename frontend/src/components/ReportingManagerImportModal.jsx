@@ -94,7 +94,7 @@ export default function ReportingManagerImportModal({ onClose, onImported }) {
           } else if (s?.status === "ambiguous") {
             note = `"${s.reporting_to}" is ambiguous — candidates: ${s.candidates.join(" | ")}`;
           } else if (s?.status === "unresolved") {
-            note = `"${s.reporting_to}" didn't match any active employee`;
+            note = `"${s.reporting_to}" didn’t match any active employee`;
           }
           lines.push(`${e.employee_code},${name},${guess},"${note.replace(/"/g, "'")}"`);
         });
@@ -116,11 +116,11 @@ export default function ReportingManagerImportModal({ onClose, onImported }) {
         <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-ink/70 hover:text-ink transition-colors">
           <X size={18} />
         </button>
-        <p className="text-xs font-semibold uppercase tracking-wider text-jade-600 mb-1">Bulk import</p>
-        <p className="font-display text-lg text-ink mb-1">Reporting Managers</p>
+        <p className="text-xs font-semibold text-jade-600 mb-1">Bulk import</p>
+        <p className="font-display text-lg text-ink mb-1">Reporting managers</p>
         <p className="text-xs text-ink/70 mb-3">
-          Sets who each employee's late-coming digest email goes to (in addition to HR). Download the template — it's
-          prefilled with every active employee's code/name and, where the existing "reporting to" note on file resolved
+          Sets who each employee’s late-coming digest email goes to (in addition to HR). Download the template — it’s
+          prefilled with every active employee’s code/name and, where the existing "reporting to" note on file resolved
           to exactly one person, a guessed <code>manager_employee_code</code>. Review the guesses and the flagged rows
           in the Notes column, correct anything wrong, then re-upload.{" "}
           <button onClick={downloadTemplate} disabled={downloading || suggestionsLoading} className="text-jade-600 hover:underline inline-flex items-center gap-1 disabled:opacity-50">
@@ -129,7 +129,7 @@ export default function ReportingManagerImportModal({ onClose, onImported }) {
         </p>
 
         {suggestionsLoading ? (
-          <p className="text-xs text-ink/50 mb-5">Checking existing "reporting to" notes for matches…</p>
+          <p className="text-xs text-ink/50 mb-5">Checking existing “reporting to” notes for matches…</p>
         ) : (
           <p className="text-xs text-ink/70 bg-manila/40 border-l-2 border-jade-500 px-3 py-2 mb-5">
             <strong className="text-jade-700">{matchedCount} auto-matched</strong> from the existing free-text
@@ -140,7 +140,7 @@ export default function ReportingManagerImportModal({ onClose, onImported }) {
           </p>
         )}
 
-        <label className="flex items-center gap-3 border border-dashed border-ink/25 rounded-sm px-4 py-4 cursor-pointer hover:border-jade-500 transition-colors">
+        <label className="flex items-center gap-4 border border-dashed border-ink/25 rounded-sm px-4 py-4 cursor-pointer hover:border-jade-500 transition-colors">
           <Upload size={18} className="text-ink/70" />
           <span className="text-sm text-ink/70">{fileName || "Choose a CSV file…"}</span>
           <input type="file" accept=".csv" onChange={handleFile} className="hidden" />
@@ -163,23 +163,23 @@ export default function ReportingManagerImportModal({ onClose, onImported }) {
             )}
             {result.no_manager_email.length > 0 && (
               <p className="text-ochre-700 mt-1">
-                {result.no_manager_email.length} manager(s) have no email on file, so their digest couldn't be wired up: {result.no_manager_email.slice(0, 10).join(", ")}
+                {result.no_manager_email.length} manager(s) have no email on file, so their digest couldn’t be wired up: {result.no_manager_email.slice(0, 10).join(", ")}
                 {result.no_manager_email.length > 10 ? "…" : ""}
               </p>
             )}
           </div>
         )}
 
-        <div className="flex justify-end gap-3 pt-5">
+        <div className="flex justify-end gap-4 pt-5">
           <button type="button" onClick={onClose} className="text-sm text-ink/70 hover:text-ink px-2">
             Cancel
           </button>
           <button
             disabled={!rows || !rows.length || busy}
             onClick={submit}
-            className="bg-ledger-800 text-manila px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
+            className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
           >
-            {busy ? "Importing…" : "Import"}
+            {busy ? "Importing…" : "Import reporting managers"}
           </button>
         </div>
       </div>

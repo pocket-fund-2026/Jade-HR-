@@ -31,7 +31,7 @@ function QuizScorePopup({ policyAck, reloadPolicyAck }) {
   return (
     <div className="fixed inset-0 bg-ledger-900/60 flex items-center justify-center px-4 z-[100]">
       <div className="bg-paper rounded-sm shadow-stamp w-full max-w-sm p-6 border-t-4 border-jade-500 text-center">
-        <p className="text-xs font-semibold uppercase tracking-wider text-jade-600 mb-1">Policy quiz</p>
+        <p className="text-xs font-semibold text-jade-600 mb-1">Policy quiz</p>
         <p className="font-display text-3xl text-ink mb-2 font-nums">
           {policyAck.quiz_last_score} / {policyAck.quiz_last_total}
         </p>
@@ -41,7 +41,7 @@ function QuizScorePopup({ policyAck, reloadPolicyAck }) {
         <button
           type="button"
           onClick={dismiss}
-          className="bg-ledger-800 text-manila px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+          className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
         >
           Got it
         </button>

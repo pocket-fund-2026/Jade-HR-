@@ -51,14 +51,14 @@ export default function ExitSignoffLink() {
           <img src="/jade-letterhead-logo.png" alt="JADE" className="h-[48px] w-auto" />
         </div>
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-jade-600">Exit clearance</p>
+          <p className="text-xs font-semibold text-jade-600">Exit clearance</p>
           <p className="font-display text-2xl text-ink mt-1">{data.leaver.name}</p>
           <p className="text-sm text-ink/70">
             {data.leaver.code} · {data.leaver.department || "—"} · last working day {fmt(data.leaver.last_working_day)}
           </p>
         </div>
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-2">What you are clearing</p>
+          <p className="text-xs font-semibold text-ink/70 mb-2">What you are clearing</p>
           <ul className="space-y-1.5">
             {data.items.map((i, k) => (
               <li key={k} className="flex items-center gap-2 text-sm text-ink">
@@ -81,17 +81,19 @@ export default function ExitSignoffLink() {
                 <span style={{ fontFamily: SIGNATURE_FONT_STACK, fontSize: 38, color: "#1a2a6c", lineHeight: 1.2 }}>{data.signer_name}</span>
               </div>
             </div>
+            <label htmlFor="exit_note" className="block text-xs text-ink/60 mb-1">Note (optional)</label>
             <input
-              value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Note (optional)"
-              className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+              id="exit_note"
+              value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Laptop and ID card returned"
+              className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
             />
             <label className="flex items-start gap-2 text-sm text-ink cursor-pointer">
               <input type="checkbox" className="mt-1" checked={confirm} onChange={(e) => setConfirm(e.target.checked)} />
               Everything under my department is cleared for {data.leaver.name}.
             </label>
             {error && <p className="text-sm text-rust-500">{error}</p>}
-            <button onClick={submit} disabled={busy || !confirm} className="w-full bg-jade-600 text-white rounded-sm px-4 py-3 text-sm font-semibold disabled:opacity-50">
-              {busy ? "Signing…" : "Sign off"}
+            <button onClick={submit} disabled={busy || !confirm} className="w-full bg-jade-600 text-on-jade rounded-sm px-4 py-3 text-sm font-semibold disabled:opacity-50">
+              {busy ? "Signing…" : "Sign off clearance"}
             </button>
           </>
         )}

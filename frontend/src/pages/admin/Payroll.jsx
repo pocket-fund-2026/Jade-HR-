@@ -6,6 +6,7 @@ import MonthPicker from "../../components/MonthPicker.jsx";
 import api from "../../lib/api.js";
 import { formatHoursMins, formatINR } from "../../lib/format.js";
 
+import EmptyState from "../../components/EmptyState.jsx";
 const today = new Date();
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -80,14 +81,14 @@ export default function Payroll() {
           Their rows show zero — do not pay from them. Check their salary/compliance data and refresh.
         </div>
       )}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
         <div>
-          <h2 className="font-display text-2xl text-ink">Payroll &amp; OT</h2>
+          <h2 className="font-display text-2xl text-ink">Payroll &amp; <abbr className="acr">OT</abbr></h2>
           <p className="text-xs text-ink/70 font-nums mt-0.5">
             OT = (Basic + HRA + Conveyance) &divide; days in month &divide; hours &times; OT hours
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-4">
           <div className="relative">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/65" />
             <input
@@ -102,7 +103,7 @@ export default function Payroll() {
             aria-label="Filter by location"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
-            className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+            className="rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
           >
             <option value="all">All locations</option>
             {locations.map((loc) => (
@@ -112,7 +113,7 @@ export default function Payroll() {
           <button
             onClick={() => exportExcel(filtered, year, month)}
             disabled={!filtered.length}
-            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
+            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
           >
             <FileSpreadsheet size={15} /> Export Excel
           </button>
@@ -122,24 +123,24 @@ export default function Payroll() {
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm tabular-nums">
-          <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
+          <thead className="text-left sticky top-0 z-10 bg-paper shadow-edge">
             <tr className="border-b-2 border-ink/10">
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Base Day</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Present</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Weekoff</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">PL</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Absent</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">WFH</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Paid Days</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Late</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">On Time</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Gross (B+H+C)</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Per Day</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Per Hour</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">OT Hours</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">OT Amount</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Total Payable</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Employee</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Base day</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Present</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Weekoff</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">PL</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Absent</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70"><abbr className="acr">WFH</abbr></th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Paid days</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Late</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">On time</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Gross (B+H+C)</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Per day</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Per hour</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70"><abbr className="acr">OT</abbr> Hours</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70"><abbr className="acr">OT</abbr> Amount</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Total payable</th>
               <th></th>
             </tr>
           </thead>
@@ -147,7 +148,7 @@ export default function Payroll() {
             {loading ? (
               <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={17}>Loading ledger…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={17}>No employees match.</td></tr>
+              <tr><td colSpan={17}><EmptyState title="No employees match" action={{ label: "Clear filters", onClick: () => { setQuery(""); setLocation("all"); } }}>Try a different name or location.</EmptyState></td></tr>
             ) : (
               filtered.map((r) => (
                 <tr key={r.employee_id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
@@ -155,18 +156,18 @@ export default function Payroll() {
                     <span className="text-ink font-medium">{r.name}</span>
                     {r.calc_error ? (
                       <span title={r.calc_error}
-                        className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-rust-500 bg-rust-50 border border-rust-500/40 rounded-sm px-1.5 py-0.5">
+                        className="ml-1.5 text-[10px] font-semibold text-rust-500 bg-rust-50 border border-rust-500/40 rounded-sm px-1.5 py-0.5">
                         Calc failed
                       </span>
                     ) : null}
                     {r.red_card ? (
                       <span title={r.late_policy_version === 3 ? `${r.late_mark_count} Yellow Cards this cycle (7 = Red Card)` : `${r.late_mark_count} late marks this cycle`}
-                        className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-rust-500 bg-rust-50 border border-rust-500/40 rounded-sm px-1.5 py-0.5">
-                        Red Card
+                        className="ml-1.5 text-[10px] font-semibold text-rust-500 bg-rust-50 border border-rust-500/40 rounded-sm px-1.5 py-0.5">
+                        Red card
                       </span>
                     ) : r.yellow_card ? (
                       <span title={r.late_policy_version === 3 ? `${r.late_mark_count} of 7 Yellow Cards (7 = Red Card)` : `${r.late_mark_count} of 3 free late marks used`}
-                        className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-ink/70 bg-manila border border-ink/20 rounded-sm px-1.5 py-0.5">
+                        className="ml-1.5 text-[10px] font-semibold text-ink/70 bg-manila border border-ink/20 rounded-sm px-1.5 py-0.5">
                         Yellow
                       </span>
                     ) : null}

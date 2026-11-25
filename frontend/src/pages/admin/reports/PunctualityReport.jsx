@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 
 import api from "../../../lib/api.js";
 
+import EmptyState from "../../../components/EmptyState.jsx";
 const today = new Date();
 
 async function exportExcel(rows, scope, periods) {
@@ -54,21 +55,21 @@ export default function PunctualityReport() {
   return (
     <div>
       <Link to="/admin/reports" className="inline-flex items-center gap-1.5 text-xs text-ink/70 hover:text-ink transition-colors">
-        <ArrowLeft size={13} /> Back to Reports
+        <ArrowLeft size={13} /> Back to reports
       </Link>
-      <h2 className="font-display text-2xl text-ink mt-2 mb-1">Punctuality Calculator</h2>
+      <h2 className="font-display text-2xl text-ink mt-2 mb-1">Punctuality calculator</h2>
       <p className="text-xs text-ink/70 font-nums mb-6">Doc §16 — on-time %, tier counts, Yellow/Red Card months and average reporting time, corporate roster only</p>
 
       <div className="bg-paper rounded-sm shadow-card p-5 mb-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Scope</label>
+            <label className="block text-xs font-semibold text-ink/70 mb-1.5">Scope</label>
             <div className="flex rounded-sm border border-ink/15 overflow-hidden text-xs">
               {["month", "quarter", "year"].map((s) => (
                 <button
                   key={s}
                   onClick={() => setScope(s)}
-                  className={`flex-1 px-3 py-2 font-semibold capitalize transition-colors ${scope === s ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}
+                  className={`flex-1 px-3 py-2 font-semibold capitalize transition-colors ${scope === s ? "bg-ledger-800 text-on-jade" : "bg-paper text-ink/70 hover:text-ink"}`}
                 >
                   {s}
                 </button>
@@ -77,27 +78,27 @@ export default function PunctualityReport() {
           </div>
           {scope === "year" ? (
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Financial Year</label>
-              <input
+              <label htmlFor="fld-81" className="block text-xs font-semibold text-ink/70 mb-1.5">Financial year</label>
+              <input id="fld-81"
                 value={financialYear} onChange={(e) => setFinancialYear(e.target.value)}
                 placeholder="2026-27"
-                className="w-full rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink font-nums focus:outline-none focus:ring-2 focus:ring-jade-500"
+                className="w-full rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm text-ink font-nums focus:outline-none focus:ring-2 focus:ring-jade-500"
               />
             </div>
           ) : (
             <>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Year</label>
-                <input
+                <label htmlFor="fld-91" className="block text-xs font-semibold text-ink/70 mb-1.5">Year</label>
+                <input id="fld-91"
                   type="number" value={year} onChange={(e) => setYear(Number(e.target.value))}
-                  className="w-full rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink font-nums focus:outline-none focus:ring-2 focus:ring-jade-500"
+                  className="w-full rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm text-ink font-nums focus:outline-none focus:ring-2 focus:ring-jade-500"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Month (pay period)</label>
-                <input
+                <label htmlFor="fld-98" className="block text-xs font-semibold text-ink/70 mb-1.5">Month (pay period)</label>
+                <input id="fld-98"
                   type="number" min={1} max={12} value={month} onChange={(e) => setMonth(Number(e.target.value))}
-                  className="w-full rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink font-nums focus:outline-none focus:ring-2 focus:ring-jade-500"
+                  className="w-full rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm text-ink font-nums focus:outline-none focus:ring-2 focus:ring-jade-500"
                 />
               </div>
             </>
@@ -106,7 +107,7 @@ export default function PunctualityReport() {
         <div className="flex justify-end mt-4">
           <button
             onClick={search}
-            className="bg-ledger-800 text-manila px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+            className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
           >
             Search
           </button>
@@ -118,35 +119,35 @@ export default function PunctualityReport() {
 
       {report && !loading && (
         <div className="bg-paper rounded-sm shadow-card overflow-hidden">
-          <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-4 pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-4 px-5 pt-4 pb-3">
             <p className="text-xs text-ink/70">{report.periods.join(", ")}</p>
             <button
               onClick={() => exportExcel(report.employees, scope, report.periods)}
-              className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
+              className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
             >
               <FileSpreadsheet size={15} /> Excel
             </button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm tabular-nums">
-              <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
+              <thead className="text-left sticky top-0 z-10 bg-paper shadow-edge">
                 <tr className="border-b-2 border-ink/10">
-                  <th className="px-3 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
-                  <th className="px-3 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">On Time %</th>
-                  <th className="px-3 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">Daily Tol.</th>
-                  <th className="px-3 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">Ext. Buffer</th>
-                  <th className="px-3 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">Level 1</th>
-                  <th className="px-3 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">Level 2</th>
-                  <th className="px-3 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">Level 3</th>
-                  <th className="px-3 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">Yellow Mo.</th>
-                  <th className="px-3 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">Red Mo.</th>
-                  <th className="px-3 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">AIP</th>
-                  <th className="px-3 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70 text-right">Avg Reporting</th>
+                  <th className="px-3 py-2.5 font-semibold text-[11px] text-ink/70">Employee</th>
+                  <th className="px-3 py-2.5 font-semibold text-[11px] text-ink/70 text-right">On Time %</th>
+                  <th className="px-3 py-2.5 font-semibold text-[11px] text-ink/70 text-right">Daily Tol.</th>
+                  <th className="px-3 py-2.5 font-semibold text-[11px] text-ink/70 text-right">Ext. Buffer</th>
+                  <th className="px-3 py-2.5 font-semibold text-[11px] text-ink/70 text-right">Level 1</th>
+                  <th className="px-3 py-2.5 font-semibold text-[11px] text-ink/70 text-right">Level 2</th>
+                  <th className="px-3 py-2.5 font-semibold text-[11px] text-ink/70 text-right">Level 3</th>
+                  <th className="px-3 py-2.5 font-semibold text-[11px] text-ink/70 text-right">Yellow Mo.</th>
+                  <th className="px-3 py-2.5 font-semibold text-[11px] text-ink/70 text-right">Red Mo.</th>
+                  <th className="px-3 py-2.5 font-semibold text-[11px] text-ink/70 text-right">AIP</th>
+                  <th className="px-3 py-2.5 font-semibold text-[11px] text-ink/70 text-right">Avg reporting</th>
                 </tr>
               </thead>
               <tbody>
                 {report.employees.length === 0 ? (
-                  <tr><td className="px-3 py-8 text-ink/70 text-center" colSpan={11}>No corporate employees for this period.</td></tr>
+                  <tr><td colSpan={11}><EmptyState title="No corporate employees in this period" action={{ label: "Open employees", to: "/admin/employees" }}>Only corporate-office staff are counted in this report.</EmptyState></td></tr>
                 ) : (
                   report.employees.map((r) => (
                     <tr key={r.employee_id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">

@@ -2,6 +2,7 @@ import { CalendarCheck, Check, FileText } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
+import EmptyState from "../../components/EmptyState.jsx";
 import { useConfirm } from "../../components/ConfirmDialog.jsx";
 import api from "../../lib/api.js";
 import { formatDate } from "../../lib/format.js";
@@ -15,7 +16,7 @@ const TABS = [
 ];
 
 const inputCls =
-  "rounded-sm border border-ink/15 bg-manila/40 px-2 py-1.5 text-xs font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
+  "rounded-sm border border-ink/15 bg-manila/40 px-4 py-1.5 text-xs font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
 
 function daysLabel(days) {
   if (days == null) return "—";
@@ -45,7 +46,7 @@ function DueRow({ row, onChanged }) {
   const [extendTo, setExtendTo] = useState("");
 
   const confirm = async () => {
-    if (!(await askConfirm(`Confirm ${row.name}'s employment? This records today as their confirmation date.`))) return;
+    if (!(await askConfirm(`Confirm ${row.name}'s employment? This records today as their confirmation date.`, { confirmLabel: "Confirm employment" }))) return;
     setBusy(true);
     try {
       await saveProfile(row.employee_id, { confirmation_date: new Date().toISOString().slice(0, 10) });
@@ -81,13 +82,13 @@ function DueRow({ row, onChanged }) {
       </td>
       <td className="px-5 py-3.5">
         <div className="flex items-center gap-1.5">
-          <input type="date" value={extendTo} onChange={(e) => setExtendTo(e.target.value)} className={inputCls} />
+          <input type="date" aria-label={`New probation end date for ${row.name}`} value={extendTo} onChange={(e) => setExtendTo(e.target.value)} className={inputCls} />
           <button
             onClick={extend}
             disabled={busy || !extendTo}
-            className="border border-ink/15 text-ink/80 px-2.5 py-1.5 rounded-sm text-xs font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors whitespace-nowrap"
+            className="border border-ink/15 text-ink/80 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors whitespace-nowrap"
           >
-            Extend
+            Extend probation
           </button>
         </div>
       </td>
@@ -95,9 +96,9 @@ function DueRow({ row, onChanged }) {
         <button
           onClick={confirm}
           disabled={busy}
-          className="flex items-center gap-1.5 bg-jade-600 text-white px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors whitespace-nowrap"
+          className="flex items-center gap-1.5 bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors whitespace-nowrap"
         >
-          <Check size={13} /> Confirm
+          <Check size={13} /> Confirm employment
         </button>
       </td>
     </tr>
@@ -131,13 +132,13 @@ function UnsetRow({ row, onChanged }) {
       <td className="px-5 py-3.5 text-ink/70">{row.employee_type || "—"}</td>
       <td className="px-5 py-3.5">
         <div className="flex items-center gap-1.5">
-          <input type="date" value={probationDate} onChange={(e) => setProbationDate(e.target.value)} className={inputCls} />
+          <input type="date" aria-label={`Probation completion date for ${row.name}`} value={probationDate} onChange={(e) => setProbationDate(e.target.value)} className={inputCls} />
           <button
             onClick={save}
             disabled={busy || !probationDate}
-            className="bg-ledger-800 text-manila px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-ledger-700 disabled:opacity-40 transition-colors whitespace-nowrap"
+            className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 disabled:opacity-40 transition-colors whitespace-nowrap"
           >
-            {busy ? "Saving…" : "Set date"}
+            {busy ? "Saving…" : "Save probation date"}
           </button>
         </div>
       </td>
@@ -179,13 +180,13 @@ function BackfillPanel() {
         everywhere. The date is proposed from the recorded probation end, or from joining date plus the days below.
         The offer letter sets the real date per person, so check the list. Nothing is saved until you press Confirm.
       </p>
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-wrap items-end gap-4">
         <label className="text-xs text-ink/70">Probation length (calendar days)
           <input type="number" min={30} max={730} value={days} onChange={(e) => setDays(Number(e.target.value) || 126)} className={`${inputCls} block w-28 mt-1`} />
         </label>
-        <button onClick={preview} disabled={busy} className="rounded-sm bg-jade-500 text-white px-4 py-2 text-sm disabled:opacity-50">{rows ? "Refresh preview" : "Preview"}</button>
+        <button onClick={preview} disabled={busy} className="rounded-sm bg-jade-500 text-on-jade px-4 py-2 text-sm disabled:opacity-50">{rows ? "Refresh preview" : "Preview confirmations"}</button>
         {rows && picked.size > 0 && (
-          <button onClick={apply} disabled={busy} className="rounded-sm bg-ledger-900 text-manila px-4 py-2 text-sm disabled:opacity-50">Confirm {picked.size} selected</button>
+          <button onClick={apply} disabled={busy} className="rounded-sm bg-ledger-900 text-on-jade px-4 py-2 text-sm disabled:opacity-50">Confirm {picked.size} selected</button>
         )}
         {msg && <span className="text-sm text-ink">{msg}</span>}
       </div>
@@ -197,11 +198,11 @@ function BackfillPanel() {
                 checked={rows.length > 0 && picked.size === rows.length}
                 onChange={(e) => setPicked(e.target.checked ? new Set(rows.map((r) => r.employee_id)) : new Set())} /></th>
               {["Employee", "Type", "Joined", "Will be confirmed on", "Based on"].map((h) => (
-                <th key={h} className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">{h}</th>
+                <th key={h} className="px-4 py-3 font-semibold text-[11px] text-ink/70">{h}</th>
               ))}
             </tr></thead>
             <tbody>
-              {rows.length === 0 && <tr><td colSpan={6} className="px-5 py-10 text-center text-ink/70">Nobody needs backfilling at this probation length.</td></tr>}
+              {rows.length === 0 && <tr><td colSpan={6}><EmptyState title="Nobody needs backfilling" action={{ label: "Open employees", to: "/admin/employees" }}>Everyone already has a confirmation date at this probation length.</EmptyState></td></tr>}
               {rows.map((r) => (
                 <tr key={r.employee_id} className="border-b border-ink/[0.06] last:border-0">
                   <td className="px-4 py-3"><input type="checkbox" className="accent-jade-600" checked={picked.has(r.employee_id)} onChange={() => toggle(r.employee_id)} aria-label={`Select ${r.name}`} /></td>
@@ -250,7 +251,7 @@ export default function Confirmations() {
       </div>
       <p className="text-sm text-ink/70 mb-6">
         Who is due to be confirmed after probation, and confirming them. Setting a confirmation date here clears the
-        employee off the Dashboard's "Probation Ending" clock. The letter itself comes from{" "}
+        employee off the Dashboard’s "Probation Ending" clock. The letter itself comes from{" "}
         <Link to="/admin/letters" className="text-jade-600 hover:underline">Letters → Confirmation Letter</Link>.
       </p>
 
@@ -271,7 +272,7 @@ export default function Confirmations() {
           <thead className="text-left">
             <tr className="border-b-2 border-ink/10">
               {headers.map((h, i) => (
-                <th key={i} className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">{h}</th>
+                <th key={i} className="px-5 py-3 font-semibold text-[11px] text-ink/70">{h}</th>
               ))}
             </tr>
           </thead>
@@ -280,12 +281,20 @@ export default function Confirmations() {
               <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={headers.length}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={headers.length}>
-                  {tab === "due"
-                    ? "Nobody is currently awaiting confirmation. If that looks wrong, check the \"No probation date set\" tab — someone with no date recorded never reaches this list."
-                    : tab === "unset"
-                      ? "Every recent joiner has a probation completion date on file."
-                      : "Nobody has been confirmed yet."}
+                <td colSpan={headers.length}>
+                  {tab === "due" ? (
+                    <EmptyState title="Nobody is awaiting confirmation" action={{ label: "Check people with no probation date", onClick: () => setTab("unset") }}>
+                      Someone with no date recorded never reaches this list.
+                    </EmptyState>
+                  ) : tab === "unset" ? (
+                    <EmptyState title="No missing probation dates" action={{ label: "Back to due confirmations", onClick: () => setTab("due") }}>
+                      Every recent joiner has a probation completion date on file.
+                    </EmptyState>
+                  ) : (
+                    <EmptyState title="Nobody has been confirmed yet" action={{ label: "Back to due confirmations", onClick: () => setTab("due") }}>
+                      Confirmed employees are listed here.
+                    </EmptyState>
+                  )}
                 </td>
               </tr>
             ) : tab === "due" ? (

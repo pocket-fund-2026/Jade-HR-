@@ -65,23 +65,23 @@ export default function DailyAttendanceSection({ monthDaily, employeeId, employe
 
   return (
     <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto print-hide">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-4 pb-1 no-print">
-        <p className="text-xs font-semibold uppercase tracking-wider text-ink/70">Daily attendance</p>
+      <div className="flex flex-wrap items-center justify-between gap-4 px-5 pt-4 pb-1 no-print">
+        <p className="text-xs font-semibold text-ink/70">Daily attendance</p>
         <div className="flex flex-wrap items-center gap-2">
           <DateRangePicker from={from} to={to} onChange={(f, t) => { setFrom(f); setTo(t); }} onClear={inRangeMode ? clearRange : undefined} disabled={loading} />
           <button
             onClick={applyRange}
             disabled={loading || !from || !to}
-            className="text-xs font-semibold text-ink bg-paper border border-ink/15 rounded-sm px-2.5 py-1.5 hover:border-jade-500 transition-colors disabled:opacity-50"
+            className="text-xs font-semibold text-ink bg-paper border border-ink/15 rounded-sm px-[1.5em] py-[0.625em] leading-tight hover:border-jade-500 transition-colors disabled:opacity-50"
           >
-            {loading ? "Loading…" : "Apply"}
+            {loading ? "Loading…" : "Apply date range"}
           </button>
           <button
             onClick={handleExport}
             disabled={!daily?.length}
-            className="flex items-center gap-1.5 text-xs font-semibold text-ink bg-paper border border-ink/15 rounded-sm px-2.5 py-1.5 hover:border-jade-500 transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 text-xs font-semibold text-ink bg-paper border border-ink/15 rounded-sm px-[1.5em] py-[0.625em] leading-tight hover:border-jade-500 transition-colors disabled:opacity-50"
           >
-            <Download size={13} /> Export
+            <Download size={13} /> Export to Excel
           </button>
         </div>
       </div>
@@ -89,12 +89,12 @@ export default function DailyAttendanceSection({ monthDaily, employeeId, employe
       <table className="w-full text-sm mt-2">
         <thead className="text-left sticky top-0 z-10 bg-paper">
           <tr className="border-b-2 border-ink/10">
-            <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Date</th>
-            <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">In</th>
-            <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Out</th>
-            <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Hours</th>
-            <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">OT Hours</th>
-            <th className="px-5 py-2.5 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Status</th>
+            <th className="px-5 py-2.5 font-semibold text-[11px] text-ink/70">Date</th>
+            <th className="px-5 py-2.5 font-semibold text-[11px] text-ink/70">In</th>
+            <th className="px-5 py-2.5 font-semibold text-[11px] text-ink/70">Out</th>
+            <th className="px-5 py-2.5 font-semibold text-[11px] text-ink/70">Hours</th>
+            <th className="px-5 py-2.5 font-semibold text-[11px] text-ink/70"><abbr className="acr">OT</abbr> Hours</th>
+            <th className="px-5 py-2.5 font-semibold text-[11px] text-ink/70">Status</th>
             {selfService && <th className="px-5 py-2.5 no-print"></th>}
           </tr>
         </thead>
@@ -104,9 +104,9 @@ export default function DailyAttendanceSection({ monthDaily, employeeId, employe
               <td className="px-5 py-2 font-nums text-ink/70">{formatDate(d.date)}</td>
               <td className="px-5 py-2 font-nums text-ink/70">
                 {formatTime(d.first_in)}
-                {d.late && <span className="ml-1.5 text-[10px] font-sans font-semibold text-rust-500 uppercase tracking-wide">Late</span>}
+                {d.late && <span className="ml-1.5 text-[10px] font-sans font-semibold text-rust-500">Late</span>}
                 {lateAllowanceInfo(d) && (
-                <span title={lateAllowanceInfo(d).text} className={`ml-1.5 text-[10px] font-sans font-semibold uppercase tracking-wide ${lateAllowanceInfo(d).used ? "text-jade-600" : "text-ochre-700"}`}>
+                <span title={lateAllowanceInfo(d).text} className={`ml-1.5 text-[10px] font-sans font-semibold ${lateAllowanceInfo(d).used ? "text-jade-600" : "text-ochre-700"}`}>
                   {lateAllowanceInfo(d).short}
                 </span>
               )}
@@ -137,14 +137,14 @@ export default function DailyAttendanceSection({ monthDaily, employeeId, employe
 
       {selfService && disputes.length > 0 && (
         <div className="border-t border-ink/10 mt-2 no-print">
-          <p className="px-5 pt-4 pb-2 text-xs font-semibold uppercase tracking-wider text-ink/70">My attendance disputes</p>
+          <p className="px-5 pt-4 pb-2 text-xs font-semibold text-ink/70">My attendance disputes</p>
           <table className="w-full text-sm">
             <tbody>
               {disputes.map((x) => (
                 <tr key={x.id} className="border-t border-ink/[0.06]">
                   <td className="px-5 py-2.5 font-nums text-ink/70 w-28">{formatDate(x.date)}</td>
                   <td className="px-5 py-2.5 text-ink/70">
-                    {x.appeal_of && <span className="mr-1.5 text-[10px] font-semibold uppercase tracking-wide text-ochre-700">Appeal</span>}
+                    {x.appeal_of && <span className="mr-1.5 text-[10px] font-semibold text-ochre-700">Appeal</span>}
                     {x.reason}
                     {x.photo_url && (
                       <a href={x.photo_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-jade-700 hover:underline mt-1">

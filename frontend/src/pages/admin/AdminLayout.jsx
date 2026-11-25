@@ -1,5 +1,6 @@
 import { ChevronDown, GraduationCap, Briefcase, Gauge, BookOpen, CalendarCheck, CalendarClock, CalendarDays, CalendarPlus, CheckSquare, ClipboardList, DoorOpen, FileBarChart, FileText, Flag, GitBranch, HelpCircle, Home, KeyRound, LayoutDashboard, LogOut, Mail, ReceiptText, MapPin, Menu, Network, Plane, Receipt, Search, Shield, ShieldAlert, ShieldCheck, Stamp, UserPlus, Users, Users2, Wallet, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useDrawerDrag } from "../../lib/useDrawerDrag.js";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import Avatar from "../../components/Avatar.jsx";
@@ -22,37 +23,37 @@ const navItems = [
 
   // People — headcount, hiring, absence
   { to: "/admin/employees", label: "Employees", icon: Users, permission: "employees.view", group: "People" },
-  { to: "/admin/org-chart", label: "Org Chart", icon: Network, permission: "employees.view", group: "People" },
-  { to: "/admin/reporting-managers", label: "Reporting Managers", icon: GitBranch, permission: "employees.manage", group: "People" },
+  { to: "/admin/org-chart", label: "Org chart", icon: Network, permission: "employees.view", group: "People" },
+  { to: "/admin/reporting-managers", label: "Reporting managers", icon: GitBranch, permission: "employees.manage", group: "People" },
   { to: "/admin/onboarding", label: "Onboarding", icon: UserPlus, badgeKey: "onboarding", permission: "onboarding.manage", group: "People" },
   { to: "/admin/careers", label: "Careers", icon: Users2, badgeKey: "careers", permission: "careers.manage", group: "People" },
   { to: "/admin/work-absence", label: "Work Absence", icon: Briefcase, badgeKey: "workAbsence", permission: "absence.manage", group: "People" },
   { to: "/admin/confirmations", label: "Confirmations", icon: CalendarCheck, permission: "employees.manage", group: "People" },
-  { to: "/admin/exit", label: "Exit Procedure", icon: DoorOpen, badgeKey: "accessRevoke", permission: "exit.manage", group: "People" },
+  { to: "/admin/exit", label: "Exit procedure", icon: DoorOpen, badgeKey: "accessRevoke", permission: "exit.manage", group: "People" },
 
   // Time & Leave — requests, tracking, policy
   { to: "/admin/leave", label: "Leave", icon: Plane, badgeKey: "leave", permission: "leave.manage", sectionBreak: true, group: "Time & Leave" },
-  { to: "/admin/all-requests", label: "All Requests", icon: ClipboardList, nimitOnly: true, sectionBreak: true, group: "Time & Leave" },
-  { to: "/admin/leave-entry", label: "Leave Entry", icon: ClipboardList, permission: "leave.manage", group: "Time & Leave" },
+  { to: "/admin/all-requests", label: "All requests", icon: ClipboardList, nimitOnly: true, sectionBreak: true, group: "Time & Leave" },
+  { to: "/admin/leave-entry", label: "Leave entry", icon: ClipboardList, permission: "leave.manage", group: "Time & Leave" },
   { to: "/admin/wfh-requests", label: "WFH Requests", icon: Home, badgeKey: "wfh", permission: ["leave.manage", "wfh.approve"], group: "Time & Leave" },
   { to: "/admin/market-visits", label: "Market Visits", icon: MapPin, badgeKey: "marketVisits", permission: "market_visits.review", group: "Time & Leave" },
   { to: "/admin/comp-off", label: "Comp-Off", icon: CalendarClock, permission: ["employees.manage", "policy.manage", "comp_off.manage"], group: "Time & Leave" },
   { to: "/admin/aip", label: "AIP", icon: ShieldAlert, permission: "leave.manage", group: "Time & Leave" },
-  { to: "/admin/policy", label: "Leave Policy", icon: CalendarDays, permission: ["employees.manage", "policy.manage"], group: "Time & Leave" },
+  { to: "/admin/policy", label: "Leave policy", icon: CalendarDays, permission: ["employees.manage", "policy.manage"], group: "Time & Leave" },
 
   // Payroll & Finance
   { to: "/admin/payroll", label: "Payroll & OT", icon: Receipt, permission: "payroll.view", sectionBreak: true, group: "Payroll & Finance" },
-  { to: "/admin/payslip-approvals", label: "Payslip Approvals", icon: Stamp, badgeKey: "payslipApprovals", permission: "payslip_approvals.manage", group: "Payroll & Finance" },
+  { to: "/admin/payslip-approvals", label: "Payslip approvals", icon: Stamp, badgeKey: "payslipApprovals", permission: "payslip_approvals.manage", group: "Payroll & Finance" },
   { to: "/admin/reports", label: "Reports", icon: FileBarChart, permission: ["payroll.view", "attendance.restricted_reports"], group: "Payroll & Finance" },
-  { to: "/admin/loans", label: "Loan Requests", icon: Wallet, badgeKey: "loans", permission: "loans.manage", group: "Payroll & Finance" },
+  { to: "/admin/loans", label: "Loan requests", icon: Wallet, badgeKey: "loans", permission: "loans.manage", group: "Payroll & Finance" },
 
   // Documents & Compliance
   { to: "/admin/invoices", label: "Invoices", icon: ReceiptText, permission: ["invoices.view", "invoices.reconcile"], group: "Payroll & Finance" },
   { to: "/admin/letters", label: "Letters", icon: FileText, permission: ["letters.generate", "letters.manage"], sectionBreak: true, group: "Documents" },
-  { to: "/admin/data-readiness", label: "Data Readiness", icon: Gauge, permission: "data_readiness.view", group: "Documents" },
-  { to: "/admin/email-log", label: "Email Log", icon: Mail, permission: "email_log.view", group: "Documents" },
+  { to: "/admin/data-readiness", label: "Data readiness", icon: Gauge, permission: "data_readiness.view", group: "Documents" },
+  { to: "/admin/email-log", label: "Email log", icon: Mail, permission: "email_log.view", group: "Documents" },
   { to: "/admin/disputes", label: "Disputes", icon: Flag, badgeKey: "disputes", permission: "disputes.manage", group: "Documents" },
-  { to: "/admin/policy-document", label: "Company Policy", icon: BookOpen, group: "Documents" },
+  { to: "/admin/policy-document", label: "Company policy", icon: BookOpen, group: "Documents" },
   { to: "/admin/policy-acknowledgements", label: "Policy Sign-off", icon: ShieldCheck, permission: "policy.acknowledgements.view", group: "Documents" },
 
   // HR-team-internal
@@ -66,17 +67,17 @@ const navItems = [
   // login, has no /employee/* console to see that team in — these reuse the
   // exact same pages (My Team / Team Leave / Team WFH / Team Market Visits)
   // under /admin/* instead, so that assignment actually works.
-  { to: "/admin/my-team", label: "My Team", icon: Users2, requiresApprover: true, sectionBreak: true, group: "My account & team" },
-  { to: "/admin/team-leave", label: "Team Leave", icon: Plane, requiresApprover: true, group: "My account & team" },
+  { to: "/admin/my-team", label: "My team", icon: Users2, requiresApprover: true, sectionBreak: true, group: "My account & team" },
+  { to: "/admin/team-leave", label: "Team leave", icon: Plane, requiresApprover: true, group: "My account & team" },
   { to: "/admin/team-wfh", label: "Team WFH", icon: Home, requiresApprover: true, group: "My account & team" },
-  { to: "/admin/team-disputes", label: "Team Disputes", icon: ShieldAlert, requiresApprover: true, group: "My account & team" },
-  { to: "/admin/team-market-visits", label: "Team Market Visits", icon: MapPin, requiresApprover: true, group: "My account & team" },
-  { to: "/admin/my-leave", label: "My Leave", icon: CalendarPlus, group: "My account & team" },
-  { to: "/admin/my-payslip", label: "My Payslip", icon: Receipt, group: "My account & team" },
+  { to: "/admin/team-disputes", label: "Team disputes", icon: ShieldAlert, requiresApprover: true, group: "My account & team" },
+  { to: "/admin/team-market-visits", label: "Team market visits", icon: MapPin, requiresApprover: true, group: "My account & team" },
+  { to: "/admin/my-leave", label: "My leave", icon: CalendarPlus, group: "My account & team" },
+  { to: "/admin/my-payslip", label: "My payslip", icon: Receipt, group: "My account & team" },
   { to: "/admin/help", label: "Help", icon: HelpCircle, group: "My account & team" },
 
   // Console administration
-  { to: "/admin/team-access", label: "Team Access", icon: Shield, permission: ["permissions.manage", "roles.manage"], sectionBreak: true, group: "Admin" },
+  { to: "/admin/team-access", label: "Team access", icon: Shield, permission: ["permissions.manage", "roles.manage"], sectionBreak: true, group: "Admin" },
 ];
 
 // Every navigable section — top-level nav items plus each Reports sub-page
@@ -139,14 +140,14 @@ function SidebarSearch({ user, can, onNavigate }) {
   return (
     <div ref={boxRef} className="relative px-3 pb-3">
       <div className="relative">
-        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-manila/50" />
+        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-jade/50" />
         <input
           value={query}
           onChange={(e) => { setQuery(e.target.value); setOpen(true); loadEmployeesIfNeeded(); }}
           onFocus={() => { setOpen(true); loadEmployeesIfNeeded(); }}
           placeholder="Search sections…"
           aria-label="Search sections"
-          className="w-full rounded-sm bg-manila/10 border border-manila/15 pl-8 pr-2 py-2 min-h-[44px] md:min-h-0 text-base md:text-xs text-manila placeholder:text-manila/55 focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500"
+          className="w-full rounded-sm bg-on-jade/10 border border-on-jade/15 pl-8 pr-2 py-2 min-h-[44px] md:min-h-0 text-base md:text-xs text-on-jade placeholder:text-on-jade/55 focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500"
         />
       </div>
       {open && q && (
@@ -157,7 +158,7 @@ function SidebarSearch({ user, can, onNavigate }) {
             <>
               {sectionMatches.length > 0 && (
                 <div>
-                  <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-ink/50">Sections</p>
+                  <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-ink/50">Sections</p>
                   {sectionMatches.map((s) => (
                     <button
                       key={s.to}
@@ -173,7 +174,7 @@ function SidebarSearch({ user, can, onNavigate }) {
               )}
               {employeeMatches.length > 0 && (
                 <div>
-                  <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-ink/50">Employees</p>
+                  <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-ink/50">Employees</p>
                   {employeeMatches.map((e) => (
                     <button
                       key={e.id}
@@ -222,11 +223,11 @@ function SidebarContent({ user, can, logout, pendingCounts, onNavigate, bell }) 
   }
   return (
     <>
-      <div className="px-6 py-6 relative flex items-center gap-3">
+      <div className="px-6 py-6 relative flex items-center gap-4">
         <img src="/jade-logo.png" alt="" className="w-9 h-9 flex-shrink-0" />
         <div className="min-w-0">
-          <p className="font-display text-manila text-xl leading-none">JADE HR</p>
-          <p className="text-manila/75 text-[11px] uppercase tracking-[0.2em] mt-1.5">
+          <p className="font-display text-on-jade text-xl leading-none">JADE HR</p>
+          <p className="text-on-jade/75 text-[11px] mt-1.5">
             {user?.role === "accounts" ? "Accounts Ledger" : "HR Ledger"}
           </p>
         </div>
@@ -239,11 +240,11 @@ function SidebarContent({ user, can, logout, pendingCounts, onNavigate, bell }) 
           const isOpen = !name || !collapsed.includes(name) || hasActive;
           const groupBadge = items.reduce((n, i) => n + (i.badgeKey ? pendingCounts[i.badgeKey] || 0 : 0), 0);
           return (
-            <div key={name || "top"} className={name ? "mt-3 pt-3 border-t border-manila/10" : ""}>
+            <div key={name || "top"} className={name ? "mt-3 pt-3 border-t border-on-jade/10" : ""}>
               {name && (
                 <button
                   type="button" aria-expanded={isOpen} onClick={() => toggleGroup(name)}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-manila/60 hover:text-manila"
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-[10px] font-semibold text-on-jade/60 hover:text-on-jade"
                 >
                   <ChevronDown size={12} className={`transition-transform ${isOpen ? "" : "-rotate-90"}`} />
                   <span>{name}</span>
@@ -259,10 +260,10 @@ function SidebarContent({ user, can, logout, pendingCounts, onNavigate, bell }) 
                     end={end}
                     onClick={onNavigate}
                     className={({ isActive }) =>
-                      `group relative flex items-center gap-3 px-3 py-2.5 min-h-[44px] md:min-h-0 rounded-md text-sm font-medium transition-all duration-150 ${
+                      `group relative flex items-center gap-4 px-[1.5em] py-[0.625em] leading-tight min-h-[44px] md:min-h-0 rounded-md text-sm font-medium transition-all duration-150 ${
                         isActive
-                          ? "bg-manila text-ledger-900 shadow-sm before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-r before:bg-jade-500"
-                          : "text-manila/75 hover:bg-manila/10 hover:text-manila hover:translate-x-0.5"
+                          ? "bg-on-jade text-ledger-900 shadow-sm before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-r before:bg-jade-500"
+                          : "text-on-jade/75 hover:bg-on-jade/10 hover:text-on-jade hover:translate-x-0.5"
                       }`
                     }
                   >
@@ -281,24 +282,24 @@ function SidebarContent({ user, can, logout, pendingCounts, onNavigate, bell }) 
         })}
       </nav>
       <div className="px-3 py-4 relative">
-        <div className="border-t border-manila/10 pt-4">
-          <div className="px-3 pb-3 flex items-center gap-3">
+        <div className="border-t border-on-jade/10 pt-4">
+          <div className="px-3 pb-3 flex items-center gap-4">
             <Avatar className="w-10 h-10" />
             <div className="min-w-0">
-              <p className="text-manila text-sm font-medium truncate">{user?.name}</p>
-              <p className="text-manila/75 text-xs font-nums">{user?.employee_code}</p>
+              <p className="text-on-jade text-sm font-medium truncate">{user?.name}</p>
+              <p className="text-on-jade/75 text-xs font-nums">{user?.employee_code}</p>
             </div>
           </div>
           <button
             onClick={() => setShowPw(true)}
-            className="flex items-center gap-3 px-3 py-2 min-h-[44px] md:min-h-0 rounded-md text-sm font-medium text-manila/75 hover:bg-manila/10 hover:text-manila w-full transition-colors"
+            className="flex items-center gap-4 px-3 py-2 min-h-[44px] md:min-h-0 rounded-md text-sm font-medium text-on-jade/75 hover:bg-on-jade/10 hover:text-on-jade w-full transition-colors"
           >
             <KeyRound size={16} />
             Change password
           </button>
           <button
             onClick={logout}
-            className="flex items-center gap-3 px-3 py-2 min-h-[44px] md:min-h-0 rounded-md text-sm font-medium text-manila/75 hover:bg-manila/10 hover:text-manila w-full transition-colors"
+            className="flex items-center gap-4 px-3 py-2 min-h-[44px] md:min-h-0 rounded-md text-sm font-medium text-on-jade/75 hover:bg-on-jade/10 hover:text-on-jade w-full transition-colors"
           >
             <LogOut size={16} />
             Sign out
@@ -327,11 +328,11 @@ function ExitSignoffPrompt({ user }) {
   if (!items.length) return null;
   return (
     <>
-      <div className="bg-rust-50 border border-rust-500/40 rounded-sm px-4 py-3 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-rust-50 border border-rust-500/40 rounded-sm px-4 py-3 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="text-sm text-ink/80">
           <strong className="text-ink">Exit clearance</strong> — {items.length === 1 ? `${items[0].employee_name} is leaving and` : `${items.length} people are leaving and`} needs your e-sign.
         </div>
-        <button onClick={() => setOpen(true)} className="bg-ledger-800 text-manila px-3 py-2 rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors whitespace-nowrap self-start sm:self-auto">
+        <button onClick={() => setOpen(true)} className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors whitespace-nowrap self-start sm:self-auto">
           Review &amp; sign
         </button>
       </div>
@@ -362,6 +363,8 @@ export default function AdminLayout() {
   // otherwise).
   const [pendingLoaded, setPendingLoaded] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const closeDrawer = useCallback(() => setMobileOpen(false), []);
+  const drawerRef = useDrawerDrag(closeDrawer, mobileOpen);
   const pendingCounts = {
     disputes: pendingDisputes.length, leave: pendingLeave.length,
     payslipApprovals: pendingPayslipApprovals.length, onboarding: pendingOnboarding.length,
@@ -439,24 +442,24 @@ export default function AdminLayout() {
       </aside>
 
       {/* Mobile top bar — Sign out sits here directly (not just inside the
-          drawer) to match the employee layout's header, where it's always
+          drawer) to match the employee layout’s header, where it’s always
           one tap away rather than requiring the menu to be opened first. */}
       <div className="md:hidden fixed top-0 inset-x-0 z-30 bg-ledger-800 flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2">
           <img src="/jade-logo.png" alt="" className="w-7 h-7" />
           <div>
-            <span className="font-display text-manila text-lg leading-none block">JADE HR</span>
-            <span className="text-manila/75 text-[9px] uppercase tracking-[0.15em] leading-none">
+            <span className="font-display text-on-jade text-lg leading-none block">JADE HR</span>
+            <span className="text-on-jade/75 text-[9px] leading-none">
               {user?.role === "accounts" ? "Accounts Ledger" : "HR Ledger"}
             </span>
           </div>
         </div>
         <div className="flex items-center gap-1">
           <NotificationBell pending={pendingByType} variant="mobile" />
-          <button onClick={logout} aria-label="Sign out" title="Sign out" className="text-manila/80 hover:text-manila w-11 h-11 flex items-center justify-center">
+          <button onClick={logout} aria-label="Sign out" title="Sign out" className="text-on-jade/80 hover:text-on-jade w-11 h-11 flex items-center justify-center">
             <LogOut size={20} />
           </button>
-          <button onClick={() => setMobileOpen(true)} aria-label="Open menu" className="text-manila w-11 h-11 flex items-center justify-center -mr-1">
+          <button onClick={() => setMobileOpen(true)} aria-label="Open menu" className="text-on-jade w-11 h-11 flex items-center justify-center -mr-1">
             <Menu size={22} />
           </button>
         </div>
@@ -466,8 +469,8 @@ export default function AdminLayout() {
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-40 flex">
           <div className="absolute inset-0 bg-ledger-900/60" onClick={() => setMobileOpen(false)} />
-          <aside className="drawer-in relative w-64 max-w-[85vw] h-screen bg-ledger-800 flex flex-col">
-            <button onClick={() => setMobileOpen(false)} aria-label="Close menu" className="absolute top-3 right-3 w-11 h-11 flex items-center justify-center text-manila/80 hover:text-manila">
+          <aside ref={drawerRef} className="drawer-in relative touch-pan-y w-64 max-w-[85vw] h-screen bg-ledger-800 flex flex-col">
+            <button onClick={() => setMobileOpen(false)} aria-label="Close menu" className="absolute top-3 right-3 w-11 h-11 flex items-center justify-center text-on-jade/80 hover:text-on-jade">
               <X size={20} />
             </button>
             <SidebarContent user={user} can={can} logout={logout} pendingCounts={pendingCounts} onNavigate={() => setMobileOpen(false)} />
@@ -475,7 +478,7 @@ export default function AdminLayout() {
         </div>
       )}
 
-      <main className="flex-1 p-4 pt-20 md:p-8 md:pt-8 overflow-y-auto overflow-x-hidden max-w-[1400px]">
+      <main className="flex-1 px-5 pb-4 pt-20 md:px-12 md:py-8 overflow-y-auto overflow-x-hidden max-w-[1400px]">
         <ConfirmProvider>
           <ExitSignoffPrompt user={user} />
           <div key={location.pathname} className="page-transition">

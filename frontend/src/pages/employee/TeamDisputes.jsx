@@ -1,6 +1,7 @@
 import { Check, Paperclip, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import EmptyState from "../../components/EmptyState.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
 import { formatDate } from "../../lib/format.js";
@@ -49,7 +50,7 @@ function ResolveRow({ dispute, onResolved }) {
       <td className="px-5 py-3.5 font-nums text-ink/70">{formatDate(dispute.date)}</td>
       <td className="px-5 py-3.5 max-w-xs">
         <p className="text-ink/70">{dispute.reason}</p>
-        <p className="text-xs text-ink/70 mt-0.5 uppercase tracking-wide">{dispute.issue_type.replace(/_/g, " ")}</p>
+        <p className="text-xs text-ink/70 mt-0.5">{dispute.issue_type.replace(/_/g, " ")}</p>
         {dispute.appeal_of && (
           <p className="text-xs text-ochre-700 mt-1"><strong>APPEAL</strong> of a rejection{dispute.appeal_original_by ? ` by ${dispute.appeal_original_by}` : ""}{dispute.appeal_original_note ? `: "${dispute.appeal_original_note}"` : ""}</p>
         )}
@@ -66,32 +67,32 @@ function ResolveRow({ dispute, onResolved }) {
             value={firstIn}
             onChange={(e) => setFirstIn(e.target.value)}
             aria-label="Actual clock-in" placeholder="In"
-            className="w-24 rounded-sm border border-ink/15 bg-manila/40 px-2 py-1.5 text-xs font-nums focus:outline-none focus:ring-2 focus:ring-jade-500"
+            className="w-24 rounded-sm border border-ink/15 bg-manila/40 px-4 py-1.5 text-xs font-nums focus:outline-none focus:ring-2 focus:ring-jade-500"
           />
           <input
             type="time"
             value={lastOut}
             onChange={(e) => setLastOut(e.target.value)}
             aria-label="Actual clock-out" placeholder="Out"
-            className="w-24 rounded-sm border border-ink/15 bg-manila/40 px-2 py-1.5 text-xs font-nums focus:outline-none focus:ring-2 focus:ring-jade-500"
+            className="w-24 rounded-sm border border-ink/15 bg-manila/40 px-4 py-1.5 text-xs font-nums focus:outline-none focus:ring-2 focus:ring-jade-500"
           />
         </div>
       </td>
       <td className="px-5 py-3.5">
-        <div className="flex gap-2">
-          <button
-            disabled={busy}
-            onClick={() => resolve("approve")}
-            className="flex items-center justify-center gap-1.5 min-h-[44px] bg-jade-600 text-white px-4 py-2 rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
-          >
-            <Check size={13} /> Approve
-          </button>
+        <div className="flex gap-6">
           <button
             disabled={busy}
             onClick={() => resolve("reject")}
-            className="flex items-center justify-center gap-1.5 min-h-[44px] bg-paper border border-rust-500 text-rust-500 px-4 py-2 rounded-sm text-sm font-semibold hover:bg-rust-50 disabled:opacity-50 transition-colors"
+            className="flex items-center justify-center gap-1.5 min-h-[44px] bg-paper border border-rust-500 text-rust-500 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-rust-50 disabled:opacity-50 transition-colors"
           >
-            <X size={13} /> Reject
+            <X size={13} /> Reject dispute
+          </button>
+          <button
+            disabled={busy}
+            onClick={() => resolve("approve")}
+            className="flex items-center justify-center gap-1.5 min-h-[44px] bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
+          >
+            <Check size={13} /> Approve dispute
           </button>
         </div>
       </td>
@@ -121,10 +122,10 @@ export default function TeamDisputes() {
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h2 className="font-display text-2xl text-ink">Team Disputes</h2>
-          <p className="text-xs text-ink/70 font-nums mt-0.5">Missed-punch disputes from people who report to you. Settle them promptly. HR sees the same list, and whoever settles a dispute first closes it.</p>
+          <h2 className="font-display text-2xl text-ink">Team disputes</h2>
+          <p className="text-xs text-ink/70 font-nums mt-0.5">Missed-punch disputes from people who report to you. Settle them promptly. <abbr className="acr">HR</abbr> sees the same list, and whoever settles a dispute first closes it.</p>
         </div>
       </div>
 
@@ -134,20 +135,27 @@ export default function TeamDisputes() {
         <table className="w-full min-w-[640px] text-sm">
           <thead className="text-left sticky top-0 z-10 bg-paper">
             <tr className="border-b-2 border-ink/10">
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Location</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Date</th>
-              <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Issue</th>
-              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Confirm times</th>}
-              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Action</th>}
-              {tab !== "pending" && <th className="px-5 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Status</th>}
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Employee</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Location</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Date</th>
+              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Issue</th>
+              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Confirm times</th>}
+              {tab === "pending" && <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Action</th>}
+              {tab !== "pending" && <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Status</th>}
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={6}>Loading ledger…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={6}>No {tab} disputes.</td></tr>
+              <tr><td colSpan={6}>
+                <EmptyState
+                  title={`No ${tab} disputes`}
+                  action={tab === "pending" ? { label: "Back to my dashboard", to: "/employee" } : { label: "View pending disputes", onClick: () => setTab("pending") }}
+                >
+                  {tab === "pending" ? "Missed-punch disputes from your team show up here for you to settle." : `Disputes you or HR have ${tab} will be listed here.`}
+                </EmptyState>
+              </td></tr>
             ) : tab === "pending" ? (
               filtered.map((d) => <ResolveRow key={d.id} dispute={d} onResolved={load} />)
             ) : (

@@ -6,6 +6,7 @@ import MonthRangePicker from "../../../components/MonthRangePicker.jsx";
 import api from "../../../lib/api.js";
 import { formatINR } from "../../../lib/format.js";
 
+import EmptyState from "../../../components/EmptyState.jsx";
 const today = new Date();
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -84,16 +85,16 @@ export default function YearlySalaryReport() {
   return (
     <div>
       <Link to="/admin/reports" className="inline-flex items-center gap-1.5 text-xs text-ink/70 hover:text-ink transition-colors">
-        <ArrowLeft size={13} /> Back to Reports
+        <ArrowLeft size={13} /> Back to reports
       </Link>
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mt-2 mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mt-2 mb-6">
         <h2 className="font-display text-2xl text-ink">Yearly / Cumulative Salary Details</h2>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-4">
           <select
             aria-label="Filter by location"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
-            className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+            className="rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
           >
             <option value="all">All locations</option>
             {locations.map((loc) => <option key={loc} value={loc}>{loc}</option>)}
@@ -101,7 +102,7 @@ export default function YearlySalaryReport() {
           <button
             onClick={() => exportExcel(filtered, fromYear, fromMonth, toYear, toMonth)}
             disabled={!filtered.length}
-            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
+            className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-40 transition-colors"
           >
             <FileSpreadsheet size={15} /> Export Excel
           </button>
@@ -116,43 +117,43 @@ export default function YearlySalaryReport() {
 
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="bg-paper rounded-sm shadow-card px-5 py-4 border-t-2 border-ink/10">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70">Gross Earnings</p>
+          <p className="text-[11px] font-semibold text-ink/70">Gross earnings</p>
           <p className="font-display text-xl text-ink mt-1">{formatINR(totals.gross)}</p>
         </div>
         <div className="bg-paper rounded-sm shadow-card px-5 py-4 border-t-2 border-ink/10">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70">Total Deductions</p>
+          <p className="text-[11px] font-semibold text-ink/70">Total deductions</p>
           <p className="font-display text-xl text-ink mt-1">{formatINR(totals.deductions)}</p>
         </div>
         <div className="bg-paper rounded-sm shadow-card px-5 py-4 border-t-2 border-jade-500">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70">Net Salary</p>
+          <p className="text-[11px] font-semibold text-ink/70">Net salary</p>
           <p className="font-display text-xl text-jade-700 mt-1">{formatINR(totals.net)}</p>
         </div>
       </div>
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm tabular-nums">
-          <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
+          <thead className="text-left sticky top-0 z-10 bg-paper shadow-edge">
             <tr className="border-b-2 border-ink/10">
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Months</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Basic</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">HRA</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Conv</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Other</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">OT</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Gross</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">PF</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">ESIC</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">PT</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">LWF</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Net Salary</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Employee</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Months</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Basic</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">HRA</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Conv</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Other</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70"><abbr className="acr">OT</abbr></th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Gross</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70"><abbr className="acr">PF</abbr></th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70"><abbr className="acr">ESIC</abbr></th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70"><abbr className="acr">PT</abbr></th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70"><abbr className="acr">LWF</abbr></th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Net salary</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={13}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={13}>No employees match.</td></tr>
+              <tr><td colSpan={13}><EmptyState title="No salary data in this range" action={{ label: "Open payroll", to: "/admin/payroll" }}>Try another location or date range, or process payroll first.</EmptyState></td></tr>
             ) : (
               filtered.map((r) => (
                 <tr key={r.employee_id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">

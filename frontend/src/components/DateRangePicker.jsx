@@ -7,7 +7,7 @@ export default function DateRangePicker({ from, to, onChange, onClear, disabled 
         type="date"
         value={from}
         max={to || undefined}
-        onChange={(e) => onChange(e.target.value, to)}
+        aria-label="From date" onChange={(e) => onChange(e.target.value, to)}
         disabled={disabled}
         className="text-xs font-nums text-ink bg-transparent border border-ink/15 rounded-sm px-2 py-1 disabled:opacity-50"
       />
@@ -16,7 +16,7 @@ export default function DateRangePicker({ from, to, onChange, onClear, disabled 
         type="date"
         value={to}
         min={from || undefined}
-        onChange={(e) => onChange(from, e.target.value)}
+        aria-label="To date" onChange={(e) => onChange(from, e.target.value)}
         disabled={disabled}
         className="text-xs font-nums text-ink bg-transparent border border-ink/15 rounded-sm px-2 py-1 disabled:opacity-50"
       />

@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 
+import EmptyState from "../../components/EmptyState.jsx";
 import CareersNav from "../../components/CareersNav.jsx";
 import api from "../../lib/api.js";
 import { formatDateTime } from "../../lib/careers.js";
 
-const INPUT = "w-full rounded-sm border border-ink/15 bg-paper px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-jade-500";
-const LABEL = "text-[11px] font-semibold uppercase tracking-wider text-ink/50";
+const INPUT = "w-full rounded-sm border border-ink/15 bg-paper px-4.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-jade-500";
+const LABEL = "text-[11px] font-semibold text-ink/50";
 const DAYS = [[1, "Monday"], [2, "Tuesday"], [3, "Wednesday"], [4, "Thursday"], [5, "Friday"], [6, "Saturday"], [0, "Sunday"]];
 const BLANK = { name: "", email: "", slot_min: 30, buffer_min: 15, min_notice_hours: 12, max_days_ahead: 14, per_day: 2, active: true, days: {} };
 
@@ -43,14 +44,14 @@ export default function CareersSlots() {
     <div>
       <div className="mb-4">
         <h2 className="font-display text-2xl text-ink">Careers — Interview Slots</h2>
-        <p className="text-xs text-ink/70 mt-0.5">Set when each interviewer can interview (IST). When you schedule or send the second mail, <strong>Suggest times</strong> fills in the next free slots, skipping other interviews and the interviewer's Google Calendar. You can still edit them before sending.</p>
+        <p className="text-xs text-ink/70 mt-0.5">Set when each interviewer can interview (<abbr className="acr">IST</abbr>). When you schedule or send the second mail, <strong>Suggest times</strong> fills in the next free slots, skipping other interviews and the interviewer’s Google Calendar. You can still edit them before sending.</p>
       </div>
       <CareersNav />
-      {!edit && <button type="button" onClick={() => open(null)} className="mb-4 px-3 py-1.5 rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700">+ Add interviewer availability</button>}
+      {!edit && <button type="button" onClick={() => open(null)} className="mb-4 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-on-jade hover:bg-jade-700">+ Add interviewer availability</button>}
 
       {edit && (
         <form onSubmit={save} className="bg-paper rounded-sm shadow-card p-5 mb-5 space-y-4">
-          <div className="grid sm:grid-cols-2 gap-3">
+          <div className="grid sm:grid-cols-2 gap-4">
             <label className="block"><span className={LABEL}>Interviewer name</span><input required value={edit.name} onChange={set("name")} className={`${INPUT} mt-1`} placeholder="e.g. HR team" /></label>
             <label className="block"><span className={LABEL}>Email (gets invite + brief; used for the calendar check)</span><input type="email" value={edit.email} onChange={set("email")} className={`${INPUT} mt-1`} placeholder="optional for a shared default" /></label>
           </div>
@@ -64,8 +65,8 @@ export default function CareersSlots() {
                     <label className="flex items-center gap-2 w-28"><input type="checkbox" checked={v.on} onChange={(e) => setDay(dow, { ...v, on: e.target.checked })} /> {name}</label>
                     {v.on && v.w.map((w, i) => (
                       <span key={i} className="flex items-center gap-1">
-                        <input type="time" value={w[0]} onChange={(e) => setDay(dow, { ...v, w: v.w.map((x, j) => (j === i ? [e.target.value, x[1]] : x)) })} className={`${INPUT} !w-28`} />–
-                        <input type="time" value={w[1]} onChange={(e) => setDay(dow, { ...v, w: v.w.map((x, j) => (j === i ? [x[0], e.target.value] : x)) })} className={`${INPUT} !w-28`} />
+                        <input type="time" aria-label={`${name} window ${i + 1} start`} value={w[0]} onChange={(e) => setDay(dow, { ...v, w: v.w.map((x, j) => (j === i ? [e.target.value, x[1]] : x)) })} className={`${INPUT} !w-28`} />–
+                        <input type="time" aria-label={`${name} window ${i + 1} end`} value={w[1]} onChange={(e) => setDay(dow, { ...v, w: v.w.map((x, j) => (j === i ? [x[0], e.target.value] : x)) })} className={`${INPUT} !w-28`} />
                         {v.w.length > 1 && <button type="button" onClick={() => setDay(dow, { ...v, w: v.w.filter((_, j) => j !== i) })} className="text-rust-500 text-xs px-1">✕</button>}
                       </span>
                     ))}
@@ -75,7 +76,7 @@ export default function CareersSlots() {
               })}
             </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
             <label className="block"><span className={LABEL}>Slot length (min)</span><input type="number" min="10" max="240" step="5" value={edit.slot_min} onChange={set("slot_min")} className={`${INPUT} mt-1`} /></label>
             <label className="block"><span className={LABEL}>Gap between (min)</span><input type="number" min="0" max="120" step="5" value={edit.buffer_min} onChange={set("buffer_min")} className={`${INPUT} mt-1`} /></label>
             <label className="block"><span className={LABEL}>Minimum notice (hours)</span><input type="number" min="0" max="168" value={edit.min_notice_hours} onChange={set("min_notice_hours")} className={`${INPUT} mt-1`} /></label>
@@ -85,7 +86,7 @@ export default function CareersSlots() {
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={edit.active} onChange={(e) => setEdit({ ...edit, active: e.target.checked })} /> Active (used for suggestions)</label>
           {err && <p className="text-xs text-rust-500">{err}</p>}
           <div className="flex gap-2">
-            <button type="submit" disabled={saving} className="px-3 py-1.5 rounded-sm text-xs font-semibold bg-jade-600 text-white hover:bg-jade-700 disabled:opacity-40">{saving ? "Saving…" : "Save"}</button>
+            <button type="submit" disabled={saving} className="px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold bg-jade-600 text-on-jade hover:bg-jade-700 disabled:opacity-40">{saving ? "Saving…" : "Save availability"}</button>
             <button type="button" onClick={() => setEdit(null)} className="px-3 py-1.5 rounded-sm text-xs text-ink/70 hover:text-ink">Cancel</button>
           </div>
         </form>
@@ -96,7 +97,7 @@ export default function CareersSlots() {
           <section key={r.id} className={`bg-paper rounded-sm shadow-card p-5 ${r.active ? "" : "opacity-60"}`}>
             <div className="flex items-start justify-between gap-2">
               <div><h3 className="font-display text-lg text-ink">{r.name}</h3><p className="text-xs text-ink/60">{r.email || "Shared default (any interviewer)"}{r.active ? "" : " · inactive"}</p></div>
-              <div className="flex gap-3 text-xs"><button type="button" onClick={() => open(r)} className="text-jade-700 font-semibold hover:underline">Edit</button><button type="button" onClick={() => remove(r)} className="text-rust-500 hover:underline">Remove</button></div>
+              <div className="flex gap-4 text-xs"><button type="button" onClick={() => open(r)} className="text-jade-700 font-semibold hover:underline">Edit</button><button type="button" onClick={() => remove(r)} className="text-rust-500 hover:underline">Remove interviewer</button></div>
             </div>
             <p className="text-sm text-ink/80 mt-2">{summary(r)}</p>
             <p className="text-[11px] text-ink/50 mt-1 font-nums">{r.slot_min}-min slots, {r.buffer_min}-min gap, {r.min_notice_hours}h notice, {r.max_days_ahead} days ahead, up to {r.per_day}/day</p>
@@ -105,7 +106,7 @@ export default function CareersSlots() {
             {preview[r.id]?.text && <p className={`mt-1 text-xs ${preview[r.id].bad ? "text-rust-500" : "text-ink/60"}`}>{preview[r.id].text}</p>}
           </section>
         ))}
-        {list && !list.length && !edit && <p className="text-sm text-ink/60">No availability set up yet. Add the first interviewer to get started.</p>}
+        {list && !list.length && !edit && <div className="md:col-span-2"><EmptyState title="No availability set up yet" action={{ label: "Add interviewer availability", onClick: () => open(null) }}>Suggested interview times come from each interviewer’s weekly windows.</EmptyState></div>}
       </div>
     </div>
   );

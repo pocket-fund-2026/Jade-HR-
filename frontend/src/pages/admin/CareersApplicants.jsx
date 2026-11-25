@@ -1,14 +1,16 @@
+import ReserveBold from "../../components/ReserveBold.jsx";
 import { Download, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
+import EmptyState from "../../components/EmptyState.jsx";
 import CareersNav from "../../components/CareersNav.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
 import api from "../../lib/api.js";
 import { APPLICANT_STATUSES, VERDICT_LABEL, downloadCsv, formatDateTime } from "../../lib/careers.js";
 import { formatFullDate } from "../../lib/format.js";
 
-const SELECT_CLS = "rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-jade-500";
+const SELECT_CLS = "rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-jade-500";
 const BULK_ACTIONS = [
   { status: "Shortlisted", label: "Shortlist" },
   { status: "Rejected", label: "Reject" },
@@ -127,7 +129,7 @@ export default function CareersApplicants() {
           type="button"
           onClick={exportCsv}
           disabled={!visible.length}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-sm text-sm font-semibold border border-ink/15 bg-paper text-ink hover:bg-manila/40 disabled:opacity-40"
+          className="flex items-center gap-1.5 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold border border-ink/15 bg-paper text-ink hover:bg-manila/40 disabled:opacity-40"
         >
           <Download size={14} /> Export CSV{selected.size ? ` (${selected.size})` : ""}
         </button>
@@ -144,11 +146,11 @@ export default function CareersApplicants() {
               key={key}
               type="button"
               onClick={() => updateFilter("view", key === "active" ? "" : key)}
-              className={`px-4 py-2 text-sm -mb-px border-b-2 transition-colors ${
+              className={`px-[1.5em] py-[0.625em] leading-tight text-sm -mb-px border-b-2 transition-colors ${
                 view === key ? "border-jade-600 text-ink font-semibold" : "border-transparent text-ink/60 hover:text-ink"
               }`}
             >
-              {label} <span className="font-nums text-ink/50">({count})</span>
+              <ReserveBold>{label}</ReserveBold> <span className="font-nums text-ink/50">({count})</span>
             </button>
           ))}
         </div>
@@ -160,33 +162,34 @@ export default function CareersApplicants() {
         </p>
       )}
 
-      <div className="flex gap-3 mb-4 flex-wrap">
+      <div className="flex gap-4 mb-4 flex-wrap">
         <label className="relative">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
           <input
             type="search"
+            aria-label="Search applicants"
             value={searchDraft}
             onChange={(e) => setSearchDraft(e.target.value)}
             placeholder="Name, email, phone, city, college"
             className={`${SELECT_CLS} pl-8 w-72`}
           />
         </label>
-        <select value={jobId} onChange={(e) => updateFilter("job_id", e.target.value)} className={SELECT_CLS}>
+        <select aria-label="Filter by job" value={jobId} onChange={(e) => updateFilter("job_id", e.target.value)} className={SELECT_CLS}>
           <option value="">All jobs</option>
           {jobs.map((j) => <option key={j.id} value={j.id}>{j.title}{j.is_active ? "" : " (closed)"}</option>)}
         </select>
-        <select value={status} onChange={(e) => updateFilter("status", e.target.value)} className={SELECT_CLS}>
+        <select aria-label="Filter by status" value={status} onChange={(e) => updateFilter("status", e.target.value)} className={SELECT_CLS}>
           <option value="">All statuses</option>
           {APPLICANT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
-        <select value={verdict} onChange={(e) => updateFilter("verdict", e.target.value)} className={SELECT_CLS}>
+        <select aria-label="Filter by screening result" value={verdict} onChange={(e) => updateFilter("verdict", e.target.value)} className={SELECT_CLS}>
           <option value="">Any screening result</option>
           {Object.entries(VERDICT_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
         </select>
       </div>
 
       {selected.size > 0 && (
-        <div className="flex items-center gap-2 flex-wrap mb-4 px-4 py-2.5 bg-ink text-manila rounded-sm text-sm">
+        <div className="flex items-center gap-2 flex-wrap mb-4 px-4 py-2.5 bg-ink text-on-jade rounded-sm text-sm">
           <span className="font-semibold mr-2">{selected.size} selected</span>
           {BULK_ACTIONS.map((b) => (
             <button
@@ -200,6 +203,7 @@ export default function CareersApplicants() {
             </button>
           ))}
           <select
+            aria-label="Move selected applicants to a status"
             value={bulkStatus}
             disabled={busy}
             onChange={(e) => { setBulkStatus(e.target.value); applyBulk(e.target.value); }}
@@ -208,32 +212,32 @@ export default function CareersApplicants() {
             <option value="">Move to…</option>
             {APPLICANT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
-          <button type="button" onClick={() => setSelected(new Set())} className="ml-auto text-manila/70 hover:text-manila text-xs">Clear</button>
+          <button type="button" onClick={() => setSelected(new Set())} className="ml-auto text-on-jade/70 hover:text-on-jade text-xs">Clear selection</button>
         </div>
       )}
       {message && <p className="text-xs text-jade-700 mb-3">{message}</p>}
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm tabular-nums">
-          <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
+          <thead className="text-left sticky top-0 z-10 bg-paper shadow-edge">
             <tr className="border-b-2 border-ink/10">
               <th className="pl-5 pr-2 py-3 w-8">
                 <input type="checkbox" checked={allChecked} onChange={toggleAll} aria-label="Select all" className="accent-jade-600" />
               </th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Applicant</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Job</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Contact</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Applied</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Screening</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Interviews</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Status</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Applicant</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Job</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Contact</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Applied</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Screening</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Interviews</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Status</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={8}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : visible.length === 0 ? (
-              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={8}>No applicants match these filters.</td></tr>
+              <tr><td colSpan={8}><EmptyState title="No applicants match these filters" action={jobId || status || verdict || search ? { label: "Clear filters", onClick: () => { setSearchDraft(""); setSearchParams(new URLSearchParams()); } } : { label: "View job postings", to: "/admin/careers" }}>{jobId || status || verdict || search ? "Try widening the search or removing a filter." : "Applications appear here once someone applies on the Careers site."}</EmptyState></td></tr>
             ) : (
               visible.map((a) => (
                 <tr

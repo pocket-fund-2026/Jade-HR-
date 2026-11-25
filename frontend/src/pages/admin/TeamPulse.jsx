@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import api from "../../lib/api.js";
 
+import EmptyState from "../../components/EmptyState.jsx";
 // Team Pulse (Policy Sign-off page): who has been signing in to JADE HR,
 // and how recently. Backed by GET /api/policy/team-pulse (sql/071).
 
@@ -68,7 +69,7 @@ function Tile({ label, value, dot, active, onClick }) {
       onClick={onClick}
       className={`text-left bg-paper rounded-sm shadow-card p-4 border-t-2 transition-colors ${active ? "border-jade-500" : "border-transparent hover:border-ink/15"}`}
     >
-      <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 flex items-center gap-1.5">
+      <p className="text-xs font-semibold text-ink/70 flex items-center gap-1.5">
         {dot && <span className={`w-2 h-2 rounded-full ${dot}`} />} {label}
       </p>
       <p className="font-display text-2xl text-ink font-nums mt-1">{value}</p>
@@ -134,7 +135,7 @@ export default function TeamPulse() {
 
   return (
     <div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         {BUCKETS.slice(1).map((b) => (
           <Tile
             key={b.key}
@@ -153,21 +154,21 @@ export default function TeamPulse() {
         Updates every minute.
       </p>
 
-      <div className="flex flex-wrap items-center gap-3 mb-3">
+      <div className="flex flex-wrap items-center gap-4 mb-3">
         <div className="relative">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/70" />
-          <input
+          <input aria-label="Search name, code, department"
             type="text" value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name, code, department…"
             className="w-64 rounded-sm border border-ink/15 bg-paper pl-9 pr-3 py-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
           />
         </div>
-        <select value={bucket} onChange={(e) => setBucket(e.target.value)}
-          className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
+        <select aria-label="Filter by login activity" value={bucket} onChange={(e) => setBucket(e.target.value)}
+          className="rounded-sm border border-ink/15 bg-paper px-4 py-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
           {BUCKETS.map((b) => <option key={b.key} value={b.key}>{b.label}</option>)}
         </select>
-        <select value={location} onChange={(e) => setLocation(e.target.value)}
-          className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
+        <select aria-label="Filter by location" value={location} onChange={(e) => setLocation(e.target.value)}
+          className="rounded-sm border border-ink/15 bg-paper px-4 py-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
           <option value="">All locations</option>
           {locations.map((l) => <option key={l} value={l}>{l}</option>)}
         </select>
@@ -177,7 +178,7 @@ export default function TeamPulse() {
           Include inactive
         </label>
         <button type="button" onClick={exportCsv}
-          className="flex items-center gap-1.5 bg-paper border border-ink/15 text-ink/80 px-3 py-2 rounded-sm text-xs font-medium hover:border-ink/30 transition-colors">
+          className="flex items-center gap-1.5 bg-paper border border-ink/15 text-ink/80 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-medium hover:border-ink/30 transition-colors">
           <Download size={13} /> Export CSV
         </button>
         <button type="button" onClick={load} disabled={refreshing} title="Refresh now"
@@ -190,7 +191,7 @@ export default function TeamPulse() {
       <div className="bg-paper rounded-sm shadow-card overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead>
-            <tr className="text-left text-xs font-semibold uppercase tracking-wider text-ink/70 border-b border-ink/10 whitespace-nowrap">
+            <tr className="text-left text-xs font-semibold text-ink/70 border-b border-ink/10 whitespace-nowrap">
               <th className="px-5 py-3">Employee</th>
               <th className="px-5 py-3">Department</th>
               <th className="px-5 py-3">Last active</th>
@@ -203,7 +204,7 @@ export default function TeamPulse() {
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td className="px-5 py-8 text-center text-ink/70" colSpan={6}>No one matches.</td></tr>
+              <tr><td colSpan={6}><EmptyState title="No one matches" action={{ label: "Clear filters", onClick: () => { setBucket("all"); setLocation(""); setSearch(""); } }}>Try a different activity bucket, location or name.</EmptyState></td></tr>
             ) : rows.map((r) => {
               const b = BUCKETS.find((x) => x.key === r.bucket);
               return (
@@ -212,7 +213,7 @@ export default function TeamPulse() {
                     <div className="flex items-center gap-2">
                       <span className={`w-2 h-2 rounded-full flex-shrink-0 ${b?.dot || ""}`} title={b?.label} />
                       <span className="text-ink font-medium">{r.name}</span>
-                      {!r.is_active && <span className="text-[10px] font-semibold uppercase tracking-wide text-ink/60">inactive</span>}
+                      {!r.is_active && <span className="text-[10px] font-semibold text-ink/60">inactive</span>}
                     </div>
                     <div className="text-xs text-ink/60 font-nums pl-4">{r.employee_code}{r.location ? ` · ${r.location}` : ""}</div>
                   </td>
@@ -220,7 +221,7 @@ export default function TeamPulse() {
                   <td className="px-5 py-2.5 whitespace-nowrap" title={exact(r.last_active_at)}>
                     <span className={r.bucket === "today" ? "text-jade-700 font-medium" : "text-ink/80"}>{relative(r.last_active_at)}</span>
                     {r.last_active_source === "policy_signoff" && (
-                      <span className="block text-[10px] uppercase tracking-wide text-ink/50">via policy sign-off</span>
+                      <span className="block text-[10px] text-ink/50">via policy sign-off</span>
                     )}
                   </td>
                   <td className="px-5 py-2.5 whitespace-nowrap text-ink/70" title={exact(r.last_login_at)}>

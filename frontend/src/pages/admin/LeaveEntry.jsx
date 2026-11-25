@@ -6,6 +6,7 @@ import api from "../../lib/api.js";
 import { formatDate } from "../../lib/format.js";
 import { LEAVE_LABELS, selectableLeaveTypes } from "../../lib/leaveTypes.js";
 
+import EmptyState from "../../components/EmptyState.jsx";
 const TRANSACTION_TYPES = [
   { value: "credit", label: "Credit" },
   { value: "debit", label: "Debit" },
@@ -62,14 +63,14 @@ function EntryForm({ employees, onAdded }) {
 
   return (
     <form onSubmit={submit} className="bg-paper rounded-sm shadow-card p-6 mb-6">
-      <p className="font-display text-lg text-ink mb-4">Leave Transaction Entry</p>
+      <p className="font-display text-lg text-ink mb-4">Leave transaction entry</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Employee Name</label>
-          <select
+          <label htmlFor="fld-69" className="block text-xs font-semibold text-ink/70 mb-1.5">Employee name</label>
+          <select id="fld-69"
             value={employeeId}
             onChange={(e) => setEmployeeId(e.target.value)}
-            className="w-full rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+            className="w-full rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
           >
             <option value="">Select an employee…</option>
             {employees.map((e) => (
@@ -80,50 +81,50 @@ function EntryForm({ employees, onAdded }) {
           </select>
         </div>
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Leave Type</label>
-          <select
+          <label htmlFor="fld-84" className="block text-xs font-semibold text-ink/70 mb-1.5">Leave type</label>
+          <select id="fld-84"
             value={leaveType}
             onChange={(e) => setLeaveType(e.target.value)}
-            className="w-full rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+            className="w-full rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
           >
             {availableTypes.map((v) => <option key={v} value={v}>{LEAVE_LABELS[v]}</option>)}
           </select>
         </div>
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Transaction Type</label>
-          <select
+          <label htmlFor="fld-94" className="block text-xs font-semibold text-ink/70 mb-1.5">Transaction type</label>
+          <select id="fld-94"
             value={transactionType}
             onChange={(e) => setTransactionType(e.target.value)}
-            className="w-full rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+            className="w-full rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
           >
             {TRANSACTION_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
         </div>
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Entry Date</label>
-          <input
+          <label htmlFor="fld-104" className="block text-xs font-semibold text-ink/70 mb-1.5">Entry date</label>
+          <input id="fld-104"
             type="date"
             value={entryDate}
             onChange={(e) => setEntryDate(e.target.value)}
-            className="w-full rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+            className="w-full rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Leave Credit</label>
-          <input
+          <label htmlFor="fld-113" className="block text-xs font-semibold text-ink/70 mb-1.5">Leave credit</label>
+          <input id="fld-113"
             type="number" step="0.5"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder="e.g. 2.00 or -2.00"
-            className="w-full rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink font-nums focus:outline-none focus:ring-2 focus:ring-jade-500"
+            className="w-full rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm text-ink font-nums focus:outline-none focus:ring-2 focus:ring-jade-500"
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Remarks</label>
-          <input
+          <label htmlFor="fld-123" className="block text-xs font-semibold text-ink/70 mb-1.5">Remarks</label>
+          <input id="fld-123"
             value={remarks}
             onChange={(e) => setRemarks(e.target.value)}
-            className="w-full rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+            className="w-full rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
           />
         </div>
       </div>
@@ -131,7 +132,7 @@ function EntryForm({ employees, onAdded }) {
       <div className="flex justify-end mt-4">
         <button
           disabled={saving}
-          className="bg-ledger-800 text-manila px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
+          className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
         >
           {saving ? "Adding…" : "Add Entry"}
         </button>
@@ -181,39 +182,39 @@ export default function LeaveEntry() {
 
   return (
     <div>
-      <h2 className="font-display text-2xl text-ink mb-1">Leave Entry</h2>
-      <p className="text-sm text-ink/70 mb-6">Manually credit, debit, or adjust an employee's leave balance.</p>
+      <h2 className="font-display text-2xl text-ink mb-1">Leave entry</h2>
+      <p className="text-sm text-ink/70 mb-6">Manually credit, debit, or adjust an employee’s leave balance.</p>
 
       <EntryForm employees={employees} onAdded={() => { setPage(1); load(); }} />
 
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <p className="font-display text-lg text-ink">Leave Transaction Log</p>
-        <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+        <p className="font-display text-lg text-ink">Leave transaction log</p>
+        <div className="flex flex-wrap items-center gap-4">
           <div className="flex rounded-sm border border-ink/15 overflow-hidden text-xs">
             {["active", "inactive", "both"].map((s) => (
               <button
                 key={s}
                 onClick={() => { setStatus(s); setPage(1); }}
-                className={`px-3 py-1.5 font-semibold capitalize transition-colors ${status === s ? "bg-ledger-800 text-manila" : "bg-paper text-ink/70 hover:text-ink"}`}
+                className={`px-3 py-1.5 font-semibold capitalize transition-colors ${status === s ? "bg-ledger-800 text-on-jade" : "bg-paper text-ink/70 hover:text-ink"}`}
               >
                 {s}
               </button>
             ))}
           </div>
-          <select
+          <select aria-label="Filter by employee"
             value={employeeFilter}
             onChange={(e) => { setEmployeeFilter(e.target.value); setPage(1); }}
-            className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+            className="rounded-sm border border-ink/15 bg-paper px-4 py-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
           >
             <option value="">All employees</option>
             {employees.map((e) => (
               <option key={e.id} value={e.id}>{e.employee_code} — {e.first_name} {e.last_name}</option>
             ))}
           </select>
-          <select
+          <select aria-label="Entries per page"
             value={pageSize}
             onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
-            className="rounded-sm border border-ink/15 bg-paper px-3 py-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+            className="rounded-sm border border-ink/15 bg-paper px-4 py-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
           >
             {PAGE_SIZES.map((n) => <option key={n} value={n}>{n} / page</option>)}
           </select>
@@ -222,15 +223,15 @@ export default function LeaveEntry() {
 
       <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
         <table className="w-full text-sm tabular-nums">
-          <thead className="text-left sticky top-0 z-10 bg-paper shadow-[0_1px_0_rgba(0,0,0,0.08)]">
+          <thead className="text-left sticky top-0 z-10 bg-paper shadow-edge">
             <tr className="border-b-2 border-ink/10">
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Employee</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Emp Code</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Leave Type</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Transaction Type</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Remarks</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Entry Date</th>
-              <th className="px-4 py-3 font-semibold text-[11px] uppercase tracking-wider text-ink/70">Leave Cr</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Employee</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Emp code</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Leave type</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Transaction type</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Remarks</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Entry date</th>
+              <th className="px-4 py-3 font-semibold text-[11px] text-ink/70">Leave cr</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
@@ -238,7 +239,7 @@ export default function LeaveEntry() {
             {loading ? (
               <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={8}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : rows.length === 0 ? (
-              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={8}>No entries match.</td></tr>
+              <tr><td colSpan={8}><EmptyState title="No leave entries match" action={{ label: "Clear filters", onClick: () => { setStatus("both"); setEmployeeFilter(""); setPage(1); } }}>Try a different status or employee.</EmptyState></td></tr>
             ) : (
               rows.map((r) => (
                 <tr key={r.id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
@@ -269,7 +270,7 @@ export default function LeaveEntry() {
             <button
               key={p}
               onClick={() => setPage(p)}
-              className={`w-8 h-8 rounded-sm text-xs font-semibold transition-colors ${p === page ? "bg-ledger-800 text-manila" : "bg-paper border border-ink/15 text-ink/70 hover:border-jade-500"}`}
+              className={`w-8 h-8 rounded-sm text-xs font-semibold transition-colors ${p === page ? "bg-ledger-800 text-on-jade" : "bg-paper border border-ink/15 text-ink/70 hover:border-jade-500"}`}
             >
               {p}
             </button>

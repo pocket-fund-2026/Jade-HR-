@@ -53,7 +53,7 @@ export default function SignLetter() {
           <div className="letter-doc" dangerouslySetInnerHTML={{ __html: data.rendered_body }} />
         </article>
 
-        <div className="bg-paper rounded-sm shadow-card p-5 mt-5 space-y-3">
+        <div className="bg-paper rounded-sm shadow-card p-5 mt-5 space-y-4">
           {done ? (
             <p className="flex items-center gap-2 text-jade-700"><CheckCircle2 size={18} /> {isApprover ? (isOffer ? "Approved. The offer has been sent to the candidate to sign." : "Signed. The signed letter has been sent to the recipient and HR.") : "Thank you. Your acceptance is recorded and a signed copy is on its way to your email."}</p>
           ) : !data.can_act ? (
@@ -61,13 +61,14 @@ export default function SignLetter() {
           ) : (
             <>
               <p className="font-display text-lg text-ink">{isApprover ? (isOffer ? `Approve offer for ${data.candidate_name}` : `Sign letter for ${data.candidate_name}`) : "Accept this offer"}</p>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70">Type your full name to sign</label>
+              <label htmlFor="sign_name" className="block text-xs font-semibold text-ink/70">Type your full name to sign</label>
               <input
+                id="sign_name"
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 maxLength={80}
                 placeholder="First and last name"
-                className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+                className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
               />
               <div className="border-b border-ink/40 min-h-[64px] flex items-end px-2 pb-1" aria-label="Signature preview">
                 <span style={{ fontFamily: SIGNATURE_FONT_STACK, fontSize: 40, color: "#1a2a6c", lineHeight: 1.2 }}>{value || <span className="text-ink/25 text-base" style={{ fontFamily: "inherit" }}>Your signature appears here</span>}</span>
@@ -77,7 +78,7 @@ export default function SignLetter() {
                 {isApprover ? (isOffer ? "I approve this offer letter." : "I approve and sign this letter.") : "I have read and understood the terms of this offer and accept them."}
               </label>
               {error && <p className="text-sm text-rust-500">{error}</p>}
-              <button onClick={submit} disabled={busy || !value.trim() || !confirm} className="w-full bg-jade-600 text-white rounded-sm px-4 py-2.5 text-sm font-semibold disabled:opacity-50">
+              <button onClick={submit} disabled={busy || !value.trim() || !confirm} className="w-full bg-jade-600 text-on-jade rounded-sm px-4 py-2.5 text-sm font-semibold disabled:opacity-50">
                 {busy ? "Submitting…" : isApprover ? (isOffer ? "Approve offer" : "Sign letter") : "Sign and accept"}
               </button>
             </>

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import AddArrearModal from "../../components/AddArrearModal.jsx";
+import EmptyState from "../../components/EmptyState.jsx";
 import { useConfirm } from "../../components/ConfirmDialog.jsx";
 import MonthPicker from "../../components/MonthPicker.jsx";
 import PasswordResetModal from "../../components/PasswordResetModal.jsx";
@@ -69,19 +70,19 @@ const SECTIONS = [
           },
           {
             k: "flexible_reference_time_slot", l: "Reference Time Slot (Flexible only)", t: "select", options: [],
-            hint: "Only shown when Time Slot is \"Flexible\". Doesn't affect late-mark grading (still hours-based) — it's what groups this employee into a shift's own tab on the time-slot-wise attendance sheet, instead of a generic \"Flexible\" tab.",
+            hint: "Only shown when Time Slot is \"Flexible\". Doesn’t affect late-mark grading (still hours-based) — it’s what groups this employee into a shift’s own tab on the time-slot-wise attendance sheet, instead of a generic \"Flexible\" tab.",
           },
           {
             k: "saturday_extended_hours", l: "Saturday Extended Hours", t: "boolean",
-            hint: "Only meaningful for the Intern time slot — extends this employee's Saturday to 10:00 AM – 7:00 PM instead of 10:00 AM – 6:00 PM",
+            hint: "Only meaningful for the Intern time slot — extends this employee’s Saturday to 10:00 AM – 7:00 PM instead of 10:00 AM – 6:00 PM",
           },
           { k: "weekly_off_day", l: "Weekly Off", t: "weekday", core: true },
           { k: "_attendance_cycle", l: "Attendance Cycle", t: "static", staticValue: "23rd (previous month) – 22nd (current month)" },
           { k: "ess_role", l: "ESS Role", t: "text" },
           { k: "head_of_department", l: "Head of Department", t: "boolean" },
-          { k: "reporting_to_id", l: "Reporting To", t: "approver", hint: "Designates them as this employee's actual reporting manager — also grants leave-approval rights for this employee's reports, same as being their Leave Approver. Pick from this list; it must be someone with a jade-hr record." },
-          { k: "reporting_to", l: "Reporting Manager Name (if no login)", t: "text", hint: "Free text — for a manager who isn't in jade-hr at all (or hasn't been matched yet). Doesn't grant any access; use Reporting To above for that. Often pre-filled by the employee themselves during onboarding." },
-          { k: "reporting_to_email", l: "Reporting Manager Email (if no login)", t: "text", hint: "Where late/attendance notifications go when Reporting To above isn't set." },
+          { k: "reporting_to_id", l: "Reporting To", t: "approver", hint: "Designates them as this employee’s actual reporting manager — also grants leave-approval rights for this employee’s reports, same as being their Leave Approver. Pick from this list; it must be someone with a jade-hr record." },
+          { k: "reporting_to", l: "Reporting Manager Name (if no login)", t: "text", hint: "Free text — for a manager who isn’t in jade-hr at all (or hasn’t been matched yet). Doesn’t grant any access; use Reporting To above for that. Often pre-filled by the employee themselves during onboarding." },
+          { k: "reporting_to_email", l: "Reporting Manager Email (if no login)", t: "text", hint: "Where late/attendance notifications go when Reporting To above isn’t set." },
           { k: "leave_approver_id", l: "Leave Approver", t: "approver", core: true },
           { k: "employee_category", l: "Employee Category", t: "select", options: ["corporate", "factory_retail"], core: true, hint: "Corporate roster staff are covered by the Leave & Attendance Policy v1.1 (Red Card/LOP, holiday calendar, PL/Paternity/Maternity/Compassionate/Comp-Off leave)" },
           { k: "standard_working_days_per_month", l: "Standard Working Days / Month", t: "number", core: true, hint: "Overrides the pay-period length used to compute per-day salary — leave blank to use the default (~30–31 days)" },
@@ -101,7 +102,7 @@ const SECTIONS = [
       {
         fields: [
           { k: "date_of_birth", l: "Date of Birth", t: "date" },
-          { k: "date_of_joining", l: "Date of Joining", t: "date", core: true },
+          { k: "date_of_joining", l: "Date of joining", t: "date", core: true },
           { k: "probation_completion_date", l: "Probation Completion Date", t: "date" },
           { k: "confirmation_date", l: "Confirmation Date", t: "date" },
           { k: "last_promotion_date", l: "Last Promotion Date", t: "date" },
@@ -117,7 +118,7 @@ const SECTIONS = [
           { k: "scheduled_exit_date", l: "Scheduled Exit Date", t: "date" },
           { k: "exit_date", l: "Exit Date", t: "date" },
           { k: "settlement_date", l: "Settlement Date", t: "date" },
-          { k: "reason_of_leaving", l: "Reason Of Leaving", t: "select", options: ["Resign", "Termination", "Retirement", "Death", "Disablement", "Contract End", "Absconding", "Other"], hint: "Death/Disablement waives the Gratuity Act's 5-year service requirement on the Gratuity report" },
+          { k: "reason_of_leaving", l: "Reason Of Leaving", t: "select", options: ["Resign", "Termination", "Retirement", "Death", "Disablement", "Contract End", "Absconding", "Other"], hint: "Death/Disablement waives the Gratuity Act’s 5-year service requirement on the Gratuity report" },
           { k: "employee_status", l: "Employee Status", t: "select", options: ["Active", "Inactive", "On Notice", "Exited", "Absconded", "Terminated"], hint: "Absconded / Terminated show on the Org Chart with that status until a Scheduled/Exit Date is entered" },
         ],
       },
@@ -498,7 +499,7 @@ function Field({ field, value, editing, onChange, extra }) {
   if (type === "static") {
     return (
       <div className={span}>
-        <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">{label}</label>
+        <label className="block text-xs font-semibold text-ink/70 mb-1.5">{label}</label>
         <p className="text-sm text-ink/70 italic">{field.staticValue}</p>
       </div>
     );
@@ -512,14 +513,14 @@ function Field({ field, value, editing, onChange, extra }) {
     else if (value === "" || value == null) display = "—";
     return (
       <div className={span}>
-        <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">{label}</label>
+        <label className="block text-xs font-semibold text-ink/70 mb-1.5">{label}</label>
         <p className="text-sm text-ink font-medium">{display}</p>
         {hint && <p className="text-[11px] text-ink/65 mt-1">{hint}</p>}
       </div>
     );
   }
 
-  const baseClass = "w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500 disabled:opacity-50 disabled:bg-ink/5";
+  const baseClass = "w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 focus:border-jade-500 disabled:opacity-50 disabled:bg-ink/5";
 
   const inputId = `field-${field.k}`;
 
@@ -543,7 +544,7 @@ function Field({ field, value, editing, onChange, extra }) {
   if (type === "select") {
     return (
       <div className={span}>
-        <label htmlFor={inputId} className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">{label}</label>
+        <label htmlFor={inputId} className="block text-xs font-semibold text-ink/70 mb-1.5">{label}</label>
         <select id={inputId} className={baseClass} value={value || ""} onChange={(e) => onChange(e.target.value)} {...extra}>
           <option value="">—</option>
           {options.map((o) => <option key={o} value={o}>{o}</option>)}
@@ -555,7 +556,7 @@ function Field({ field, value, editing, onChange, extra }) {
   if (type === "textarea") {
     return (
       <div className={span}>
-        <label htmlFor={inputId} className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">{label}</label>
+        <label htmlFor={inputId} className="block text-xs font-semibold text-ink/70 mb-1.5">{label}</label>
         <textarea id={inputId} className={baseClass} rows={3} value={value || ""} onChange={(e) => onChange(e.target.value)} {...extra} />
       </div>
     );
@@ -563,7 +564,7 @@ function Field({ field, value, editing, onChange, extra }) {
 
   return (
     <div className={span}>
-      <label htmlFor={inputId} className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">{label}</label>
+      <label htmlFor={inputId} className="block text-xs font-semibold text-ink/70 mb-1.5">{label}</label>
       <input
         id={inputId}
         type={type === "number" ? "number" : type === "date" ? "date" : "text"}
@@ -579,7 +580,7 @@ function Field({ field, value, editing, onChange, extra }) {
 function Group({ group, form, editing, onFieldChange }) {
   return (
     <div className={group.title ? "border-t border-ink/10 pt-6 mt-6 first:border-0 first:pt-0 first:mt-0" : ""}>
-      {group.title && <p className="text-xs font-semibold uppercase tracking-wider text-ochre-700 mb-4">{group.title}</p>}
+      {group.title && <p className="text-xs font-semibold text-ochre-700 mb-4">{group.title}</p>}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-5">
         {group.fields.map((field) => (
           <Field
@@ -610,8 +611,8 @@ function UDFSection({ udfs, editing, onChange }) {
         <table className="w-full text-sm tabular-nums">
           <thead>
             <tr className="border-b border-ink/10 text-left">
-              <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-ink/70">UDF Name</th>
-              <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-ink/70">UDF Value</th>
+              <th className="px-3 py-2 text-xs font-semibold text-ink/70">UDF Name</th>
+              <th className="px-3 py-2 text-xs font-semibold text-ink/70">UDF Value</th>
             </tr>
           </thead>
           <tbody>
@@ -628,18 +629,20 @@ function UDFSection({ udfs, editing, onChange }) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {list.map((u, i) => (
-        <div key={i} className="flex items-center gap-3">
+        <div key={i} className="flex items-center gap-4">
           <input
-            className="flex-1 rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
-            placeholder="UDF Name"
+            className="flex-1 rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+            aria-label={`Custom field ${i + 1} name`}
+            placeholder="e.g. Blood group"
             value={u.udf_name}
             onChange={(e) => update(i, "udf_name", e.target.value)}
           />
           <input
-            className="flex-1 rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
-            placeholder="UDF Value"
+            className="flex-1 rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+            aria-label={`Custom field ${i + 1} value`}
+            placeholder="e.g. O+"
             value={u.udf_value}
             onChange={(e) => update(i, "udf_value", e.target.value)}
           />
@@ -664,8 +667,8 @@ function LineItemTable({ fields, form, editing, onChange }) {
     <table className="w-full text-sm tabular-nums">
       <thead>
         <tr className="border-b border-ink/10 text-left">
-          <th className="py-2 pr-4 text-xs font-semibold uppercase tracking-wider text-ink/70">Description</th>
-          <th className="py-2 text-xs font-semibold uppercase tracking-wider text-ink/70">Value</th>
+          <th className="py-2 pr-4 text-xs font-semibold text-ink/70">Description</th>
+          <th className="py-2 text-xs font-semibold text-ink/70">Value</th>
         </tr>
       </thead>
       <tbody>
@@ -674,14 +677,15 @@ function LineItemTable({ fields, form, editing, onChange }) {
             <td className="py-2 pr-4 text-ink/80">
               {f.l}
               {f.computed && (
-                <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-jade-600 bg-jade-50 border border-jade-500/30 rounded-sm px-1 py-0.5">Auto</span>
+                <span className="ml-1.5 text-[10px] font-semibold text-jade-600 bg-jade-50 border border-jade-500/30 rounded-sm px-1 py-0.5">Auto</span>
               )}
             </td>
             <td className="py-2">
               {editing && !f.computed ? (
                 <input
                   type="number"
-                  className="w-full max-w-[160px] rounded-sm border border-ink/15 bg-manila/40 px-2.5 py-1.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+                  aria-label={f.l}
+                  className="w-full max-w-[160px] rounded-sm border border-ink/15 bg-manila/40 px-4.5 py-1.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
                   value={form[f.k] ?? 0}
                   onChange={(e) => onChange(f.k, Number(e.target.value))}
                 />
@@ -725,18 +729,18 @@ function ShiftTimingEditor({ employeeId, currentSlot, onSaved }) {
   };
   return (
     <div className="mt-6 rounded-sm border border-ink/15 bg-manila/40 p-4">
-      <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1">Custom shift timing</p>
+      <p className="text-xs font-semibold text-ink/70 mb-1">Custom shift timing</p>
       <p className="text-xs text-ink/70 mb-3">
         Current: <span className="font-medium text-ink">{currentSlot || "—"}</span>. Enter this person&apos;s own In and Out time — it replaces their time slot.
       </p>
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-wrap items-end gap-4">
         <label className="text-xs text-ink/70">In time
           <input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="block mt-1 rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink" />
         </label>
         <label className="text-xs text-ink/70">Out time
           <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="block mt-1 rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink" />
         </label>
-        <button type="button" onClick={save} disabled={busy || !start || !end} className="rounded-sm bg-jade-600 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">
+        <button type="button" onClick={save} disabled={busy || !start || !end} className="rounded-sm bg-jade-600 px-4 py-2.5 text-sm font-medium text-on-jade disabled:opacity-50">
           {busy ? "Saving…" : "Set shift timing"}
         </button>
       </div>
@@ -762,7 +766,7 @@ function EmployeePayslipBreakdown({ employeeId }) {
         if (!cancelled) setSummary(data);
       })
       .catch((err) => {
-        if (!cancelled) setError(err.response?.data?.detail || "Could not load this period's payslip.");
+        if (!cancelled) setError(err.response?.data?.detail || "Could not load this period’s payslip.");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -774,8 +778,8 @@ function EmployeePayslipBreakdown({ employeeId }) {
 
   return (
     <div className="mt-8 pt-6 border-t border-ink/10">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-        <h3 className="font-display text-lg text-ink">Payslip Breakdown</h3>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+        <h3 className="font-display text-lg text-ink">Payslip breakdown</h3>
         <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
       </div>
       {loading ? (
@@ -857,31 +861,31 @@ function SalaryStructureSection({ employeeId, dateOfJoining, canView, canEdit, p
   if (mode === "list") {
     return (
       <div>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-          <p className="text-xs text-ink/70">Versioned by effective date — each row is the CTC breakdown in effect from that date forward.</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <p className="text-xs text-ink/70">Versioned by effective date — each row is the <abbr className="acr">CTC</abbr> breakdown in effect from that date forward.</p>
           {canEdit && (
             <button
               type="button"
               onClick={openNew}
-              className="flex items-center gap-1.5 bg-ledger-800 text-manila px-3 py-2 rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors flex-shrink-0"
+              className="flex items-center gap-1.5 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors flex-shrink-0"
             >
-              <Plus size={14} /> Add Salary Structure
+              <Plus size={14} /> Add salary structure
             </button>
           )}
         </div>
         {loadingList ? (
           <p className="text-sm text-ink/70"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>
         ) : list.length === 0 ? (
-          <p className="text-sm text-ink/70">No salary structure recorded yet.</p>
+          <EmptyState title="No salary structure recorded yet" action={canEdit ? { label: "Add salary structure", onClick: openNew } : { label: "Back to employees", to: "/admin/employees" }}>Payroll cannot compute this employee until a structure is added.</EmptyState>
         ) : (
           <div className="bg-manila/30 rounded-sm overflow-hidden overflow-x-auto">
             <table className="w-full text-sm tabular-nums">
               <thead className="sticky top-0 z-10 bg-manila">
                 <tr className="border-b border-ink/10 text-left">
-                  <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-ink/70">Effective Date</th>
-                  <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-ink/70">Total Earnings</th>
-                  <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-ink/70">Net Salary</th>
-                  <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-ink/70">CTC Monthly</th>
+                  <th className="px-3 py-2 text-xs font-semibold text-ink/70">Effective date</th>
+                  <th className="px-3 py-2 text-xs font-semibold text-ink/70">Total earnings</th>
+                  <th className="px-3 py-2 text-xs font-semibold text-ink/70">Net salary</th>
+                  <th className="px-3 py-2 text-xs font-semibold text-ink/70"><abbr className="acr">CTC</abbr> Monthly</th>
                   <th></th>
                 </tr>
               </thead>
@@ -927,12 +931,12 @@ function SalaryStructureSection({ employeeId, dateOfJoining, canView, canEdit, p
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <div>
-          <label htmlFor="ss_effective_date" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Effective Date</label>
+          <label htmlFor="ss_effective_date" className="block text-xs font-semibold text-ink/70 mb-1.5">Effective date</label>
           <input
             id="ss_effective_date"
             type="date"
             disabled={!canEdit}
-            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 disabled:opacity-50"
+            className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 disabled:opacity-50"
             value={record.effective_date}
             onChange={(e) => setField("effective_date", e.target.value)}
           />
@@ -948,7 +952,7 @@ function SalaryStructureSection({ employeeId, dateOfJoining, canView, canEdit, p
             key={t.key}
             type="button"
             onClick={() => setSubTab(t.key)}
-            className={`px-4 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap border-b-2 transition-colors ${
+            className={`px-[1.5em] py-[0.625em] leading-tight text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${
               subTab === t.key ? "border-jade-500 text-ink" : "border-transparent text-ink/70 hover:text-ink/70"
             }`}
           >
@@ -963,33 +967,33 @@ function SalaryStructureSection({ employeeId, dateOfJoining, canView, canEdit, p
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-6 p-4 bg-manila/30 rounded-sm">
         <div>
-          <p className="text-[11px] uppercase tracking-wider text-ink/70">Total Earnings</p>
+          <p className="text-[11px] text-ink/70">Total earnings</p>
           <p className="font-nums text-ink font-semibold">{formatINR(summary.totalEarnings)}</p>
         </div>
         <div>
-          <p className="text-[11px] uppercase tracking-wider text-ink/70">Total Deductions</p>
+          <p className="text-[11px] text-ink/70">Total deductions</p>
           <p className="font-nums text-ink font-semibold">{formatINR(summary.totalDeductions)}</p>
         </div>
         <div>
-          <p className="text-[11px] uppercase tracking-wider text-ink/70">Net Salary</p>
+          <p className="text-[11px] text-ink/70">Net salary</p>
           <p className="font-nums text-ink font-semibold">{formatINR(summary.netSalary)}</p>
         </div>
         <div>
-          <p className="text-[11px] uppercase tracking-wider text-ink/70">CTC Monthly</p>
+          <p className="text-[11px] text-ink/70"><abbr className="acr">CTC</abbr> Monthly</p>
           <p className="font-nums text-ink font-semibold">{formatINR(summary.ctcMonthly)}</p>
         </div>
         <div>
-          <p className="text-[11px] uppercase tracking-wider text-ink/70">CTC Yearly</p>
+          <p className="text-[11px] text-ink/70"><abbr className="acr">CTC</abbr> Yearly</p>
           <p className="font-nums text-ink font-semibold">{formatINR(summary.ctcYearly)}</p>
         </div>
       </div>
 
       <div className="mt-5">
-        <label htmlFor="salary_remarks" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Salary Remarks</label>
+        <label htmlFor="salary_remarks" className="block text-xs font-semibold text-ink/70 mb-1.5">Salary remarks</label>
         <textarea
           id="salary_remarks"
           disabled={!canEdit}
-          className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 disabled:opacity-50 min-h-[70px]"
+          className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 disabled:opacity-50 min-h-[70px]"
           value={record.salary_remarks}
           onChange={(e) => setField("salary_remarks", e.target.value)}
         />
@@ -998,15 +1002,15 @@ function SalaryStructureSection({ employeeId, dateOfJoining, canView, canEdit, p
       {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5 mt-4">{error}</p>}
 
       {canEdit && (
-        <div className="flex justify-end gap-3 mt-5">
+        <div className="flex justify-end gap-4 mt-5">
           <button type="button" onClick={() => setMode("list")} className="text-sm text-ink/70 hover:text-ink px-4 py-2.5">Cancel</button>
           <button
             type="button"
             onClick={save}
             disabled={saving}
-            className="bg-ledger-800 text-manila px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
+            className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
           >
-            {saving ? "Saving…" : "Save"}
+            {saving ? "Saving…" : "Save salary structure"}
           </button>
         </div>
       )}
@@ -1024,7 +1028,7 @@ function SalaryHoldBanner({ employeeId, form, canEditSalary, onChanged }) {
   if (!form.salary_hold) return null;
 
   const release = async () => {
-    if (!(await confirm("Release this salary hold? Payroll will treat this employee normally again."))) return;
+    if (!(await confirm("Release this salary hold? Payroll will treat this employee normally again.", { confirmLabel: "Release hold" }))) return;
     setBusy(true);
     try {
       await api.put(`/api/employees/${employeeId}/salary-hold`, { salary_hold: false, reason: "" });
@@ -1035,7 +1039,7 @@ function SalaryHoldBanner({ employeeId, form, canEditSalary, onChanged }) {
   };
 
   return (
-    <div className="bg-rust-50 border-l-4 border-rust-500 px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <div className="bg-rust-50 border-l-4 border-rust-500 px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
         <p className="text-sm font-semibold text-rust-500">Salary on hold</p>
         <p className="text-xs text-ink/70 mt-0.5">
@@ -1048,7 +1052,7 @@ function SalaryHoldBanner({ employeeId, form, canEditSalary, onChanged }) {
           type="button"
           onClick={release}
           disabled={busy}
-          className="bg-paper border border-ink/15 text-ink px-4 py-2 rounded-sm text-xs font-semibold hover:border-jade-500 disabled:opacity-50 transition-colors whitespace-nowrap self-start sm:self-auto"
+          className="bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:border-jade-500 disabled:opacity-50 transition-colors whitespace-nowrap self-start sm:self-auto"
         >
           {busy ? "Releasing…" : "Release hold"}
         </button>
@@ -1079,29 +1083,29 @@ function InitiateExitModal({ employeeId, onClose, onCreated }) {
     }
   };
 
-  const inputCls = "w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
+  const inputCls = "w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
 
   return (
     <div className="fixed inset-0 bg-ledger-900/60 flex items-center justify-center px-4 z-50">
       <div className="bg-paper rounded-sm shadow-stamp w-full max-w-md p-6 border-t-4 border-jade-500">
-        <p className="font-display text-lg text-ink mb-1.5">Initiate Exit</p>
-        <p className="text-xs text-ink/70 mb-5">Starts the departmental clearance checklist and exit interview, and sets this employee to "On Notice".</p>
+        <p className="font-display text-lg text-ink mb-1.5">Initiate exit</p>
+        <p className="text-xs text-ink/70 mb-5">Starts the departmental clearance checklist and exit interview, and sets this employee to “On Notice”.</p>
         <form onSubmit={submit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Resignation Date</label>
-              <input type="date" required className={`${inputCls} font-nums`} value={resignationDate} onChange={(e) => setResignationDate(e.target.value)} />
+              <label htmlFor="ed_resignation_date" className="block text-xs font-semibold text-ink/70 mb-1.5">Resignation date</label>
+              <input id="ed_resignation_date" type="date" required className={`${inputCls} font-nums`} value={resignationDate} onChange={(e) => setResignationDate(e.target.value)} />
             </div>
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Last Working Day</label>
-              <input type="date" required className={`${inputCls} font-nums`} value={lastWorkingDay} onChange={(e) => setLastWorkingDay(e.target.value)} />
+              <label htmlFor="ed_last_working_day" className="block text-xs font-semibold text-ink/70 mb-1.5">Last working day</label>
+              <input id="ed_last_working_day" type="date" required className={`${inputCls} font-nums`} value={lastWorkingDay} onChange={(e) => setLastWorkingDay(e.target.value)} />
             </div>
           </div>
           {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
-          <div className="flex justify-end gap-3 pt-1">
+          <div className="flex justify-end gap-4 pt-1">
             <button type="button" onClick={onClose} className="text-sm text-ink/70 hover:text-ink px-2">Cancel</button>
-            <button type="submit" disabled={busy} className="bg-ledger-800 text-manila px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors">
-              {busy ? "Starting…" : "Start Exit Process"}
+            <button type="submit" disabled={busy} className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors">
+              {busy ? "Starting…" : "Start exit process"}
             </button>
           </div>
         </form>
@@ -1141,7 +1145,7 @@ function KycDocumentRow({ employeeId, label, docType, url, canManage, onUploaded
   };
 
   return (
-    <div className="flex items-center justify-between gap-3 py-2 border-b border-ink/[0.06] last:border-0">
+    <div className="flex items-center justify-between gap-4 py-2 border-b border-ink/[0.06] last:border-0">
       <div>
         <p className="text-sm text-ink font-medium">{label}</p>
         {url ? (
@@ -1152,7 +1156,7 @@ function KycDocumentRow({ employeeId, label, docType, url, canManage, onUploaded
         {error && <p className="text-xs text-rust-500 mt-0.5">{error}</p>}
       </div>
       {canManage && (
-        <label className="flex items-center gap-1.5 bg-paper border border-ink/15 text-ink px-3 py-1.5 rounded-sm text-xs font-semibold hover:border-jade-500 cursor-pointer transition-colors whitespace-nowrap">
+        <label className="flex items-center gap-1.5 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:border-jade-500 cursor-pointer transition-colors whitespace-nowrap">
           {busy ? "Uploading…" : url ? "Replace" : "Upload"}
           <input type="file" accept="image/*,.pdf" className="hidden" disabled={busy} onChange={(e) => upload(e.target.files?.[0])} />
         </label>
@@ -1165,8 +1169,8 @@ function KycDocumentsSection({ employeeId, aadharUrl, panUrl, canManage, canView
   if (!canViewSalary) return null; // same gate as the aadhar_no/pan_no numbers themselves
   return (
     <div className="mt-6">
-      <p className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-2">KYC Documents</p>
-      <p className="text-xs text-ink/70 mb-3">Stored centrally, not on a local computer — visible only to Accounts/HR with salary access, or the employee themselves.</p>
+      <p className="text-xs font-semibold text-ink/70 mb-2"><abbr className="acr">KYC</abbr> Documents</p>
+      <p className="text-xs text-ink/70 mb-3">Stored centrally, not on a local computer — visible only to Accounts/<abbr className="acr">HR</abbr> with salary access, or the employee themselves.</p>
       <div className="bg-manila/30 rounded-sm px-4">
         <KycDocumentRow employeeId={employeeId} label="Aadhaar Card" docType="aadhar" url={aadharUrl} canManage={canManage} onUploaded={onUploaded} />
         <KycDocumentRow employeeId={employeeId} label="PAN Card" docType="pan" url={panUrl} canManage={canManage} onUploaded={onUploaded} />
@@ -1351,7 +1355,7 @@ export default function EmployeeDetails() {
   };
 
   const reactivateEmployee = async () => {
-    if (!confirm("Reactivate this employee? They'll be able to log in again and show up as an active employee.")) return;
+    if (!confirm("Reactivate this employee? They’ll be able to log in again and show up as an active employee.")) return;
     await api.put(`/api/employees/${id}/reactivate`);
     setField("is_active", true);
     load();
@@ -1374,7 +1378,7 @@ export default function EmployeeDetails() {
     return (
       <div>
         <Link to="/admin/employees" className="inline-flex items-center gap-1.5 text-xs text-ink/70 hover:text-ink mb-3 transition-colors">
-          <ArrowLeft size={13} /> Back to Employees
+          <ArrowLeft size={13} /> Back to employees
         </Link>
         <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>
       </div>
@@ -1384,7 +1388,7 @@ export default function EmployeeDetails() {
   return (
     <div className="max-w-5xl">
       <Link to="/admin/employees" className="inline-flex items-center gap-1.5 text-xs text-ink/70 hover:text-ink mb-3 transition-colors">
-        <ArrowLeft size={13} /> Back to Employees
+        <ArrowLeft size={13} /> Back to employees
       </Link>
 
       <div className="bg-paper rounded-sm shadow-card border-t-4 border-jade-500 overflow-hidden">
@@ -1393,10 +1397,10 @@ export default function EmployeeDetails() {
           {editing ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="employee_code" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Employee Code (biometric ID)</label>
+                <label htmlFor="employee_code" className="block text-xs font-semibold text-ink/70 mb-1.5">Employee Code (biometric ID)</label>
                 <input
                   id="employee_code"
-                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 disabled:opacity-50 disabled:bg-ink/5"
+                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 disabled:opacity-50 disabled:bg-ink/5"
                   value={form.employee_code}
                   disabled={!isNew}
                   placeholder={isNew ? "Leave blank to auto-assign the next free ID" : ""}
@@ -1404,52 +1408,52 @@ export default function EmployeeDetails() {
                 />
               </div>
               <div>
-                <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">
+                <label htmlFor="password" className="block text-xs font-semibold text-ink/70 mb-1.5">
                   {isNew ? "Password" : "Reset Password (leave blank to keep)"}
                 </label>
                 <input
                   id="password"
                   type="password"
-                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
                   value={form.password}
                   placeholder={isNew ? "Leave blank to auto-generate" : ""}
                   onChange={(e) => setField("password", e.target.value)}
                 />
               </div>
               <div>
-                <label htmlFor="first_name" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">First Name</label>
+                <label htmlFor="first_name" className="block text-xs font-semibold text-ink/70 mb-1.5">First name</label>
                 <input
                   id="first_name"
-                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
                   value={form.first_name}
                   required
                   onChange={(e) => setField("first_name", e.target.value)}
                 />
               </div>
               <div>
-                <label htmlFor="last_name" className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Last Name</label>
+                <label htmlFor="last_name" className="block text-xs font-semibold text-ink/70 mb-1.5">Last name</label>
                 <input
                   id="last_name"
-                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+                  className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
                   value={form.last_name}
                   onChange={(e) => setField("last_name", e.target.value)}
                 />
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center justify-between gap-4">
               <div>
                 <h2 className="font-display text-2xl text-ink">{form.first_name} {form.last_name}</h2>
                 <p className="text-xs text-ink/70 font-nums mt-0.5">{form.employee_code}</p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
                 {canEditSalary && !isNew && (
                   <button
                     type="button"
                     onClick={() => setShowAddArrear(true)}
                     className="flex items-center gap-1.5 text-sm text-ochre-700 hover:text-ochre-800 hover:underline whitespace-nowrap"
                   >
-                    <Plus size={14} /> Add Arrear
+                    <Plus size={14} /> Add arrear
                   </button>
                 )}
                 <StampBadge status={form.is_active ? "active" : "inactive"}>
@@ -1476,7 +1480,7 @@ export default function EmployeeDetails() {
               key={t.key}
               type="button"
               onClick={() => setActiveTab(t.key)}
-              className={`px-4 py-3 text-xs font-semibold uppercase tracking-wider whitespace-nowrap border-b-2 transition-colors ${
+              className={`px-[1.5em] py-[0.625em] leading-tight text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${
                 activeTab === t.key
                   ? "border-jade-500 text-ink"
                   : "border-transparent text-ink/70 hover:text-ink/70"
@@ -1505,11 +1509,11 @@ export default function EmployeeDetails() {
                           if (field.t === "role") {
                             return (
                               <div key={field.k}>
-                                <label htmlFor={field.k} className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">{field.l}</label>
+                                <label htmlFor={field.k} className="block text-xs font-semibold text-ink/70 mb-1.5">{field.l}</label>
                                 {editing && canAssignRole ? (
                                   <select
                                     id={field.k}
-                                    className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+                                    className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
                                     value={form.role}
                                     onChange={(e) => setField("role", e.target.value)}
                                   >
@@ -1519,7 +1523,7 @@ export default function EmployeeDetails() {
                                   <p className="text-sm text-ink font-medium">{ROLE_LABELS[form.role] || form.role}</p>
                                 )}
                                 {editing && !canAssignRole && (
-                                  <p className="text-[11px] text-ink/65 mt-1">You don't have permission to change this — ask Accounts for access.</p>
+                                  <p className="text-[11px] text-ink/65 mt-1">You don’t have permission to change this — ask Accounts for access.</p>
                                 )}
                               </div>
                             );
@@ -1527,11 +1531,11 @@ export default function EmployeeDetails() {
                           if (field.t === "weekday") {
                             return (
                               <div key={field.k}>
-                                <label htmlFor={field.k} className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">{field.l}</label>
+                                <label htmlFor={field.k} className="block text-xs font-semibold text-ink/70 mb-1.5">{field.l}</label>
                                 {editing ? (
                                   <select
                                     id={field.k}
-                                    className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+                                    className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
                                     value={form.weekly_off_day}
                                     onChange={(e) => setField("weekly_off_day", Number(e.target.value))}
                                   >
@@ -1547,11 +1551,11 @@ export default function EmployeeDetails() {
                             const current = employeesList.find((e) => e.id === form[field.k]);
                             return (
                               <div key={field.k}>
-                                <label htmlFor={field.k} className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">{field.l}</label>
+                                <label htmlFor={field.k} className="block text-xs font-semibold text-ink/70 mb-1.5">{field.l}</label>
                                 {editing ? (
                                   <select
                                     id={field.k}
-                                    className="w-full rounded-sm border border-ink/15 bg-manila/40 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+                                    className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
                                     value={form[field.k] || ""}
                                     onChange={(e) => setField(field.k, e.target.value)}
                                   >
@@ -1621,7 +1625,7 @@ export default function EmployeeDetails() {
           {activeTab === "salary" && (
             canViewSalary ? (
               <div>
-                <p className="text-xs text-ink/70 mb-5">Used for OT calc: Total Salary = Basic + HRA + Conveyance, divided across days/hours in the month.</p>
+                <p className="text-xs text-ink/70 mb-5">Used for <abbr className="acr">OT</abbr> calc: Total Salary = Basic + HRA + Conveyance, divided across days/hours in the month.</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <Field field={{ k: "basic", l: "Basic", t: "number" }} value={form.basic} editing={editing && canEditSalary} onChange={(v) => setField("basic", v)} />
                   <Field field={{ k: "hra", l: "HRA", t: "number" }} value={form.hra} editing={editing && canEditSalary} onChange={(v) => setField("hra", v)} />
@@ -1644,7 +1648,7 @@ export default function EmployeeDetails() {
                   <EmployeePayslipBreakdown employeeId={id} />
                 ) : (
                   <p className="text-xs text-ink/70 mt-8 pt-6 border-t border-ink/10">
-                    Ask Accounts for Payroll access to see this period's computed payslip breakdown.
+                    Ask Accounts for Payroll access to see this period’s computed payslip breakdown.
                   </p>
                 ))}
               </div>
@@ -1673,7 +1677,7 @@ export default function EmployeeDetails() {
         {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5 mx-7 mb-4">{error}</p>}
 
         {/* Action bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 sm:px-7 py-5 border-t border-ink/10 bg-manila/20">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 sm:px-7 py-5 border-t border-ink/10 bg-manila/20">
           <div className="flex flex-wrap items-center gap-5">
             {!editing && canManage && (
               form.is_active ? (
@@ -1692,7 +1696,7 @@ export default function EmployeeDetails() {
                 onClick={() => setShowInitiateExit(true)}
                 className="flex items-center gap-1.5 text-sm text-ochre-700 hover:text-ochre-800 hover:underline"
               >
-                <LogOut size={14} /> Initiate Exit
+                <LogOut size={14} /> Initiate exit
               </button>
             )}
             {!isNew && (
@@ -1723,7 +1727,7 @@ export default function EmployeeDetails() {
               </>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-4">
             {!editing ? (
               <>
                 <Link to="/admin/employees" className="text-sm text-ink/70 hover:text-ink px-4 py-2.5">Back</Link>
@@ -1731,16 +1735,16 @@ export default function EmployeeDetails() {
                   <button
                     type="button"
                     onClick={() => setShowPasswordReset(true)}
-                    className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-4 py-2.5 rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
+                    className="flex items-center gap-2 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 transition-colors"
                   >
-                    <KeyRound size={14} /> Reset Password
+                    <KeyRound size={14} /> Reset password
                   </button>
                 )}
                 {canManage && (
                   <button
                     type="button"
                     onClick={() => setMode("edit")}
-                    className="flex items-center gap-2 bg-ledger-800 text-manila px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
+                    className="flex items-center gap-2 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors"
                   >
                     <Pencil size={14} /> Edit
                   </button>
@@ -1753,25 +1757,25 @@ export default function EmployeeDetails() {
                   type="button"
                   disabled={saving}
                   onClick={() => save("stay")}
-                  className="bg-paper border border-ink/15 text-ink px-5 py-2.5 rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-50 transition-colors"
+                  className="bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-50 transition-colors"
                 >
-                  {saving ? "Saving…" : "Save"}
+                  {saving ? "Saving…" : "Save changes"}
                 </button>
                 <button
                   type="button"
                   disabled={saving}
                   onClick={() => save("list")}
-                  className="bg-paper border border-ink/15 text-ink px-5 py-2.5 rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-50 transition-colors"
+                  className="bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 disabled:opacity-50 transition-colors"
                 >
-                  Save &amp; List
+                  Save and go to list
                 </button>
                 <button
                   type="button"
                   disabled={saving}
                   onClick={() => save("new")}
-                  className="flex items-center gap-2 bg-ledger-800 text-manila px-5 py-2.5 rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
+                  className="flex items-center gap-2 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
                 >
-                  Save &amp; New
+                  Save and add another
                 </button>
               </>
             )}

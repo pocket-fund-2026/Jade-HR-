@@ -20,16 +20,16 @@ export default function LettersAwaitingSignature() {
       <div className="flex items-center gap-2 mb-2">
         <FileSignature size={16} className="text-jade-600" />
         <p className="font-display text-lg text-ink">Letters waiting for a signature</p>
-        <Link to="/admin/letters" className="ml-auto text-xs font-semibold text-jade-700 hover:underline">Open Letters</Link>
+        <Link to="/admin/letters" className="ml-auto text-xs font-semibold text-jade-700 hover:underline">Open letters</Link>
       </div>
       <ul className="divide-y divide-ink/5">
         {rows.map((r) => (
-          <li key={r.id} className="py-2 text-sm flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="text-ink font-semibold">{r.title}</span>
+          <li key={r.id} className="py-2 text-sm flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span className="text-ink font-semibold clamp-2" title={r.title}>{r.title}</span>
             <span className="text-ink/70">{r.employee_name || r.candidate_email}</span>
             {r.approval_status === "awaiting_candidate"
               ? <span className="text-rust-500 font-semibold text-xs">Signature of the offered candidate is remaining</span>
-              : <span className="text-ochre-600 font-semibold text-xs">Waiting for the approver's e-signature</span>}
+              : <span className="text-ochre-600 font-semibold text-xs">Waiting for the approver’s e-signature</span>}
           </li>
         ))}
       </ul>

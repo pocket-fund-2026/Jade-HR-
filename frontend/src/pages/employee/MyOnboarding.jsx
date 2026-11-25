@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 
+import EmptyState from "../../components/EmptyState.jsx";
 import api from "../../lib/api.js";
 
 function DetailField({ label, value }) {
   return (
     <div>
-      <p className="text-[10px] uppercase tracking-wider text-ink/70">{label}</p>
+      <p className="text-[10px] text-ink/70">{label}</p>
       <p className="text-sm text-ink">{value || "—"}</p>
     </div>
   );
@@ -14,7 +15,7 @@ function DetailField({ label, value }) {
 function DetailGroup({ title, children }) {
   return (
     <div>
-      <h4 className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-2">{title}</h4>
+      <h4 className="text-xs font-semibold text-ink/70 mb-2">{title}</h4>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">{children}</div>
     </div>
   );
@@ -53,12 +54,10 @@ export default function MyOnboarding() {
   if (notFound) {
     return (
       <div className="bg-paper rounded-sm shadow-card p-6">
-        <h2 className="font-display text-2xl text-ink mb-2">My Onboarding Details</h2>
-        <p className="text-sm text-ink/70">
-          Nothing on file yet — either you joined before the online onboarding form existed, or your submission
-          hasn't been linked to your employee record yet. If you filled in the form and this still looks empty a
-          few days after your biometric attendance started, check with HR.
-        </p>
+        <h2 className="font-display text-2xl text-ink mb-2">My onboarding details</h2>
+        <EmptyState title="No onboarding details on file yet" action={{ label: "See how to reach HR", to: "/employee/help" }}>
+          Either you joined before the online form existed, or your submission isn’t linked to your employee record yet. If this is still empty a few days after your biometric attendance started, check with HR.
+        </EmptyState>
       </div>
     );
   }
@@ -68,7 +67,7 @@ export default function MyOnboarding() {
 
   return (
     <div>
-      <h2 className="font-display text-2xl text-ink mb-1">My Onboarding Details</h2>
+      <h2 className="font-display text-2xl text-ink mb-1">My onboarding details</h2>
       <p className="text-xs text-ink/70 font-nums mb-6">
         What you submitted on the joining-formalities form, submitted {new Date(submission.submitted_at).toLocaleDateString()}.
         If anything here is wrong, let HR know so it can be corrected on your employee record.
@@ -76,7 +75,7 @@ export default function MyOnboarding() {
 
       <div className="bg-paper rounded-sm shadow-card p-6 space-y-6">
         <DetailGroup title="Personal">
-          <DetailField label="Full Name" value={submission.full_name} />
+          <DetailField label="Full name" value={submission.full_name} />
           <DetailField label="Date of Birth" value={submission.date_of_birth} />
           <DetailField label="Mobile" value={submission.mobile} />
           <DetailField label="Emergency Contact" value={submission.emergency_contact_no} />
@@ -84,26 +83,26 @@ export default function MyOnboarding() {
         </DetailGroup>
 
         <div>
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-2">Permanent Address</h4>
+          <h4 className="text-xs font-semibold text-ink/70 mb-2">Permanent address</h4>
           <p className="text-sm text-ink whitespace-pre-line">{address || "—"}</p>
         </div>
 
         <DetailGroup title="Employment">
           <DetailField label="Designation" value={submission.designation} />
           <DetailField label="Department" value={submission.department} />
-          <DetailField label="Place of Work" value={submission.place_of_work} />
-          <DetailField label="Date of Joining" value={submission.date_of_joining} />
+          <DetailField label="Place of work" value={submission.place_of_work} />
+          <DetailField label="Date of joining" value={submission.date_of_joining} />
           <DetailField label="Timings + Days" value={submission.timings_and_days} />
         </DetailGroup>
 
         <DetailGroup title="Bank">
           <DetailField label="Bank Name and Branch" value={submission.bank_name} />
-          <DetailField label="Account No" value={submission.bank_account_no} />
+          <DetailField label="Account no" value={submission.bank_account_no} />
           <DetailField label="IFSC" value={submission.bank_ifsc} />
         </DetailGroup>
 
         <div>
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-ink/70 mb-2">Documents</h4>
+          <h4 className="text-xs font-semibold text-ink/70 mb-2">Documents</h4>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-2">
             <DetailField label="Aadhar No" value={submission.aadhar_no} />
             <DetailField label="PAN No" value={submission.pan_no} />

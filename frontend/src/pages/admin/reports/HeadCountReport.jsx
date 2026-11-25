@@ -16,7 +16,7 @@ function countBy(rows, key) {
 function BreakdownTable({ title, rows, total }) {
   return (
     <div className="bg-paper rounded-sm shadow-card overflow-hidden">
-      <p className="px-4 pt-3 pb-2 text-xs font-semibold uppercase tracking-wider text-ink/70">{title}</p>
+      <p className="px-4 pt-3 pb-2 text-xs font-semibold text-ink/70">{title}</p>
       <table className="w-full text-sm tabular-nums">
         <tbody>
           {rows.map(([label, count]) => (
@@ -51,16 +51,16 @@ export default function HeadCountReport() {
   return (
     <div>
       <Link to="/admin/reports" className="inline-flex items-center gap-1.5 text-xs text-ink/70 hover:text-ink transition-colors">
-        <ArrowLeft size={13} /> Back to Reports
+        <ArrowLeft size={13} /> Back to reports
       </Link>
-      <h2 className="font-display text-2xl text-ink mt-2 mb-6">Head Count</h2>
+      <h2 className="font-display text-2xl text-ink mt-2 mb-6">Head count</h2>
 
       {loading ? (
         <p className="text-ink/70"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>
       ) : (
         <>
           <div className="bg-paper rounded-sm shadow-card px-5 py-4 border-t-2 border-jade-500 mb-6 max-w-xs">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70">Active Employees</p>
+            <p className="text-[11px] font-semibold text-ink/70">Active employees</p>
             <p className="font-display text-2xl text-jade-700 mt-1">{active.length}</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

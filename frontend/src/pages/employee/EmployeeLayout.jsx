@@ -34,20 +34,20 @@ export default function EmployeeLayout() {
     <div className="min-h-screen bg-manila">
       <header className="bg-ledger-800 relative">
         <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-5 flex flex-wrap items-center justify-between gap-3 relative">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-5 flex flex-wrap items-center justify-between gap-4 relative">
+          <div className="flex items-center gap-4 min-w-0">
             <img src="/jade-logo.png" alt="" className="w-8 h-8 flex-shrink-0" />
             <Avatar className="w-10 h-10" />
             <div className="min-w-0">
-              <p className="font-display text-manila text-lg leading-none">JADE HR</p>
-              <p className="text-manila/75 text-xs mt-1 truncate">{user?.name}</p>
+              <p className="font-display text-on-jade text-lg leading-none">JADE HR</p>
+              <p className="text-on-jade/75 text-xs mt-1 truncate">{user?.name}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
             <button
               onClick={() => setShowPw(true)}
               title="Change password"
-              className="flex items-center gap-2 text-sm min-h-[44px] px-1 text-manila/75 hover:text-manila transition-colors whitespace-nowrap"
+              className="flex items-center gap-2 text-sm min-h-[44px] px-1 text-on-jade/75 hover:text-on-jade transition-colors whitespace-nowrap"
             >
               <KeyRound size={16} className="flex-shrink-0" />
               <span className="hidden sm:inline">Change password</span>
@@ -55,7 +55,7 @@ export default function EmployeeLayout() {
             <button
               onClick={logout}
               title="Sign out"
-              className="flex items-center gap-2 text-sm min-h-[44px] px-1 text-manila/75 hover:text-manila transition-colors whitespace-nowrap"
+              className="flex items-center gap-2 text-sm min-h-[44px] px-1 text-on-jade/75 hover:text-on-jade transition-colors whitespace-nowrap"
             >
               <LogOut size={16} className="flex-shrink-0" />
               <span className="hidden sm:inline">Sign out</span>
@@ -68,32 +68,32 @@ export default function EmployeeLayout() {
               to="/employee"
               end
               className={({ isActive }) =>
-                `flex-shrink-0 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-3 min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
+                `flex-shrink-0 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
+                  isActive ? "border-on-jade text-on-jade" : "border-transparent text-on-jade/75 hover:text-on-jade"
                 }`
               }
             >
-              My Dashboard
+              My dashboard
             </NavLink>
             {user?.is_leave_approver && (
               <NavLink
                 to="/employee/my-team"
                 className={({ isActive }) =>
-                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-3 min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                    isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
+                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
+                    isActive ? "border-on-jade text-on-jade" : "border-transparent text-on-jade/75 hover:text-on-jade"
                   }`
                 }
               >
                 <Users size={14} />
-                My Team
+                My team
               </NavLink>
             )}
             {user?.is_leave_approver && (
               <NavLink
                 to="/employee/team-leave"
                 className={({ isActive }) =>
-                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-3 min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                    isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
+                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
+                    isActive ? "border-on-jade text-on-jade" : "border-transparent text-on-jade/75 hover:text-on-jade"
                   }`
                 }
               >
@@ -110,8 +110,8 @@ export default function EmployeeLayout() {
               <NavLink
                 to="/employee/team-wfh"
                 className={({ isActive }) =>
-                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-3 min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                    isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
+                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
+                    isActive ? "border-on-jade text-on-jade" : "border-transparent text-on-jade/75 hover:text-on-jade"
                   }`
                 }
               >
@@ -123,77 +123,77 @@ export default function EmployeeLayout() {
               <NavLink
                 to="/employee/team-disputes"
                 className={({ isActive }) =>
-                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-3 min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                    isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
+                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
+                    isActive ? "border-on-jade text-on-jade" : "border-transparent text-on-jade/75 hover:text-on-jade"
                   }`
                 }
               >
                 <ShieldAlert size={14} />
-                Team Disputes
+                Team disputes
               </NavLink>
             )}
             {user?.is_leave_approver && (
               <NavLink
                 to="/employee/team-market-visits"
                 className={({ isActive }) =>
-                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-3 min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                    isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
+                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
+                    isActive ? "border-on-jade text-on-jade" : "border-transparent text-on-jade/75 hover:text-on-jade"
                   }`
                 }
               >
                 <MapPin size={14} />
-                Team Market Visits
+                Team market visits
               </NavLink>
             )}
             <NavLink
               to="/employee/tax-declaration"
               className={({ isActive }) =>
-                `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-3 min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
+                `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
+                  isActive ? "border-on-jade text-on-jade" : "border-transparent text-on-jade/75 hover:text-on-jade"
                 }`
               }
             >
               <Receipt size={14} />
-              Tax Declaration
+              Tax declaration
             </NavLink>
             <NavLink
               to="/employee/my-payslip"
               className={({ isActive }) =>
-                `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-3 min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
+                `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
+                  isActive ? "border-on-jade text-on-jade" : "border-transparent text-on-jade/75 hover:text-on-jade"
                 }`
               }
             >
               <FileText size={14} />
-              My Payslip
+              My payslip
             </NavLink>
             <NavLink
               to="/employee/my-onboarding"
               className={({ isActive }) =>
-                `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-3 min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
+                `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
+                  isActive ? "border-on-jade text-on-jade" : "border-transparent text-on-jade/75 hover:text-on-jade"
                 }`
               }
             >
               <UserPlus size={14} />
-              My Onboarding
+              My onboarding
             </NavLink>
             <NavLink
               to="/employee/policy"
               className={({ isActive }) =>
-                `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-3 min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
+                `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
+                  isActive ? "border-on-jade text-on-jade" : "border-transparent text-on-jade/75 hover:text-on-jade"
                 }`
               }
             >
               <BookOpen size={14} />
-              Company Policy
+              Company policy
             </NavLink>
             <NavLink
               to="/employee/help"
               className={({ isActive }) =>
-                `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-3 min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
+                `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
+                  isActive ? "border-on-jade text-on-jade" : "border-transparent text-on-jade/75 hover:text-on-jade"
                 }`
               }
             >
@@ -203,7 +203,7 @@ export default function EmployeeLayout() {
           </nav>
         </div>
       </header>
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+      <main className="max-w-4xl mx-auto px-5 sm:px-10 py-8">
         <div key={location.pathname} className="page-transition">
           <Outlet context={{ pendingTeamLeave, refreshTeamLeaveBadge: () => setPendingTeamLeave((n) => n) }} />
         </div>

@@ -17,6 +17,7 @@ import api from "../../lib/api.js";
 import { useAuth } from "../../lib/auth.jsx";
 import { formatOrdinalDate } from "../../lib/format.js";
 
+import EmptyState from "../../components/EmptyState.jsx";
 const TOKEN_RE = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
 
 const escapeHtml = (v) => String(v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -86,7 +87,7 @@ function renderClauses(clauses) {
       const lead = t && b ? `<strong>${t}.</strong> ` : t ? `<strong>${t}</strong>` : "";
       return `<li>${lead}${b}</li>`;
     });
-  return items.length ? `<div class="lt-clauses"><p class="lt-clauses-h">Additional Terms</p><ol>${items.join("")}</ol></div>` : "";
+  return items.length ? `<div class="lt-clauses"><p class="lt-clauses-h">Additional terms</p><ol>${items.join("")}</ol></div>` : "";
 }
 
 function placeClauses(body, clausesHtml) {
@@ -304,10 +305,10 @@ function pdfFilename(title, name) {
   return `${[slug(title), slug(name)].filter(Boolean).join("_") || "Letter"}.pdf`;
 }
 
-const inputCls = "w-full rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
-const labelCls = "block text-[11px] font-semibold uppercase tracking-wider text-ink/70 mb-1";
-const primaryBtn = "flex items-center justify-center gap-2 bg-ledger-800 text-manila px-4 py-2 rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors";
-const secondaryBtn = "flex items-center justify-center gap-2 border border-ink/15 bg-paper text-ink px-3 py-2 rounded-sm text-sm font-semibold hover:border-jade-500 hover:text-jade-700 disabled:opacity-50 transition-colors";
+const inputCls = "w-full rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
+const labelCls = "block text-[11px] font-semibold text-ink/70 mb-1";
+const primaryBtn = "flex items-center justify-center gap-2 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors";
+const secondaryBtn = "flex items-center justify-center gap-2 border border-ink/15 bg-paper text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:border-jade-500 hover:text-jade-700 disabled:opacity-50 transition-colors";
 
 const NEW_TEMPLATE_SCAFFOLD = `<p class="lt-dateline"><span>Mumbai</span><span><strong>{{letter_date}}</strong></span></p>
 <div class="lt-to"><span class="lt-label">To</span><strong>{{employee_name}}</strong><br>{{designation}}, {{department}}</div>
@@ -415,9 +416,9 @@ function RichTextEditor({ value, onChange, fields = [], bare = false, minHeight 
         </button>
       </div>
       {source ? (
-        <textarea
+        <textarea aria-label="HTML source"
           value={value} onChange={(e) => onChange(e.target.value)} spellCheck={false}
-          className="w-full font-mono text-xs rounded-sm border border-ink/15 bg-paper px-3 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+          className="w-full font-mono text-xs rounded-sm border border-ink/15 bg-paper px-4 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
           style={{ minHeight }}
         />
       ) : (
@@ -425,7 +426,7 @@ function RichTextEditor({ value, onChange, fields = [], bare = false, minHeight 
           ref={editorRef} contentEditable suppressContentEditableWarning onInput={emit} onBlur={remember} onKeyUp={remember} onMouseUp={remember}
           onFocus={() => document.execCommand("defaultParagraphSeparator", false, "p")}
           style={{ minHeight }}
-          className={`letter-doc w-full text-sm text-ink focus:outline-none ${bare ? "" : "rounded-sm border border-ink/15 bg-paper px-3 py-2 focus:ring-2 focus:ring-jade-500"}`}
+          className={`letter-doc w-full text-sm text-ink focus:outline-none ${bare ? "" : "rounded-sm border border-ink/15 bg-paper px-4 py-2 focus:ring-2 focus:ring-jade-500"}`}
         />
       )}
     </div>
@@ -499,7 +500,7 @@ function TemplateEditor({ template, onClose, onSaved, onDeleted, templates = [] 
   };
 
   const remove = async () => {
-    if (!(await confirm(`Delete the "${template.title}" template? This can't be undone.`, { danger: true, confirmLabel: "Delete" }))) return;
+    if (!(await confirm(`Delete the "${template.title}" template? This can’t be undone.`, { danger: true, confirmLabel: "Delete" }))) return;
     setDeleting(true);
     setError("");
     try {
@@ -514,41 +515,41 @@ function TemplateEditor({ template, onClose, onSaved, onDeleted, templates = [] 
   return (
     <div>
       <button onClick={onClose} className="inline-flex items-center gap-1.5 text-xs text-ink/70 hover:text-ink transition-colors mb-4">
-        <ArrowLeft size={13} /> Back to Letters
+        <ArrowLeft size={13} /> Back to letters
       </button>
       <h2 className="font-display text-2xl text-ink mb-1">{isNew ? "Create a letter" : "Edit letter template"}</h2>
       <p className="text-sm text-ink/70 mb-5">
-        Write the letter as you would in a word processor. Use <strong>Insert field</strong> for anything that changes per person (name, designation, salary…); you'll fill those in each time you issue the letter.
+        Write the letter as you would in a word processor. Use <strong>Insert field</strong> for anything that changes per person (name, designation, salary…); you’ll fill those in each time you issue the letter.
       </p>
 
       <div className="bg-paper rounded-sm shadow-card p-6 mb-4">
-        <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Title</label>
-        <input
+        <label htmlFor="fld-526" className="block text-xs font-semibold text-ink/70 mb-1.5">Title</label>
+        <input id="fld-526"
           value={title}
           onChange={(e) => onTitleChange(e.target.value)}
           placeholder="e.g. Increment Letter"
-          className="w-full rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink mb-4 focus:outline-none focus:ring-2 focus:ring-jade-500"
+          className="w-full rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm text-ink mb-4 focus:outline-none focus:ring-2 focus:ring-jade-500"
         />
         {isNew && (
           <>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Type key</label>
-            <input
+            <label htmlFor="fld-535" className="block text-xs font-semibold text-ink/70 mb-1.5">Type key</label>
+            <input id="fld-535"
               value={letterType}
               onChange={(e) => { setTypeEdited(true); setLetterType(slugify(e.target.value)); }}
-              className="w-full rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink font-nums mb-4 focus:outline-none focus:ring-2 focus:ring-jade-500"
+              className="w-full rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm text-ink font-nums mb-4 focus:outline-none focus:ring-2 focus:ring-jade-500"
             />
           </>
         )}
         {isNew && templates.length > 0 && (
           <div className="mb-4">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Start from</label>
-            <select value={startFrom} onChange={(e) => useAsStart(e.target.value)} className="w-full rounded-sm border border-ink/15 bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
+            <label htmlFor="fld-545" className="block text-xs font-semibold text-ink/70 mb-1.5">Start from</label>
+            <select id="fld-545" value={startFrom} onChange={(e) => useAsStart(e.target.value)} className="w-full rounded-sm border border-ink/15 bg-paper px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
               <option value="">A blank letter (date, recipient, subject, signature)</option>
               {templates.map((t) => <option key={t.letter_type} value={t.letter_type}>A copy of: {t.title}</option>)}
             </select>
           </div>
         )}
-        <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70 mb-1.5">Letter Body</label>
+        <label className="block text-xs font-semibold text-ink/70 mb-1.5">Letter body</label>
         <RichTextEditor value={body} onChange={setBody} fields={insertable} />
         {tokens.length > 0 && (
           <p className="text-xs text-ink/70 mt-2">Tokens found: {tokens.join(", ")}</p>
@@ -567,7 +568,7 @@ function TemplateEditor({ template, onClose, onSaved, onDeleted, templates = [] 
           <button
             onClick={save}
             disabled={saving || !title.trim() || (isNew && !letterType.trim())}
-            className="flex items-center gap-2 bg-ledger-800 text-manila px-4 py-2 rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-2 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
           >
             <Save size={15} /> {saving ? "Saving…" : isNew ? "Create Template" : "Save Template"}
           </button>
@@ -579,17 +580,17 @@ function TemplateEditor({ template, onClose, onSaved, onDeleted, templates = [] 
 
 function FieldInput({ token, value, onChange }) {
   if (MULTILINE_TOKENS[token]) {
-    return <textarea value={value} onChange={(e) => onChange(e.target.value)} rows={4} className={inputCls} />;
+    return <textarea aria-label="Field value" value={value} onChange={(e) => onChange(e.target.value)} rows={4} className={inputCls} />;
   }
   if (MONEY_TOKENS.has(token)) {
     return (
       <div className="relative">
         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink/50">₹</span>
-        <input value={value} onChange={(e) => onChange(e.target.value)} className={`${inputCls} pl-7 font-nums`} inputMode="decimal" />
+        <input aria-label="Field value" value={value} onChange={(e) => onChange(e.target.value)} className={`${inputCls} pl-7 font-nums`} inputMode="decimal" />
       </div>
     );
   }
-  return <input value={value} onChange={(e) => onChange(e.target.value)} className={inputCls} />;
+  return <input aria-label="Field value" value={value} onChange={(e) => onChange(e.target.value)} className={inputCls} />;
 }
 
 function LetterGenerator({ template, onClose, onIssued, candidateId = null, submissionId = null }) {
@@ -778,11 +779,11 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null, subm
   return (
     <div>
       <button onClick={onClose} className="inline-flex items-center gap-1.5 text-xs text-ink/70 hover:text-ink transition-colors mb-4">
-        <ArrowLeft size={13} /> Back to Letters
+        <ArrowLeft size={13} /> Back to letters
       </button>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
+      <div className="flex flex-wrap items-end justify-between gap-4 mb-5">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-jade-600 mb-1">New letter</p>
+          <p className="text-[11px] font-semibold text-jade-600 mb-1">New letter</p>
           <h2 className="font-display text-2xl text-ink">{template.title}</h2>
         </div>
         <p className="text-xs text-ink/60">
@@ -808,33 +809,33 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null, subm
             </div>
             {mode === "form" ? (
               <>
-                <select value={submissionPick} onChange={(e) => applySubmission(e.target.value)} className={inputCls}>
+                <label className="block"><span className="block text-xs font-semibold text-ink/70 mb-1">Joining form</span><select value={submissionPick} onChange={(e) => applySubmission(e.target.value)} className={inputCls}>
                   <option value="">Select a joining form…</option>
                   {submissions.map((x) => (
                     <option key={x.id} value={x.id}>
                       {x.full_name}{x.designation ? ` — ${x.designation}` : ""}{x.status === "approved" ? " (approved)" : ""}
                     </option>
                   ))}
-                </select>
-                <p className="text-xs text-ink/60 mt-2">The candidate's joining-form details fill in below. Add pay and anything else, then generate and send for approval.</p>
+                </select></label>
+                <p className="text-xs text-ink/60 mt-2">The candidate’s joining-form details fill in below. Add pay and anything else, then generate and send for approval.</p>
               </>
             ) : mode === "existing" ? (
-              <select value={employeeId} onChange={(e) => applyEmployee(e.target.value)} className={inputCls}>
+              <label className="block"><span className="block text-xs font-semibold text-ink/70 mb-1">Employee</span><select value={employeeId} onChange={(e) => applyEmployee(e.target.value)} className={inputCls}>
                 <option value="">Select an employee…</option>
                 {employees.map((e) => (
                   <option key={e.id} value={e.id}>
                     {e.employee_code} — {e.first_name} {e.last_name}{!e.is_active ? " (Inactive)" : ""}
                   </option>
                 ))}
-              </select>
+              </select></label>
             ) : (
-              <p className="text-xs text-ink/60">Type the candidate's details below. Add their email so the letter can be sent to them.</p>
+              <p className="text-xs text-ink/60">Type the candidate’s details below. Add their email so the letter can be sent to them.</p>
             )}
           </div>
 
           <div className="bg-paper rounded-sm shadow-card divide-y divide-ink/10 xl:max-h-[calc(100vh-330px)] xl:overflow-y-auto">
             {groups.map((g) => (
-              <fieldset key={g.title} className="p-5 space-y-3">
+              <fieldset key={g.title} className="p-5 space-y-4">
                 <legend className="sr-only">{g.title}</legend>
                 <p className="font-display text-base text-ink">{g.title}</p>
                 {g.keys.map((token) => (
@@ -859,9 +860,9 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null, subm
                     <div className="flex items-center gap-2">
                       {handle}
                       <span className="text-xs font-nums text-ink/50 w-4 text-right">{i + 1}.</span>
-                      <input value={c.title} onChange={(e) => updateClause(c.key, { title: e.target.value })} placeholder="Clause title" className={`${inputCls} py-1`} />
+                      <input aria-label="Clause title" value={c.title} onChange={(e) => updateClause(c.key, { title: e.target.value })} placeholder="Clause title" className={`${inputCls} py-1`} />
                       {c.conditions?.length > 0 && (
-                        <span className="text-[10px] uppercase tracking-wide text-jade-700 whitespace-nowrap" title={c.conditions.map((k) => `${k.field} ${k.op} ${k.value}`).join(" AND ")}>{c.touched ? "manual" : "auto"}</span>
+                        <span className="text-[10px] text-jade-700 whitespace-nowrap" title={c.conditions.map((k) => `${k.field} ${k.op} ${k.value}`).join(" AND ")}>{c.touched ? "manual" : "auto"}</span>
                       )}
                       <button
                         type="button" aria-label="Take this clause out of the letter"
@@ -869,7 +870,7 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null, subm
                         className="text-xs text-rust-500 whitespace-nowrap"
                       >Take out</button>
                     </div>
-                    <textarea value={c.body} onChange={(e) => updateClause(c.key, { body: e.target.value })} rows={3} placeholder="Clause text (edits apply to this letter only)" className={inputCls} />
+                    <textarea aria-label="Clause text" value={c.body} onChange={(e) => updateClause(c.key, { body: e.target.value })} rows={3} placeholder="Clause text (edits apply to this letter only)" className={inputCls} />
                   </div>
                 )}
               />
@@ -885,8 +886,8 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null, subm
                 </div>
                 {newClause && (
                   <div className="rounded-sm border border-ink/15 p-3 space-y-2 bg-manila/30">
-                    <input autoFocus value={newClause.title} onChange={(e) => setNewClause({ ...newClause, title: e.target.value })} placeholder="Clause title, e.g. Non-compete" className={inputCls} />
-                    <textarea value={newClause.body} onChange={(e) => setNewClause({ ...newClause, body: e.target.value })} rows={4} placeholder="Clause text" className={inputCls} />
+                    <label className="block"><span className="block text-xs font-semibold text-ink/70 mb-1">Clause title</span><input autoFocus value={newClause.title} onChange={(e) => setNewClause({ ...newClause, title: e.target.value })} placeholder="Clause title, e.g. Non-compete" className={inputCls} /></label>
+                    <label className="block"><span className="block text-xs font-semibold text-ink/70 mb-1">Clause text</span><textarea value={newClause.body} onChange={(e) => setNewClause({ ...newClause, body: e.target.value })} rows={4} placeholder="Clause text" className={inputCls} /></label>
                     {can("letters.manage") && (
                       <label className="flex items-center gap-2 text-xs text-ink/70">
                         <input type="checkbox" checked={newClause.saveToLibrary} onChange={(e) => setNewClause({ ...newClause, saveToLibrary: e.target.checked })} />
@@ -896,19 +897,19 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null, subm
                     {clauseError && <p className="text-xs text-rust-500">{clauseError}</p>}
                     <div className="flex justify-end gap-2">
                       <button type="button" onClick={() => { setNewClause(null); setClauseError(""); }} className="text-xs text-ink/70 px-2">Cancel</button>
-                      <button type="button" onClick={addNewClause} className="bg-jade-600 text-white px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-jade-700">Add to letter</button>
+                      <button type="button" onClick={addNewClause} className="bg-jade-600 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700">Add to letter</button>
                     </div>
                   </div>
                 )}
                 {clauses.length > inLetter.length || clauseSearch ? (
                   <>
-                    <input value={clauseSearch} onChange={(e) => setClauseSearch(e.target.value)} placeholder="Search the clause library…" className={inputCls} />
+                    <input aria-label="Search the clause library" value={clauseSearch} onChange={(e) => setClauseSearch(e.target.value)} placeholder="Search the clause library…" className={inputCls} />
                     <ul className="max-h-60 overflow-y-auto divide-y divide-ink/[0.07] border border-ink/10 rounded-sm">
                       {availableClauses.length === 0 && <li className="px-3 py-3 text-xs text-ink/60">No clause in the library matches.</li>}
                       {availableClauses.map((c) => (
                         <li key={c.key} className="flex items-start gap-2 px-3 py-2">
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm text-ink leading-tight">{c.title}{c.conditions?.length > 0 && <span className="ml-1.5 text-[10px] uppercase tracking-wide text-jade-700">auto when {c.conditions.map((k) => `${k.field} ${k.op} ${k.value}`).join(" and ")}</span>}</p>
+                            <p className="text-sm text-ink leading-tight">{c.title}{c.conditions?.length > 0 && <span className="ml-1.5 text-[10px] text-jade-700">auto when {c.conditions.map((k) => `${k.field} ${k.op} ${k.value}`).join(" and ")}</span>}</p>
                             <p className="text-xs text-ink/60 line-clamp-2">{c.body}</p>
                           </div>
                           <button type="button" onClick={() => updateClause(c.key, { included: true })} className="text-xs font-semibold text-jade-700 hover:text-jade-600 whitespace-nowrap">+ Add</button>
@@ -927,7 +928,7 @@ function LetterGenerator({ template, onClose, onIssued, candidateId = null, subm
           <button onClick={generate} disabled={saving} className={`${primaryBtn} w-full py-2.5`}>
             <FileSignature size={15} /> {saving ? "Issuing…" : "Issue letter"}
           </button>
-          <p className="text-[11px] text-ink/55 text-center -mt-2">Saves it to Issued Letters, where you can print, download or email it.</p>
+          <p className="text-[11px] text-ink/55 -mt-2">Saves it to Issued Letters, where you can print, download or email it.</p>
         </div>
 
         <div>
@@ -1012,28 +1013,28 @@ function EmailPanel({ letter, sheetRef, onSent }) {
   };
 
   return (
-    <div className="bg-paper rounded-sm shadow-card p-5 space-y-3">
+    <div className="bg-paper rounded-sm shadow-card p-5 space-y-4">
       <div className="flex items-center gap-2">
         <Mail size={16} className="text-jade-600" />
         <p className="font-display text-lg text-ink">Email this letter</p>
       </div>
       <p className="text-xs text-ink/60 -mt-1">Sent from Tina at JADE HR. Replies go to {HR_CONTACT}.</p>
       <div>
-        <label className={labelCls}>To</label>
-        <input value={to} onChange={(e) => setTo(e.target.value)} placeholder="name@example.com" className={inputCls} type="email" />
+        <label htmlFor="fld-1023" className={labelCls}>To</label>
+        <input id="fld-1023" value={to} onChange={(e) => setTo(e.target.value)} placeholder="name@example.com" className={inputCls} type="email" />
         {!letter.employee_email && <p className="text-[11px] text-ochre-700 mt-1">No email on file for this person. Type one in.</p>}
       </div>
       <div>
-        <label className={labelCls}>CC</label>
-        <input value={cc} onChange={(e) => setCc(e.target.value)} className={inputCls} />
+        <label htmlFor="fld-1028" className={labelCls}>CC</label>
+        <input id="fld-1028" value={cc} onChange={(e) => setCc(e.target.value)} className={inputCls} />
       </div>
       <div>
-        <label className={labelCls}>Subject</label>
-        <input value={subject} onChange={(e) => setSubject(e.target.value)} className={inputCls} />
+        <label htmlFor="fld-1032" className={labelCls}>Subject</label>
+        <input id="fld-1032" value={subject} onChange={(e) => setSubject(e.target.value)} className={inputCls} />
       </div>
       <div>
-        <label className={labelCls}>Message</label>
-        <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={8} className={inputCls} />
+        <label htmlFor="fld-1036" className={labelCls}>Message</label>
+        <textarea id="fld-1036" value={message} onChange={(e) => setMessage(e.target.value)} rows={8} className={inputCls} />
       </div>
       <label className="flex items-center gap-2 text-sm text-ink">
         <input type="checkbox" checked={attachPdf} onChange={(e) => setAttachPdf(e.target.checked)} /> Attach the letter as a PDF
@@ -1056,7 +1057,7 @@ function formatStamp(iso) {
 }
 
 const APPROVAL_LABELS = {
-  awaiting_approval: "Waiting for the approver's e-signature",
+  awaiting_approval: "Waiting for the approver’s e-signature",
   awaiting_candidate: "Signed by the approver. Signature of the offered candidate is remaining",
   accepted: "Signed and accepted",
   signed: "Signed by approver and sent to the recipient",
@@ -1094,7 +1095,7 @@ function ApprovalPanel({ letter, onChange }) {
   };
 
   return (
-    <div className="bg-paper rounded-sm shadow-card p-5 space-y-3 mb-4">
+    <div className="bg-paper rounded-sm shadow-card p-5 space-y-4 mb-4">
       <div className="flex items-center gap-2">
         <FileSignature size={16} className="text-jade-600" />
         <p className="font-display text-lg text-ink">{isOffer ? "Approval and signature" : "E-signature"}</p>
@@ -1107,17 +1108,17 @@ function ApprovalPanel({ letter, onChange }) {
         ? `The approver gets a link to e-sign with their full name. Then the candidate gets a link to sign. The signed copy goes to the candidate, ${HR_CONTACT} and the recipients below.`
         : `The approver gets a link to e-sign with their full name. The signed letter then goes to the recipient, ${HR_CONTACT} and the recipients below.`}</p>
       <div>
-        <label className={labelCls}>First signee from Team JADE (employee ID or email)</label>
-        <input value={approver} onChange={(e) => setApprover(e.target.value)} placeholder="nimit.b@jadecouture.com (default)" className={inputCls} disabled={locked} />
+        <label htmlFor="fld-1111" className={labelCls}>First signee from Team JADE (employee ID or email)</label>
+        <input id="fld-1111" value={approver} onChange={(e) => setApprover(e.target.value)} placeholder="nimit.b@jadecouture.com (default)" className={inputCls} disabled={locked} />
         <p className="text-[11px] text-ink/50 mt-1">Leave blank for Nimit. Name someone else by employee ID or work email; their name and designation then replace the signatory on the letter.</p>
       </div>
       <div>
-        <label className={labelCls}>{isOffer ? "Candidate email" : "Recipient email"}</label>
-        <input value={candidate} onChange={(e) => setCandidate(e.target.value)} className={inputCls} disabled={locked} />
+        <label htmlFor="fld-1116" className={labelCls}>{isOffer ? "Candidate email" : "Recipient email"}</label>
+        <input id="fld-1116" value={candidate} onChange={(e) => setCandidate(e.target.value)} className={inputCls} disabled={locked} />
       </div>
       <div>
-        <label className={labelCls}>Also send signed copy to (emails or employee IDs)</label>
-        <input value={notify} onChange={(e) => setNotify(e.target.value)} placeholder="accounts@…, 14456" className={inputCls} disabled={locked} />
+        <label htmlFor="fld-1120" className={labelCls}>Also send signed copy to (emails or employee IDs)</label>
+        <input id="fld-1120" value={notify} onChange={(e) => setNotify(e.target.value)} placeholder="accounts@…, 14456" className={inputCls} disabled={locked} />
         <p className="text-[11px] text-ink/50 mt-1">Employee IDs also see the accepted offer on their dashboard.</p>
       </div>
       <label className="flex items-center gap-2 text-sm text-ink">
@@ -1179,11 +1180,11 @@ function IssuedLetter({ letterId, onClose }) {
   return (
     <div>
       <button onClick={onClose} className="inline-flex items-center gap-1.5 text-xs text-ink/70 hover:text-ink transition-colors mb-4">
-        <ArrowLeft size={13} /> Back to Letters
+        <ArrowLeft size={13} /> Back to letters
       </button>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
+      <div className="flex flex-wrap items-end justify-between gap-4 mb-5">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-jade-600 mb-1">Issued letter</p>
+          <p className="text-[11px] font-semibold text-jade-600 mb-1">Issued letter</p>
           <h2 className="font-display text-2xl text-ink">{letter.title}{letter.employee_name ? ` · ${letter.employee_name}` : ""}</h2>
           <p className="text-xs text-ink/60 mt-1">
             Issued {formatStamp(letter.created_at)}{letter.generated_by_name ? ` by ${letter.generated_by_name}` : ""}
@@ -1251,22 +1252,22 @@ function IssuedLettersTable({ onOpen }) {
 
   return (
     <section className="mt-6">
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-3">
+      <div className="flex flex-wrap items-end justify-between gap-4 mb-3">
         <div>
           <h3 className="font-display text-xl text-ink">Issued letters</h3>
           <p className="text-xs text-ink/60">Every letter generated here, with whether it has been emailed.</p>
         </div>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, code or letter…" className={`${inputCls} sm:w-64`} />
+        <input aria-label="Search name, code or letter" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, code or letter…" className={`${inputCls} sm:w-64`} />
       </div>
       <div className="bg-paper rounded-sm shadow-card overflow-x-auto">
         {rows === null ? (
           <p className="p-5 text-sm text-ink/70"><span className="t-shimmer" data-text="Loading…">Loading…</span></p>
         ) : filtered.length === 0 ? (
-          <p className="px-4 py-3 text-sm text-ink/60">{rows.length ? "No letters match that search." : "No letters issued yet. Pick a template above to issue the first one."}</p>
+          rows.length ? <EmptyState title="No letters match that search" action={{ label: "Clear search", onClick: () => setQ("") }}>Try a different name, code or letter.</EmptyState> : <EmptyState title="No letters issued yet" action={{ label: "Choose a template", onClick: () => window.scrollTo({ top: 0, behavior: "smooth" }) }}>Pick a template above to issue the first one.</EmptyState>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-[11px] uppercase tracking-wider text-ink/60 border-b border-ink/10">
+              <tr className="text-left text-[11px] text-ink/60 border-b border-ink/10">
                 <th className="px-4 py-2.5 font-semibold">Issued</th>
                 <th className="px-4 py-2.5 font-semibold">Letter</th>
                 <th className="px-4 py-2.5 font-semibold">For</th>
@@ -1294,8 +1295,8 @@ function IssuedLettersTable({ onOpen }) {
                     )}
                   </td>
                   <td className="px-4 py-2.5 text-xs">
-                    {r.approval_status === "awaiting_approval" && <span className="text-ochre-600 font-semibold">Waiting for approver's e-signature</span>}
-                    {r.approval_status === "awaiting_candidate" && <span className="text-rust-500 font-semibold">Candidate's signature remaining</span>}
+                    {r.approval_status === "awaiting_approval" && <span className="text-ochre-600 font-semibold">Waiting for approver’s e-signature</span>}
+                    {r.approval_status === "awaiting_candidate" && <span className="text-rust-500 font-semibold">Candidate’s signature remaining</span>}
                     {r.approval_status === "accepted" && <span className="text-jade-700 font-semibold">Signed by both</span>}
                     {r.approval_status === "signed" && <span className="text-jade-700 font-semibold">Signed</span>}
                     {!r.approval_status && <span className="text-ink/40">Not sent for signing</span>}
@@ -1335,28 +1336,28 @@ function ClauseLibrary({ templates }) {
     <section className="bg-paper rounded-sm shadow-card mt-4">
       <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-ink/10">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/55">Clause library</p>
+          <p className="text-[11px] font-semibold text-ink/55">Clause library</p>
           <p className="text-xs text-ink/60 mt-0.5">Reusable clauses. Drag to set the order they appear in. When issuing a letter, add the ones that apply to that person and edit the wording for them.</p>
         </div>
-        <button onClick={() => setDraft({ title: "", body: "", letter_type: "", default_on: false, conditions: [] })} className="flex items-center gap-1.5 bg-ledger-800 text-manila px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-ledger-700">
+        <button onClick={() => setDraft({ title: "", body: "", letter_type: "", default_on: false, conditions: [] })} className="flex items-center gap-1.5 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700">
           <Plus size={13} /> New clause
         </button>
       </div>
       {draft && (
-        <div className="p-4 space-y-3 border-b border-ink/10 bg-manila/30">
-          <input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="Clause title, e.g. Non-compete" className={inputCls} />
-          <textarea value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} rows={4} placeholder="Clause text" className={inputCls} />
+        <div className="p-4 space-y-4 border-b border-ink/10 bg-manila/30">
+          <label className="block"><span className="block text-xs font-semibold text-ink/70 mb-1">Clause title</span><input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="Clause title, e.g. Non-compete" className={inputCls} /></label>
+          <label className="block"><span className="block text-xs font-semibold text-ink/70 mb-1">Clause text</span><textarea value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} rows={4} placeholder="Clause text" className={inputCls} /></label>
           <div className="space-y-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/55">Apply automatically when (all must match)</p>
+            <p className="text-[11px] font-semibold text-ink/55">Apply automatically when (all must match)</p>
             {(draft.conditions || []).map((c, i) => {
               const setC = (patch) => setDraft({ ...draft, conditions: draft.conditions.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
               return (
                 <div key={i} className="flex flex-wrap items-center gap-2">
-                  <input value={c.field} onChange={(e) => setC({ field: e.target.value })} placeholder="field key, e.g. department" className={`${inputCls} py-1 max-w-[11rem]`} />
-                  <select value={c.op} onChange={(e) => setC({ op: e.target.value })} className={`${inputCls} py-1 max-w-[12rem]`}>
+                  <input aria-label="Field key" value={c.field} onChange={(e) => setC({ field: e.target.value })} placeholder="field key, e.g. department" className={`${inputCls} py-1 max-w-[11rem]`} />
+                  <select aria-label="Condition" value={c.op} onChange={(e) => setC({ op: e.target.value })} className={`${inputCls} py-1 max-w-[12rem]`}>
                     {COND_OPS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                   </select>
-                  <input value={c.value} onChange={(e) => setC({ value: e.target.value })} placeholder="value" className={`${inputCls} py-1 max-w-[12rem]`} />
+                  <input aria-label="Condition value" value={c.value} onChange={(e) => setC({ value: e.target.value })} placeholder="value" className={`${inputCls} py-1 max-w-[12rem]`} />
                   <button type="button" onClick={() => setDraft({ ...draft, conditions: draft.conditions.filter((_, j) => j !== i) })} className="text-xs text-rust-500">Remove</button>
                 </div>
               );
@@ -1364,11 +1365,11 @@ function ClauseLibrary({ templates }) {
             <button type="button" onClick={() => setDraft({ ...draft, conditions: [...(draft.conditions || []), { field: "", op: "eq", value: "" }] })} className="inline-flex items-center gap-1 text-xs font-semibold text-jade-700 hover:text-jade-600"><Plus size={13} /> Add condition</button>
             <p className="text-[11px] text-ink/50">Field key is the {"{{token}}"} name used in the letter (department, designation, location, ctc…). No conditions = HR ticks it by hand.</p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <select value={draft.letter_type || ""} onChange={(e) => setDraft({ ...draft, letter_type: e.target.value })} className={`${inputCls} max-w-xs`}>
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="block"><span className="block text-xs font-semibold text-ink/70 mb-1">Applies to</span><select value={draft.letter_type || ""} onChange={(e) => setDraft({ ...draft, letter_type: e.target.value })} className={`${inputCls} max-w-xs`}>
               <option value="">Available on all letters</option>
               {templates.map((t) => <option key={t.letter_type} value={t.letter_type}>{t.title} only</option>)}
-            </select>
+            </select></label>
             <label className="flex items-center gap-1.5 text-xs text-ink/70"><input type="checkbox" checked={!!draft.default_on} onChange={(e) => setDraft({ ...draft, default_on: e.target.checked })} /> Pre-tick when issuing</label>
             <div className="ml-auto flex gap-2">
               <button onClick={() => setDraft(null)} className="text-xs text-ink/70 px-3 py-1.5">Cancel</button>
@@ -1378,7 +1379,7 @@ function ClauseLibrary({ templates }) {
           {error && <p className="text-sm text-rust-500">{error}</p>}
         </div>
       )}
-      {rows && rows.length === 0 && <p className="px-4 py-3 text-xs text-ink/60">No clauses yet.</p>}
+      {rows && rows.length === 0 && !draft && <EmptyState title="No clauses yet" action={{ label: "New clause", onClick: () => setDraft({ title: "", body: "", letter_type: "", default_on: false, conditions: [] }) }}>Clauses you add here can be ticked into any letter.</EmptyState>}
       <SortableList
         as="ul" className="divide-y divide-ink/[0.07]" items={rows || []} getKey={(c) => c.id}
         onReorder={async (next) => {
@@ -1386,7 +1387,7 @@ function ClauseLibrary({ templates }) {
           try { await api.put("/api/letters/clauses/reorder", { ids: next.map((c) => c.id) }); } catch { load(); }
         }}
         renderItem={(c, _i, handle) => (
-          <div className="flex items-start gap-3 px-4 py-3">
+          <div className="flex items-start gap-4 px-4 py-3">
             <div className="pt-0.5">{handle}</div>
             <div className="min-w-0 flex-1">
               <p className="font-display text-[15px] text-ink leading-tight">{c.title} <span className="text-[11px] font-sans text-ink/50">· {titleOf(c.letter_type)}{c.default_on ? " · pre-ticked" : ""}{c.conditions?.length ? ` · when ${c.conditions.map((k) => `${k.field} ${k.op} ${k.value}`).join(" and ")}` : ""}</span></p>
@@ -1482,13 +1483,13 @@ export default function Letters() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
+      <div className="flex flex-wrap items-end justify-between gap-4 mb-4">
         <div>
           <h2 className="font-display text-2xl text-ink">Letters</h2>
           <p className="text-sm text-ink/70 mt-1">Issue offer, confirmation, conduct and exit letters on JADE letterhead, then print, download or email them.</p>
         </div>
         {can("letters.manage") && (
-          <button onClick={() => setView("new")} className="flex items-center gap-1.5 bg-ledger-800 text-manila px-3 py-2 rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors">
+          <button onClick={() => setView("new")} className="flex items-center gap-1.5 bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors">
             <Plus size={14} /> Create a letter
           </button>
         )}
@@ -1500,13 +1501,13 @@ export default function Letters() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {grouped.map(([group, items]) => (
             <section key={group} className="bg-paper rounded-sm shadow-card">
-              <p className="px-4 pt-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/55 border-b border-ink/10">{group}</p>
+              <p className="px-4 pt-3 pb-2 text-[11px] font-semibold text-ink/55 border-b border-ink/10">{group}</p>
               <ul className="divide-y divide-ink/[0.07]">
                 {items.map((t) => {
                   const meta = LETTER_META[t.letter_type] || { icon: FileText, blurb: "Custom letter template." };
                   const Icon = meta.icon;
                   return (
-                    <li key={t.letter_type} className="flex items-center gap-3 px-4 py-3 hover:bg-manila/30 transition-colors">
+                    <li key={t.letter_type} className="flex items-center gap-4 px-4 py-3 hover:bg-manila/30 transition-colors">
                       <span className="w-8 h-8 rounded-sm bg-jade-50 text-jade-600 flex items-center justify-center flex-shrink-0"><Icon size={16} /></span>
                       <div className="min-w-0 flex-1">
                         <p className="font-display text-[15px] text-ink leading-tight">{t.title}</p>
@@ -1516,7 +1517,7 @@ export default function Letters() {
                         {can("letters.generate") && (
                           <button
                             onClick={() => { setActiveType(t.letter_type); setView("generate"); }}
-                            className="bg-ledger-800 text-manila px-3 py-1.5 rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors"
+                            className="bg-ledger-800 text-on-jade px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-ledger-700 transition-colors"
                           >
                             Generate
                           </button>

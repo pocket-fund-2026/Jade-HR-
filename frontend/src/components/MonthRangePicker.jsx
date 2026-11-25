@@ -29,8 +29,8 @@ export default function MonthRangePicker({ fromYear, fromMonth, toYear, toMonth,
       <span className="text-xs text-ink/70 font-medium">From</span>
       <select
         value={`${fromYear}-${fromMonth}`}
-        onChange={(e) => setFrom(e.target.value)}
-        className="rounded-sm border border-ink/15 bg-manila/40 px-2 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+        aria-label="From month" onChange={(e) => setFrom(e.target.value)}
+        className="rounded-sm border border-ink/15 bg-manila/40 px-4 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
       >
         {options.map(({ y, m }) => (
           <option key={`${y}-${m}`} value={`${y}-${m}`}>{MONTHS[m - 1]} {y}</option>
@@ -39,8 +39,8 @@ export default function MonthRangePicker({ fromYear, fromMonth, toYear, toMonth,
       <span className="text-xs text-ink/70 font-medium">To</span>
       <select
         value={`${toYear}-${toMonth}`}
-        onChange={(e) => setTo(e.target.value)}
-        className="rounded-sm border border-ink/15 bg-manila/40 px-2 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
+        aria-label="To month" onChange={(e) => setTo(e.target.value)}
+        className="rounded-sm border border-ink/15 bg-manila/40 px-4 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
       >
         {options.map(({ y, m }) => (
           <option key={`${y}-${m}`} value={`${y}-${m}`}>{MONTHS[m - 1]} {y}</option>
