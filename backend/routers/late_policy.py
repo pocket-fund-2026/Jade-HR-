@@ -565,6 +565,12 @@ def enforce_aip(
                         basis={"late_dates": dates}, note="Second late arrival during AIP")
         flagged.append(entry)
 
+    if started and not dry_run:
+        fresh = [r for r in supabase.table("hr_aip_records").select("*").in_("id", [x["aip_id"] for x in started if x.get("aip_id")]).execute().data]
+        try:
+            send_aip_notices(fresh)
+        except Exception:
+            pass  # HR still gets the run summary below; /v3/aip/notify can be re-run
     emailed = False
     if (started or flagged) and not dry_run:
         lines = [f"AIP update for {today.isoformat()}:", ""]
@@ -583,6 +589,94 @@ def enforce_aip(
             emailed = False
     return {"date": today.isoformat(), "dry_run": dry_run, "cycle_start": cycle_start.isoformat(),
             "started": started, "flagged": flagged, "emailed": emailed}
+
+
+AIP_NOTIFIED_MARKER = "[NOTIFIED]"
+
+AIP_RULES_TEXT = """THE AIP RULES
+ - An AIP runs for 30 or 60 days, set by HR. Yours is {days} days: {start} to {end}.
+ - Only ONE late arrival is permitted during the entire plan. Any arrival after your shift start counts, including a short one.
+ - A second late arrival is a failure of the AIP and may lead to disciplinary action.
+ - The plan stays in effect across pay cycles until HR closes it as passed or failed, even in a cycle where you do not earn a new Red Card.
+ - A late arrival costs pay as set out in the Attendance Policy (v3): 0.25 or 0.5 day for the later bands, after the free allowances.
+ - A Red Card in every month of a quarter is a Quarter Red Card: a Final Warning letter and 2 Paid Leave days forfeited. A continuing pattern leads to a warning letter and is taken into account at your appraisal.
+ - While you hold a Red Card in a cycle, new Paid Leave and Comp-Off requests cannot be self-submitted for the rest of that cycle. HR can still file for a documented emergency.
+ - If a punch is wrong or missing, raise an attendance dispute within 7 days with a clear reason. Biometric punches are the only record used.
+ - Full policy: Policy page in the HR console. Questions: HR."""
+
+
+def _aip_mail(name: str, rec: dict, cards) -> tuple[str, str]:
+    body = (
+        f"Hi {name.split(' ')[0] or 'there'},\n\n"
+        f"You have been placed on an Attendance Improvement Plan (AIP) because you received a Red Card"
+        f"{f' ({cards} Yellow Cards in one pay cycle)' if cards else ''}. A Red Card is 7 Yellow Cards in a pay cycle (23rd to 22nd).\n\n"
+        + AIP_RULES_TEXT.format(days=rec["duration_days"], start=rec["start_date"], end=rec["end_date"])
+        + "\n\nYou can see your plan on your dashboard in the HR console.\n\nHR, JADE Lifestyles India"
+    )
+    return "You have been placed on an Attendance Improvement Plan", body
+
+
+def send_aip_notices(records: list[dict], dry_run: bool = False) -> dict:
+    """Mails each employee on a new AIP the plan and its rules, their reporting manager(s) a heads-up
+    listing their reportees, and Nimit (HR) one full summary. Each AIP is marked [NOTIFIED] in its notes
+    once the employee's mail has gone, so a re-run never sends twice."""
+    import email_service
+    from routers.payroll import _reporting_manager_emails
+
+    ids = list({r["employee_id"] for r in records})
+    emps = {e["id"]: e for e in supabase.table("hr_employees").select("id,first_name,last_name,email,employee_code").in_("id", ids).execute().data} if ids else {}
+    managers = _reporting_manager_emails(set(ids))
+    sent, failed, no_email = [], [], []
+    by_manager: dict[str, list[str]] = {}
+    lines_hr = []
+    for r in records:
+        e = emps.get(r["employee_id"]) or {}
+        name = f"{e.get('first_name', '')} {e.get('last_name') or ''}".strip()
+        label = f"{name} ({e.get('employee_code', '')})"
+        mgrs = managers.get(r["employee_id"], [])
+        lines_hr.append(f"  • {label}: {r['start_date']} to {r['end_date']}" + ("" if mgrs else "  [no reporting manager on file]"))
+        for m in mgrs:
+            by_manager.setdefault(m, []).append(label)
+        if AIP_NOTIFIED_MARKER in (r.get("notes") or ""):
+            continue
+        if not e.get("email"):
+            no_email.append(label)
+            continue
+        subject, body = _aip_mail(name, r, None)
+        if dry_run:
+            sent.append(label)
+            continue
+        ok, err = email_service.send_email_detailed(e["email"], subject, body, kind="aip_notice", cc=mgrs)
+        if ok:
+            sent.append(label)
+            supabase.table("hr_aip_records").update({"notes": f"{(r.get('notes') or '').strip()} {AIP_NOTIFIED_MARKER}".strip()}).eq("id", r["id"]).execute()
+        else:
+            failed.append((label, err))
+    mgr_sent = 0
+    if not dry_run and sent:
+        for m, people in by_manager.items():
+            ok, _ = email_service.send_email_detailed(
+                m, f"{len(people)} of your team placed on an Attendance Improvement Plan",
+                "The following people who report to you have been placed on a 30-day Attendance Improvement Plan "
+                "after a Red Card. Only one late arrival is permitted for the whole plan.\n\n"
+                + "\n".join(f"  • {p}" for p in people)
+                + "\n\nEach person has been mailed the plan and its rules. Please support them in arriving on time.", kind="aip_notice_manager")
+            mgr_sent += bool(ok)
+        email_service.send_email_detailed(
+            email_service.HR_NOTIFY_EMAIL, f"AIP started for {len(records)} people", 
+            f"{len(records)} Attendance Improvement Plans are active from this run.\n\n" + "\n".join(lines_hr)
+            + f"\n\nEmployee mails sent: {len(sent)}; failed: {len(failed)}; no email on file: {len(no_email)}.\n\n"
+            + AIP_RULES_TEXT.format(days=30, start="start", end="end"), kind="aip_notice_hr")
+    return {"employee_mails": len(sent), "failed": failed, "no_email": no_email, "manager_mails": mgr_sent, "dry_run": dry_run}
+
+
+@router.post("/v3/aip/notify")
+def notify_aip(dry_run: bool = Query(default=True), user: dict = Depends(require_console)):
+    """Mails everyone on a still-active AIP who has not yet been told (employee, their reporting manager
+    and a summary to HR). Dry run by default."""
+    active = supabase.table("hr_aip_records").select("*").eq("status", "active").execute().data
+    pending = [r for r in active if AIP_NOTIFIED_MARKER not in (r.get("notes") or "")]
+    return {"active": len(active), "to_notify": len(pending), **send_aip_notices(pending, dry_run)}
 
 
 @router.get("/v3/late-night-safety")
