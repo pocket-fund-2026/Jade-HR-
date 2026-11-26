@@ -239,9 +239,15 @@ def reconcile(csv_text: str, token: str, new_only: bool = False):
         first, last = parts[0], (parts[1] if len(parts) > 1 else "")
         is_working = master["Status"] == "Working"
         body = {
-            "first_name": first, "last_name": last, "is_active": is_working, "location": location,
+            "first_name": first, "last_name": last, "location": location,
             "roster_last_seen_at": now_iso, "roster_unmatched_streak": 0,
         }
+        # One-way: SmartOffice may DEACTIVATE someone, but must never re-activate
+        # them. HR deactivates ex-employees in jade-hr, and SmartOffice often still
+        # lists them as "Working", so writing is_active=True here silently brought
+        # them back every night. Rehires are re-activated by HR on purpose.
+        if not is_working:
+            body["is_active"] = False
         doj = master.get("DOJ", "")
         if doj and doj not in ("1900-01-01", "3000-01-01", ""):
             body["date_of_joining"] = doj

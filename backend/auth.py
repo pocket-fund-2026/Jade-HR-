@@ -147,6 +147,7 @@ def require_accounts(user: dict = Depends(get_current_user)) -> dict:
 # call invalidate_permission_cache() so admin changes still apply immediately
 # rather than waiting out the TTL.
 _PERMISSION_CACHE_TTL = 30  # seconds
+MISSING_ROW_DEFAULTS = {"comp_off.manage": True}
 _hr_permissions_cache: dict[str, bool] | None = None
 _hr_permissions_cache_at = 0.0
 _override_cache: dict[str, tuple[float, dict[str, bool]]] = {}
@@ -169,6 +170,11 @@ def get_hr_permissions() -> dict[str, bool]:
     if _hr_permissions_cache is None or now - _hr_permissions_cache_at > _PERMISSION_CACHE_TTL:
         resp = supabase.table("hr_permissions").select("permission_key,hr_can_access").execute()
         _hr_permissions_cache = {row["permission_key"]: row["hr_can_access"] for row in resp.data}
+        # sql/065 never reached the live database, so HR logins without the broad
+        # employees.manage grant were locked out of Comp-Off. Keep the intended
+        # default in code too; a real row or a per-person override still wins.
+        for key, default in MISSING_ROW_DEFAULTS.items():
+            _hr_permissions_cache.setdefault(key, default)
         _hr_permissions_cache_at = now
     return _hr_permissions_cache
 
