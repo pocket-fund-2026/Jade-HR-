@@ -101,6 +101,7 @@ def comp_off_accrual_scan(
     year: int | None = Query(default=None),
     month: int | None = Query(default=None),
     dry_run: bool = Query(default=False),
+    only_date: date | None = Query(default=None, description="Credit just this day worked"),
     user: dict = Depends(require_console),
 ):
     """Credits every comp-off earned in the given pay period (default: the
@@ -137,6 +138,8 @@ def comp_off_accrual_scan(
     credited, skipped = [], 0
     for summary in summaries:
         for entry in _accrual_rows_for(summary):
+            if only_date and entry["earned_date"] != only_date.isoformat():
+                continue
             key = (summary["employee_id"], entry["earned_date"])
             if key in already:
                 skipped += 1
