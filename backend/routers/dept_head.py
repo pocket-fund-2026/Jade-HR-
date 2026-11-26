@@ -31,7 +31,14 @@ PERM_BY_KIND = {"disputes": "disputes.manage", "leave": "leave.manage", "absence
 
 
 def head_scope(user: dict) -> tuple[bool, str | None]:
-    """(is a department head, their department)."""
+    """(is a department head, their department).
+
+    Store managers are never department-wide heads: a Retail "department" spans
+    every city, so a flagged store manager (e.g. Ahmedabad) would see other
+    stores' (Delhi's) items. They keep only their own reportees via
+    my_report_ids."""
+    if "store manager" in (user.get("designation") or "").lower():
+        return False, None
     if _profile_flag(user["id"]) and (user.get("department") or "").strip():
         return True, user["department"].strip()
     return False, None
