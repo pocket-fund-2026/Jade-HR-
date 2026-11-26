@@ -1,5 +1,5 @@
 import LettersAwaitingSignature from "../../components/LettersAwaitingSignature.jsx";
-import { Award, Cake, CalendarPlus, Clock, FileSpreadsheet, LogOut, ShieldAlert, UserCheck, X } from "lucide-react";
+import { Award, Briefcase, Cake, CalendarPlus, Clock, FileSpreadsheet, LogOut, ShieldAlert, UserCheck, X } from "lucide-react";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 
