@@ -39,7 +39,7 @@ const navItems = [
   { to: "/admin/market-visits", label: "Market Visits", icon: MapPin, badgeKey: "marketVisits", permission: "market_visits.review", group: "Time & Leave" },
   { to: "/admin/comp-off", label: "Comp-Off", icon: CalendarClock, permission: ["employees.manage", "policy.manage", "comp_off.manage"], group: "Time & Leave" },
   { to: "/admin/aip", label: "AIP", icon: ShieldAlert, permission: "leave.manage", group: "Time & Leave" },
-  { to: "/admin/policy", label: "Leave policy", icon: CalendarDays, permission: ["employees.manage", "policy.manage"], group: "Time & Leave" },
+  { to: "/admin/policy", label: "Leave policy", icon: CalendarDays, permission: ["employees.manage", "policy.manage", "comp_off.manage"], group: "Time & Leave" },
 
   // Payroll & Finance
   { to: "/admin/payroll", label: "Payroll & OT", icon: Receipt, permission: "payroll.view", sectionBreak: true, group: "Payroll & Finance" },

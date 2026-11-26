@@ -46,7 +46,7 @@ def my_holidays(year: int | None = Query(default=None), user: dict = Depends(get
 
 
 @router.post("")
-def create_holiday(body: HolidayCreate, user: dict = Depends(require_permission("employees.manage", "policy.manage"))):
+def create_holiday(body: HolidayCreate, user: dict = Depends(require_permission("employees.manage", "policy.manage", "comp_off.manage"))):
     row = body.model_dump()
     row["holiday_date"] = row["holiday_date"].isoformat()
     if row.get("close_time"):
@@ -60,6 +60,6 @@ def create_holiday(body: HolidayCreate, user: dict = Depends(require_permission(
 
 
 @router.delete("/{holiday_id}")
-def delete_holiday(holiday_id: str, user: dict = Depends(require_permission("employees.manage", "policy.manage"))):
+def delete_holiday(holiday_id: str, user: dict = Depends(require_permission("employees.manage", "policy.manage", "comp_off.manage"))):
     supabase.table("hr_holidays").delete().eq("id", holiday_id).execute()
     return {"ok": True}

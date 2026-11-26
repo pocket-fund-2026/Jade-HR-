@@ -316,7 +316,7 @@ export default function App() {
             <Route path="letters" element={<RequirePermission anyOf={["letters.generate", "letters.manage"]}><Letters /></RequirePermission>} />
             <Route path="data-readiness" element={<RequirePermission anyOf={["data_readiness.view"]}><DataReadiness /></RequirePermission>} />
             <Route path="email-log" element={<RequirePermission anyOf={["email_log.view"]}><EmailLog /></RequirePermission>} />
-            <Route path="policy" element={<RequirePermission anyOf={["employees.manage", "policy.manage"]}><Policy /></RequirePermission>} />
+            <Route path="policy" element={<RequirePermission anyOf={["employees.manage", "policy.manage", "comp_off.manage"]}><Policy /></RequirePermission>} />
             <Route path="policy-document" element={<PolicyDocument />} />
             <Route path="policy-acknowledgements" element={<RequirePermission anyOf={["policy.acknowledgements.view"]}><PolicyAcknowledgements /></RequirePermission>} />
             <Route path="team-access" element={<RequirePermission anyOf={["permissions.manage", "roles.manage"]}><TeamAccess /></RequirePermission>} />
