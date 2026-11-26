@@ -37,7 +37,7 @@ def _every(start_h, end_h, step_min):
 JOBS = {
     "attendance_sync": dict(
         cmd=[PY, f"{ROOT}/biometric_sync.py"], slots=["23:00", "04:00", "04:30", "05:00", "05:30", "06:00", "07:00"],
-        window_min=180, gate=None, idempotent=True, max_attempts=36, timeout_s=240, retry_min=5, alert_missed=False,
+        window_min=180, gate=None, idempotent=True, max_attempts=90, timeout_s=240, retry_min=2, alert_missed=False,
         success_re=r"Sync complete|Nothing to push\.", log=f"{LOG}/jade-hr-biometric-sync.log",
         emits="attendance_synced", parse=[r"inserted=(?P<inserted>\d+)\s+skipped=(?P<skipped>\d+)\s+total=(?P<total>\d+)(?:\s+auto_provisioned=(?P<auto_provisioned>\d+))?"]),
     "roster_sync": dict(
@@ -71,7 +71,15 @@ JOBS = {
         cmd=[PY, f"{ROOT}/aip_enforce_notify.py"], slots=["08:15"], window_min=360, gate="attendance", idempotent=False,
         max_attempts=6, timeout_s=175, retry_min=10, success_re=r"aip-enforce: ", log=f"{LOG}/jade-hr-aip-enforce.log",
         after={"topic": "attendance_synced", "within_min": 240},
-        parse=[r"aip-enforce: (?P<started>\d+) started, (?P<flagged>\d+) flagged on [\d-]+, emailed=(?P<emailed>\w+)"], enabled=MAIL_ENABLED),
+        parse=[r"aip-enforce: (?P<started>\d+) started, (?P<flagged>\d+) flagged on [\d-]+, emailed=(?P<emailed>\w+)(?: closed=(?P<closed>\d+))?"], enabled=MAIL_ENABLED),
+    # Daily list of what still needs a person (prepare + one-click; applies nothing). Off until the /api/hr-actions endpoint is deployed:
+    # turn on with HRPIPE_ENABLE_HR_ACTIONS=1 in /etc/hr-pipeline.env.
+    "hr_actions": dict(
+        cmd=[PY, f"{ROOT}/hr_actions_notify.py"], slots=["05:00"], window_min=360, gate="attendance", idempotent=False,
+        max_attempts=4, timeout_s=120, retry_min=10, success_re=r"hr-actions: ", log=f"{LOG}/jade-hr-hr-actions.log",
+        after={"topic": "attendance_synced", "within_min": 360},
+        parse=[r"hr-actions: (?P<total>\d+) items on [\d-]+, emailed=(?P<emailed>\w+)"],
+        enabled=MAIL_ENABLED and os.environ.get("HRPIPE_ENABLE_HR_ACTIONS") == "1"),
     "dispute_ai_review": dict(
         cmd=[PY, f"{ROOT}/dispute_ai_review.py"], slots=["04:30", "07:30", "10:30", "13:30"], window_min=120, gate=None, idempotent=True,
         max_attempts=3, timeout_s=900, retry_min=10, success_re=r"dispute-ai: ", log=f"{LOG}/jade-hr-dispute-ai.log",
@@ -106,4 +114,4 @@ LEDGER = f"{STATE_DIR}/ledger.db"
 LOCK = "/var/lock/jade-hr-pipeline.lock"
 PIPE_LOG = f"{LOG}/jade-hr-pipeline.log"
 JADE_HR_URL = os.environ.get("JADE_HR_URL", "https://jade-hr.vercel.app")
-DOWN_ALERT_AFTER_MIN = 15   # one email per incident, only once something has been down this long. No reminders, no 'recovered', no success mails.
+DOWN_ALERT_AFTER_MIN = 15   # one alert per incident, only once something has been down this long, plus one recovery note if an alert went out. No reminders, no success messages.

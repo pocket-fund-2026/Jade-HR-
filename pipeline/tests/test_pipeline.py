@@ -203,18 +203,18 @@ class OneEmailPolicy(unittest.TestCase):
             self.run_at(e, m)
         self.assertEqual(len(SENT), 1)
 
-    def test_recovery_sends_nothing_then_new_outage_emails_again(self):
+    def test_recovery_sends_one_note_then_new_outage_alerts_again(self):
         r = Fake([("ok", 0, "")])
         db, e = make({"late": job()}, feeds(bio="block"), self.T0, r)
         self.run_at(e, 0); self.run_at(e, 16)
         self.assertEqual(len(SENT), 1)
         e._readiness_fn = lambda env: feeds(); self.run_at(e, 20)          # recovers, job runs OK
-        self.assertEqual(len(SENT), 1)                      # no "recovered" mail
+        self.assertEqual(len(SENT), 2)                      # exactly one recovery note after an alert went out
         self.assertFalse(ledger.incident_open(db))
         e._readiness_fn = lambda env: feeds(bio="block")
         e.jobs = {"later": job(slots=["07:00"])}
         self.run_at(e, 45); self.run_at(e, 70)
-        self.assertEqual(len(SENT), 2)                      # a genuinely new outage
+        self.assertEqual(len(SENT), 3)                      # a genuinely new outage
 
     def test_success_and_quarter_apply_send_no_email(self):
         r = Fake([("ok", 0, "p"), ("ok", 0, "a")])

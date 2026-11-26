@@ -12,7 +12,17 @@ class LoginRequest(BaseModel):
     @classmethod
     def _strip_code(cls, v: str) -> str:
         # Pasted/autofilled codes often carry stray spaces, which used to count as a failed attempt.
-        return v.strip()
+        v = v.strip()
+        if len(v) > 64:
+            raise ValueError("employee_code too long")
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def _cap_password(cls, v: str) -> str:
+        if len(v.encode("utf-8")) > 72:
+            raise ValueError("password too long")  # bcrypt's limit; a clean 422 instead of a crash
+        return v
 
 
 class BootstrapAdminRequest(BaseModel):

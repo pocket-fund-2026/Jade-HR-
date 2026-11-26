@@ -4,7 +4,7 @@ and the round-2 notes email. Kept free of FastAPI/Supabase so they are unit-test
 import re
 
 STORE_MANAGER_RE = re.compile(r"store\s*manager|boutique\s*manager|showroom\s*manager", re.I)
-EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s.]{1,255}(?:\.[^@\s.]{1,63}){1,8}$")  # no overlapping quantifiers: linear time
 
 
 def full_name(emp: dict) -> str:

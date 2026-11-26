@@ -325,23 +325,82 @@ def delete_clause(clause_id: str, user: dict = Depends(require_permission("lette
     return {"ok": True}
 
 
-# Letters are HR-authored HTML that is later shown to candidates (sign page, email, PDF).
-# HR is trusted, but a pasted-in snippet should not be able to carry script. This strips
-# active content only; ordinary formatting is untouched.
-_ACTIVE_BLOCKS = re.compile(r"<\s*(script|style|iframe|object|embed)\b.*?<\s*/\s*\1\s*>", re.I | re.S)
-_ACTIVE_TAGS = re.compile(r"<\s*/?\s*(script|style|iframe|object|embed|link|meta|base|form)\b[^>]*>", re.I)
-_EVENT_ATTRS = re.compile(r"""\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)""", re.I)
-_JS_URLS = re.compile(r"""(href|src|xlink:href)\s*=\s*(["']?)\s*(javascript|data\s*:\s*text/html)""", re.I)
+# Letters are HR-authored HTML that is later shown to candidates (sign page, email, PDF) via dangerouslySetInnerHTML.
+# An allowlist parser (linear time, no regex): only known formatting tags/attributes survive, every value is re-escaped,
+# links and images are limited to safe schemes. The previous regex blacklist was bypassable (<img/onerror=...>, entity-
+# encoded javascript:) and could take 10-40 s on crafted input (ReDoS).
+from html import escape as _esc
+from html.parser import HTMLParser
+
 MAX_LETTER_HTML = 400_000
+_ALLOWED_TAGS = {
+    "p", "br", "div", "span", "b", "strong", "i", "em", "u", "s", "sub", "sup", "small", "h1", "h2", "h3", "h4", "h5", "h6",
+    "ul", "ol", "li", "table", "thead", "tbody", "tfoot", "tr", "td", "th", "colgroup", "col", "caption", "blockquote", "hr",
+    "a", "img", "font", "pre", "code",
+}
+_VOID = {"br", "hr", "img", "col"}
+_DROP_WITH_CONTENT = {"script", "style", "iframe", "object", "embed", "noscript", "template", "svg", "math", "textarea", "title"}
+_ALLOWED_ATTRS = {"class", "style", "href", "src", "alt", "title", "colspan", "rowspan", "width", "height", "align", "valign",
+                  "target", "rel", "color", "size", "face", "border", "cellpadding", "cellspacing"}
+_SAFE_URL_PREFIX = ("http://", "https://", "mailto:", "tel:", "#", "/")
+_DANGEROUS_STYLE = ("url(", "expression", "javascript:", "@import", "behavior", "-moz-binding")
+
+
+def _safe_url(value: str, *, image: bool) -> bool:
+    v = "".join(ch for ch in value.strip().lower() if ch not in "\t\r\n\x00")
+    return v.startswith(_SAFE_URL_PREFIX) or (image and v.startswith("data:image/") and "svg" not in v.split(",", 1)[0])
+
+
+class _Sanitizer(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.out: list[str] = []
+        self._skip = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag in _DROP_WITH_CONTENT:
+            self._skip += 1
+            return
+        if self._skip or tag not in _ALLOWED_TAGS:
+            return
+        kept = []
+        for name, value in attrs:
+            name, value = (name or "").lower(), value or ""
+            if name not in _ALLOWED_ATTRS:
+                continue
+            if name == "href" and not _safe_url(value, image=False):
+                continue
+            if name == "src" and not _safe_url(value, image=True):
+                continue
+            if name == "style" and any(bad in "".join(value.lower().split()) for bad in _DANGEROUS_STYLE):
+                continue
+            kept.append(f' {name}="{_esc(value, quote=True)}"')
+        if tag == "a":
+            kept.append(' rel="noopener noreferrer"')
+        self.out.append(f"<{tag}{''.join(kept)}>")
+
+    def handle_startendtag(self, tag, attrs):
+        self.handle_starttag(tag, attrs)
+
+    def handle_endtag(self, tag):
+        if tag in _DROP_WITH_CONTENT:
+            self._skip = max(0, self._skip - 1)
+            return
+        if not self._skip and tag in _ALLOWED_TAGS and tag not in _VOID:
+            self.out.append(f"</{tag}>")
+
+    def handle_data(self, data):
+        if not self._skip:
+            self.out.append(_esc(data, quote=False))
 
 
 def sanitize_letter_html(markup: str) -> str:
     if len(markup) > MAX_LETTER_HTML:
         raise HTTPException(status_code=413, detail="That letter is too long")
-    markup = _ACTIVE_BLOCKS.sub("", markup)
-    markup = _ACTIVE_TAGS.sub("", markup)
-    markup = _EVENT_ATTRS.sub("", markup)
-    return _JS_URLS.sub(r"\1=\2#blocked:", markup)
+    parser = _Sanitizer()
+    parser.feed(markup)
+    parser.close()
+    return "".join(parser.out)
 
 
 @router.post("/generate")

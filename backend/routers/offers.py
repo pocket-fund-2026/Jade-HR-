@@ -26,7 +26,7 @@ router = APIRouter(prefix="/api/offers", tags=["offers"])
 APP_URL = "https://jade-hr.vercel.app"
 DEFAULT_APPROVER = os.environ.get("OFFER_APPROVER_EMAIL") or "nimit.b@jadecouture.com"  # Head-HR; the form can name anyone else
 ACCOUNTS_EMAIL = os.environ.get("OFFER_ACCOUNTS_EMAIL", "")
-EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s.]{1,255}(?:\.[^@\s.]{1,63}){1,8}$")  # no overlapping quantifiers: linear time
 
 
 class SendForApproval(BaseModel):

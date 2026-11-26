@@ -19,11 +19,30 @@ COOKIE_NAME = "jade_hr_token"
 
 
 def hash_password(password: str) -> str:
+    if len(password.encode("utf-8")) > 72:
+        raise HTTPException(status_code=400, detail="Password is too long (72 bytes maximum)")
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
+MAX_PASSWORD_BYTES = 72  # bcrypt's hard limit; bcrypt>=5 raises beyond it, so longer values are refused up front
+
+# A real bcrypt hash of a throwaway value: checked when the employee code does not exist so that unknown and known codes take the same time.
+_DUMMY_HASH = bcrypt.hashpw(b"timing-equaliser", bcrypt.gensalt()).decode("utf-8")
+
+
 def verify_password(password: str, password_hash: str) -> bool:
-    return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+    raw = password.encode("utf-8")
+    if len(raw) > MAX_PASSWORD_BYTES:
+        return False
+    try:
+        return bcrypt.checkpw(raw, password_hash.encode("utf-8"))
+    except ValueError:
+        return False
+
+
+def burn_password_check() -> None:
+    """Spend the same time as a real password check (unknown / inactive account) so response time does not reveal which codes exist."""
+    verify_password("x", _DUMMY_HASH)
 
 
 def _password_fingerprint(password_hash: str) -> str:
@@ -70,6 +89,10 @@ def get_current_user(request: Request) -> dict:
     except JWTError:
         raise _credentials_error()
 
+    # Emailed magic-link and password-reset tokens are signed with the same key and carry the same id/pv claims,
+    # so without this check they would double as session tokens. Only purpose-less tokens are sessions.
+    if payload.get("purpose"):
+        raise _credentials_error()
     employee_id = payload.get("id")
     if not employee_id:
         raise _credentials_error()

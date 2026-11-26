@@ -22,7 +22,7 @@ log = logging.getLogger("invoices")
 BUCKET = "invoice-documents"
 MAX_UPLOAD_BYTES = 3 * 1024 * 1024  # base64 inflates ~33%; Vercel caps a request body at 4.5 MB
 ALLOWED_TYPES = {"application/pdf": "pdf", "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
-EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s.]{1,255}(?:\.[^@\s.]{1,63}){1,8}$")  # no overlapping quantifiers: linear time
 # Who hears about approvals/rejections. Falls back to the HR notify address
 # so nothing is silently dropped if no accounting inbox has been set.
 ACCOUNTING_EMAIL = os.environ.get("INVOICE_ACCOUNTING_EMAIL") or email_service.HR_NOTIFY_EMAIL

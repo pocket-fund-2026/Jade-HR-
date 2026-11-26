@@ -9,7 +9,7 @@ from activity import record_login
 from jose import JWTError, jwt
 
 import email_service
-from auth import COOKIE_NAME, _password_fingerprint, create_access_token, get_current_user, hash_password, verify_password
+from auth import COOKIE_NAME, burn_password_check, _password_fingerprint, create_access_token, get_current_user, hash_password, verify_password
 from config import COOKIE_SECURE, JWT_ALGORITHM, JWT_EXPIRE_MINUTES, JWT_SECRET
 from database import maybe_single_data, supabase
 from paging import ContextThreadPoolExecutor
@@ -65,6 +65,7 @@ def login(body: LoginRequest, response: Response, request: Request):
     )
     employee = maybe_single_data(resp)
     if not employee or not employee["is_active"]:
+        burn_password_check()
         raise HTTPException(status_code=401, detail="Invalid employee code or password")
 
     locked_until = employee.get("locked_until")
@@ -78,12 +79,19 @@ def login(body: LoginRequest, response: Response, request: Request):
             )
 
     if not verify_password(body.password, employee["password_hash"]):
-        new_count = employee.get("failed_login_count", 0) + 1
-        updates = {"failed_login_count": new_count}
-        if new_count >= MAX_FAILED_ATTEMPTS:
-            updates["failed_login_count"] = 0
-            updates["locked_until"] = (datetime.now(timezone.utc) + timedelta(minutes=LOCKOUT_MINUTES)).isoformat()
-        supabase.table("hr_employees").update(updates).eq("id", employee["id"]).execute()
+        # Compare-and-swap on the counter: parallel guesses used to all read the same count and so were counted once.
+        seen = employee.get("failed_login_count", 0) or 0
+        for _ in range(6):
+            new_count = seen + 1
+            updates = {"failed_login_count": new_count}
+            if new_count >= MAX_FAILED_ATTEMPTS:
+                updates["failed_login_count"] = 0
+                updates["locked_until"] = (datetime.now(timezone.utc) + timedelta(minutes=LOCKOUT_MINUTES)).isoformat()
+            won = supabase.table("hr_employees").update(updates).eq("id", employee["id"]).eq("failed_login_count", seen).execute()
+            if getattr(won, "data", None):
+                break
+            fresh = maybe_single_data(supabase.table("hr_employees").select("failed_login_count").eq("id", employee["id"]).maybe_single().execute()) or {}
+            seen = fresh.get("failed_login_count", seen) or 0
         left = MAX_FAILED_ATTEMPTS - new_count
         if new_count >= MAX_FAILED_ATTEMPTS:
             raise HTTPException(

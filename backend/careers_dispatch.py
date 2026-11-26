@@ -29,7 +29,7 @@ APP_URL = "https://jade-hr.vercel.app"
 ONBOARDING_URL = f"{APP_URL}/onboarding/new"
 SENDABLE_APPROVALS = {"awaiting_candidate", "accepted", "signed"}
 CLAIM_MINUTES = 5
-EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s.]{1,255}(?:\.[^@\s.]{1,63}){1,8}$")  # no overlapping quantifiers: linear time
 
 
 def auto_enabled() -> bool:

@@ -474,7 +474,7 @@ def enforce_aip(
     dry_run: bool = Query(default=False),
     user: dict = Depends(require_console),
 ):
-    """Switches the AIP (doc §15) on. Run daily. Two rules:
+    """Switches the AIP (doc §15) on. Run daily. Three rules (the third closes finished plans as passed):
 
     1. START — a corporate employee who has a Red Card (7 Yellow Cards) in the
        current pay cycle and no AIP started since that cycle began is put on a
@@ -520,7 +520,7 @@ def enforce_aip(
                     out.append(row["date"])
         return sorted(set(out))
 
-    started, flagged = [], []
+    started, flagged, closed = [], [], []
 
     # Rule 1 — Red Card this cycle => start a 30-day AIP.
     for emp_id, s in by_label[cur_label].items():
@@ -565,6 +565,27 @@ def enforce_aip(
                         basis={"late_dates": dates}, note="Second late arrival during AIP")
         flagged.append(entry)
 
+    # Rule 3 — a plan that has run its full period with NO second late arrival is closed as PASSED automatically
+    # (nothing is deducted by a pass). Waits until the day after the end date so the last day's punches are in, and
+    # never closes one that was flagged (this run or earlier): a failure leads to the disciplinary process, so a person decides.
+    flagged_ids = {x["aip_id"] for x in flagged}
+    for r in active:
+        if r["end_date"] >= today.isoformat() or r["id"] in flagged_ids or AIP_AUTO_FLAG_MARKER in (r.get("notes") or ""):
+            continue
+        e = corp_by_id[r["employee_id"]]
+        name = f"{e['first_name']} {e.get('last_name') or ''}".strip()
+        entry = {"aip_id": r["id"], "employee_code": e["employee_code"], "name": name, "start_date": r["start_date"], "end_date": r["end_date"]}
+        if not dry_run:
+            note = f"{(r.get('notes') or '').strip()} [AUTO-CLOSED] Passed: plan ended {r['end_date']} with no second late arrival.".strip()
+            done = supabase.table("hr_aip_records").update(
+                {"status": "passed", "notes": note, "closed_by": None, "closed_at": datetime.now().isoformat()}
+            ).eq("id", r["id"]).eq("status", "active").execute()
+            if not done.data:
+                continue  # someone closed it meanwhile
+            record_step("aip", r["id"], "auto_closed_passed", None, employee_id=r["employee_id"],
+                        basis={"start_date": r["start_date"], "end_date": r["end_date"]}, note="Plan period over, no second late arrival")
+        closed.append(entry)
+
     if started and not dry_run:
         fresh = [r for r in supabase.table("hr_aip_records").select("*").in_("id", [x["aip_id"] for x in started if x.get("aip_id")]).execute().data]
         try:
@@ -572,7 +593,7 @@ def enforce_aip(
         except Exception:
             pass  # HR still gets the run summary below; /v3/aip/notify can be re-run
     emailed = False
-    if (started or flagged) and not dry_run:
+    if (started or flagged or closed) and not dry_run:
         lines = [f"AIP update for {today.isoformat()}:", ""]
         if started:
             lines.append(f"Put on a 30-day AIP (Red Card this cycle) — {len(started)}:")
@@ -582,13 +603,17 @@ def enforce_aip(
             lines.append(f"Second late arrival while on an AIP — review for failure — {len(flagged)}:")
             lines += [f"  • {x['name']} ({x['employee_code']}) — late on {', '.join(x['late_dates'])}" for x in flagged]
             lines.append("")
-        lines.append("Open Admin > AIP to close a plan as passed/failed. Nothing has been deducted or actioned automatically.")
+        if closed:
+            lines.append(f"Closed automatically as PASSED (full period, no second late arrival) — {len(closed)}:")
+            lines += [f"  • {x['name']} ({x['employee_code']}) — {x['start_date']} to {x['end_date']}" for x in closed]
+            lines.append("")
+        lines.append("Open Admin > AIP to close a flagged plan as failed. Nothing has been deducted or actioned automatically.")
         try:
-            emailed = bool(send_email(HR_NOTIFY_EMAIL, f"AIP: {len(started)} started, {len(flagged)} flagged", "\n".join(lines), kind="aip"))
+            emailed = bool(send_email(HR_NOTIFY_EMAIL, f"AIP: {len(started)} started, {len(flagged)} flagged, {len(closed)} closed", "\n".join(lines), kind="aip"))
         except Exception:
             emailed = False
     return {"date": today.isoformat(), "dry_run": dry_run, "cycle_start": cycle_start.isoformat(),
-            "started": started, "flagged": flagged, "emailed": emailed}
+            "started": started, "flagged": flagged, "closed": closed, "emailed": emailed}
 
 
 AIP_NOTIFIED_MARKER = "[NOTIFIED]"

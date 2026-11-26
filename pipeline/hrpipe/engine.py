@@ -95,6 +95,7 @@ class Engine:
             if ledger.incident_open(self.db):
                 ledger.incident_set(self.db, False)
                 alerts.log("incident closed: everything healthy")
+                alerts.send("JADE HR automation recovered", "Everything is healthy again; held jobs have run or will run on their own. Nothing more to do.")
             return
         old = [(k, fs, d) for k, (fs, d) in seen.items() if now.timestamp() - fs >= config.DOWN_ALERT_AFTER_MIN * 60]
         if not old or ledger.incident_open(self.db):

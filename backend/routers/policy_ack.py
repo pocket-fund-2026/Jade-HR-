@@ -127,7 +127,7 @@ def acknowledge(
         "documents_read": [k for k in body.documents_read if k in known],
         # Kept for the audit trail — an acknowledgement is a record of consent,
         # so where and on what it was given is worth as much as the timestamp.
-        "ip_address": request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+        "ip_address": (request.headers.get("x-vercel-forwarded-for") or request.headers.get("x-real-ip") or request.headers.get("x-forwarded-for", "")).split(",")[0].strip()
                       or (request.client.host if request.client else None),
         "user_agent": request.headers.get("user-agent"),
     }

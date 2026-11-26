@@ -29,12 +29,25 @@ def _env():
     return env
 
 
-def send(subject, text, dry_run=False):
-    log(f"{'DRY-RUN (not sent) ' if dry_run else ''}ALERT {subject} :: {text[:300]}")
-    if dry_run:
+KABIR_JID = "917977522875@s.whatsapp.net"   # the one approved monitoring recipient (WhatsApp-only rule, 2026-11-10)
+BRIDGE_URL = "http://localhost:3000/send"
+
+
+def _whatsapp(text):
+    """Tina's local bridge through wa_guard (pacing + allowlist). One message per call, never retried in a loop."""
+    try:
+        import sys
+        sys.path.insert(0, "/root/tina-agent")
+        import wa_guard  # noqa: F401  (installs the outbound guard)
+        import requests
+        r = requests.post(BRIDGE_URL, json={"chatId": KABIR_JID, "message": text}, timeout=30)
+        return r.status_code == 200
+    except Exception as e:  # bridge down / guard refused: fall back, never break the run
+        log(f"whatsapp alert not delivered: {type(e).__name__} {str(e)[:100]}")
         return False
-    log("alert email disabled (MAIL OFF 2026-11-10); WhatsApp hourly summary covers status")
-    return False
+
+
+def _email(subject, text):
     env = _env()
     to = [x.strip() for x in env.get("ALERT_EMAIL", "").split(",") if x.strip()]
     if not to or not env.get("RESEND_API_KEY") or not env.get("ALERT_FROM"):
@@ -49,3 +62,19 @@ def send(subject, text, dry_run=False):
     except Exception as e:  # an alert failure must never break the run
         log(f"alert email failed: {type(e).__name__} {str(e)[:100]}")
         return False
+
+
+def send(subject, text, dry_run=False):
+    """Incident alerts only (the engine sends at most one per outage plus one recovery note).
+    WhatsApp to Kabir first (the approved channel); email only if WhatsApp could not be delivered, so an outage is never silent."""
+    log(f"{'DRY-RUN (not sent) ' if dry_run else ''}ALERT {subject} :: {text[:300]}")
+    if dry_run:
+        return False
+    if _whatsapp(f"*{subject}*\n\n{text}"):
+        log("alert delivered by WhatsApp")
+        return True
+    if _email(subject, text):
+        log("alert delivered by email (WhatsApp unavailable)")
+        return True
+    log("ALERT NOT DELIVERED on any channel")
+    return False

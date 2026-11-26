@@ -53,7 +53,7 @@ def main() -> None:
     if not dry:
         print(
             f"aip-enforce: {len(result['started'])} started, {len(result['flagged'])} flagged on {result['date']}, "
-            f"emailed={result['emailed']}",
+            f"emailed={result['emailed']} closed={len(result.get('closed', []))}",
             file=sys.stderr,
         )
 
