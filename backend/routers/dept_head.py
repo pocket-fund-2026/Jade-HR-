@@ -30,6 +30,11 @@ def _profile_flag(user_id: str) -> bool:
 PERM_BY_KIND = {"disputes": "disputes.manage", "leave": "leave.manage", "absence": "absence.manage"}
 
 
+# Store managers who are also the Retail head and legitimately see every store
+# (Karishma Rewari, 14014). Any other store manager is limited to their reportees.
+ALL_STORES_HEADS = {"14014"}
+
+
 def head_scope(user: dict) -> tuple[bool, str | None]:
     """(is a department head, their department).
 
@@ -37,7 +42,7 @@ def head_scope(user: dict) -> tuple[bool, str | None]:
     every city, so a flagged store manager (e.g. Ahmedabad) would see other
     stores' (Delhi's) items. They keep only their own reportees via
     my_report_ids."""
-    if "store manager" in (user.get("designation") or "").lower():
+    if "store manager" in (user.get("designation") or "").lower() and user.get("employee_code") not in ALL_STORES_HEADS:
         return False, None
     if _profile_flag(user["id"]) and (user.get("department") or "").strip():
         return True, user["department"].strip()
