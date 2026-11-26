@@ -39,8 +39,30 @@ function cellTitle(d) {
   return d.status;
 }
 
-function EditCellModal({ employee, day, onClose, onSaved, canCorrect }) {
+function EditCellModal({ employee, day, onClose, onSaved, onReload, canCorrect }) {
   const { can } = useAuth();
+  const canGrantCompOff = can("employees.manage", "policy.manage", "comp_off.manage");
+  const [grantHours, setGrantHours] = useState(day.hours_worked > 0 ? String(Math.round(day.hours_worked * 100) / 100) : "");
+  const [grantBusy, setGrantBusy] = useState(false);
+  const [grantMsg, setGrantMsg] = useState("");
+  const [grantErr, setGrantErr] = useState("");
+  const grantUnits = Number(grantHours) > 4 ? 1 : 0.5;
+  const grantCompOff = async () => {
+    setGrantErr("");
+    setGrantMsg("");
+    setGrantBusy(true);
+    try {
+      await api.post("/api/comp-off/grant", {
+        employee_id: employee.employee_id, earned_date: day.date, units: grantUnits, hours_worked: Number(grantHours),
+      });
+      setGrantMsg(`${grantUnits === 0.5 ? "½" : "1"} day Comp-Off granted for ${day.date}.`);
+      onReload?.();
+    } catch (err) {
+      setGrantErr(err.response?.data?.detail || "Could not grant Comp-Off. Please try again.");
+    } finally {
+      setGrantBusy(false);
+    }
+  };
   const [remark, setRemark] = useState(day.remark_manual || "");
   const [remarkBusy, setRemarkBusy] = useState(false);
   const [statusOverride, setStatusOverride] = useState(day.status === "absent" || day.status === "half_day" ? day.status : "present");
@@ -157,6 +179,26 @@ function EditCellModal({ employee, day, onClose, onSaved, canCorrect }) {
               className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
           </div>
           </>)}
+          {canGrantCompOff && day.status !== "future" && (
+            <div className="border-t border-ink/10 pt-3">
+              <p className="block text-xs font-semibold text-ink/70 mb-1.5">Grant Comp-Off for this day</p>
+              <p className="text-xs text-ink/70 mb-2">Credits {employee.name} for working {day.date}. Allowed only on a declared holiday or their weekly off. Up to 4 hours earns ½ day, above 4 hours earns 1 day.</p>
+              <div className="flex items-end gap-3">
+                <div className="flex-1">
+                  <label htmlFor="grant-hours" className="block text-xs font-semibold text-ink/70 mb-1.5">Hours worked</label>
+                  <input id="grant-hours" type="number" min="0.01" max="24" step="0.01" value={grantHours}
+                    onChange={(e) => { setGrantHours(e.target.value); setGrantMsg(""); }}
+                    className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-sm font-nums focus:outline-none focus:ring-2 focus:ring-jade-500" />
+                </div>
+                <button type="button" onClick={grantCompOff} disabled={grantBusy || !(Number(grantHours) > 0)}
+                  className="bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors whitespace-nowrap">
+                  {grantBusy ? "Granting…" : `Grant ${Number(grantHours) > 0 ? (grantUnits === 0.5 ? "½ day" : "1 day") : "comp-off"}`}
+                </button>
+              </div>
+              {grantMsg && <p role="status" className="text-xs text-jade-700 mt-2">{grantMsg}</p>}
+              {grantErr && <p role="alert" className="text-xs text-rust-500 mt-2">{grantErr}</p>}
+            </div>
+          )}
           {day.employee_note && (
             <p className="text-xs text-ink/80 border-l-2 border-ledger-800 pl-2 mb-3"><strong>Employee's note:</strong> {day.employee_note}</p>
           )}
@@ -435,6 +477,7 @@ export default function AttendanceReport() {
           employee={editing.employee}
           day={editing.day}
           canCorrect={canEdit}
+          onReload={load}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); load(); }}
         />
