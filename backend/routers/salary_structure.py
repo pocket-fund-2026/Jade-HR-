@@ -174,6 +174,7 @@ def create_salary_structure(
     supabase.table("hr_employees").update({
         "basic": body.me_basic, "hra": body.me_hra,
         "conveyance": body.me_conv, "other_allowance": body.me_other_allow,
+        "monthly_bonus": body.me_monthly_bonus, "retention": body.me_retention, "incentive": body.me_incentive,
     }).eq("id", employee_id).execute()
 
     return inserted.data[0]
@@ -207,6 +208,7 @@ def update_salary_structure(
     supabase.table("hr_employees").update({
         "basic": body.me_basic, "hra": body.me_hra,
         "conveyance": body.me_conv, "other_allowance": body.me_other_allow,
+        "monthly_bonus": body.me_monthly_bonus, "retention": body.me_retention, "incentive": body.me_incentive,
     }).eq("id", employee_id).execute()
 
     return resp.data[0]
