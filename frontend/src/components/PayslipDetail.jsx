@@ -349,6 +349,28 @@ function PayslipPrintFormat({ summary }) {
   );
 }
 
+// One half of the on-screen statement: a plain list of lines with a total, readable at any width.
+function StatementCard({ title, rows, total, negative, empty }) {
+  return (
+    <div className="bg-paper rounded-sm shadow-card border border-ink/15 overflow-hidden">
+      <p className="px-5 pt-4 pb-2 text-[11px] font-semibold uppercase tracking-wider text-ink/70">{title}</p>
+      <div className="px-5">
+        {rows.length === 0 && <p className="py-3 text-sm text-ink/60">{empty || "Nothing"}</p>}
+        {rows.map((r) => (
+          <div key={r.label} className="flex items-baseline justify-between gap-4 py-2 border-b border-dotted border-ink/15 text-sm">
+            <span className="text-ink/80 min-w-0">{r.label}</span>
+            <span className="font-nums text-ink whitespace-nowrap">{formatINR(r.value)}</span>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-baseline justify-between gap-4 px-5 py-3 mt-1 bg-ink/[0.04] font-semibold text-sm">
+        <span>Total {title.toLowerCase()}</span>
+        <span className={`font-nums whitespace-nowrap ${negative && total > 0 ? "text-rust-500" : "text-ink"}`}>{formatINR(total)}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function PayslipDetail({ summary, showDailyAttendance = true, selfService = false }) {
   if (!summary) return null;
 
@@ -393,87 +415,101 @@ export default function PayslipDetail({ summary, showDailyAttendance = true, sel
 
       <PayslipPrintFormat summary={summary} />
 
-      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4 pb-5 border-b-2 border-ink/10 rise-in print:hidden">
-        <div>
-          <p className="font-display text-ink text-xl leading-none">JADE by MK</p>
-          <p className="text-ink/70 text-xs mt-2 max-w-[260px] leading-snug">{OFFICE_ADDRESS}</p>
-        </div>
-        <div className="text-right">
-          <p className="font-display text-ink text-lg leading-none">Payslip for the Month {MONTH_NAMES[summary.month - 1]} {summary.year}</p>
-          <p className="text-ink/70 text-xs font-nums mt-1.5">{payPeriodLabel(summary.year, summary.month)}</p>
-        </div>
-      </div>
-
-      <div className="bg-paper rounded-sm shadow-card border border-ink/15 p-6 print:hidden">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-10">
-          <div className="space-y-0.5">
-            <InfoRow label="Name" value={`${summary.name} [${summary.employee_code}]`} />
-            <InfoRow label="Designation" value={summary.designation} />
-            <InfoRow label="Department" value={summary.department} />
-            <InfoRow label="Location" value={summary.location} />
-            <InfoRow label="P A N No" value={summary.pan_no} />
-            <InfoRow label="UAN No" value={summary.uan_no} />
-            <InfoRow label="Aadhar No" value={summary.aadhar_no} />
-            <InfoRow label="P F No" value={summary.pf_no} />
-            <InfoRow label="ESIC No" value={summary.esic_no} />
-            <InfoRow label="Date of Join" value={formatFullDate(summary.date_of_joining)} />
-            <InfoRow label="Payment Mode" value={summary.payment_mode} />
+      <div className="print:hidden space-y-5">
+        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2 pb-4 border-b border-ink/10 rise-in">
+          <div className="min-w-0">
+            <p className="font-display text-ink text-xl leading-tight">Payslip for {MONTH_NAMES[summary.month - 1]} {summary.year}</p>
+            <p className="text-ink/70 text-xs font-nums mt-1">{payPeriodLabel(summary.year, summary.month)}</p>
           </div>
-          <div className="space-y-0.5 mt-4 lg:mt-0">
-            <InfoRow label="Present" value={summary.present_days} />
-            <InfoRow label="WeeklyOff" value={summary.weekoff_days} />
-            <InfoRow label="Holiday" value={summary.holiday_days} />
-            <InfoRow label="LeaveAdj" value={summary.pl_days} />
-            <InfoRow label="PaidDays" value={summary.paid_days} />
-            <InfoRow
-              label="WithoutPayDays"
-              value={<span className={summary.without_pay_days > 0 ? "text-rust-500" : undefined}>{summary.without_pay_days}</span>}
-            />
-            <InfoRow label="Total Days" value={summary.days_in_month} />
+          <div className="min-w-0 sm:text-right">
+            <p className="font-display text-ink text-base leading-none">JADE by MK</p>
+            <p className="text-ink/60 text-[11px] mt-1 leading-snug max-w-[280px] sm:ml-auto">{OFFICE_ADDRESS}</p>
           </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 stagger-rise print-hide">
-        <StatCard label="Hours Worked" value={formatHoursMins(summary.total_hours_worked)} />
-        <StatCard label="OT Hours" value={formatHoursMins(summary.total_ot_hours)} accent="text-ochre-700" />
-        <StatCard label="OT Amount" value={formatINR(summary.ot_amount)} accent="text-ochre-700" />
-      </div>
-
-      <div className="bg-paper rounded-sm shadow-card p-7 border-t-4 border-ochre-500 print-hide">
-        <p className="text-xs font-semibold uppercase tracking-wider text-ochre-700 mb-1">Overtime calculation</p>
-        <p className="text-xs text-ink/65 mb-4 font-nums">
-          (Basic + HRA + Conveyance) &divide; days in month &divide; standard hours &times; OT hours
-        </p>
-        <div>
-          <LedgerLine label="Basic" value={formatINR(summary.basic_rate)} />
-          <LedgerLine label="HRA" value={formatINR(summary.hra_rate)} />
-          <LedgerLine label="Conveyance" value={formatINR(summary.conveyance_rate)} />
-          <LedgerLine label="Total salary" value={formatINR(gross)} strong />
+        <div className="relative overflow-hidden rounded-sm bg-ledger-800 px-5 py-5 sm:px-7">
+          <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
+          <div className="relative flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-manila/70">Net salary payable</p>
+              <p className="font-nums font-semibold text-3xl sm:text-4xl text-manila mt-1">{formatINR(summary.total_payable)}</p>
+            </div>
+            <p className="text-xs text-manila/80 font-nums">{summary.paid_days} paid days of {summary.days_in_month}{summary.without_pay_days > 0 ? ` · ${summary.without_pay_days} without pay` : ""}</p>
+          </div>
         </div>
-        <div className="mt-3">
-          <LedgerLine
-            label="Per day salary"
-            sub={`${formatINR(gross)} ÷ ${summary.days_in_month} days`}
-            value={formatINR(summary.per_day_salary)}
-          />
-          <LedgerLine
-            label="Per hour salary"
-            sub="per day ÷ standard hours"
-            value={formatINR(summary.per_hour_salary)}
-          />
-          <LedgerLine label="Total OT hours" value={formatHoursMins(summary.total_ot_hours)} />
-          <LedgerLine label="OT amount" value={formatINR(summary.ot_amount)} strong accent="text-ochre-700" />
-        </div>
-      </div>
 
-      <div className="print:hidden">
-        <PayslipLedgerTable
-          earningsRows={earningsRows}
-          deductionsRows={deductionsRows}
-          pl={pl ? { label: "PL", ...pl } : null}
-          netSalary={summary.total_payable}
-        />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
+          <StatementCard title="Earnings" rows={earningsRows.filter((r) => r.always || r.value > 0)} total={earningsRows.filter((r) => r.always || r.value > 0).reduce((t, r) => t + (r.value || 0), 0)} />
+          <StatementCard title="Deductions" rows={deductionsRows.filter((r) => r.value > 0)} negative empty="No deductions this month" total={deductionsRows.filter((r) => r.value > 0).reduce((t, r) => t + (r.value || 0), 0)} />
+        </div>
+
+        {pl && (
+          <div className="bg-paper rounded-sm shadow-card border border-ink/15 px-5 py-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70 mb-2">Paid leave ledger</p>
+            <div className="grid grid-cols-4 gap-3 text-center">
+              {[["Opening", pl.opening], ["Debit", pl.debit], ["Credit", pl.credit], ["Closing", pl.closing]].map(([k, v]) => (
+                <div key={k}><p className="text-[10px] uppercase tracking-wider text-ink/60">{k}</p><p className="font-nums text-ink text-base mt-0.5">{v}</p></div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="bg-paper rounded-sm shadow-card border border-ink/15 px-5 py-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70 mb-3">Attendance this period</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3">
+            {[
+              ["Present", summary.present_days], ["Weekly off", summary.weekoff_days], ["Holiday", summary.holiday_days], ["Leave", summary.pl_days],
+              ["Paid days", summary.paid_days], ["Without pay", summary.without_pay_days, summary.without_pay_days > 0], ["Total days", summary.days_in_month],
+              ["Hours worked", formatHoursMins(summary.total_hours_worked)], ["OT hours", formatHoursMins(summary.total_ot_hours)],
+            ].map(([k, v, warn]) => (
+              <div key={k} className="min-w-0">
+                <p className="text-[10px] uppercase tracking-wider text-ink/60">{k}</p>
+                <p className={`font-nums text-base mt-0.5 ${warn ? "text-rust-500" : "text-ink"}`}>{v}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-paper rounded-sm shadow-card border border-ink/15 px-5 py-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink/70 mb-2">Employee details</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10">
+            <div>
+              <InfoRow label="Name" value={`${summary.name} [${summary.employee_code}]`} />
+              <InfoRow label="Designation" value={summary.designation} />
+              <InfoRow label="Department" value={summary.department} />
+              <InfoRow label="Location" value={summary.location} />
+              <InfoRow label="Date of Join" value={formatFullDate(summary.date_of_joining)} />
+              <InfoRow label="Payment Mode" value={summary.payment_mode} />
+            </div>
+            <div>
+              <InfoRow label="PAN No" value={summary.pan_no} />
+              <InfoRow label="UAN No" value={summary.uan_no} />
+              <InfoRow label="Aadhar No" value={summary.aadhar_no} />
+              <InfoRow label="PF No" value={summary.pf_no} />
+              <InfoRow label="ESIC No" value={summary.esic_no} />
+            </div>
+          </div>
+        </div>
+
+        <details className="bg-paper rounded-sm shadow-card border border-ink/15 group">
+          <summary className="cursor-pointer select-none px-5 py-4 text-[11px] font-semibold uppercase tracking-wider text-ochre-700 flex items-center justify-between">
+            <span>Overtime calculation</span>
+            <span className="font-nums normal-case tracking-normal text-ink/70 text-sm">{formatINR(summary.ot_amount)} · {formatHoursMins(summary.total_ot_hours)}</span>
+          </summary>
+          <div className="px-5 pb-5">
+            <p className="text-xs text-ink/65 mb-3 font-nums">(Basic + HRA + Conveyance) &divide; days in month &divide; standard hours &times; OT hours</p>
+            <LedgerLine label="Basic" value={formatINR(summary.basic_rate)} />
+            <LedgerLine label="HRA" value={formatINR(summary.hra_rate)} />
+            <LedgerLine label="Conveyance" value={formatINR(summary.conveyance_rate)} />
+            <LedgerLine label="Total salary" value={formatINR(gross)} strong />
+            <div className="mt-3">
+              <LedgerLine label="Per day salary" sub={`${formatINR(gross)} ÷ ${summary.days_in_month} days`} value={formatINR(summary.per_day_salary)} />
+              <LedgerLine label="Per hour salary" sub="per day ÷ standard hours" value={formatINR(summary.per_hour_salary)} />
+              <LedgerLine label="Total OT hours" value={formatHoursMins(summary.total_ot_hours)} />
+              <LedgerLine label="OT amount" value={formatINR(summary.ot_amount)} strong accent="text-ochre-700" />
+            </div>
+          </div>
+        </details>
       </div>
 
       {showDailyAttendance && (
