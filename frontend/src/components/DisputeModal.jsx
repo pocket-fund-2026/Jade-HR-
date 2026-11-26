@@ -15,6 +15,40 @@ const ISSUE_LABELS = {
   other: "Something else",
 };
 
+// Explicit hour / minute / AM-PM selects. A native <input type="time"> only shows
+// AM/PM when the device locale is 12-hour, so many people could not pick AM/PM.
+// Value in/out is "HH:MM" in 24-hour form (what the API expects), "" when unset.
+const selectCls = "rounded-sm border border-ink/15 bg-manila/40 px-2 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
+function TimeAmPm({ id, value, onChange }) {
+  const [h24, m] = value ? value.split(":").map(Number) : [null, null];
+  const hour12 = h24 == null ? "" : h24 % 12 === 0 ? 12 : h24 % 12;
+  const minute = m == null ? "" : m;
+  const ampm = h24 == null ? "" : h24 >= 12 ? "PM" : "AM";
+  const emit = (hh, mm, ap) => {
+    if (hh === "" || ap === "") { onChange(""); return; }
+    const base = Number(hh) % 12;
+    const h = ap === "PM" ? base + 12 : base;
+    onChange(`${String(h).padStart(2, "0")}:${String(mm === "" ? 0 : Number(mm)).padStart(2, "0")}`);
+  };
+  return (
+    <div className="flex gap-2" id={id}>
+      <select aria-label="Hour" className={selectCls} value={hour12} onChange={(e) => emit(e.target.value, minute, ampm || "AM")}>
+        <option value="">Hr</option>
+        {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
+      </select>
+      <select aria-label="Minute" className={selectCls} value={minute} onChange={(e) => emit(hour12, e.target.value, ampm)}>
+        <option value="">Min</option>
+        {Array.from({ length: 60 }, (_, i) => i).map((n) => <option key={n} value={n}>{String(n).padStart(2, "0")}</option>)}
+      </select>
+      <select aria-label="AM or PM" className={selectCls} value={ampm} onChange={(e) => emit(hour12, minute, e.target.value)}>
+        <option value="">AM/PM</option>
+        <option value="AM">AM</option>
+        <option value="PM">PM</option>
+      </select>
+    </div>
+  );
+}
+
 export default function DisputeModal({ date: initialDate, onClose, onSubmitted, defaultIssue }) {
   const [date, setDate] = useState(initialDate);
   const [issueType, setIssueType] = useState(defaultIssue || "missed_clock_out");
@@ -94,9 +128,20 @@ export default function DisputeModal({ date: initialDate, onClose, onSubmitted, 
         <p className="text-xs font-semibold text-ochre-700 mb-1">Report an attendance issue</p>
         <div className="mb-5">
           <label htmlFor="dispute_date" className="block text-xs font-semibold text-ink/70 mb-1.5">Day this is about</label>
-          <input id="dispute_date" type="date" required value={date} max={policy?.today} min={policy?.earliest_date}
+          <input id="dispute_date" type="date" required value={date} max={policy?.today}
             onChange={(e) => e.target.value && setDate(e.target.value)}
             className="rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
+          {policy?.today && (
+            <select aria-label="Pick a recent day" value="" onChange={(e) => e.target.value && setDate(e.target.value)}
+              className="ml-2 rounded-sm border border-ink/15 bg-manila/40 px-2 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
+              <option value="">Recent days…</option>
+              {Array.from({ length: (policy.max_age_days ?? 7) + 1 }, (_, i) => {
+                const d = new Date(policy.today + "T00:00:00"); d.setDate(d.getDate() - i);
+                const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                return <option key={iso} value={iso}>{formatDate(iso)}</option>;
+              })}
+            </select>
+          )}
           <p className="text-[11px] text-ink/60 mt-1">{formatDate(date)}. For a shift that ran past midnight, choose the day it started.</p>
         </div>
 
@@ -139,13 +184,7 @@ export default function DisputeModal({ date: initialDate, onClose, onSubmitted, 
                 <div>
                   <p className="text-[11px] text-ink/60 mb-1.5">Clock-in date: {formatDate(date)}</p>
                   <label htmlFor="claimed_in" className="block text-xs font-semibold text-ink/70 mb-1.5">Actual clock-in time (AM/PM)</label>
-                  <input
-                    id="claimed_in"
-                    type="time"
-                    className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
-                    value={claimedIn}
-                    onChange={(e) => setClaimedIn(e.target.value)}
-                  />
+                  <TimeAmPm id="claimed_in" value={claimedIn} onChange={setClaimedIn} />
                 </div>
               )}
               {needsOut && (
@@ -158,13 +197,7 @@ export default function DisputeModal({ date: initialDate, onClose, onSubmitted, 
                     className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 mb-3"
                   />
                   <label htmlFor="claimed_out" className="block text-xs font-semibold text-ink/70 mb-1.5">Actual clock-out time (AM/PM)</label>
-                  <input
-                    id="claimed_out"
-                    type="time"
-                    className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
-                    value={claimedOut}
-                    onChange={(e) => setClaimedOut(e.target.value)}
-                  />
+                  <TimeAmPm id="claimed_out" value={claimedOut} onChange={setClaimedOut} />
                 </div>
               )}
             </div>
