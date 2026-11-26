@@ -843,6 +843,14 @@ def compute_daily_attendance(
                 if is_corporate and clock_out is not None and clock_out >= MIDNIGHT_COMP_OFF_AFTER and d not in COMP_OFF_EXCLUDED_DATES:
                     row["midnight_comp_off"] = True
                     row["midnight_comp_off_clock_out"] = clock_out.isoformat()
+        # Revised SOP, applied to the whole roster (HR, 26 Nov 2026): working a closed /
+        # Day Off holiday earns Comp-Off for retail and every other non-corporate
+        # employee too, not just the corporate roster. Their weekly off stays out: retail
+        # and shop-floor rosters rotate, so a Sunday punch is not by itself a day off.
+        if (not is_corporate and hours_worked > 0 and d not in COMP_OFF_EXCLUDED_DATES
+                and holidays.get(d, {}).get("day_type") in ("closed", "day_off")):
+            row["comp_off_eligible"] = True
+            row["comp_off_units"] = 0.5 if hours_worked <= 4 else 1.0
         if excused and is_corporate:
             row["after_noon"] = False
             row["late_half_day_tier"] = False

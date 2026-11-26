@@ -212,3 +212,25 @@ def test_reconcile_dry_run_never_writes(monkeypatch):
     result = comp_off.reconcile_comp_off_validity(dry_run=True, user={'role':'accounts'})
     assert result['expiry_updates'] == 1
     assert db.writes == []
+
+
+def _oct20(is_corporate, day_type="closed", hours=8):
+    start = datetime.fromisoformat('2026-10-20T10:00:00+05:30')
+    holidays = {date(2026, 10, 20): {"description": "Dussehra", "day_type": day_type}}
+    rows = compute_daily_attendance(2026, 10, [start, start + timedelta(hours=hours)], 8,
+                                    holidays=holidays, is_corporate=is_corporate)
+    return next(r for r in rows if r['date'] == '2026-10-20')
+
+
+@pytest.mark.parametrize('is_corporate', [True, False])
+def test_closed_holiday_work_earns_comp_off_for_retail_and_corporate(is_corporate):
+    row = _oct20(is_corporate)
+    assert row['comp_off_eligible'] and row['comp_off_units'] == 1.0
+
+
+def test_retail_half_day_on_holiday():
+    assert _oct20(False, hours=3)['comp_off_units'] == 0.5
+
+
+def test_retail_open_holiday_earns_nothing():
+    assert not _oct20(False, day_type="open_normal").get('comp_off_eligible')
