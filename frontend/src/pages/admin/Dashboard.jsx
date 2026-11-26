@@ -324,6 +324,12 @@ export default function Dashboard() {
           >
             <CalendarPlus size={13} /> Apply leave
           </Link>
+          <Link
+            to="/admin/my-absence"
+            className="flex items-center gap-1.5 border border-jade-600 text-jade-700 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-50 transition-colors whitespace-nowrap"
+          >
+            <Briefcase size={13} /> Report work absence
+          </Link>
           {canPayroll && (
             <>
               <select

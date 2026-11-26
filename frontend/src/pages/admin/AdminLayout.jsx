@@ -74,6 +74,7 @@ const navItems = [
   { to: "/admin/team-market-visits", label: "Team market visits", icon: MapPin, requiresApprover: true, group: "My account & team" },
   { to: "/admin/department", label: "Change decisions", icon: ShieldAlert, requiresHead: true, group: "My account & team" },
   { to: "/admin/my-leave", label: "My leave", icon: CalendarPlus, group: "My account & team" },
+  { to: "/admin/my-absence", label: "My work absence", icon: Briefcase, group: "My account & team" },
   { to: "/admin/my-payslip", label: "My payslip", icon: Receipt, group: "My account & team" },
   { to: "/admin/help", label: "Help", icon: HelpCircle, group: "My account & team" },
 
