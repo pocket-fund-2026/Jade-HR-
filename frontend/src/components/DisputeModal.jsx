@@ -11,6 +11,7 @@ const ISSUE_LABELS = {
   both: "Forgot to clock in and out",
   late_coming: "Dispute my late mark",
   weekly_off: "Dispute Sunday marked absent",
+  leave: "Dispute my leave day (I did not take / was marked wrongly)",
   other: "Something else",
 };
 
@@ -39,7 +40,7 @@ export default function DisputeModal({ date: initialDate, onClose, onSubmitted, 
   const delayWords = (delayReason.match(/[A-Za-z0-9']+/g) || []).length;
   const minWords = policy?.delay_reason_min_words ?? 8;
 
-  const photoOptional = issueType === "late_coming" || issueType === "weekly_off";
+  const photoOptional = issueType === "late_coming" || issueType === "weekly_off" || issueType === "leave";
   const needsIn = issueType === "missed_clock_in" || issueType === "both" || issueType === "late_coming";
   const needsOut = issueType === "missed_clock_out" || issueType === "both";
 

@@ -437,7 +437,7 @@ export default function Dashboard() {
                       </StampBadge>
                     </td>
                     <td className="px-5 py-2.5">
-                      {d.status !== "future" && d.status !== "leave" && d.date <= todayIso && (
+                      {d.status !== "future" && d.date <= todayIso && (
                         disputedDates.has(d.date) ? (
                           <span className="text-xs text-ochre-700 flex items-center gap-1"><Flag size={12} /> Reported</span>
                         ) : (
@@ -445,7 +445,7 @@ export default function Dashboard() {
                             onClick={() => setDisputeDate(d.date)}
                             className="text-xs text-ink/70 hover:text-ochre-700 flex items-center gap-1 transition-colors"
                           >
-                            <Flag size={12} /> {d.weekoff_forfeited ? "Dispute Sunday" : d.late ? "Dispute late" : "Report issue"}
+                            <Flag size={12} /> {d.status === "leave" ? "Dispute leave" : d.weekoff_forfeited ? "Dispute Sunday" : d.late ? "Dispute late" : "Report issue"}
                           </button>
                         )
                       )}
@@ -585,7 +585,7 @@ export default function Dashboard() {
       {disputeDate && (
         <DisputeModal
           date={disputeDate}
-          defaultIssue={(() => { const x = summary?.daily?.find((r) => r.date === disputeDate); return x?.weekoff_forfeited ? "weekly_off" : x?.late ? "late_coming" : undefined; })()}
+          defaultIssue={(() => { const x = summary?.daily?.find((r) => r.date === disputeDate); return x?.status === "leave" ? "leave" : x?.weekoff_forfeited ? "weekly_off" : x?.late ? "late_coming" : undefined; })()}
           onClose={() => setDisputeDate(null)}
           onSubmitted={() => { setDisputeDate(null); load(); }}
         />

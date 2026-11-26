@@ -18,7 +18,7 @@ BUCKET = "dispute-photos"
 # Same limit as the absence/onboarding uploads — comfortably under Vercel's
 # serverless function request-body size limit once base64 inflation is accounted for.
 MAX_UPLOAD_BYTES = 4 * 1024 * 1024
-ISSUE_TYPES = {"missed_clock_in", "missed_clock_out", "both", "late_coming", "weekly_off", "other"}
+ISSUE_TYPES = {"missed_clock_in", "missed_clock_out", "both", "late_coming", "weekly_off", "leave", "other"}
 
 
 @router.post("/disputes/upload")

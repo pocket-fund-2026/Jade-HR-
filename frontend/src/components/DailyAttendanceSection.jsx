@@ -137,12 +137,12 @@ export default function DailyAttendanceSection({ monthDaily, employeeId, employe
               </td>
               {selfService && (
                 <td className="px-5 py-2 no-print">
-                  {d.status !== "future" && d.status !== "leave" && d.date <= todayIso && (
+                  {d.status !== "future" && d.date <= todayIso && (
                     pendingDates.has(d.date) ? (
                       <span className="text-xs text-ochre-700 flex items-center gap-1"><Flag size={12} /> Reported</span>
                     ) : (
                       <button onClick={() => setDisputeDate(d.date)} className="text-xs text-ink/70 hover:text-ochre-700 flex items-center gap-1 transition-colors whitespace-nowrap">
-                        <Flag size={12} /> {d.weekoff_forfeited ? "Dispute Sunday" : d.late ? "Dispute late" : "Report issue"}
+                        <Flag size={12} /> {d.status === "leave" ? "Dispute leave" : d.weekoff_forfeited ? "Dispute Sunday" : d.late ? "Dispute late" : "Report issue"}
                       </button>
                     )
                   )}
@@ -205,7 +205,7 @@ export default function DailyAttendanceSection({ monthDaily, employeeId, employe
       {disputeDate && (
         <DisputeModal
           date={disputeDate}
-          defaultIssue={(() => { const r = (daily || []).find((z) => z.date === disputeDate); return r?.weekoff_forfeited ? "weekly_off" : r?.late ? "late_coming" : undefined; })()}
+          defaultIssue={(() => { const r = (daily || []).find((z) => z.date === disputeDate); return r?.status === "leave" ? "leave" : r?.weekoff_forfeited ? "weekly_off" : r?.late ? "late_coming" : undefined; })()}
           onClose={() => setDisputeDate(null)}
           onSubmitted={() => { setDisputeDate(null); loadDisputes(); }}
         />
