@@ -23,8 +23,6 @@ const navItems = [
 
   // People — headcount, hiring, absence
   { to: "/admin/employees", label: "Employees", icon: Users, permission: "employees.view", group: "People" },
-  { to: "/admin/master-data", label: "Master data", icon: Database, permission: "employees.view", group: "People" },
-  { to: "/admin/deactivated-employees", label: "Deactivated employees", icon: UserX, permission: "employees.view", group: "People" },
   { to: "/admin/org-chart", label: "Org chart", icon: Network, permission: "employees.view", group: "People" },
   { to: "/admin/reporting-managers", label: "Reporting managers", icon: GitBranch, permission: "employees.manage", group: "People" },
   { to: "/admin/onboarding", label: "Onboarding", icon: UserPlus, badgeKey: "onboarding", permission: "onboarding.manage", group: "People" },
@@ -82,6 +80,10 @@ const navItems = [
 
   // Console administration
   { to: "/admin/team-access", label: "Team access", icon: Shield, permission: ["permissions.manage", "roles.manage"], sectionBreak: true, group: "Admin" },
+
+  // Employee records — reference lists, kept at the bottom of the sidebar
+  { to: "/admin/master-data", label: "Master data", icon: Database, permission: "employees.view", sectionBreak: true, group: "Employee records" },
+  { to: "/admin/deactivated-employees", label: "Deactivated employees", icon: UserX, permission: "employees.view", group: "Employee records" },
 ];
 
 // Every navigable section — top-level nav items plus each Reports sub-page
