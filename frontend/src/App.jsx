@@ -260,6 +260,8 @@ export default function App() {
           >
             <Route index element={<Dashboard />} />
             <Route path="employees" element={<RequirePermission anyOf={["employees.view"]}><Employees /></RequirePermission>} />
+            <Route path="master-data" element={<RequirePermission anyOf={["employees.view"]}><Employees mode="master" /></RequirePermission>} />
+            <Route path="deactivated-employees" element={<RequirePermission anyOf={["employees.view"]}><Employees mode="deactivated" /></RequirePermission>} />
             <Route path="employees/new" element={<RequirePermission anyOf={["employees.manage"]}><EmployeeDetails /></RequirePermission>} />
             <Route path="employees/:id" element={<RequirePermission anyOf={["employees.view"]}><EmployeeDetails /></RequirePermission>} />
             <Route path="payroll" element={<RequirePermission anyOf={["payroll.view"]}><Payroll /></RequirePermission>} />

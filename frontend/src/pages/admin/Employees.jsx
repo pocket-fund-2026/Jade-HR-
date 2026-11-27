@@ -144,7 +144,15 @@ async function exportCompleteDetailsExcel() {
   XLSX.writeFile(wb, `jade-hr-employee-complete-details-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
-export default function Employees() {
+// mode: "active" = Employees (working only), "master" = Master Data (everyone),
+// "deactivated" = Deactivated Employees (inactive only).
+const MODES = {
+  active: { title: "Employees", sub: (n, t) => `${n} working · ${t - n} deactivated hidden` },
+  master: { title: "Master Data", sub: (n, t) => `${t} employees in total · ${n} working · ${t - n} deactivated` },
+  deactivated: { title: "Deactivated Employees", sub: (n, t) => `${t - n} deactivated` },
+};
+
+export default function Employees({ mode = "active" }) {
   const { can } = useAuth();
   // salary.edit deliberately does NOT imply salary.view — HR can be granted
   // the ability to set salary figures without being able to see anyone's
@@ -156,6 +164,7 @@ export default function Employees() {
   const [query, setQuery] = useState("");
   const [location, setLocation] = useState("all");
   const [category, setCategory] = useState("all");
+  const status = mode === "master" ? "all" : mode === "deactivated" ? "inactive" : "active";
   const [page, setPage] = useState(1);
   const [showImport, setShowImport] = useState(false);
   const canManage = can("employees.manage");
@@ -182,7 +191,7 @@ export default function Employees() {
   };
 
   useEffect(load, [canViewSalary]);
-  useEffect(() => setPage(1), [query, location, category]);
+  useEffect(() => setPage(1), [query, location, category, mode]);
 
   const locations = useMemo(
     () => [...new Set(employees.map((e) => e.location).filter(Boolean))].sort(),
@@ -194,13 +203,15 @@ export default function Employees() {
     return employees.filter((e) => {
       if (location !== "all" && e.location !== location) return false;
       if (category !== "all" && e.employee_category !== category) return false;
+      if (status === "active" && e.is_active === false) return false;
+      if (status === "inactive" && e.is_active !== false) return false;
       if (!q) return true;
       return (
         `${e.first_name} ${e.last_name}`.toLowerCase().includes(q) ||
         e.employee_code.toLowerCase().includes(q)
       );
     });
-  }, [employees, query, location, category]);
+  }, [employees, query, location, category, status]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageSafe = Math.min(page, totalPages);
@@ -213,8 +224,8 @@ export default function Employees() {
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h2 className="font-display text-2xl text-ink">Employees</h2>
-          <p className="text-xs text-ink/70 font-nums mt-0.5">{employees.length} on the ledger</p>
+          <h2 className="font-display text-2xl text-ink">{MODES[mode].title}</h2>
+          <p className="text-xs text-ink/70 font-nums mt-0.5">{MODES[mode].sub(employees.filter((e) => e.is_active !== false).length, employees.length)}</p>
         </div>
         <div className="flex flex-wrap gap-4">
           <button
@@ -316,14 +327,15 @@ export default function Employees() {
                 <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Gross (B+H+C)</th>
               )}
               <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Status</th>
+              {mode === "deactivated" && <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Exit date</th>}
               <th></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={7}>Loading ledger…</td></tr>
+              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={mode === "deactivated" ? 8 : 7}>Loading ledger…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={7}><EmptyState title="No employees match" action={query || location !== "all" || category !== "all" ? { label: "Clear filters", onClick: () => { setQuery(""); setLocation("all"); setCategory("all"); setPage(1); } } : { label: "Add an employee", to: "/admin/employees/new" }}>{query || location !== "all" || category !== "all" ? "Try widening the search or removing a filter." : "No employees are on file yet."}</EmptyState></td></tr>
+              <tr><td colSpan={mode === "deactivated" ? 8 : 7}><EmptyState title="No employees match" action={query || location !== "all" || category !== "all" ? { label: "Clear filters", onClick: () => { setQuery(""); setLocation("all"); setCategory("all"); setPage(1); } } : mode === "deactivated" ? undefined : { label: "Add an employee", to: "/admin/employees/new" }}>{query || location !== "all" || category !== "all" ? "Try widening the search or removing a filter." : mode === "deactivated" ? "Nobody has been deactivated." : "No employees are on file yet."}</EmptyState></td></tr>
             ) : (
               pageItems.map((e) => (
                 <tr key={e.id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
@@ -352,6 +364,9 @@ export default function Employees() {
                       {e.is_active ? "Working" : "Inactive"}
                     </StampBadge>
                   </td>
+                  {mode === "deactivated" && (
+                    <td className="px-5 py-3.5 text-ink/70 font-nums">{e.exit_date || "—"}</td>
+                  )}
                   <td className="px-5 py-3.5">
                     <Link
                       to={`/admin/employees/${e.id}`}

@@ -1,4 +1,4 @@
-import { ChevronDown, GraduationCap, Briefcase, Gauge, BookOpen, CalendarCheck, CalendarClock, CalendarDays, CalendarPlus, CheckSquare, ClipboardList, DoorOpen, FileBarChart, FileText, Flag, GitBranch, HelpCircle, Home, KeyRound, LayoutDashboard, LogOut, Mail, ReceiptText, MapPin, Menu, Network, Plane, Receipt, Search, Shield, ShieldAlert, ShieldCheck, Stamp, UserPlus, Users, Users2, Wallet, X } from "lucide-react";
+import { ChevronDown, Database, UserX, GraduationCap, Briefcase, Gauge, BookOpen, CalendarCheck, CalendarClock, CalendarDays, CalendarPlus, CheckSquare, ClipboardList, DoorOpen, FileBarChart, FileText, Flag, GitBranch, HelpCircle, Home, KeyRound, LayoutDashboard, LogOut, Mail, ReceiptText, MapPin, Menu, Network, Plane, Receipt, Search, Shield, ShieldAlert, ShieldCheck, Stamp, UserPlus, Users, Users2, Wallet, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDrawerDrag } from "../../lib/useDrawerDrag.js";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -23,6 +23,8 @@ const navItems = [
 
   // People — headcount, hiring, absence
   { to: "/admin/employees", label: "Employees", icon: Users, permission: "employees.view", group: "People" },
+  { to: "/admin/master-data", label: "Master data", icon: Database, permission: "employees.view", group: "People" },
+  { to: "/admin/deactivated-employees", label: "Deactivated employees", icon: UserX, permission: "employees.view", group: "People" },
   { to: "/admin/org-chart", label: "Org chart", icon: Network, permission: "employees.view", group: "People" },
   { to: "/admin/reporting-managers", label: "Reporting managers", icon: GitBranch, permission: "employees.manage", group: "People" },
   { to: "/admin/onboarding", label: "Onboarding", icon: UserPlus, badgeKey: "onboarding", permission: "onboarding.manage", group: "People" },
