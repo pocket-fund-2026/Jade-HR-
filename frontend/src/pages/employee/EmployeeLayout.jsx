@@ -1,4 +1,4 @@
-import { BookOpen, CalendarClock, FileText, HelpCircle, Home, KeyRound, LogOut, MapPin, Receipt, ShieldAlert, UserPlus, Users } from "lucide-react";
+import { BookOpen, CalendarClock, FileText, Gavel, HelpCircle, KeyRound, LayoutDashboard, LogOut, Receipt, UserPlus, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
@@ -8,11 +8,34 @@ import api from "../../lib/api.js";
 import { useAuth } from "../../lib/auth.jsx";
 
 const POLL_MS = 25000;
+const TEAM_PATHS = ["/employee/my-team", "/employee/team-leave", "/employee/team-wfh", "/employee/team-disputes", "/employee/team-market-visits"];
+
+function NavItem({ to, end, icon: Icon, children, badge, forceActive }) {
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      className={({ isActive }) =>
+        `flex flex-shrink-0 items-center gap-2 whitespace-nowrap px-3 min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
+          isActive || forceActive ? "border-manila text-manila" : "border-transparent text-manila/70 hover:text-manila"
+        }`
+      }
+    >
+      {Icon && <Icon size={14} className="flex-shrink-0" />}
+      {children}
+      {badge > 0 && (
+        <span key={badge} className="t-pop bg-ochre-500 text-ledger-900 text-[10px] font-bold rounded-full min-w-[20px] h-5 px-1 flex items-center justify-center font-nums">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
+    </NavLink>
+  );
+}
 
 export default function EmployeeLayout() {
   const location = useLocation();
   const { user, logout } = useAuth();
-  const [pendingTeamLeave, setPendingTeamLeave] = useState(0);
+  const [pendingTeam, setPendingTeam] = useState({ leave: 0, disputes: 0, visits: 0 });
   const [showPw, setShowPw] = useState(false);
   const [interviewer, setInterviewer] = useState(false);
 
@@ -21,12 +44,17 @@ export default function EmployeeLayout() {
     api.get("/api/careers/interviewers/me").then(({ data }) => setInterviewer(!!data.eligible)).catch(() => {});
   }, []);
 
+  // One poll for everything a manager has waiting, so the "My team" tab and
+  // the team sub-menu both show live counts.
   const refetchPendingCount = () => {
     if (!user?.is_leave_approver) return;
-    api
-      .get("/api/me/team-leave-requests", { params: { status: "pending" } })
-      .then(({ data }) => setPendingTeamLeave(data.length))
-      .catch(() => {});
+    Promise.all([
+      api.get("/api/me/team-leave-requests", { params: { status: "pending" } }).then(({ data }) => data.length).catch(() => null),
+      api.get("/api/me/team-disputes", { params: { status: "pending" } }).then(({ data }) => data.length).catch(() => null),
+      api.get("/api/market-visits/my-team", { params: { status: "pending" } }).then(({ data }) => data.length).catch(() => null),
+    ]).then(([leave, disputes, visits]) => setPendingTeam((p) => ({
+      leave: leave ?? p.leave, disputes: disputes ?? p.disputes, visits: visits ?? p.visits,
+    })));
   };
 
   useEffect(() => {
@@ -36,207 +64,62 @@ export default function EmployeeLayout() {
     return () => clearInterval(interval);
   }, [user?.is_leave_approver]);
 
+  const teamTotal = pendingTeam.leave + pendingTeam.disputes + pendingTeam.visits;
+  const inTeam = TEAM_PATHS.some((p) => location.pathname.startsWith(p));
+
   return (
     <div className="min-h-screen bg-manila">
       <header className="bg-ledger-800 relative">
         <div className="pointer-events-none absolute inset-0 bg-ledger-weave" />
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-5 flex flex-wrap items-center justify-between gap-4 relative">
-          <div className="flex items-center gap-4 min-w-0">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-3 relative">
+          <div className="flex items-center gap-3 min-w-0">
             <img src="/jade-logo.png" alt="" className="w-8 h-8 flex-shrink-0" />
-            <Avatar className="w-10 h-10" />
+            <Avatar className="w-10 h-10 flex-shrink-0" />
             <div className="min-w-0">
               <p className="font-display text-manila text-lg leading-none">JADE HR</p>
               <p className="text-manila/75 text-xs mt-1 truncate">{user?.name}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
+          <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
             <button
               onClick={() => setShowPw(true)}
               title="Change password"
-              className="flex items-center gap-2 text-sm min-h-[44px] px-1 text-manila/75 hover:text-manila transition-colors whitespace-nowrap"
+              aria-label="Change password"
+              className="flex items-center gap-2 text-sm min-h-[44px] px-2 text-manila/75 hover:text-manila transition-colors whitespace-nowrap"
             >
               <KeyRound size={16} className="flex-shrink-0" />
-              <span className="hidden sm:inline">Change password</span>
+              <span className="hidden md:inline">Change password</span>
             </button>
             <button
               onClick={logout}
               title="Sign out"
-              className="flex items-center gap-2 text-sm min-h-[44px] px-1 text-manila/75 hover:text-manila transition-colors whitespace-nowrap"
+              aria-label="Sign out"
+              className="flex items-center gap-2 text-sm min-h-[44px] px-2 text-manila/75 hover:text-manila transition-colors whitespace-nowrap"
             >
               <LogOut size={16} className="flex-shrink-0" />
-              <span className="hidden sm:inline">Sign out</span>
+              <span className="hidden md:inline">Sign out</span>
             </button>
           </div>
         </div>
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 relative">
-          <nav className="flex gap-1 -mb-px overflow-x-auto sm:overflow-visible nav-scroll">
-            <NavLink
-              to="/employee"
-              end
-              className={({ isActive }) =>
-                `flex-shrink-0 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
-                }`
-              }
-            >
-              My dashboard
-            </NavLink>
+        <div className="max-w-6xl mx-auto relative">
+          <nav className="flex -mb-px overflow-x-auto nav-scroll px-2 sm:px-4" aria-label="Main">
+            <NavItem to="/employee" end icon={LayoutDashboard}>My dashboard</NavItem>
             {user?.is_leave_approver && (
-              <NavLink
-                to="/employee/my-team"
-                className={({ isActive }) =>
-                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                    isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
-                  }`
-                }
-              >
-                <Users size={14} />
-                My team
-              </NavLink>
+              <NavItem to="/employee/my-team" icon={Users} badge={teamTotal} forceActive={inTeam}>My team</NavItem>
             )}
-            {user?.is_dept_head && (
-              <NavLink
-                to="/employee/department"
-                className={({ isActive }) =>
-                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                    isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
-                  }`
-                }
-              >
-                Change decisions
-              </NavLink>
-            )}
-            {interviewer && (
-              <NavLink
-                to="/employee/interview-availability"
-                className={({ isActive }) =>
-                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-4 py-3 min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                    isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
-                  }`
-                }
-              >
-                <CalendarClock size={14} />
-                Interviews
-              </NavLink>
-            )}
-            {user?.is_leave_approver && (
-              <NavLink
-                to="/employee/team-leave"
-                className={({ isActive }) =>
-                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                    isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
-                  }`
-                }
-              >
-                <Users size={14} />
-                Team Leave
-                {pendingTeamLeave > 0 && (
-                  <span key={pendingTeamLeave} className="t-pop bg-ochre-500 text-ledger-900 text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                    {pendingTeamLeave}
-                  </span>
-                )}
-              </NavLink>
-            )}
-            {user?.is_leave_approver && (
-              <NavLink
-                to="/employee/team-wfh"
-                className={({ isActive }) =>
-                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                    isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
-                  }`
-                }
-              >
-                <Home size={14} />
-                Team WFH
-              </NavLink>
-            )}
-            {user?.is_leave_approver && (
-              <NavLink
-                to="/employee/team-disputes"
-                className={({ isActive }) =>
-                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                    isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
-                  }`
-                }
-              >
-                <ShieldAlert size={14} />
-                Team disputes
-              </NavLink>
-            )}
-            {user?.is_leave_approver && (
-              <NavLink
-                to="/employee/team-market-visits"
-                className={({ isActive }) =>
-                  `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                    isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
-                  }`
-                }
-              >
-                <MapPin size={14} />
-                Team market visits
-              </NavLink>
-            )}
-            <NavLink
-              to="/employee/tax-declaration"
-              className={({ isActive }) =>
-                `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
-                }`
-              }
-            >
-              <Receipt size={14} />
-              Tax declaration
-            </NavLink>
-            <NavLink
-              to="/employee/my-payslip"
-              className={({ isActive }) =>
-                `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
-                }`
-              }
-            >
-              <FileText size={14} />
-              My payslip
-            </NavLink>
-            <NavLink
-              to="/employee/my-onboarding"
-              className={({ isActive }) =>
-                `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
-                }`
-              }
-            >
-              <UserPlus size={14} />
-              My onboarding
-            </NavLink>
-            <NavLink
-              to="/employee/policy"
-              className={({ isActive }) =>
-                `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
-                }`
-              }
-            >
-              <BookOpen size={14} />
-              Company policy
-            </NavLink>
-            <NavLink
-              to="/employee/help"
-              className={({ isActive }) =>
-                `flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink sm:whitespace-normal px-[1.5em] py-[0.625em] leading-tight min-h-[44px] text-sm font-medium border-b-2 transition-colors ${
-                  isActive ? "border-manila text-manila" : "border-transparent text-manila/75 hover:text-manila"
-                }`
-              }
-            >
-              <HelpCircle size={14} />
-              Help
-            </NavLink>
+            {user?.is_dept_head && <NavItem to="/employee/department" icon={Gavel}>Change decisions</NavItem>}
+            {interviewer && <NavItem to="/employee/interview-availability" icon={CalendarClock}>Interviews</NavItem>}
+            <NavItem to="/employee/my-payslip" icon={FileText}>My payslip</NavItem>
+            <NavItem to="/employee/tax-declaration" icon={Receipt}>Tax declaration</NavItem>
+            <NavItem to="/employee/my-onboarding" icon={UserPlus}>My onboarding</NavItem>
+            <NavItem to="/employee/policy" icon={BookOpen}>Policy</NavItem>
+            <NavItem to="/employee/help" icon={HelpCircle}>Help</NavItem>
           </nav>
         </div>
       </header>
-      <main className="max-w-4xl mx-auto px-5 sm:px-10 py-8">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <div key={location.pathname} className="page-transition">
-          <Outlet context={{ pendingTeamLeave, refreshTeamLeaveBadge: () => setPendingTeamLeave((n) => n) }} />
+          <Outlet context={{ pendingTeam, pendingTeamLeave: pendingTeam.leave, refetchPendingCount, refreshTeamLeaveBadge: refetchPendingCount }} />
         </div>
       </main>
       {showPw && <ChangePasswordModal onClose={() => setShowPw(false)} />}

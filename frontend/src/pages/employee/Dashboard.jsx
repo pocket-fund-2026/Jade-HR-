@@ -1,4 +1,4 @@
-import { Bell, Briefcase, Flag, Home, Paperclip, Plane, Printer, Wallet, X } from "lucide-react";
+import { Bell, Briefcase, CalendarDays, ChevronRight, Flag, Home, Paperclip, Printer, Wallet, X } from "lucide-react";
 import OfferNotices from "../../components/OfferNotices.jsx";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -36,6 +36,93 @@ const DAY_TYPE_LABELS = {
   anniversary: "Anniversary (informational only)",
 };
 
+function RequestTile({ icon: Icon, tone, title, text, pending, onClick }) {
+  const chip = tone === "ochre" ? "bg-ochre-50 text-ochre-700" : "bg-jade-50 text-jade-700";
+  return (
+    <button
+      type="button" onClick={onClick}
+      className="group text-left bg-paper rounded-sm shadow-card border border-transparent hover:border-jade-500 px-4 py-3.5 flex items-center gap-3 transition-colors"
+    >
+      <span className={`rounded-sm p-2.5 flex-shrink-0 ${chip}`}><Icon size={20} /></span>
+      <span className="flex-1 min-w-0">
+        <span className="block text-sm font-semibold text-ink">{title}</span>
+        <span className="block text-[11px] text-ink/60 truncate">{text}</span>
+        {pending > 0 && <span className="inline-block mt-1 text-[10px] font-semibold text-ochre-700 bg-ochre-50 rounded-full px-2 py-0.5">{pending} waiting for approval</span>}
+      </span>
+      <ChevronRight size={16} className="text-ink/30 group-hover:text-jade-600 transition-colors flex-shrink-0" />
+    </button>
+  );
+}
+
+function wfhNote(w) {
+  if (w.status !== "approved") return w.resolution_note || "";
+  const base = w.work_completed === true ? "Completion confirmed — 50% pay"
+    : w.work_completed === false ? "Completion not confirmed — normal attendance/leave rules apply"
+    : "Awaiting your manager's completion confirmation";
+  return [base, w.resolution_note].filter(Boolean).join(" · ");
+}
+
+// Everything the person has asked for (leave, work absence, WFH, loans) in one
+// list, newest first, instead of four separate tables.
+function MyRequests({ leave, absence, loans, wfh }) {
+  const [kind, setKind] = useState("all");
+  const [showAll, setShowAll] = useState(false);
+  const range = (a, b) => (a === b ? formatDate(a) : `${formatDate(a)} – ${formatDate(b)}`);
+  const rows = [
+    ...leave.map((l) => ({ id: `l-${l.id}`, kind: "leave", label: LEAVE_LABELS[l.leave_type] || "Leave", when: range(l.start_date, l.end_date), sort: l.created_at || l.start_date, text: l.reason, status: l.status, note: l.admin_note })),
+    ...absence.map((a) => ({ id: `a-${a.id}`, kind: "absence", label: "Work absence", when: `${range(a.start_date, a.end_date)} · ${a.number_of_days} day${Number(a.number_of_days) === 1 ? "" : "s"}`, sort: a.created_at || a.start_date, text: a.details, status: a.status, note: a.admin_note })),
+    ...wfh.map((w) => ({ id: `w-${w.id}`, kind: "wfh", label: "WFH", when: range(w.start_date, w.end_date), sort: w.created_at || w.start_date, text: w.reason, status: w.status, note: wfhNote(w) })),
+    ...loans.map((l) => ({ id: `n-${l.id}`, kind: "loan", label: "Loan", when: `₹${Number(l.amount).toLocaleString("en-IN")} · ${l.repayment_months} months`, sort: l.created_at || "", text: l.reason, status: l.status, note: l.admin_note })),
+  ].sort((a, b) => String(b.sort).localeCompare(String(a.sort)));
+  if (!rows.length) return null;
+  const kinds = [["all", "All"], ["leave", "Leave"], ["absence", "Work absence"], ["wfh", "WFH"], ["loan", "Loans"]]
+    .filter(([k]) => k === "all" || rows.some((r) => r.kind === k));
+  const filtered = rows.filter((r) => kind === "all" || r.kind === kind);
+  const shown = showAll ? filtered : filtered.slice(0, 6);
+  const pending = rows.filter((r) => r.status === "pending").length;
+  return (
+    <div className="bg-paper rounded-sm shadow-card overflow-hidden mt-6 no-print">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 pt-4 pb-3">
+        <p className="text-xs font-semibold text-ink/70">
+          My requests{pending > 0 && <span className="ml-2 text-ochre-700">{pending} waiting for approval</span>}
+        </p>
+        {kinds.length > 2 && (
+          <div className="flex flex-wrap gap-1">
+            {kinds.map(([k, l]) => (
+              <button key={k} onClick={() => { setKind(k); setShowAll(false); }}
+                className={`rounded-sm px-2.5 py-1 text-[11px] font-semibold border transition-colors ${kind === k ? "bg-ledger-800 text-manila border-ledger-800" : "border-ink/15 text-ink/65 hover:text-ink"}`}>
+                {l}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <ul className="divide-y divide-ink/[0.06] border-t border-ink/[0.06]">
+        {shown.map((r) => (
+          <li key={r.id} className="px-4 sm:px-5 py-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+            <div className="min-w-0 flex-1 basis-60">
+              <p className="text-sm text-ink">
+                <span className="font-semibold">{r.label}</span>
+                <span className="text-ink/60 font-nums"> · {r.when}</span>
+              </p>
+              {r.text && <p className="text-sm text-ink/65 break-words">{r.text}</p>}
+            </div>
+            <div className="min-w-0 sm:text-right sm:max-w-[45%]">
+              <StampBadge status={r.status}>{r.status}</StampBadge>
+              {r.note && <p className="text-xs text-ink/60 mt-1 break-words">{r.note}</p>}
+            </div>
+          </li>
+        ))}
+      </ul>
+      {filtered.length > 6 && (
+        <button onClick={() => setShowAll((v) => !v)} className="w-full border-t border-ink/[0.06] py-2.5 text-xs font-semibold text-jade-700 hover:bg-manila/40">
+          {showAll ? "Show fewer" : `Show all ${filtered.length}`}
+        </button>
+      )}
+    </div>
+  );
+}
+
 const SHORT_MONTHS_EMP = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export default function Dashboard() {
@@ -68,6 +155,7 @@ export default function Dashboard() {
   const [showWfhModal, setShowWfhModal] = useState(false);
   const [showLoanModal, setShowLoanModal] = useState(false);
   const [dismissedNotice, setDismissedNotice] = useState(false);
+  const [showAllUpdates, setShowAllUpdates] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Deep-link target for the Policy page's "My Leave" link, which can't
@@ -147,6 +235,14 @@ export default function Dashboard() {
     })),
   ];
 
+  // Leave decisions are marked seen by the server when read; dispute decisions
+  // are marked here once shown, so the same notice doesn't return every visit.
+  const unseenDisputeIds = freshUpdates.filter((u) => u.kind === "dispute").map((u) => u.id).join(",");
+  useEffect(() => {
+    if (!unseenDisputeIds) return;
+    api.post("/api/me/disputes/mark-seen", { ids: unseenDisputeIds.split(",") }).catch(() => {});
+  }, [unseenDisputeIds]);
+
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 no-print">
@@ -165,14 +261,25 @@ export default function Dashboard() {
       <OfferNotices />
 
       {!dismissedNotice && freshUpdates.length > 0 && (
-        <div className="bg-ochre-50 border border-ochre-400/40 rounded-sm px-4 py-3 mb-6 flex items-start gap-4">
+        <div className="bg-ochre-50 border border-ochre-400/40 rounded-sm px-4 py-3 mb-6 flex items-start gap-3">
           <Bell size={16} className="text-ochre-700 flex-shrink-0 mt-0.5" />
-          <div className="flex-1 space-y-1">
-            {freshUpdates.map((u) => (
-              <p key={`${u.kind}-${u.id}`} className="text-sm text-ink/80">{u.text}</p>
+          <div className="flex-1 min-w-0 space-y-1">
+            <p className="text-xs font-semibold text-ink/70">
+              {freshUpdates.length === 1 ? "1 update since your last visit" : `${freshUpdates.length} updates since your last visit`}
+            </p>
+            {(showAllUpdates ? freshUpdates : freshUpdates.slice(0, 3)).map((u) => (
+              <p key={`${u.kind}-${u.id}`} className="text-sm text-ink/80 break-words">
+                <span className={`inline-block w-2 h-2 rounded-full mr-2 align-middle ${u.status === "approved" ? "bg-jade-600" : "bg-rust-500"}`} />
+                {u.text}
+              </p>
             ))}
+            {freshUpdates.length > 3 && (
+              <button onClick={() => setShowAllUpdates((v) => !v)} className="text-xs font-semibold text-jade-700 hover:underline">
+                {showAllUpdates ? "Show fewer" : `and ${freshUpdates.length - 3} more`}
+              </button>
+            )}
           </div>
-          <button onClick={() => setDismissedNotice(true)} aria-label="Dismiss" className="text-ink/70 hover:text-ink">
+          <button onClick={() => setDismissedNotice(true)} aria-label="Dismiss" className="p-1 -m-1 text-ink/60 hover:text-ink">
             <X size={16} />
           </button>
         </div>
@@ -181,6 +288,35 @@ export default function Dashboard() {
       <div className="no-print">
         <SelfieCheckinCard />
         <MarketVisitCheckinCard />
+      </div>
+
+      <div className="no-print mb-6">
+        <p className="text-xs font-semibold text-ink/70 mb-2">What do you need?</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <RequestTile
+            icon={CalendarDays} tone="jade" title="Apply for leave" text="Paid leave, half day or comp-off"
+            pending={leaveRequests.filter((l) => l.status === "pending").length}
+            onClick={() => setShowLeaveModal(true)}
+          />
+          <RequestTile
+            icon={Briefcase} tone="jade" title="Work-related absence" text="Client visit, event, travel or training"
+            pending={absenceRequests.filter((a) => a.status === "pending").length}
+            onClick={() => setShowAbsenceModal(true)}
+          />
+          <RequestTile
+            icon={Flag} tone="ochre" title="Fix my attendance" text="Missed punch, wrong late mark, Sunday"
+            pending={disputes.filter((d) => d.status === "pending").length}
+            onClick={() => setDisputeDate(new Date().toLocaleDateString("en-CA"))}
+          />
+        </div>
+        <div className="flex flex-wrap gap-x-5 gap-y-1 mt-2.5">
+          <button onClick={() => setShowWfhModal(true)} className="flex items-center gap-1.5 text-xs font-semibold text-ink/70 hover:text-jade-700">
+            <Home size={13} /> Request WFH
+          </button>
+          <button onClick={() => setShowLoanModal(true)} className="flex items-center gap-1.5 text-xs font-semibold text-ink/70 hover:text-jade-700">
+            <Wallet size={13} /> Request loan
+          </button>
+        </div>
       </div>
 
       {loading || !summary ? (
@@ -291,32 +427,9 @@ export default function Dashboard() {
           <div className="bg-paper rounded-sm shadow-card p-5 mb-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
               <p className="text-xs font-semibold text-ink/70">Leave balance ({today.getFullYear()})</p>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  onClick={() => setShowLeaveModal(true)}
-                  className="flex items-center gap-1.5 bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:bg-jade-700 transition-colors whitespace-nowrap"
-                >
-                  <Plane size={13} /> Request leave
-                </button>
-                <button
-                  onClick={() => setShowAbsenceModal(true)}
-                  className="flex items-center gap-1.5 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:border-jade-500 transition-colors whitespace-nowrap"
-                >
-                  <Briefcase size={13} /> Report work absence
-                </button>
-                <button
-                  onClick={() => setShowWfhModal(true)}
-                  className="flex items-center gap-1.5 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:border-jade-500 transition-colors whitespace-nowrap"
-                >
-                  <Home size={13} /> Request WFH
-                </button>
-                <button
-                  onClick={() => setShowLoanModal(true)}
-                  className="flex items-center gap-1.5 bg-paper border border-ink/15 text-ink px-[1.5em] py-[0.625em] leading-tight rounded-sm text-xs font-semibold hover:border-jade-500 transition-colors whitespace-nowrap"
-                >
-                  <Wallet size={13} /> Request loan
-                </button>
-              </div>
+              <button onClick={() => setShowLeaveModal(true)} className="text-xs font-semibold text-jade-700 hover:underline">
+                Apply for leave →
+              </button>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {leaveBalance.filter((b) => !["unpaid", "maternity", "compassionate"].includes(b.leave_type)).map((b) => (
@@ -394,190 +507,7 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
-            <p className="px-5 pt-4 pb-1 text-xs font-semibold text-ink/70">Daily attendance</p>
-            <table className="w-full min-w-[560px] text-sm mt-2">
-              <thead className="text-left sticky top-0 z-10 bg-paper">
-                <tr className="border-b-2 border-ink/10">
-                  <th className="px-5 py-2.5 font-semibold text-[11px] text-ink/70">Date</th>
-                  <th className="px-5 py-2.5 font-semibold text-[11px] text-ink/70">In</th>
-                  <th className="px-5 py-2.5 font-semibold text-[11px] text-ink/70">Out</th>
-                  <th className="px-5 py-2.5 font-semibold text-[11px] text-ink/70">Hours</th>
-                  <th className="px-5 py-2.5 font-semibold text-[11px] text-ink/70">Status</th>
-                  <th className="px-5 py-2.5"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {summary.daily.map((d) => (
-                  <tr key={d.date} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
-                    <td className="px-5 py-2.5 font-nums text-ink/70">{formatDate(d.date)}</td>
-                    <td className="px-5 py-2.5 font-nums text-ink/70">
-                      {formatTime(d.first_in)}
-                      {d.late && <span className="ml-1.5 text-[10px] font-sans font-semibold text-rust-500">Late</span>}
-                      {lateAllowanceInfo(d) && (
-                      <span title={lateAllowanceInfo(d).text} className={`ml-1.5 text-[10px] font-sans font-semibold ${lateAllowanceInfo(d).used ? "text-jade-600" : "text-ochre-700"}`}>
-                        {lateAllowanceInfo(d).short}
-                      </span>
-              )}
-                      {d.lop_days > 0 && (
-                        <span className="ml-1.5 text-[10px] font-sans font-semibold text-rust-500">
-                          {{ 0.25: "¼", 0.5: "½", 0.75: "¾", 1: "1" }[Number(d.lop_days)] || Number(d.lop_days)} LOP
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-5 py-2.5 font-nums text-ink/70">{formatTime(d.last_out)}</td>
-                    <td className="px-5 py-2.5 font-nums">{d.hours_worked ? formatHoursMins(d.hours_worked) : "—"}</td>
-                    <td className="px-5 py-2.5">
-                      <StampBadge status={d.status}>
-                        {d.status === "leave"
-                          ? `${LEAVE_LABELS[d.leave_type]} leave`
-                          : d.status === "holiday"
-                          ? d.holiday_description || "holiday"
-                          : d.weekoff_forfeited ? "absent · Sunday" : d.corrected ? `${d.status} · corrected` : d.status}
-                      </StampBadge>
-                    </td>
-                    <td className="px-5 py-2.5">
-                      {d.status !== "future" && d.date <= todayIso && (
-                        disputedDates.has(d.date) ? (
-                          <span className="text-xs text-ochre-700 flex items-center gap-1"><Flag size={12} /> Reported</span>
-                        ) : (
-                          <button
-                            onClick={() => setDisputeDate(d.date)}
-                            className="text-xs text-ink/70 hover:text-ochre-700 flex items-center gap-1 transition-colors"
-                          >
-                            <Flag size={12} /> {d.status === "leave" ? "Dispute leave" : d.weekoff_forfeited ? "Dispute Sunday" : d.late ? "Dispute late" : "Report issue"}
-                          </button>
-                        )
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {disputes.length > 0 && (
-            <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto mt-6">
-              <p className="px-5 pt-4 pb-3 text-xs font-semibold text-ink/70">My reported issues</p>
-              <table className="w-full min-w-[520px] text-sm">
-                <tbody>
-                  {disputes.map((d) => (
-                    <tr key={d.id} className="border-t border-ink/[0.06]">
-                      <td className="px-5 py-3 font-nums text-ink/70 w-28">{formatDate(d.date)}</td>
-                      <td className="px-5 py-3 text-ink/70">
-                        {d.appeal_of && <span className="mr-1.5 text-[10px] font-semibold text-ochre-700">Appeal</span>}
-                        {d.reason}
-                        {d.photo_url && (
-                          <a href={d.photo_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-jade-700 hover:underline mt-1">
-                            <Paperclip size={11} /> {d.photo_filename || "Photo"}
-                          </a>
-                        )}
-                      </td>
-                      <td className="px-5 py-3">
-                        <StampBadge status={d.status}>{d.status}</StampBadge>
-                        {d.admin_note && <div className="text-xs text-ink/70 mt-1">{d.admin_note}</div>}
-                        {d.hr_response && <div className="text-xs text-ink/80 mt-1 border-l-2 border-jade-500 pl-2"><strong>HR response:</strong> {d.hr_response}</div>}
-                        {d.status === "rejected" && !d.appeal_of && !disputes.some((x) => x.appeal_of === d.id) && (
-                          <button onClick={() => setAppealing(d)} className="block text-xs font-semibold text-jade-700 hover:underline mt-1">Appeal</button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {leaveRequests.length > 0 && (
-            <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto mt-6">
-              <p className="px-5 pt-4 pb-3 text-xs font-semibold text-ink/70">My leave requests</p>
-              <table className="w-full min-w-[520px] text-sm">
-                <tbody>
-                  {leaveRequests.map((l) => (
-                    <tr key={l.id} className="border-t border-ink/[0.06]">
-                      <td className="px-5 py-3 font-nums text-ink/70 w-40">{formatDate(l.start_date)}–{formatDate(l.end_date)}</td>
-                      <td className="px-5 py-3 text-ink/70 w-24">{LEAVE_LABELS[l.leave_type]}</td>
-                      <td className="px-5 py-3 text-ink/70">{l.reason}</td>
-                      <td className="px-5 py-3">
-                        <StampBadge status={l.status}>{l.status}</StampBadge>
-                        {l.admin_note && <div className="text-xs text-ink/70 mt-1">{l.admin_note}</div>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {absenceRequests.length > 0 && (
-            <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto mt-6">
-              <p className="px-5 pt-4 pb-3 text-xs font-semibold text-ink/70">My work absence requests</p>
-              <table className="w-full min-w-[520px] text-sm">
-                <tbody>
-                  {absenceRequests.map((a) => (
-                    <tr key={a.id} className="border-t border-ink/[0.06]">
-                      <td className="px-5 py-3 font-nums text-ink/70 w-40">{formatDate(a.start_date)}–{formatDate(a.end_date)}</td>
-                      <td className="px-5 py-3 text-ink/70 w-24 font-nums">{a.number_of_days} day{a.number_of_days === 1 ? "" : "s"}</td>
-                      <td className="px-5 py-3 text-ink/70">{a.details}</td>
-                      <td className="px-5 py-3 text-ink/70">{a.approver_name}</td>
-                      <td className="px-5 py-3">
-                        <StampBadge status={a.status}>{a.status}</StampBadge>
-                        {a.admin_note && <div className="text-xs text-ink/70 mt-1">{a.admin_note}</div>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          {loanRequests.length > 0 && (
-            <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto mt-6">
-              <p className="px-5 pt-4 pb-3 text-xs font-semibold text-ink/70">My loan requests</p>
-              <table className="w-full min-w-[520px] text-sm">
-                <tbody>
-                  {loanRequests.map((l) => (
-                    <tr key={l.id} className="border-t border-ink/[0.06]">
-                      <td className="px-5 py-3 font-nums text-ink/70 w-28">₹{Number(l.amount).toLocaleString("en-IN")}</td>
-                      <td className="px-5 py-3 text-ink/70 w-28 font-nums">{l.repayment_months} mo</td>
-                      <td className="px-5 py-3 text-ink/70">{l.reason}</td>
-                      <td className="px-5 py-3">
-                        <StampBadge status={l.status}>{l.status}</StampBadge>
-                        {l.admin_note && <div className="text-xs text-ink/70 mt-1">{l.admin_note}</div>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          {wfhRequests.length > 0 && (
-            <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto mt-6">
-              <p className="px-5 pt-4 pb-3 text-xs font-semibold text-ink/70">My <abbr className="acr">WFH</abbr> requests</p>
-              <table className="w-full min-w-[520px] text-sm">
-                <tbody>
-                  {wfhRequests.map((w) => (
-                    <tr key={w.id} className="border-t border-ink/[0.06]">
-                      <td className="px-5 py-3 font-nums text-ink/70 w-40">{formatDate(w.start_date)}–{formatDate(w.end_date)}</td>
-                      <td className="px-5 py-3 text-ink/70">{w.reason}</td>
-                      <td className="px-5 py-3">
-                        <StampBadge status={w.status}>{w.status}</StampBadge>
-                        {w.status === "approved" && (
-                          <div className="text-xs text-ink/70 mt-1">
-                            {w.work_completed === true
-                              ? "Completion confirmed — 50% pay"
-                              : w.work_completed === false
-                              ? "Completion not confirmed — normal attendance/leave rules apply"
-                              : "Awaiting Reporting Manager’s completion confirmation"}
-                          </div>
-                        )}
-                        {w.resolution_note && <div className="text-xs text-ink/70 mt-1">{w.resolution_note}</div>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <MyRequests leave={leaveRequests} absence={absenceRequests} loans={loanRequests} wfh={wfhRequests} />
         </div>
       )}
 

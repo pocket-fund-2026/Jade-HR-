@@ -1,8 +1,9 @@
-import { Check, MapPin, X } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useOutletContext } from "react-router-dom";
 
 import EmptyState from "../../components/EmptyState.jsx";
-import StampBadge from "../../components/StampBadge.jsx";
+import { ApprovalCard, CardList, DecisionBar, PageHeader, TeamTabs } from "../../components/TeamUI.jsx";
 import api from "../../lib/api.js";
 import { formatFullDate, formatTime } from "../../lib/format.js";
 
@@ -11,7 +12,7 @@ function formatDateTime(iso) {
   return `${formatFullDate(iso)}, ${formatTime(iso)}`;
 }
 
-function ResolveRow({ visit, onResolved }) {
+function VisitCard({ visit, onResolved }) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -25,65 +26,38 @@ function ResolveRow({ visit, onResolved }) {
     }
   };
 
-  const employee = visit.hr_employees;
-
   return (
-    <tr className="border-b border-ink/[0.06] last:border-0 align-top">
-      <td className="px-5 py-3.5">
-        {visit.photo_url ? (
-          <a href={visit.photo_url} target="_blank" rel="noreferrer">
-            <img src={visit.photo_url} alt="Check-in" className="w-16 h-16 rounded-sm object-cover" />
-          </a>
-        ) : (
-          <span className="text-xs text-ink/70">No photo</span>
-        )}
-      </td>
-      <td className="px-5 py-3.5">
-        <span className="text-ink font-medium">{employee?.first_name} {employee?.last_name}</span>
-        <div className="text-xs text-ink/70 font-nums">{employee?.employee_code}</div>
-        <div className="text-xs text-ink/70">{visit.visit_type === "check_out" ? "Check-out" : "Check-in"}{visit.place ? ` · ${visit.place}` : ""}{visit.place_type && visit.place_type !== "market" ? ` (${visit.place_type})` : ""}</div>
-      </td>
-      <td className="px-5 py-3.5 font-nums text-ink/70">{formatDateTime(visit.captured_at)}</td>
-      <td className="px-5 py-3.5">
-        <a
-          href={`https://www.google.com/maps?q=${visit.latitude},${visit.longitude}`}
-          target="_blank" rel="noreferrer"
-          className="flex items-center gap-1 text-jade-600 underline font-nums text-xs"
-        >
-          <MapPin size={12} /> {Number(visit.latitude).toFixed(5)}, {Number(visit.longitude).toFixed(5)}
+    <ApprovalCard
+      person={visit.hr_employees}
+      meta={`${visit.visit_type === "check_out" ? "Check-out" : "Check-in"}${visit.place ? ` · ${visit.place}` : ""}${visit.place_type && visit.place_type !== "market" ? ` (${visit.place_type})` : ""}`}
+      title={formatDateTime(visit.captured_at)}
+      aside={visit.photo_url ? (
+        <a href={visit.photo_url} target="_blank" rel="noreferrer" className="flex-shrink-0">
+          <img src={visit.photo_url} alt="Check-in selfie" className="w-16 h-16 rounded-sm object-cover" />
         </a>
-      </td>
-      <td className="px-5 py-3.5">
-        <input
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          aria-label="Note (optional)" placeholder="Note (optional)"
-          className="w-full sm:w-40 rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-jade-500"
+      ) : null}
+      footer={
+        <DecisionBar
+          note={note} onNote={setNote} busy={busy} noteRequired={false}
+          onReject={() => resolve("reject")} onApprove={() => resolve("approve")}
+          rejectLabel="Reject" approveLabel="Approve check-in"
         />
-      </td>
-      <td className="px-5 py-3.5">
-        <div className="flex gap-6">
-          <button
-            disabled={busy}
-            onClick={() => resolve("reject")}
-            className="flex items-center justify-center gap-1.5 min-h-[44px] bg-paper border border-rust-500 text-rust-500 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-rust-50 disabled:opacity-50 transition-colors"
-          >
-            <X size={13} /> Reject check-in
-          </button>
-          <button
-            disabled={busy}
-            onClick={() => resolve("approve")}
-            className="flex items-center justify-center gap-1.5 min-h-[44px] bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
-          >
-            <Check size={13} /> Approve check-in
-          </button>
-        </div>
-      </td>
-    </tr>
+      }
+    >
+      <a
+        href={`https://www.google.com/maps?q=${visit.latitude},${visit.longitude}`}
+        target="_blank" rel="noreferrer"
+        className="inline-flex items-center gap-1 text-xs font-semibold text-jade-700 hover:underline font-nums"
+      >
+        <MapPin size={12} /> Open in Maps ({Number(visit.latitude).toFixed(4)}, {Number(visit.longitude).toFixed(4)})
+      </a>
+      {!visit.photo_url && <p className="text-xs text-ink/55">No photo</p>}
+    </ApprovalCard>
   );
 }
 
 export default function TeamMarketVisits() {
+  const { refetchPendingCount } = useOutletContext() || {};
   const [visits, setVisits] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -91,39 +65,20 @@ export default function TeamMarketVisits() {
     setLoading(true);
     api.get("/api/market-visits/my-team", { params: { status: "pending" } }).then(({ data }) => setVisits(data)).finally(() => setLoading(false));
   };
+  const onResolved = () => { load(); refetchPendingCount?.(); };
 
   useEffect(load, []);
 
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="font-display text-2xl text-ink">Team market visits</h2>
-        <p className="text-xs text-ink/70 font-nums mt-0.5">Geotagged field check-ins from people who report to you</p>
-      </div>
-
-      <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
-        <table className="w-full min-w-[640px] text-sm">
-          <thead className="text-left sticky top-0 z-10 bg-paper">
-            <tr className="border-b-2 border-ink/10">
-              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Photo</th>
-              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Employee</th>
-              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Checked in</th>
-              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Location</th>
-              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Note</th>
-              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={6}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
-            ) : visits.length === 0 ? (
-              <tr><td colSpan={6}><EmptyState title="No pending check-ins" action={{ label: "Back to my dashboard", to: "/employee" }}>Market-visit check-ins from your team wait here for your approval.</EmptyState></td></tr>
-            ) : (
-              visits.map((v) => <ResolveRow key={v.id} visit={v} onResolved={load} />)
-            )}
-          </tbody>
-        </table>
-      </div>
+      <TeamTabs />
+      <PageHeader title="Team market visits" subtitle="Geotagged field check-ins from people who report to you." />
+      <CardList
+        loading={loading}
+        empty={<EmptyState title="No pending check-ins" action={{ label: "Back to my dashboard", to: "/employee" }}>Market-visit check-ins from your team wait here for your approval.</EmptyState>}
+      >
+        {visits.map((v) => <VisitCard key={v.id} visit={v} onResolved={onResolved} />)}
+      </CardList>
     </div>
   );
 }

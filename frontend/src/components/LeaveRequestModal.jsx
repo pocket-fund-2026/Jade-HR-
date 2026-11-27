@@ -1,40 +1,30 @@
-import CompOffPolicy from "./CompOffPolicy.jsx";
-import { X } from "lucide-react";
-import { cloneElement, isValidElement, useEffect, useId, useState } from "react";
+import { Baby, CalendarDays, Clock, Heart, Plane, Repeat, Sun } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import api from "../lib/api.js";
 import useLeaveCutoff, { cutoffHint } from "../lib/useLeaveCutoff.js";
 import { useAuth } from "../lib/auth.jsx";
-import LeaveProofField, { uploadLeaveProof } from "./LeaveProofField.jsx";
+import { formatDate } from "../lib/format.js";
+import { uploadLeaveProof } from "./LeaveProofField.jsx";
 import { LEAVE_LABELS, selectableLeaveTypes } from "../lib/leaveTypes.js";
+import CompOffPolicy from "./CompOffPolicy.jsx";
+import RequestSheet, {
+  ChoiceCard, ErrorNote, FilePick, FilingAs, QuickPick, SectionLabel, SubmitRow,
+  dayCount, inputCls, isoDate, shiftDays,
+} from "./RequestSheet.jsx";
 
-function daysBetween(start, end) {
-  if (!start || !end) return 0;
-  const days = Math.round((new Date(end) - new Date(start)) / 86400000) + 1;
-  return days > 0 ? days : 0;
-}
-
-function Field({ label, required, children }) {
-  const fid = useId();
-  const child = isValidElement(children) && !children.props.id ? cloneElement(children, { id: fid }) : children;
-  return (
-    <div>
-      <label htmlFor={fid} className="block text-xs font-semibold text-ink/70 mb-1.5">
-        {label} {required && <span className="text-rust-500 normal-case font-normal">*Required</span>}
-      </label>
-      {child}
-    </div>
-  );
-}
-
-const inputCls =
-  "w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
-const readOnlyCls =
-  "w-full rounded-sm border border-ink/10 bg-ink/[0.04] px-3 py-2.5 text-sm text-ink/70";
+const TYPE_META = {
+  paid: { icon: Plane, title: "Paid Leave", hint: "Full-day leave from your balance" },
+  half_day: { icon: Sun, title: "Half Day", hint: "Half a day paid, half without pay" },
+  comp_off: { icon: Repeat, title: "Comp-Off", hint: "For a weekly off or holiday you worked" },
+  paternity: { icon: Baby, title: "Paternity", hint: "Corporate staff" },
+  maternity: { icon: Heart, title: "Maternity", hint: "Corporate staff" },
+  compassionate: { icon: Heart, title: "Compassionate", hint: "Bereavement in the family" },
+};
 
 // `onBehalfOf` (an employee row: {id, first_name, last_name, employee_code,
 // employee_category}) switches this from the normal employee self-service
-// modal into HR's Red Card exception path — files the request under that
+// form into HR's Red Card exception path — files the request under that
 // employee instead of the caller, and skips the Red Card block (filing it
 // IS the documented management exception).
 export default function LeaveRequestModal({ onClose, onSubmitted, onBehalfOf }) {
@@ -49,30 +39,49 @@ export default function LeaveRequestModal({ onClose, onSubmitted, onBehalfOf }) 
   const [reason, setReason] = useState("");
   const [proof, setProof] = useState(null);
   const [session, setSession] = useState("first");
-  const isHalf = leaveType === "half_day";
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-
-  // Approver is resolved server-side from the employee's reporting manager
-  // (hr_employees.leave_approver_id / hr_employee_profile.reporting_to_id) —
-  // shown here read-only for confirmation, never submitted, unlike Work
-  // Absence's approver fields which the employee fills in by hand because
-  // hr_absence_requests has no equivalent auto-resolution.
+  const [done, setDone] = useState(false);
   const [approverName, setApproverName] = useState("");
+  const [balance, setBalance] = useState({});
+  const isHalf = leaveType === "half_day";
+
+  // Approver is resolved server-side from the reporting manager; shown here
+  // read-only for confirmation, never submitted.
   useEffect(() => {
     if (onBehalfOf || !user?.id) return;
     api.get(`/api/employees/${user.id}/profile`).then(({ data }) => {
       if (data.reporting_to) setApproverName(data.reporting_to);
     }).catch(() => {});
+    Promise.all([
+      api.get("/api/me/leave-balance").catch(() => ({ data: [] })),
+      api.get("/api/me/comp-off").catch(() => ({ data: null })),
+    ]).then(([bal, co]) => {
+      const map = {};
+      (bal.data || []).forEach((b) => { map[b.leave_type] = b.remaining; });
+      if (co.data?.balance != null) map.comp_off = co.data.balance;
+      if (map.paid != null) map.half_day = map.paid;
+      setBalance(map);
+    });
   }, [user?.id, onBehalfOf]);
+
+  const today = isoDate(new Date());
+  const tomorrow = shiftDays(today, 1);
+  const days = isHalf ? (startDate ? 0.5 : 0) : dayCount(startDate, endDate || startDate);
+  const left = balance[leaveType];
+
+  const pickStart = (v) => {
+    setStartDate(v);
+    if (isHalf || !endDate || endDate < v) setEndDate(v);
+  };
 
   const submit = async (e) => {
     e.preventDefault();
     setError("");
-    if (!isHalf && endDate < startDate) {
-      setError("End date must be on or after the start date");
-      return;
-    }
+    if (!startDate) { setError("Pick the day your leave starts"); return; }
+    const end = isHalf ? startDate : (endDate || startDate);
+    if (end < startDate) { setError("The last day must be on or after the first day"); return; }
+    if (!reason.trim()) { setError("Add a short reason so your manager knows what it is for"); return; }
     setBusy(true);
     try {
       const proofFields = await uploadLeaveProof(proof);
@@ -80,131 +89,99 @@ export default function LeaveRequestModal({ onClose, onSubmitted, onBehalfOf }) 
         ...proofFields,
         leave_type: leaveType,
         start_date: startDate,
-        end_date: isHalf ? startDate : endDate,
+        end_date: end,
         reason,
         ...(isHalf ? { half_day_session: session } : {}),
         ...(onBehalfOf ? { employee_id: onBehalfOf.id } : {}),
       });
-      onSubmitted();
+      setDone(true);
     } catch (err) {
-      setError(err.response?.data?.detail || "Could not submit — try again");
+      setError(err.response?.data?.detail || "Could not send — please try again");
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-ledger-900/60 flex items-center justify-center px-4 z-50 overflow-y-auto py-8">
-      <div className="bg-paper rounded-sm shadow-stamp w-full max-w-lg p-6 border-t-4 border-jade-500 relative my-auto">
-        <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-ink/70 hover:text-ink transition-colors">
-          <X size={18} />
-        </button>
-        <p className="text-xs font-semibold text-jade-600 mb-1">
-          {onBehalfOf ? "Red Card exception" : "Leave Application"}
-        </p>
-        <p className="font-display text-lg text-ink mb-5">
-          {onBehalfOf
-            ? `Filing for ${onBehalfOf.first_name} ${onBehalfOf.last_name || ""} (${onBehalfOf.employee_code})`
-            : "New leave request"}
-        </p>
+    <RequestSheet
+      icon={CalendarDays}
+      eyebrow={onBehalfOf ? "Red Card exception" : "Apply for leave"}
+      title={onBehalfOf ? `Filing for ${onBehalfOf.first_name} ${onBehalfOf.last_name || ""}`.trim() : "Take time off"}
+      onClose={onClose}
+      done={done && {
+        title: "Leave request sent",
+        text: `${LEAVE_LABELS[leaveType]} · ${days} day${days === 1 ? "" : "s"} from ${formatDate(startDate)}. ${approverName ? `${approverName} and HR` : "Your manager and HR"} will review it. You'll see the decision on your dashboard.`,
+        onDone: onSubmitted,
+      }}
+      footer={<SubmitRow form="leave-form" onCancel={onClose} busy={busy} label={onBehalfOf ? "File exception" : "Send leave request"} />}
+    >
+      <form id="leave-form" onSubmit={submit}>
+        <FilingAs person={subject} extra={!onBehalfOf && (
+          <> · goes to <span className="font-semibold text-ink/80">{approverName || "your reporting manager"}</span></>
+        )} />
 
-        <form onSubmit={submit} className="space-y-6">
-          <div className="space-y-4">
-            <p className="text-xs font-semibold text-ink/70">Employee details</p>
-            <Field label="Dept." required>
-              <input className={readOnlyCls} value={subject?.department || ""} disabled />
-            </Field>
-            <Field label="Employee code">
-              <input className={readOnlyCls} value={subject?.employee_code || ""} disabled />
-            </Field>
-            <Field label="Name" required>
-              <input className={readOnlyCls} value={`${subject?.first_name || ""} ${subject?.last_name || ""}`.trim()} disabled />
-            </Field>
-            <Field label="Email" required>
-              <input className={readOnlyCls} value={subject?.email || ""} disabled />
-            </Field>
-          </div>
-
-          <div className="space-y-4">
-            <p className="text-xs font-semibold text-ink/70">Details</p>
-            <Field label="Type of leave" required>
-              <select
-                className={inputCls}
-                value={leaveType}
-                onChange={(e) => setLeaveType(e.target.value)}
-              >
-                {availableTypes.map((value) => (
-                  <option key={value} value={value}>{LEAVE_LABELS[value]}</option>
-                ))}
-              </select>
-            </Field>
-            {leaveType === "comp_off" && <CompOffPolicy />}
-            {isHalf && (
-              <>
-                <p className="text-xs text-ink/70 border-l-2 border-ochre-700 pl-2.5">
-                  Half Day: you are paid for half a day only; the other half is without pay. Goes to your reporting manager and HR for approval.
-                </p>
-                <Field label="Which half" required>
-                  <select className={inputCls} value={session} onChange={(e) => setSession(e.target.value)}>
-                    <option value="first">First half (morning off)</option>
-                    <option value="second">Second half (afternoon off)</option>
-                  </select>
-                </Field>
-              </>
-            )}
-            {cutoff && <p className="text-xs text-ink/60 border-l-2 border-ink/20 pl-2.5">{cutoffHint(cutoff)}</p>}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="From" required>
-                <input
-                  type="date" required min={cutoff?.earliest_date} className={`${inputCls} font-nums`}
-                  value={startDate} onChange={(e) => { setStartDate(e.target.value); if (isHalf) setEndDate(e.target.value); }}
-                />
-              </Field>
-              <Field label="To" required>
-                <input
-                  type="date" required min={cutoff?.earliest_date} disabled={isHalf} className={`${inputCls} font-nums`}
-                  value={isHalf ? startDate : endDate} onChange={(e) => setEndDate(e.target.value)}
-                />
-              </Field>
-            </div>
-            <Field label="Number of days">
-              <input type="number" className={`${readOnlyCls} font-nums`} value={isHalf ? (startDate ? 0.5 : 0) : daysBetween(startDate, endDate)} disabled />
-            </Field>
-            <Field label="Details" required>
-              <textarea
-                required className={`${inputCls} min-h-[70px]`}
-                value={reason} onChange={(e) => setReason(e.target.value)}
+        <SectionLabel>What kind of leave?</SectionLabel>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-5">
+          {availableTypes.map((t) => {
+            const m = TYPE_META[t] || { icon: Plane, title: LEAVE_LABELS[t] };
+            return (
+              <ChoiceCard
+                key={t} selected={leaveType === t} onClick={() => { setLeaveType(t); if (t === "half_day") setEndDate(startDate); }}
+                icon={m.icon} title={m.title} hint={m.hint}
+                badge={balance[t] != null ? `${balance[t]} left` : null}
               />
-            </Field>
-            <LeaveProofField file={proof} onChange={setProof} />
-          </div>
+            );
+          })}
+        </div>
+        {leaveType === "comp_off" && <div className="mb-5"><CompOffPolicy /></div>}
 
-          <div className="space-y-4">
-            <p className="text-xs font-semibold text-ink/70">Approver details</p>
-            <p className="text-xs text-ink/70 -mt-1">
-              Routed automatically to your reporting manager on file — contact HR if this looks wrong.
-            </p>
-            <Field label="Name">
-              <input className={readOnlyCls} value={approverName || "Not set — contact HR"} disabled />
-            </Field>
+        <SectionLabel>{isHalf ? "Which day?" : "When?"}</SectionLabel>
+        <div className="mb-2">
+          <QuickPick
+            value={startDate}
+            onPick={pickStart}
+            options={[{ value: today, label: "Today" }, { value: tomorrow, label: "Tomorrow" }]}
+          />
+        </div>
+        <div className={`grid gap-3 mb-2 ${isHalf ? "grid-cols-1" : "grid-cols-2"}`}>
+          <div>
+            <label htmlFor="lv_from" className="block text-[11px] text-ink/60 mb-1">{isHalf ? "Date" : "First day"}</label>
+            <input id="lv_from" type="date" required min={cutoff?.earliest_date} className={`${inputCls} font-nums`}
+              value={startDate} onChange={(e) => pickStart(e.target.value)} />
           </div>
-
-          {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
-
-          <div className="flex justify-end gap-4 pt-1">
-            <button type="button" onClick={onClose} className="text-sm text-ink/70 hover:text-ink px-2">
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={busy}
-              className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
-            >
-              {busy ? "Submitting…" : onBehalfOf ? "File exception" : "Submit leave request"}
-            </button>
+          {!isHalf && (
+            <div>
+              <label htmlFor="lv_to" className="block text-[11px] text-ink/60 mb-1">Last day</label>
+              <input id="lv_to" type="date" required min={startDate || cutoff?.earliest_date} className={`${inputCls} font-nums`}
+                value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            </div>
+          )}
+        </div>
+        {isHalf && (
+          <div className="grid grid-cols-2 gap-2 mb-2">
+            <ChoiceCard selected={session === "first"} onClick={() => setSession("first")} icon={Sun} title="Morning off" hint="First half" />
+            <ChoiceCard selected={session === "second"} onClick={() => setSession("second")} icon={Clock} title="Afternoon off" hint="Second half" />
           </div>
-        </form>
-      </div>
-    </div>
+        )}
+        {days > 0 && (
+          <p className="text-sm text-ink mb-1">
+            <span className="font-nums font-semibold">{days}</span> day{days === 1 ? "" : "s"}
+            {left != null && <span className={`ml-2 text-xs ${days > left ? "text-rust-500 font-semibold" : "text-ink/60"}`}>
+              {days > left ? `· more than your ${left} left` : `· ${Math.max(0, Math.round((left - days) * 10) / 10)} left after this`}
+            </span>}
+          </p>
+        )}
+        {cutoff && <p className="text-[11px] text-ink/55 mb-5">{cutoffHint(cutoff)}</p>}
+
+        <SectionLabel htmlFor="lv_reason" required>Reason</SectionLabel>
+        <textarea id="lv_reason" required rows={2} className={`${inputCls} mb-4`} placeholder="e.g. Family function in Pune"
+          value={reason} onChange={(e) => setReason(e.target.value)} />
+
+        <SectionLabel optional>Proof of approval</SectionLabel>
+        <FilePick file={proof} onChange={setProof} accept="image/*,application/pdf" placeholder="Screenshot, photo or PDF" />
+
+        <ErrorNote>{error}</ErrorNote>
+      </form>
+    </RequestSheet>
   );
 }

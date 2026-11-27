@@ -1,19 +1,22 @@
-import { Paperclip, X } from "lucide-react";
+import { AlarmClock, CalendarX, Flag, HelpCircle, LogIn, LogOut, Plane, Repeat } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import api from "../lib/api.js";
 import { prepareUpload } from "../lib/upload.js";
 import { formatDate } from "../lib/format.js";
+import RequestSheet, {
+  ChoiceCard, ErrorNote, FilePick, QuickPick, SectionLabel, SubmitRow, inputCls, shiftDays,
+} from "./RequestSheet.jsx";
 
-const ISSUE_LABELS = {
-  missed_clock_in: "Forgot to clock in",
-  missed_clock_out: "Forgot to clock out",
-  both: "Forgot to clock in and out",
-  late_coming: "Dispute my late mark",
-  weekly_off: "Dispute Sunday marked absent",
-  leave: "Dispute my leave day (I did not take / was marked wrongly)",
-  other: "Something else",
-};
+const ISSUES = [
+  { value: "missed_clock_out", icon: LogOut, title: "Forgot to clock out" },
+  { value: "missed_clock_in", icon: LogIn, title: "Forgot to clock in" },
+  { value: "both", icon: Repeat, title: "Forgot both" },
+  { value: "late_coming", icon: AlarmClock, title: "Wrongly marked late" },
+  { value: "weekly_off", icon: CalendarX, title: "Sunday marked absent" },
+  { value: "leave", icon: Plane, title: "Leave marked wrongly" },
+  { value: "other", icon: HelpCircle, title: "Something else" },
+];
 
 // Explicit hour / minute / AM-PM selects. A native <input type="time"> only shows
 // AM/PM when the device locale is 12-hour, so many people could not pick AM/PM.
@@ -31,7 +34,7 @@ function TimeAmPm({ id, value, onChange }) {
     onChange(`${String(h).padStart(2, "0")}:${String(mm === "" ? 0 : Number(mm)).padStart(2, "0")}`);
   };
   return (
-    <div className="flex gap-2" id={id}>
+    <div className="flex gap-1.5" id={id}>
       <select aria-label="Hour" className={selectCls} value={hour12} onChange={(e) => emit(e.target.value, minute, ampm || "AM")}>
         <option value="">Hr</option>
         {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
@@ -40,14 +43,23 @@ function TimeAmPm({ id, value, onChange }) {
         <option value="">Min</option>
         {Array.from({ length: 60 }, (_, i) => i).map((n) => <option key={n} value={n}>{String(n).padStart(2, "0")}</option>)}
       </select>
-      <select aria-label="AM or PM" className={selectCls} value={ampm} onChange={(e) => emit(hour12, minute, e.target.value)}>
-        <option value="">AM/PM</option>
-        <option value="AM">AM</option>
-        <option value="PM">PM</option>
-      </select>
+      <div className="flex rounded-sm border border-ink/15 overflow-hidden" role="group" aria-label="AM or PM">
+        {["AM", "PM"].map((p) => (
+          <button key={p} type="button" onClick={() => emit(hour12 || 12, minute, p)}
+            className={`px-2.5 text-xs font-semibold transition-colors ${ampm === p ? "bg-ledger-800 text-manila" : "bg-manila/40 text-ink/70 hover:text-ink"}`}>
+            {p}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
+
+const dayLabel = (iso, today) => {
+  if (iso === today) return "Today";
+  if (iso === shiftDays(today, -1)) return "Yesterday";
+  return new Date(`${iso}T00:00:00`).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+};
 
 export default function DisputeModal({ date: initialDate, onClose, onSubmitted, defaultIssue }) {
   const [date, setDate] = useState(initialDate);
@@ -56,7 +68,6 @@ export default function DisputeModal({ date: initialDate, onClose, onSubmitted, 
   const [claimedOut, setClaimedOut] = useState("");
   const [outDate, setOutDate] = useState(initialDate);
   useEffect(() => { setOutDate((o) => (o < date ? date : o)); }, [date]);
-  const nextDay = (d) => { const x = new Date(d + "T00:00:00"); x.setDate(x.getDate() + 1); return x.toISOString().slice(0, 10); };
   const [reason, setReason] = useState("");
   const [delayReason, setDelayReason] = useState("");
   const [photo, setPhoto] = useState(null);
@@ -64,6 +75,7 @@ export default function DisputeModal({ date: initialDate, onClose, onSubmitted, 
   const [busy, setBusy] = useState(false);
   const [policy, setPolicy] = useState(null);
   const [rejected, setRejected] = useState(null);
+  const [done, setDone] = useState(false);
 
   useEffect(() => {
     api.get("/api/disputes/policy").then(({ data }) => setPolicy(data)).catch(() => {});
@@ -78,15 +90,19 @@ export default function DisputeModal({ date: initialDate, onClose, onSubmitted, 
   const needsIn = issueType === "missed_clock_in" || issueType === "both" || issueType === "late_coming";
   const needsOut = issueType === "missed_clock_out" || issueType === "both";
 
+  const recentDays = policy?.today
+    ? Array.from({ length: Math.min((policy.max_age_days ?? 7) + 1, 8) }, (_, i) => shiftDays(policy.today, -i))
+    : [];
+
   const submit = async (e) => {
     e.preventDefault();
     setError("");
     if (!photo && !photoOptional) {
-      setError("Please attach a photo of the attendance register as supporting evidence");
+      setError("Please attach a photo of the attendance register — HR needs it to fix the record.");
       return;
     }
     if (needsDelay && (delayWords < minWords || delayReason.trim().length < 40)) {
-      setError(`Please explain in detail why this was not raised sooner — at least ${minWords} words.`);
+      setError(`Please explain why this wasn't raised sooner — at least ${minWords} words.`);
       return;
     }
     setBusy(true);
@@ -111,155 +127,114 @@ export default function DisputeModal({ date: initialDate, onClose, onSubmitted, 
         setRejected(created.auto_reject_reason);
         return;
       }
-      onSubmitted();
+      setDone(true);
     } catch (err) {
-      setError(err.response?.data?.detail || err.message || "Could not submit — try again");
+      setError(err.response?.data?.detail || err.message || "Could not send — please try again");
     } finally {
       setBusy(false);
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-ledger-900/60 flex items-center justify-center px-4 z-50 overflow-y-auto py-8">
-      <div className="bg-paper rounded-sm shadow-stamp w-full max-w-md p-6 border-t-4 border-ochre-500 relative my-auto">
-        <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-ink/70 hover:text-ink transition-colors">
-          <X size={18} />
-        </button>
-        <p className="text-xs font-semibold text-ochre-700 mb-1">Report an attendance issue</p>
-        <div className="mb-5">
-          <label htmlFor="dispute_date" className="block text-xs font-semibold text-ink/70 mb-1.5">Day this is about</label>
-          <input id="dispute_date" type="date" required value={date} max={policy?.today}
-            onChange={(e) => e.target.value && setDate(e.target.value)}
-            className="rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500" />
-          {policy?.today && (
-            <select aria-label="Pick a recent day" value="" onChange={(e) => e.target.value && setDate(e.target.value)}
-              className="ml-2 rounded-sm border border-ink/15 bg-manila/40 px-2 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500">
-              <option value="">Recent days…</option>
-              {Array.from({ length: (policy.max_age_days ?? 7) + 1 }, (_, i) => {
-                const d = new Date(policy.today + "T00:00:00"); d.setDate(d.getDate() - i);
-                const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-                return <option key={iso} value={iso}>{formatDate(iso)}</option>;
-              })}
-            </select>
-          )}
-          <p className="text-[11px] text-ink/60 mt-1">{formatDate(date)}. For a shift that ran past midnight, choose the day it started.</p>
-        </div>
+  const issueTitle = ISSUES.find((i) => i.value === issueType)?.title;
 
-        {rejected ? (
-          <div>
-            <p className="text-sm font-semibold text-rust-500 mb-2">This was rejected by the attendance policy</p>
-            <p className="text-sm text-ink/80 border-l-2 border-rust-500 pl-2.5 mb-3">{rejected}</p>
-            <p className="text-xs text-ink/60 mb-5">It is saved in your list, and you can appeal it once if you think it is wrong. An appeal is reviewed by a person.</p>
-            <div className="flex justify-end">
-              <button onClick={onSubmitted} className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors">OK</button>
+  return (
+    <RequestSheet
+      icon={Flag}
+      accent="ochre"
+      eyebrow="Fix my attendance"
+      title={`Something wrong on ${formatDate(date)}?`}
+      onClose={onClose}
+      done={done && {
+        title: "Sent to HR",
+        text: `"${issueTitle}" for ${formatDate(date)}. You'll see HR's decision under My reported issues, and the day is marked Reported meanwhile.`,
+        onDone: onSubmitted,
+      }}
+      footer={!rejected && <SubmitRow form="dispute-form" onCancel={onClose} busy={busy} label="Send to HR" />}
+    >
+      {rejected ? (
+        <div>
+          <p className="text-sm font-semibold text-rust-500 mb-2">This was rejected by the attendance policy</p>
+          <p className="text-sm text-ink/80 border-l-2 border-rust-500 pl-2.5 mb-3">{rejected}</p>
+          <p className="text-xs text-ink/60 mb-5">It is saved in your list, and you can appeal it once if you think it is wrong. An appeal is reviewed by a person.</p>
+          <div className="flex justify-end">
+            <button onClick={onSubmitted} className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 transition-colors">OK</button>
+          </div>
+        </div>
+      ) : (
+        <form id="dispute-form" onSubmit={submit}>
+          <SectionLabel>Which day?</SectionLabel>
+          {recentDays.length > 0 && (
+            <div className="mb-2">
+              <QuickPick value={date} onPick={setDate} options={recentDays.map((d) => ({ value: d, label: dayLabel(d, policy.today) }))} />
+            </div>
+          )}
+          <div className="flex items-center gap-2 mb-1">
+            <label htmlFor="dispute_date" className="text-[11px] text-ink/60">or pick a date</label>
+            <input id="dispute_date" type="date" required value={date} max={policy?.today}
+              onChange={(e) => e.target.value && setDate(e.target.value)}
+              className={`${inputCls} font-nums !w-auto !py-1.5`} />
+          </div>
+          <p className="text-[11px] text-ink/55 mb-2">For a shift that ran past midnight, choose the day it started.</p>
+          {policy && (tooOld || needsDelay) && (
+            <p className={`text-xs mb-2 rounded-sm px-3 py-2 ${tooOld ? "text-rust-500 bg-rust-50" : "text-ochre-700 bg-ochre-50"}`}>
+              {tooOld
+                ? `This day is more than ${policy.max_age_days} days old, so it may be rejected. Disputes should be raised within ${policy.max_age_days} days.`
+                : `This is ${daysLate} days ago — you'll need to say why it wasn't raised sooner.`}
+            </p>
+          )}
+
+          <div className="mt-4">
+            <SectionLabel>What went wrong?</SectionLabel>
+            <div className="grid grid-cols-2 gap-2 mb-5">
+              {ISSUES.map((i) => (
+                <ChoiceCard key={i.value} selected={issueType === i.value} onClick={() => setIssueType(i.value)} icon={i.icon} title={i.title} />
+              ))}
             </div>
           </div>
-        ) : (
-        <>
-        {policy && (
-          <p className={`text-xs mb-4 border-l-2 pl-2.5 py-0.5 ${tooOld ? "text-rust-500 border-rust-500" : "text-ink/60 border-ink/20"}`}>
-            {tooOld
-              ? `This day is more than ${policy.max_age_days} days old, so a dispute for it will be rejected automatically. Disputes must be raised weekly.`
-              : `Raise disputes within ${policy.max_age_days} days of the day (earliest accepted today: ${formatDate(policy.earliest_date)}). Anything older than ${policy.delay_reason_after_days ?? 1} day needs a detailed reason for the delay; later than that is rejected automatically.`}
-          </p>
-        )}
-        <form onSubmit={submit} className="space-y-4">
-          <div>
-            <label htmlFor="issue_type" className="block text-xs font-semibold text-ink/70 mb-1.5">What happened</label>
-            <select
-              id="issue_type"
-              className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500"
-              value={issueType}
-              onChange={(e) => setIssueType(e.target.value)}
-            >
-              {Object.entries(ISSUE_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-          </div>
 
-          {(needsIn || needsOut) && issueType !== "weekly_off" && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {(needsIn || needsOut) && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
               {needsIn && (
                 <div>
-                  <p className="text-[11px] text-ink/60 mb-1.5">Clock-in date: {formatDate(date)}</p>
-                  <label htmlFor="claimed_in" className="block text-xs font-semibold text-ink/70 mb-1.5">Actual clock-in time (AM/PM)</label>
+                  <SectionLabel htmlFor="claimed_in">I actually arrived at</SectionLabel>
                   <TimeAmPm id="claimed_in" value={claimedIn} onChange={setClaimedIn} />
                 </div>
               )}
               {needsOut && (
                 <div>
-                  <label htmlFor="claimed_out_date" className="block text-xs font-semibold text-ink/70 mb-1.5">Clock-out date</label>
-                  <input
-                    id="claimed_out_date"
-                    type="date" min={date} max={nextDay(date)} value={outDate}
-                    onChange={(e) => e.target.value && setOutDate(e.target.value)}
-                    className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm font-nums text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 mb-3"
-                  />
-                  <label htmlFor="claimed_out" className="block text-xs font-semibold text-ink/70 mb-1.5">Actual clock-out time (AM/PM)</label>
+                  <SectionLabel htmlFor="claimed_out">I actually left at</SectionLabel>
                   <TimeAmPm id="claimed_out" value={claimedOut} onChange={setClaimedOut} />
+                  <label className="flex items-center gap-2 mt-2 text-[11px] text-ink/65">
+                    <input type="checkbox" checked={outDate !== date}
+                      onChange={(e) => setOutDate(e.target.checked ? shiftDays(date, 1) : date)} />
+                    Left after midnight (next day)
+                  </label>
                 </div>
               )}
             </div>
           )}
 
-          <div>
-            <label htmlFor="dispute_reason" className="block text-xs font-semibold text-ink/70 mb-1.5">Explain what happened</label>
-            <textarea
-              id="dispute_reason"
-              className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 min-h-[80px]"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              required
-            />
-          </div>
+          <SectionLabel htmlFor="dispute_reason" required>What happened?</SectionLabel>
+          <textarea id="dispute_reason" required rows={2} className={`${inputCls} mb-4`}
+            placeholder="e.g. Biometric wasn't working, signed the register instead"
+            value={reason} onChange={(e) => setReason(e.target.value)} />
 
           {needsDelay && (
-            <div>
-              <label htmlFor="dispute_delay_reason" className="block text-xs font-semibold text-ink/70 mb-1.5">
-                Why are you raising this {daysLate} days late? <span className="text-rust-500 normal-case font-normal">*Required</span>
-              </label>
-              <textarea
-                id="dispute_delay_reason"
-                className="w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500 min-h-[80px]"
-                value={delayReason}
-                onChange={(e) => setDelayReason(e.target.value)}
-                placeholder="What happened, why you could not raise it earlier, and when you found out"
-                required
-              />
+            <div className="mb-4">
+              <SectionLabel htmlFor="dispute_delay_reason" required>Why are you raising this {daysLate} days later?</SectionLabel>
+              <textarea id="dispute_delay_reason" required rows={3} className={inputCls}
+                placeholder="What happened, why you couldn't raise it earlier, and when you found out"
+                value={delayReason} onChange={(e) => setDelayReason(e.target.value)} />
               <p className={`text-[11px] mt-1 ${delayWords >= minWords ? "text-jade-700" : "text-ink/60"}`}>{delayWords} of {minWords} words minimum</p>
             </div>
           )}
 
-          <div>
-            <label className="block text-xs font-semibold text-ink/70 mb-1.5">
-              Photo of attendance register <span className="text-rust-500 normal-case font-normal">{photoOptional ? "(optional)" : "*Required"}</span>
-            </label>
-            <label className="flex items-center gap-2 w-full rounded-sm border border-dashed border-ink/20 bg-manila/40 px-3 py-2.5 text-sm text-ink/70 cursor-pointer hover:bg-manila/60 transition-colors">
-              <Paperclip size={14} />
-              {photo ? photo.name : "Attach photo…"}
-              <input type="file" accept="image/*" className="hidden" onChange={(e) => setPhoto(e.target.files?.[0] || null)} />
-            </label>
-          </div>
+          <SectionLabel optional={photoOptional} required={!photoOptional}>Photo of the attendance register</SectionLabel>
+          <FilePick file={photo} onChange={setPhoto} accept="image/*" placeholder="Take or attach a photo" />
 
-          {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
-
-          <div className="flex justify-end gap-4 pt-1">
-            <button type="button" onClick={onClose} className="text-sm text-ink/70 hover:text-ink px-2">
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={busy}
-              className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
-            >
-              {busy ? "Submitting…" : "Submit to admin"}
-            </button>
-          </div>
+          <ErrorNote>{error}</ErrorNote>
         </form>
-        </>
-        )}
-      </div>
-    </div>
+      )}
+    </RequestSheet>
   );
 }

@@ -1,12 +1,14 @@
-import { Check, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import EmptyState from "../../components/EmptyState.jsx";
 import StampBadge from "../../components/StampBadge.jsx";
+import { ApprovalCard, CardList, DecisionBar, PageHeader, TeamTabs } from "../../components/TeamUI.jsx";
 import api from "../../lib/api.js";
 import { formatDate } from "../../lib/format.js";
 
-function ConfirmRow({ request, onResolved }) {
+const range = (r) => (r.start_date === r.end_date ? formatDate(r.start_date) : `${formatDate(r.start_date)} – ${formatDate(r.end_date)}`);
+
+function ConfirmCard({ request, onResolved }) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -20,43 +22,20 @@ function ConfirmRow({ request, onResolved }) {
     }
   };
 
-  const employee = request.hr_employees;
-
   return (
-    <tr className="border-b border-ink/[0.06] last:border-0 align-top">
-      <td className="px-5 py-3.5">
-        <span className="text-ink font-medium">{employee?.first_name} {employee?.last_name}</span>
-        <div className="text-xs text-ink/70 font-nums">{employee?.employee_code}</div>
-      </td>
-      <td className="px-5 py-3.5 font-nums text-ink/70">{formatDate(request.start_date)}–{formatDate(request.end_date)}</td>
-      <td className="px-5 py-3.5 max-w-xs text-ink/70">{request.reason}</td>
-      <td className="px-5 py-3.5">
-        <input
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          aria-label="Note (optional)" placeholder="Note (optional)"
-          className="w-full sm:w-40 rounded-sm border border-ink/15 bg-manila/40 px-4 py-2 min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-jade-500"
+    <ApprovalCard
+      person={request.hr_employees}
+      title={range(request)}
+      footer={
+        <DecisionBar
+          note={note} onNote={setNote} busy={busy} noteRequired={false}
+          onReject={() => confirm(false)} onApprove={() => confirm(true)}
+          rejectLabel="Not completed" approveLabel="Work completed"
         />
-      </td>
-      <td className="px-5 py-3.5">
-        <div className="flex gap-6">
-          <button
-            disabled={busy}
-            onClick={() => confirm(false)}
-            className="flex items-center justify-center gap-1.5 min-h-[44px] bg-paper border border-rust-500 text-rust-500 px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-rust-50 disabled:opacity-50 transition-colors"
-          >
-            <X size={13} /> Not completed
-          </button>
-          <button
-            disabled={busy}
-            onClick={() => confirm(true)}
-            className="flex items-center justify-center gap-1.5 min-h-[44px] bg-jade-600 text-white px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-jade-700 disabled:opacity-50 transition-colors"
-          >
-            <Check size={13} /> Work completed
-          </button>
-        </div>
-      </td>
-    </tr>
+      }
+    >
+      {request.reason && <p>{request.reason}</p>}
+    </ApprovalCard>
   );
 }
 
@@ -71,60 +50,36 @@ export default function TeamWFH() {
 
   useEffect(load, []);
 
-  const awaitingConfirmation = requests.filter((r) => r.work_completed === null || r.work_completed === undefined);
+  const awaiting = requests.filter((r) => r.work_completed === null || r.work_completed === undefined);
   const confirmed = requests.filter((r) => r.work_completed !== null && r.work_completed !== undefined);
 
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="font-display text-2xl text-ink">Team <abbr className="acr">WFH</abbr></h2>
-        <p className="text-xs text-ink/70 font-nums mt-0.5">Approved Work From Home requests from people who report to you — confirm the assigned work was completed</p>
-      </div>
-
-      <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto mb-6">
-        <table className="w-full min-w-[640px] text-sm">
-          <thead className="text-left sticky top-0 z-10 bg-paper">
-            <tr className="border-b-2 border-ink/10">
-              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Employee</th>
-              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Dates</th>
-              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Reason</th>
-              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Note</th>
-              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={5}>Loading ledger…</td></tr>
-            ) : awaitingConfirmation.length === 0 ? (
-              <tr><td colSpan={5}><EmptyState title="No WFH requests to confirm" action={{ label: "Open team leave", to: "/employee/team-leave" }}>Approved work-from-home days from your team appear here so you can confirm the work was done.</EmptyState></td></tr>
-            ) : (
-              awaitingConfirmation.map((r) => <ConfirmRow key={r.id} request={r} onResolved={load} />)
-            )}
-          </tbody>
-        </table>
-      </div>
+      <TeamTabs />
+      <PageHeader title="Team WFH" subtitle="Approved work-from-home days from your team. Confirm whether the assigned work was done." />
+      <CardList
+        loading={loading}
+        empty={<EmptyState title="Nothing to confirm" action={{ label: "Open team leave", to: "/employee/team-leave" }}>Approved work-from-home days from your team appear here so you can confirm the work was done.</EmptyState>}
+      >
+        {awaiting.map((r) => <ConfirmCard key={r.id} request={r} onResolved={load} />)}
+      </CardList>
 
       {confirmed.length > 0 && (
-        <div className="bg-paper rounded-sm shadow-card overflow-hidden">
-          <p className="px-5 pt-4 pb-3 text-xs font-semibold text-ink/70">Already confirmed</p>
-          <table className="w-full min-w-[640px] text-sm">
-            <tbody>
-              {confirmed.map((r) => (
-                <tr key={r.id} className="border-t border-ink/[0.06]">
-                  <td className="px-5 py-3 font-nums text-ink/70 w-56">
-                    {r.hr_employees?.first_name} {r.hr_employees?.last_name}
-                    <div className="text-xs text-ink/70">{r.hr_employees?.employee_code}</div>
-                  </td>
-                  <td className="px-5 py-3 font-nums text-ink/70 w-40">{formatDate(r.start_date)}–{formatDate(r.end_date)}</td>
-                  <td className="px-5 py-3">
-                    <StampBadge status={r.work_completed ? "approved" : "rejected"}>
-                      {r.work_completed ? "Completed — 50% pay" : "Not completed"}
-                    </StampBadge>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="mt-8">
+          <p className="text-xs font-semibold text-ink/70 mb-2">Already confirmed</p>
+          <ul className="bg-paper rounded-sm shadow-card divide-y divide-ink/[0.07]">
+            {confirmed.map((r) => (
+              <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+                <span className="min-w-0">
+                  <span className="block text-sm text-ink">{r.hr_employees?.first_name} {r.hr_employees?.last_name}</span>
+                  <span className="block text-xs text-ink/60 font-nums">{range(r)}</span>
+                </span>
+                <StampBadge status={r.work_completed ? "approved" : "rejected"}>
+                  {r.work_completed ? "Completed — 50% pay" : "Not completed"}
+                </StampBadge>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>

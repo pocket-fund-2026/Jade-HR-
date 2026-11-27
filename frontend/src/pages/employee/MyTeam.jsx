@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import EmptyState from "../../components/EmptyState.jsx";
 import PersonAvatar from "../../components/PersonAvatar.jsx";
+import { PageHeader, TeamTabs } from "../../components/TeamUI.jsx";
 import api from "../../lib/api.js";
 
 const ROLE_LABELS = { employee: "Employee", hr: "HR", accounts: "Accounts" };
@@ -69,50 +70,37 @@ export default function MyTeam() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="font-display text-2xl text-ink">My team</h2>
-        <p className="text-xs text-ink/70 font-nums mt-0.5">Just the people who report to you — not the wider company directory</p>
-      </div>
+      <TeamTabs />
+      <PageHeader title="My team" subtitle="The people who report to you." />
 
       <TeamLate />
 
-      <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto">
-        <table className="w-full min-w-[640px] text-sm">
-          <thead className="text-left sticky top-0 z-10 bg-paper">
-            <tr className="border-b-2 border-ink/10">
-              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Name</th>
-              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Designation</th>
-              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Department</th>
-              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Location</th>
-              <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td className="px-5 py-8 text-ink/70 text-center" colSpan={5}>Loading team…</td></tr>
-            ) : members.length === 0 ? (
-              <tr><td colSpan={5}><EmptyState title="No one reports to you yet" action={{ label: "Read the help guide", to: "/employee/help" }}><abbr className="acr">HR</abbr> sets reporting lines on each employee record. Ask <abbr className="acr">HR</abbr> to add your team if this looks wrong.</EmptyState></td></tr>
-            ) : (
-              members.map((m) => (
-                <tr key={m.id} className="border-b border-ink/[0.06] last:border-0">
-                  <td className="px-5 py-3.5">
-                    <span className="inline-flex items-center gap-2.5 text-ink font-medium"><PersonAvatar person={m} />{m.first_name} {m.last_name}</span>
-                    <div className="text-xs text-ink/70 font-nums">{m.employee_code}{m.role !== "employee" ? ` · ${ROLE_LABELS[m.role] || m.role}` : ""}</div>
-                  </td>
-                  <td className="px-5 py-3.5 text-ink/70">{m.designation || "—"}</td>
-                  <td className="px-5 py-3.5 text-ink/70">{m.department || "—"}</td>
-                  <td className="px-5 py-3.5 text-ink/70">{m.location || "—"}</td>
-                  <td className="px-5 py-3.5">
-                    <span className={`text-xs font-semibold ${m.is_active ? "text-jade-700" : "text-ink/50"}`}>
-                      {m.is_active ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      {loading ? (
+        <p className="text-sm text-ink/60 py-8 text-center">Loading team…</p>
+      ) : members.length === 0 ? (
+        <div className="bg-paper rounded-sm shadow-card">
+          <EmptyState title="No one reports to you yet" action={{ label: "Read the help guide", to: "/employee/help" }}><abbr className="acr">HR</abbr> sets reporting lines on each employee record. Ask <abbr className="acr">HR</abbr> to add your team if this looks wrong.</EmptyState>
+        </div>
+      ) : (
+        <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {members.map((m) => (
+            <li key={m.id} className="bg-paper rounded-sm shadow-card p-4 flex items-start gap-3 min-w-0">
+              <PersonAvatar person={m} />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-ink truncate">{m.first_name} {m.last_name}</p>
+                <p className="text-xs text-ink/60 truncate">{m.designation || "—"}</p>
+                <p className="text-[11px] text-ink/50 truncate mt-1">
+                  <span className="font-nums">{m.employee_code}</span>
+                  {m.role !== "employee" ? ` · ${ROLE_LABELS[m.role] || m.role}` : ""}
+                  {m.department ? ` · ${m.department}` : ""}
+                </p>
+                {m.location && <p className="text-[11px] text-ink/50 truncate">{m.location}</p>}
+              </div>
+              {!m.is_active && <span className="text-[10px] font-semibold text-ink/50 flex-shrink-0">Inactive</span>}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

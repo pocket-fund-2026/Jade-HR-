@@ -2,14 +2,14 @@
 // codebase to reuse (MonthPicker.jsx only steps a single calendar month).
 export default function DateRangePicker({ from, to, onChange, onClear, disabled }) {
   return (
-    <div className="flex items-center gap-2 bg-paper rounded-sm shadow-card px-2 py-1.5">
+    <div className="flex items-center gap-2 bg-paper rounded-sm shadow-card px-2 py-1.5 max-w-full min-w-0">
       <input
         type="date"
         value={from}
         max={to || undefined}
         aria-label="From date" onChange={(e) => onChange(e.target.value, to)}
         disabled={disabled}
-        className="text-xs font-nums text-ink bg-transparent border border-ink/15 rounded-sm px-2 py-1 disabled:opacity-50"
+        className="min-w-0 flex-1 w-[8.5rem] text-xs font-nums text-ink bg-transparent border border-ink/15 rounded-sm px-2 py-1 disabled:opacity-50"
       />
       <span className="text-ink/70 text-xs">to</span>
       <input
@@ -18,7 +18,7 @@ export default function DateRangePicker({ from, to, onChange, onClear, disabled 
         min={from || undefined}
         aria-label="To date" onChange={(e) => onChange(from, e.target.value)}
         disabled={disabled}
-        className="text-xs font-nums text-ink bg-transparent border border-ink/15 rounded-sm px-2 py-1 disabled:opacity-50"
+        className="min-w-0 flex-1 w-[8.5rem] text-xs font-nums text-ink bg-transparent border border-ink/15 rounded-sm px-2 py-1 disabled:opacity-50"
       />
       {onClear && (
         <button

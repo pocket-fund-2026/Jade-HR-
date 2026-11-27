@@ -36,7 +36,7 @@ function Toast({ toast, onClose, onOpen }) {
         <span className="min-w-0">
           <span className="block text-sm font-semibold text-ink clamp-2" title={toast.title}>{toast.title}</span>
           <span className="block text-xs text-ink/65 mt-0.5">{toast.body}</span>
-          <span className={`block text-xs font-semibold mt-1.5 ${tone.text}`}>{t?.cta} →</span>
+          <span className={`block text-xs font-semibold mt-1.5 ${tone.text}`}>{toast.cta || t?.cta} →</span>
         </span>
       </button>
       <button type="button" onClick={onClose} aria-label="Dismiss notification" className="px-2 text-ink/40 hover:text-ink self-start pt-3"><X size={14} /></button>
@@ -104,7 +104,18 @@ export function NotificationToasts({ pending, loaded }) {
       }
     }
     knownIds.current = current;
-    if (next.length) setToasts((ts) => [...ts, ...next].slice(-4));
+    // One pop-up at a time: several arrivals merge into a single summary that
+    // replaces whatever is showing, so pop-ups never stack up on screen.
+    if (next.length === 1) setToasts([next[0]]);
+    else if (next.length > 1) {
+      const parts = groups.filter((g) => next.some((n) => n.type === g.key)).map((g) => countLabel(g, g.fresh.length || g.items.length));
+      setToasts([{
+        id: `summary-${Date.now()}`, type: next[0].type,
+        title: `${parts.length} kinds of requests waiting`,
+        body: parts.join(" · "),
+        to: "/admin", cta: "See everything waiting",
+      }]);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pending, loaded]);
 
@@ -117,7 +128,7 @@ export function NotificationToasts({ pending, loaded }) {
           key={t.id}
           toast={t}
           onClose={() => closeToast(t.id)}
-          onOpen={() => { closeToast(t.id); navigate(NOTIFICATION_TYPES.find((x) => x.key === t.type)?.to || "/admin"); }}
+          onOpen={() => { closeToast(t.id); navigate(t.to || NOTIFICATION_TYPES.find((x) => x.key === t.type)?.to || "/admin"); }}
         />
       ))}
     </div>

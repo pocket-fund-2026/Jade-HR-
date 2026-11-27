@@ -81,11 +81,42 @@ export default function DailyAttendanceSection({ monthDaily, employeeId, employe
     exportDailyAttendanceExcel(daily || [], { employeeCode, name, rangeLabel: activeLabel });
   };
 
+  const dayActions = (d) => (
+    <>
+                  {d.status !== "future" && d.date <= todayIso && (
+                    pendingDates.has(d.date) ? (
+                      <span className="text-xs text-ochre-700 flex items-center gap-1"><Flag size={12} /> Reported</span>
+                    ) : (
+                      <button onClick={() => setDisputeDate(d.date)} className="text-xs text-ink/70 hover:text-ochre-700 flex items-center gap-1 transition-colors whitespace-nowrap">
+                        <Flag size={12} /> {d.status === "leave" ? "Dispute leave" : d.weekoff_forfeited ? "Dispute Sunday" : d.late ? "Dispute late" : "Report issue"}
+                      </button>
+                    )
+                  )}
+                  {d.status !== "future" && d.date <= todayIso && (
+                    editNote?.date === d.date ? (
+                      <div className="mt-1.5 space-y-1">
+                        <input aria-label="My note for this day" value={editNote.text} maxLength={300} onChange={(e) => setEditNote({ ...editNote, text: e.target.value })}
+                          placeholder="Your note for this day" className="w-full max-w-[16rem] rounded-sm border border-ink/15 bg-manila/40 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-jade-500" />
+                        {noteErr && <p className="text-[11px] text-rust-500">{noteErr}</p>}
+                        <div className="flex gap-3 text-xs">
+                          <button onClick={saveNote} className="font-semibold text-jade-700 hover:underline">Save</button>
+                          <button onClick={() => { setEditNote(null); setNoteErr(""); }} className="text-ink/70 hover:text-ink">Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button onClick={() => { setEditNote({ date: d.date, text: notes[d.date] || "" }); setNoteErr(""); }} className="block text-xs text-ink/60 hover:text-jade-700 mt-1 text-left">
+                        {notes[d.date] ? <>Note: {notes[d.date]} <span className="underline">edit</span></> : "Add note"}
+                      </button>
+                    )
+                  )}
+                </>
+  );
+
   return (
-    <div className="bg-paper rounded-sm shadow-card overflow-hidden overflow-x-auto print-hide">
+    <div className="bg-paper rounded-sm shadow-card overflow-hidden print-hide">
       <div className="flex flex-wrap items-center justify-between gap-4 px-5 pt-4 pb-1 no-print">
         <p className="text-xs font-semibold text-ink/70">Daily attendance</p>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 min-w-0 max-w-full">
           <DateRangePicker from={from} to={to} onChange={(f, t) => { setFrom(f); setTo(t); }} onClear={inRangeMode ? clearRange : undefined} disabled={loading} />
           <button
             onClick={applyRange}
@@ -104,6 +135,26 @@ export default function DailyAttendanceSection({ monthDaily, employeeId, employe
         </div>
       </div>
       {error && <p className="px-5 pb-2 text-xs text-rust-500 no-print">{error}</p>}
+      <ul className="md:hidden divide-y divide-ink/[0.06] mt-2 no-print">
+        {daily?.map((d) => (
+          <li key={d.date} className="px-4 py-2.5">
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-nums text-sm text-ink">{formatDate(d.date)}</span>
+              <StampBadge status={d.status}>{d.weekoff_forfeited ? "absent · Sunday" : d.status}</StampBadge>
+            </div>
+            {(d.first_in || d.last_out) && (
+              <p className="text-xs text-ink/65 font-nums mt-0.5">
+                {formatTime(d.first_in)} – {formatTime(d.last_out)}{d.last_out_next_day ? " (+1 day)" : ""}
+                {d.hours_worked ? ` · ${formatHoursMins(d.hours_worked)}` : ""}
+                {d.ot_hours ? ` · OT ${formatHoursMins(d.ot_hours)}` : ""}
+                {d.late && <span className="ml-1.5 font-sans font-semibold text-rust-500">Late</span>}
+              </p>
+            )}
+            {selfService && <div className="mt-1 flex flex-wrap items-start gap-x-4">{dayActions(d)}</div>}
+          </li>
+        ))}
+      </ul>
+      <div className="hidden md:block overflow-x-auto print:block">
       <table className="w-full text-sm mt-2">
         <thead className="text-left sticky top-0 z-10 bg-paper">
           <tr className="border-b-2 border-ink/10">
@@ -135,70 +186,42 @@ export default function DailyAttendanceSection({ monthDaily, employeeId, employe
               <td className="px-5 py-2">
                 <StampBadge status={d.status}>{d.weekoff_forfeited ? "absent · Sunday" : d.status}</StampBadge>
               </td>
-              {selfService && (
-                <td className="px-5 py-2 no-print">
-                  {d.status !== "future" && d.date <= todayIso && (
-                    pendingDates.has(d.date) ? (
-                      <span className="text-xs text-ochre-700 flex items-center gap-1"><Flag size={12} /> Reported</span>
-                    ) : (
-                      <button onClick={() => setDisputeDate(d.date)} className="text-xs text-ink/70 hover:text-ochre-700 flex items-center gap-1 transition-colors whitespace-nowrap">
-                        <Flag size={12} /> {d.status === "leave" ? "Dispute leave" : d.weekoff_forfeited ? "Dispute Sunday" : d.late ? "Dispute late" : "Report issue"}
-                      </button>
-                    )
-                  )}
-                  {d.status !== "future" && d.date <= todayIso && (
-                    editNote?.date === d.date ? (
-                      <div className="mt-1.5 space-y-1">
-                        <input aria-label="My note for this day" value={editNote.text} maxLength={300} onChange={(e) => setEditNote({ ...editNote, text: e.target.value })}
-                          placeholder="Your note for this day" className="w-48 rounded-sm border border-ink/15 bg-manila/40 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-jade-500" />
-                        {noteErr && <p className="text-[11px] text-rust-500">{noteErr}</p>}
-                        <div className="flex gap-3 text-xs">
-                          <button onClick={saveNote} className="font-semibold text-jade-700 hover:underline">Save</button>
-                          <button onClick={() => { setEditNote(null); setNoteErr(""); }} className="text-ink/70 hover:text-ink">Cancel</button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button onClick={() => { setEditNote({ date: d.date, text: notes[d.date] || "" }); setNoteErr(""); }} className="block text-xs text-ink/60 hover:text-jade-700 mt-1 text-left">
-                        {notes[d.date] ? <>Note: {notes[d.date]} <span className="underline">edit</span></> : "Add note"}
-                      </button>
-                    )
-                  )}
-                </td>
-              )}
+              {selfService && <td className="px-5 py-2 no-print">{dayActions(d)}</td>}
             </tr>
           ))}
         </tbody>
       </table>
+      </div>
 
       {selfService && disputes.length > 0 && (
         <div className="border-t border-ink/10 mt-2 no-print">
           <p className="px-5 pt-4 pb-2 text-xs font-semibold text-ink/70">My attendance disputes</p>
-          <table className="w-full text-sm">
-            <tbody>
-              {disputes.map((x) => (
-                <tr key={x.id} className="border-t border-ink/[0.06]">
-                  <td className="px-5 py-2.5 font-nums text-ink/70 w-28">{formatDate(x.date)}</td>
-                  <td className="px-5 py-2.5 text-ink/70">
-                    {x.appeal_of && <span className="mr-1.5 text-[10px] font-semibold text-ochre-700">Appeal</span>}
-                    {x.reason}
-                    {x.photo_url && (
-                      <a href={x.photo_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-jade-700 hover:underline mt-1">
-                        <Paperclip size={11} /> {x.photo_filename || "Photo"}
-                      </a>
-                    )}
-                  </td>
-                  <td className="px-5 py-2.5">
-                    <StampBadge status={x.status}>{x.status}</StampBadge>
+          <ul className="divide-y divide-ink/[0.06]">
+            {disputes.map((x) => (
+              <li key={x.id} className="px-4 sm:px-5 py-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-1.5">
+                <div className="min-w-0 flex-1 basis-60">
+                  <p className="text-sm text-ink font-nums">
+                    {formatDate(x.date)}
+                    {x.appeal_of && <span className="ml-2 text-[10px] font-semibold text-ochre-700">Appeal</span>}
+                  </p>
+                  <p className="text-sm text-ink/70 break-words">{x.reason}</p>
+                  {x.photo_url && (
+                    <a href={x.photo_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-jade-700 hover:underline mt-1">
+                      <Paperclip size={11} /> {x.photo_filename || "Photo"}
+                    </a>
+                  )}
+                </div>
+                <div className="min-w-0 sm:text-right sm:max-w-[45%]">
+                  <StampBadge status={x.status}>{x.status}</StampBadge>
                     {x.admin_note && <div className="text-xs text-ink/70 mt-1">{x.admin_note}</div>}
                     {x.hr_response && <div className="text-xs text-ink/80 mt-1 border-l-2 border-jade-500 pl-2"><strong>HR response:</strong> {x.hr_response}</div>}
                     {x.status === "rejected" && !x.appeal_of && !disputes.some((y) => y.appeal_of === x.id) && (
                       <button onClick={() => setAppealing(x)} className="block text-xs font-semibold text-jade-700 hover:underline mt-1">Appeal</button>
                     )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

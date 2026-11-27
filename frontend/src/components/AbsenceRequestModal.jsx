@@ -1,88 +1,80 @@
-import { Paperclip, X } from "lucide-react";
-import { cloneElement, isValidElement, useEffect, useId, useState } from "react";
+import { Briefcase, ChevronDown, Pencil } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import api from "../lib/api.js";
 import { prepareUpload } from "../lib/upload.js";
 import { useAuth } from "../lib/auth.jsx";
+import { formatDate } from "../lib/format.js";
+import RequestSheet, {
+  ErrorNote, FilePick, FilingAs, QuickPick, SectionLabel, SubmitRow,
+  dayCount, inputCls, isoDate, shiftDays,
+} from "./RequestSheet.jsx";
 
-function daysBetween(start, end) {
-  if (!start || !end) return 0;
-  const days = Math.round((new Date(end) - new Date(start)) / 86400000) + 1;
-  return days > 0 ? days : 0;
-}
-
-// Absences may only be reported for the CURRENT pay cycle (HR rule): today's
-// date or a backdated day within it — never a future date, never a prior
-// (already-closed) cycle. Pay cycles run the 23rd of the prior month → 22nd,
-// so the current cycle started on the most recent 23rd.
-function currentCycleBounds() {
+// Absences may only be reported for the CURRENT pay cycle (HR rule): today or a
+// backdated day within it, never a future date or a closed cycle. Pay cycles
+// run the 23rd of the prior month to the 22nd.
+function dateBounds() {
   const now = new Date();
-  const y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
-  const start = d >= 23 ? new Date(y, m, 23) : new Date(y, m - 1, 23);
-  const iso = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
-  return { min: iso(start), max: iso(now) };
+  const start = now.getDate() >= 23 ? new Date(now.getFullYear(), now.getMonth(), 23) : new Date(now.getFullYear(), now.getMonth() - 1, 23);
+  return { min: isoDate(start), max: isoDate(now) };
 }
-
-function Field({ label, required, children }) {
-  const fid = useId();
-  const child = isValidElement(children) && !children.props.id ? cloneElement(children, { id: fid }) : children;
-  return (
-    <div>
-      <label htmlFor={fid} className="block text-xs font-semibold text-ink/70 mb-1.5">
-        {label} {required && <span className="text-rust-500 normal-case font-normal">*Required</span>}
-      </label>
-      {child}
-    </div>
-  );
-}
-
-const inputCls =
-  "w-full rounded-sm border border-ink/15 bg-manila/40 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-jade-500";
-const readOnlyCls =
-  "w-full rounded-sm border border-ink/10 bg-ink/[0.04] px-3 py-2.5 text-sm text-ink/70";
 
 export default function AbsenceRequestModal({ onClose, onSubmitted }) {
   const { user } = useAuth();
+  const bounds = dateBounds();
+  const today = bounds.max;
+  const yesterday = shiftDays(today, -1);
+
   const [department, setDepartment] = useState(user?.department || "");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [numberOfDays, setNumberOfDays] = useState(0);
   const [daysTouched, setDaysTouched] = useState(false);
   const [details, setDetails] = useState("");
+  const [showPunch, setShowPunch] = useState(false);
   const [inDate, setInDate] = useState("");
   const [inTime, setInTime] = useState("");
   const [outDate, setOutDate] = useState("");
   const [outTime, setOutTime] = useState("");
   const [approverName, setApproverName] = useState("");
   const [approverEmail, setApproverEmail] = useState("");
+  const [editApprover, setEditApprover] = useState(true);
   const [file, setFile] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const cycle = currentCycleBounds();
+  const [done, setDone] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
     api.get(`/api/employees/${user.id}/profile`).then(({ data }) => {
       if (data.reporting_to) setApproverName(data.reporting_to);
       if (data.reporting_to_email) setApproverEmail(data.reporting_to_email);
+      // Approver already on file from last time: show it as one line, editable on tap.
+      if (data.reporting_to && data.reporting_to_email) setEditApprover(false);
     }).catch(() => {});
   }, [user?.id]);
 
   useEffect(() => {
-    if (!daysTouched) setNumberOfDays(daysBetween(startDate, endDate));
+    if (!daysTouched) setNumberOfDays(dayCount(startDate, endDate));
   }, [startDate, endDate, daysTouched]);
+
+  const pickStart = (v) => {
+    setStartDate(v);
+    if (!endDate || endDate < v) setEndDate(v);
+  };
 
   const submit = async (e) => {
     e.preventDefault();
     setError("");
-    if (endDate < startDate) {
-      setError("To date must be on or after the From date");
+    if (!startDate || !endDate) { setError("Pick the day(s) you were away for work"); return; }
+    if (endDate < startDate) { setError("The last day must be on or after the first day"); return; }
+    if (endDate > bounds.max || (bounds.min && startDate < bounds.min)) {
+      setError(bounds.min
+        ? "Absences can only be reported within the current pay cycle, up to today — no future or older dates."
+        : "Absences can only be reported up to today — no future dates.");
       return;
     }
-    if (startDate < cycle.min || endDate > cycle.max) {
-      setError("Absences can only be reported within the current pay cycle, up to today — no future or older dates.");
-      return;
-    }
+    if (!approverName.trim() || !approverEmail.trim()) { setEditApprover(true); setError("Add your approver's name and email"); return; }
     setBusy(true);
     try {
       let attachment_path = null;
@@ -108,130 +100,120 @@ export default function AbsenceRequestModal({ onClose, onSubmitted }) {
         attachment_filename,
         save_approver: true,
       });
-      onSubmitted();
+      setDone(true);
     } catch (err) {
-      setError(err.response?.data?.detail || err.message || "Could not submit — try again");
+      setError(err.response?.data?.detail || err.message || "Could not send — please try again");
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-ledger-900/60 flex items-center justify-center px-4 z-50 overflow-y-auto py-8">
-      <div className="bg-paper rounded-sm shadow-stamp w-full max-w-lg p-6 border-t-4 border-jade-500 relative my-auto">
-        <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 text-ink/70 hover:text-ink transition-colors">
-          <X size={18} />
-        </button>
-        <p className="text-xs font-semibold text-jade-600 mb-1">Report absence</p>
-        <p className="font-display text-lg text-ink mb-5">Work-related absence request</p>
+    <RequestSheet
+      icon={Briefcase}
+      eyebrow="Work-related absence"
+      title="Away from my desk for work"
+      onClose={onClose}
+      done={done && {
+        title: "Absence reported",
+        text: `${numberOfDays} day${Number(numberOfDays) === 1 ? "" : "s"} from ${formatDate(startDate)}. ${approverName} has been emailed and HR will approve it here. It won't touch your leave balance.`,
+        onDone: onSubmitted,
+      }}
+      footer={<SubmitRow form="absence-form" onCancel={onClose} busy={busy} label="Send absence report" />}
+    >
+      <form id="absence-form" onSubmit={submit}>
+        <FilingAs person={user} extra={
+          <> · <input aria-label="Department" required value={department} onChange={(e) => setDepartment(e.target.value)}
+            placeholder="Department" className="inline-block w-36 bg-transparent border-b border-dashed border-ink/30 focus:border-jade-500 focus:outline-none text-ink/80 font-semibold px-0.5" /></>
+        } />
+        <p className="text-xs text-ink/65 bg-manila/60 rounded-sm px-3 py-2 mb-5">
+          Use this for client visits, store events, travel or training — days you worked but weren't at your usual place. It is <strong>not</strong> leave.
+        </p>
 
-        <form onSubmit={submit} className="space-y-6">
-          <div className="space-y-4">
-            <p className="text-xs font-semibold text-ink/70">Employee details</p>
-            <Field label="Dept." required>
-              <input className={inputCls} required value={department} onChange={(e) => setDepartment(e.target.value)} />
-            </Field>
-            <Field label="Employee code">
-              <input className={readOnlyCls} value={user?.employee_code || ""} disabled />
-            </Field>
-            <Field label="Name" required>
-              <input className={readOnlyCls} value={`${user?.first_name || ""} ${user?.last_name || ""}`.trim()} disabled />
-            </Field>
-            <Field label="Email" required>
-              <input className={readOnlyCls} value={user?.email || ""} disabled />
-            </Field>
-          </div>
-
-          <div className="space-y-4">
-            <p className="text-xs font-semibold text-ink/70">Details</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="From" required>
-                <input
-                  type="date" required className={`${inputCls} font-nums`}
-                  min={cycle.min} max={cycle.max}
-                  value={startDate} onChange={(e) => setStartDate(e.target.value)}
-                />
-              </Field>
-              <Field label="To" required>
-                <input
-                  type="date" required className={`${inputCls} font-nums`}
-                  min={cycle.min} max={cycle.max}
-                  value={endDate} onChange={(e) => setEndDate(e.target.value)}
-                />
-              </Field>
-            </div>
-            <Field label="Number of days" required>
-              <input
-                type="number" min="0" step="0.5" required
-                className={`${inputCls} font-nums`}
-                value={numberOfDays}
-                onChange={(e) => { setDaysTouched(true); setNumberOfDays(e.target.value); }}
-              />
-            </Field>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Punch-in date">
-                <input type="date" className={`${inputCls} font-nums`} value={inDate} onChange={(e) => { setInDate(e.target.value); if (!outDate) setOutDate(e.target.value); }} />
-              </Field>
-              <Field label="Punch-in time (AM/PM)">
-                <input type="time" className={`${inputCls} font-nums`} value={inTime} onChange={(e) => setInTime(e.target.value)} />
-              </Field>
-              <Field label="Punch-out date">
-                <input type="date" min={inDate || undefined} className={`${inputCls} font-nums`} value={outDate} onChange={(e) => setOutDate(e.target.value)} />
-              </Field>
-              <Field label="Punch-out time (AM/PM)">
-                <input type="time" className={`${inputCls} font-nums`} value={outTime} onChange={(e) => setOutTime(e.target.value)} />
-              </Field>
-              <p className="sm:col-span-2 text-[11px] text-ink/60 -mt-2">For night work, set the punch-out date to the next day. Leave these blank if the absence has no punch times.</p>
-            </div>
-            <Field label="Details" required>
-              <textarea
-                required className={`${inputCls} min-h-[70px]`}
-                value={details} onChange={(e) => setDetails(e.target.value)}
-              />
-            </Field>
-          </div>
-
-          <div className="space-y-4">
-            <p className="text-xs font-semibold text-ink/70">Approver details</p>
-            <p className="text-xs text-ink/70 -mt-1">Enter below the details of your reporting manager who approves your leaves</p>
-            <Field label="Name" required>
-              <input className={inputCls} required value={approverName} onChange={(e) => setApproverName(e.target.value)} />
-            </Field>
-            <Field label="Approver email" required>
-              <input
-                type="email" required className={inputCls}
-                value={approverEmail} onChange={(e) => setApproverEmail(e.target.value)}
-              />
-            </Field>
-          </div>
-
+        <SectionLabel>Which day(s)?</SectionLabel>
+        <div className="mb-2">
+          <QuickPick value={startDate === endDate ? startDate : ""} onPick={(v) => { setStartDate(v); setEndDate(v); }}
+            options={[{ value: today, label: "Today" }, { value: yesterday, label: "Yesterday" }]} />
+        </div>
+        <div className="grid grid-cols-2 gap-3 mb-2">
           <div>
-            <label className="block text-xs font-semibold text-ink/70 mb-1.5">
-              Attachment <span className="normal-case font-normal text-ink/70">(optional)</span>
-            </label>
-            <label className="flex items-center gap-2 w-full rounded-sm border border-dashed border-ink/20 bg-manila/40 px-3 py-2.5 text-sm text-ink/70 cursor-pointer hover:bg-manila/60 transition-colors">
-              <Paperclip size={14} />
-              {file ? file.name : "Add content…"}
-              <input type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-            </label>
+            <label htmlFor="ab_from" className="block text-[11px] text-ink/60 mb-1">First day</label>
+            <input id="ab_from" type="date" required min={bounds.min} max={bounds.max} className={`${inputCls} font-nums`}
+              value={startDate} onChange={(e) => pickStart(e.target.value)} />
           </div>
+          <div>
+            <label htmlFor="ab_to" className="block text-[11px] text-ink/60 mb-1">Last day</label>
+            <input id="ab_to" type="date" required min={startDate || bounds.min} max={bounds.max} className={`${inputCls} font-nums`}
+              value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          </div>
+        </div>
+        <div className="flex items-center gap-2 mb-5">
+          <label htmlFor="ab_days" className="text-xs text-ink/60">Number of days</label>
+          <input id="ab_days" type="number" min="0" step="0.5" required className={`${inputCls} font-nums !w-20 !py-1.5`}
+            value={numberOfDays} onChange={(e) => { setDaysTouched(true); setNumberOfDays(e.target.value); }} />
+          <span className="text-[11px] text-ink/50">change to 0.5 for half a day</span>
+        </div>
 
-          {error && <p className="text-sm text-rust-500 border-l-2 border-rust-500 pl-2.5 py-0.5">{error}</p>}
+        <SectionLabel htmlFor="ab_details" required>Where were you, and what for?</SectionLabel>
+        <textarea id="ab_details" required rows={2} className={`${inputCls} mb-4`} placeholder="e.g. Client fitting at a customer's home, 11am–4pm"
+          value={details} onChange={(e) => setDetails(e.target.value)} />
 
-          <div className="flex justify-end gap-4 pt-1">
-            <button type="button" onClick={onClose} className="text-sm text-ink/70 hover:text-ink px-2">
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={busy}
-              className="bg-ledger-800 text-manila px-[1.5em] py-[0.625em] leading-tight rounded-sm text-sm font-semibold hover:bg-ledger-700 disabled:opacity-50 transition-colors"
-            >
-              {busy ? "Submitting…" : "Submit absence request"}
+        <button type="button" onClick={() => setShowPunch((v) => !v)}
+          className="flex items-center gap-1 text-xs font-semibold text-jade-700 hover:underline mb-3">
+          <ChevronDown size={14} className={`transition-transform ${showPunch ? "rotate-180" : ""}`} />
+          {showPunch ? "Hide punch times" : "Add punch times (optional, for night work)"}
+        </button>
+        {showPunch && (
+          <div className="grid grid-cols-2 gap-3 mb-4 rounded-sm border border-ink/10 p-3">
+            <div>
+              <label htmlFor="ab_in_d" className="block text-[11px] text-ink/60 mb-1">Punch-in date</label>
+              <input id="ab_in_d" type="date" className={`${inputCls} font-nums`} value={inDate}
+                onChange={(e) => { setInDate(e.target.value); if (!outDate) setOutDate(e.target.value); }} />
+            </div>
+            <div>
+              <label htmlFor="ab_in_t" className="block text-[11px] text-ink/60 mb-1">Punch-in time</label>
+              <input id="ab_in_t" type="time" className={`${inputCls} font-nums`} value={inTime} onChange={(e) => setInTime(e.target.value)} />
+            </div>
+            <div>
+              <label htmlFor="ab_out_d" className="block text-[11px] text-ink/60 mb-1">Punch-out date</label>
+              <input id="ab_out_d" type="date" min={inDate || undefined} className={`${inputCls} font-nums`} value={outDate} onChange={(e) => setOutDate(e.target.value)} />
+            </div>
+            <div>
+              <label htmlFor="ab_out_t" className="block text-[11px] text-ink/60 mb-1">Punch-out time</label>
+              <input id="ab_out_t" type="time" className={`${inputCls} font-nums`} value={outTime} onChange={(e) => setOutTime(e.target.value)} />
+            </div>
+            <p className="col-span-2 text-[11px] text-ink/55">For night work, set the punch-out date to the next day.</p>
+          </div>
+        )}
+
+        <SectionLabel required>Who approves this?</SectionLabel>
+        {editApprover ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-1">
+            <input aria-label="Approver name" required placeholder="Manager's name" className={inputCls}
+              value={approverName} onChange={(e) => setApproverName(e.target.value)} />
+            <input aria-label="Approver email" type="email" required placeholder="manager@…" className={inputCls}
+              value={approverEmail} onChange={(e) => setApproverEmail(e.target.value)} />
+            <p className="sm:col-span-2 text-[11px] text-ink/55">Your reporting manager. We'll remember this for next time.</p>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between gap-3 rounded-sm border border-ink/15 px-3 py-2.5 mb-1">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-ink truncate">{approverName}</p>
+              <p className="text-xs text-ink/60 truncate">{approverEmail}</p>
+            </div>
+            <button type="button" onClick={() => setEditApprover(true)} className="flex items-center gap-1 text-xs font-semibold text-jade-700 hover:underline">
+              <Pencil size={12} /> Change
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+        )}
+
+        <div className="mt-4">
+          <SectionLabel optional>Attachment</SectionLabel>
+          <FilePick file={file} onChange={setFile} placeholder="Ticket, invite, photo or PDF" />
+        </div>
+
+        <ErrorNote>{error}</ErrorNote>
+      </form>
+    </RequestSheet>
   );
 }

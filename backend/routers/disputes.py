@@ -241,6 +241,29 @@ def _attach_appeal_context(rows: list[dict]) -> None:
             r["appeal_original_reason"] = o.get("reason")
 
 
+class SeenBody(BaseModel):
+    ids: list[str]
+
+
+@router.post("/me/disputes/mark-seen")
+def mark_my_disputes_seen(body: SeenBody, user: dict = Depends(get_current_user)):
+    """The dashboard shows "your dispute was approved/rejected" once, then calls
+    this so the same notice doesn't come back on every visit. Only the caller's
+    own resolved disputes are touched."""
+    ids = [i for i in body.ids if i][:200]
+    if not ids:
+        return {"updated": 0}
+    resp = (
+        supabase.table("hr_attendance_disputes")
+        .update({"seen_by_employee": True})
+        .eq("employee_id", user["id"])
+        .neq("status", "pending")
+        .in_("id", ids)
+        .execute()
+    )
+    return {"updated": len(resp.data or [])}
+
+
 @router.get("/me/disputes")
 def my_disputes(user: dict = Depends(get_current_user)):
     resp = (
