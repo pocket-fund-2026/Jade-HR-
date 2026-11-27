@@ -327,15 +327,14 @@ export default function Employees({ mode = "active" }) {
                 <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Gross (B+H+C)</th>
               )}
               <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Status</th>
-              {mode === "deactivated" && <th className="px-5 py-3 font-semibold text-[11px] text-ink/70">Exit date</th>}
               <th></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={mode === "deactivated" ? 8 : 7}>Loading ledger…</td></tr>
+              <tr><td className="px-5 py-12 text-ink/70 text-center text-sm" colSpan={7}>Loading ledger…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={mode === "deactivated" ? 8 : 7}><EmptyState title="No employees match" action={query || location !== "all" || category !== "all" ? { label: "Clear filters", onClick: () => { setQuery(""); setLocation("all"); setCategory("all"); setPage(1); } } : mode === "deactivated" ? undefined : { label: "Add an employee", to: "/admin/employees/new" }}>{query || location !== "all" || category !== "all" ? "Try widening the search or removing a filter." : mode === "deactivated" ? "Nobody has been deactivated." : "No employees are on file yet."}</EmptyState></td></tr>
+              <tr><td colSpan={7}><EmptyState title="No employees match" action={query || location !== "all" || category !== "all" ? { label: "Clear filters", onClick: () => { setQuery(""); setLocation("all"); setCategory("all"); setPage(1); } } : mode === "deactivated" ? undefined : { label: "Add an employee", to: "/admin/employees/new" }}>{query || location !== "all" || category !== "all" ? "Try widening the search or removing a filter." : mode === "deactivated" ? "Nobody has been deactivated." : "No employees are on file yet."}</EmptyState></td></tr>
             ) : (
               pageItems.map((e) => (
                 <tr key={e.id} className="border-b border-ink/[0.06] last:border-0 hover:bg-manila/50 transition-colors">
@@ -364,9 +363,6 @@ export default function Employees({ mode = "active" }) {
                       {e.is_active ? "Working" : "Inactive"}
                     </StampBadge>
                   </td>
-                  {mode === "deactivated" && (
-                    <td className="px-5 py-3.5 text-ink/70 font-nums">{e.exit_date || "—"}</td>
-                  )}
                   <td className="px-5 py-3.5">
                     <Link
                       to={`/admin/employees/${e.id}`}
