@@ -36,7 +36,7 @@ async function workbookFrom(fn) {
 
 test("wide sheet: a Remarks cell under every day for every person", async () => {
   const wb = await workbookFrom(() => exportAttendanceExcel(rows.slice(0, 3), 2026, 11));
-  const ws = wb.getWorksheet("Attendance");
+  const ws = wb.getWorksheet("Master");
   const header = ws.getRow(2).values.slice(1);
   const remarkCols = header.map((h, i) => (String(h).endsWith("Remarks") ? i + 1 : 0)).filter(Boolean);
   assert.equal(remarkCols.length, 5);
@@ -49,20 +49,20 @@ test("wide sheet: a Remarks cell under every day for every person", async () => 
 
 test("a malformed row does not break the whole export", async () => {
   const wb = await workbookFrom(() => exportAttendanceExcel(rows, 2026, 11));
-  assert.equal(wb.getWorksheet("Attendance").rowCount >= 6, true);
+  assert.equal(wb.getWorksheet("Master").rowCount >= 6, true);
 });
 
 test("timings export: Remarks on every day row of every tab", async () => {
   const wb = await workbookFrom(() => exportAttendanceTimingsExcel(rows.slice(0, 3), 2026, 11));
   let dayRows = 0;
   wb.eachSheet((ws) => ws.eachRow((row) => {
-    if (/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(String(row.getCell(3).value))) {
+    if (/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(String(row.getCell(4).value))) {
       dayRows += 1;
-      const v = String(row.getCell(11).value);
-      assert.ok(v && v !== "undefined", `blank remark on ${row.getCell(3).value}`);
+      const v = String(row.getCell(12).value);
+      assert.ok(v && v !== "undefined", `blank remark on ${row.getCell(4).value}`);
     }
   }));
-  assert.equal(dayRows, 15);
+  assert.equal(dayRows, 30); // shift tab + store tab
 });
 
 test("single-employee daily export: Remarks on every day", async () => {
@@ -79,7 +79,7 @@ test("missed punch: row highlighted, Remarks blank, in all three exports", async
   const fill = (c) => c.fill?.fgColor?.argb;
 
   let wb = await workbookFrom(() => exportAttendanceExcel(r, 2026, 11));
-  let row = wb.getWorksheet("Attendance").getRow(3);
+  let row = wb.getWorksheet("Master").getRow(3);
   assert.equal(fill(row.getCell(8)), "FFFFE066");          // day 2 In
   assert.equal(fill(row.getCell(11)), "FFFFE066");         // day 2 Remarks
   assert.ok(!row.getCell(11).value);                        // blank, for manual entry
@@ -87,8 +87,8 @@ test("missed punch: row highlighted, Remarks blank, in all three exports", async
 
   wb = await workbookFrom(() => exportAttendanceTimingsExcel(r, 2026, 11));
   const hit = [];
-  wb.eachSheet((ws) => ws.eachRow((rw) => { if (fill(rw.getCell(11)) === "FFFFE066") hit.push(rw.getCell(11).value); }));
-  assert.deepEqual(hit.map((v) => v || ""), [""]);
+  wb.eachSheet((ws) => ws.eachRow((rw) => { if (fill(rw.getCell(12)) === "FFFFE066") hit.push(rw.getCell(12).value); }));
+  assert.deepEqual(hit.map((v) => v || ""), ["", ""]); // shift tab + store tab
 
   wb = await workbookFrom(() => exportDailyAttendanceExcel(missed, { employeeCode: "2001", name: "Missed", rangeLabel: "x" }));
   const ws = wb.getWorksheet("Daily Attendance");
@@ -98,15 +98,15 @@ test("missed punch: row highlighted, Remarks blank, in all three exports", async
 
 test("timings export: Employee Code and Name lead every row, then the day columns", async () => {
   const wb = await workbookFrom(() => exportAttendanceTimingsExcel(rows.slice(0, 2), 2026, 11));
-  const ws = wb.worksheets[0];
+  const ws = wb.worksheets[1]; // [0] is Analysis
   let header = null;
   const data = [];
   ws.eachRow((row) => {
     const v = row.values.slice(1).map((c) => (c && c.text !== undefined ? c.text : c));
     if (v[0] === "Employee Code") header = v;
-    else if (/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(String(v[2]))) data.push(v);
+    else if (/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(String(v[3]))) data.push(v);
   });
-  assert.deepEqual(header, ["Employee Code", "Employee Name", "AttendanceDate", "Shift", "A. InTime", "A.OutTime", "W. Duration", "OT", "T Duration", "Status", "Remarks"]);
+  assert.deepEqual(header, ["Employee Code", "Employee Name", "Store", "AttendanceDate", "Shift", "A. InTime", "A.OutTime", "W. Duration", "OT", "T Duration", "Status", "Remarks", "Dispute"]);
   assert.equal(data.length, 10);
   assert.deepEqual([data[0][0], data[0][1]], ["1001", "Emp 1001"]);
   assert.deepEqual([data[5][0], data[5][1]], ["1002", "Emp 1002"]);
@@ -114,11 +114,13 @@ test("timings export: Employee Code and Name lead every row, then the day column
 
 test("timings export: one blank row between employees", async () => {
   const wb = await workbookFrom(() => exportAttendanceTimingsExcel(rows.slice(0, 2), 2026, 11));
-  const ws = wb.worksheets[0];
+  const ws = wb.worksheets[1];
   const codes = [];
-  ws.eachRow({ includeEmpty: true }, (row) => { codes.push(String(row.getCell(1).value ?? "")); });
+  const third = [];
+  ws.eachRow({ includeEmpty: true }, (row) => { codes.push(String(row.getCell(1).value ?? "")); third.push(String(row.getCell(3).value ?? "")); });
   const lastFirst = codes.lastIndexOf("1001");
-  assert.equal(codes[lastFirst + 1], "");      // blank row after the first employee's last day
+  assert.equal(third[lastFirst], "SUMMARY");   // summary line closes the employee's block
+  assert.equal(codes[lastFirst + 1], "");      // then one blank row
   assert.equal(codes[lastFirst + 2], "1002");  // next employee starts right after it
 });
 
@@ -128,7 +130,7 @@ test("WOP days are highlighted orange in all three exports", async () => {
   const fill = (c) => c.fill?.fgColor?.argb;
 
   let wb = await workbookFrom(() => exportAttendanceExcel(r, 2026, 11));
-  let row = wb.getWorksheet("Attendance").getRow(3);
+  let row = wb.getWorksheet("Master").getRow(3);
   assert.equal(fill(row.getCell(8)), "FFFFB74D");   // day 2 In
   assert.equal(fill(row.getCell(10)), "FFFFB74D");  // day 2 Status
   assert.equal(fill(row.getCell(11)), "FFFFB74D");  // day 2 Remarks
@@ -136,8 +138,8 @@ test("WOP days are highlighted orange in all three exports", async () => {
 
   wb = await workbookFrom(() => exportAttendanceTimingsExcel(r, 2026, 11));
   const orange = [];
-  wb.eachSheet((ws) => ws.eachRow((rw) => { if (fill(rw.getCell(1)) === "FFFFB74D") orange.push(String(rw.getCell(3).value)); }));
-  assert.equal(orange.length, 1);
+  wb.eachSheet((ws) => ws.eachRow((rw) => { if (fill(rw.getCell(1)) === "FFFFB74D") orange.push(String(rw.getCell(4).value)); }));
+  assert.equal(orange.length, 2); // shift tab + store tab
 
   wb = await workbookFrom(() => exportDailyAttendanceExcel(r[0].daily, { employeeCode: "3001", name: "Wop", rangeLabel: "x" }));
   const ws = wb.getWorksheet("Daily Attendance");
@@ -152,11 +154,11 @@ test("WOP with a single punch: row is yellow, Status/Shift stay orange", async (
   const wb = await workbookFrom(() => exportAttendanceTimingsExcel(r, 2026, 11));
   let found = false;
   wb.eachSheet((ws) => ws.eachRow((rw) => {
-    if (String(rw.getCell(3).value).match(/^\d{2}-/)) {
+    if (String(rw.getCell(4).value).match(/^\d{2}-/)) {
       found = true;
       assert.equal(fill(rw.getCell(1)), "FFFFE066");
-      assert.equal(fill(rw.getCell(4)), "FFFFB74D");
-      assert.equal(fill(rw.getCell(10)), "FFFFB74D");
+      assert.equal(fill(rw.getCell(5)), "FFFFB74D");
+      assert.equal(fill(rw.getCell(11)), "FFFFB74D");
     }
   }));
   assert.ok(found);
@@ -176,12 +178,69 @@ test("Remarks cells are real numbers in all three exports, so Excel can SUM them
   assert.ok(JSON.stringify(note).includes("Came via site visit"));
 
   wb = await workbookFrom(() => exportAttendanceTimingsExcel(rows, 2026, 11));
-  ws = wb.worksheets[0];
+  ws = wb.worksheets[1];
   let nums = 0;
-  ws.eachRow((row) => { const v = row.getCell(11).value; if (typeof v === "number") nums += 1; else if (row.getCell(3).value && /\d{4}/.test(String(row.getCell(3).value))) assert.fail(`text remark: ${v}`); });
+  ws.eachRow((row) => { const v = row.getCell(12).value; if (typeof v === "number") nums += 1; else if (row.getCell(4).value && /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(String(row.getCell(4).value))) assert.fail(`text remark: ${v}`); });
   assert.ok(nums >= 15);
 
   wb = await workbookFrom(() => exportDailyAttendanceExcel(rows[0].daily, { employeeCode: "1001", name: "Emp" }));
   ws = wb.worksheets[0];
   assert.deepEqual([4, 5, 6, 7, 8].map((r) => ws.getRow(r).getCell(7).value), [1, 0.75, 0, 1, 0.5]);
+});
+
+
+test("analysis: Master columns, Analysis tab and datewise summary tally leaves, disputes and OT", async () => {
+  const daily = [
+    mk("2026-11-16", { ot_hours: 1.5, hours_worked: 10.5, dispute: { status: "approved", issue_type: "missed_clock_out" } }),
+    mk("2026-11-17", { status: "leave", leave_type: "paid", first_in: null, last_out: null, hours_worked: 0 }),
+    mk("2026-11-18", { status: "leave", leave_type: "comp_off", first_in: null, last_out: null, hours_worked: 0 }),
+    mk("2026-11-19", { late: true, late_band_v3: "level1", lop_days: 0.25, dispute: { status: "rejected", issue_type: "late_coming" } }),
+    mk("2026-11-20", { late_excused_by_extra_hours: true, dispute: { status: "pending", issue_type: "other" } }),
+    mk("2026-11-22", { worked_on_weekly_off: true, comp_off_eligible: true, comp_off_units: 1 }),
+  ];
+  const r = [{ employee_code: "4001", name: "Tally", department: "Ops", location: "Madhu Estate", time_slot: "10:00 AM – 7:00 PM", daily }];
+
+  let wb = await workbookFrom(() => exportAttendanceExcel(r, 2026, 11));
+  const ws = wb.getWorksheet("Analysis");
+  const head = ws.getRow(1).values.slice(1);
+  const val = (label) => ws.getRow(2).getCell(head.indexOf(label) + 1).value;
+  assert.equal(val("Present"), 3);
+  assert.equal(val("WOP"), 1);
+  assert.equal(val("PL"), 1);
+  assert.equal(val("Comp-Off taken"), 1);
+  assert.equal(val("Late (Yellow)"), 1);
+  assert.equal(val("Late excused (extra hrs)"), 1);
+  assert.equal(val("Late LOP days"), 0.25);
+  assert.equal(val("Disputes"), 3);
+  assert.equal(val("Disputes approved"), 1);
+  assert.equal(val("Disputes rejected"), 1);
+  assert.equal(val("Disputes pending"), 1);
+  assert.equal(val("OT hours"), 1.5);
+  assert.equal(val("Comp-Off earned"), 1);
+  assert.equal(val("Total Attendance (paid days)"), 5.75);
+  const master = wb.getWorksheet("Master");
+  const mh = master.getRow(2).values.slice(1);
+  assert.equal(master.getRow(3).getCell(mh.indexOf("Disputes") + 1).value, 3);
+  assert.equal(master.getRow(4).getCell(2).value, "TOTAL");
+
+  wb = await workbookFrom(() => exportAttendanceTimingsExcel(r, 2026, 11));
+  const t = wb.worksheets[1];
+  let summary = null;
+  const disputes = [];
+  t.eachRow((row) => {
+    if (row.getCell(3).value === "SUMMARY") summary = String(row.getCell(4).value);
+    if (row.getCell(3).value !== "SUMMARY" && row.getCell(13).value) disputes.push(row.getCell(13).value);
+  });
+  assert.ok(summary.includes("PL 1") && summary.includes("CO taken 1") && summary.includes("OT 01:30"), summary);
+  assert.ok(summary.includes("Disputes 3 (approved 1, rejected 1, pending 1)"), summary);
+  assert.deepEqual(disputes.slice(1), ["Approved · Missed out", "Rejected · Late mark", "Pending · Other"]);
+});
+
+test("approved dispute day: remark 1, not highlighted as a missed punch", async () => {
+  const d = mk("2026-11-12", { last_out: null, corrected: true, dispute_approved: true, dispute: { status: "approved", issue_type: "missed_clock_out" } });
+  const r = [{ employee_code: "5001", name: "Disp", department: "Ops", time_slot: "10:00 AM – 7:00 PM", daily: [d] }];
+  const wb = await workbookFrom(() => exportAttendanceExcel(r, 2026, 11));
+  const row = wb.getWorksheet("Master").getRow(3);
+  assert.equal(row.getCell(7).value, 1);
+  assert.notEqual(row.getCell(7).fill?.fgColor?.argb, "FFFFE066");
 });

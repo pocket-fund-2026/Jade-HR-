@@ -135,11 +135,17 @@ export function lateAllowanceInfo(d) {
   const mins = d.late_allowance_minutes;
   const span = mins >= 60 ? `${Math.floor(mins / 60)}h${mins % 60 ? ` ${mins % 60}m` : ""}` : `${mins}m`;
   const used = !!d.late_excused_by_extra_hours;
+  // Carried over a weekly off / holiday: name the day it was earned (Sat -> Mon).
+  let from = "yesterday";
+  if (d.late_allowance_from && d.date) {
+    const gap = (new Date(d.date) - new Date(d.late_allowance_from)) / 86400000;
+    if (gap > 1) from = `on ${new Date(d.late_allowance_from + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}`;
+  }
   return {
     used,
     text: used
-      ? `Late allowed (${d.late_minutes_excused} min) — extra hours worked yesterday earned ${span}, until ${until}`
-      : `Extra hours yesterday earn ${span} late allowance, until ${until}`,
+      ? `Late allowed (${d.late_minutes_excused} min) — extra hours worked ${from} earned ${span}, until ${until}`
+      : `Extra hours ${from} earn ${span} late allowance, until ${until}`,
     short: used ? "Allowed · extra hrs" : `Allowed till ${until}`,
   };
 }

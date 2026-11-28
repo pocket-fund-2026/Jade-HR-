@@ -184,6 +184,8 @@ export const MISSED_PUNCH_FILL = "FFFFE066";
 export const MISSED_PUNCH_FONT = "FF5C3B00";
 export function missedPunch(d) {
   if (!d || !["present", "half_day", "wfh"].includes(d.status)) return false;
+  // An approved dispute settled the day: it is a full day, not a missed punch.
+  if (d.dispute_approved || (d.corrected && d.dispute && d.dispute.status === "approved")) return false;
   if (!d.first_in || !d.last_out) return true;
   return new Date(d.first_in).getTime() === new Date(d.last_out).getTime();
 }
@@ -284,6 +286,83 @@ export function summarize(daily) {
   return counts;
 }
 
+const DISPUTE_TYPE_LABEL = {
+  missed_clock_in: "Missed in", missed_clock_out: "Missed out", both: "Missed in+out",
+  late_coming: "Late mark", weekly_off: "Sunday", other: "Other",
+};
+const DISPUTE_STATUS_LABEL = { approved: "Approved", rejected: "Rejected", pending: "Pending" };
+
+// "Approved · Missed out" for a day's dispute, "" when none.
+export function disputeLabel(d) {
+  const x = d && d.dispute;
+  if (!x) return "";
+  const st = DISPUTE_STATUS_LABEL[x.status] || x.status || "";
+  const ty = DISPUTE_TYPE_LABEL[x.issue_type] || x.issue_type || "";
+  return [st, ty].filter(Boolean).join(" · ");
+}
+
+const OTHER_LEAVE_TYPES = new Set(["sick", "casual", "earned", "compassionate", "maternity", "paternity"]);
+
+// Per-employee analysis for the sheets (HR, 28 Nov 2026): every count is read
+// off the same daily rows the grid prints, so the totals always tally with the
+// cells. Late = Yellow Cards actually charged (excused-by-extra-hours days are
+// counted separately); Late LOP = the backend's lop_days for lateness.
+export function analyzeDaily(daily) {
+  const a = {
+    present: 0, wop: 0, absent: 0, sundayAbsent: 0, weekoff: 0, holiday: 0,
+    pl: 0, compOff: 0, otherLeave: 0, lwp: 0, halfDay: 0, wfh: 0,
+    late: 0, lateExcused: 0, lateLop: 0, missedPunch: 0,
+    disputes: 0, disputesApproved: 0, disputesRejected: 0, disputesPending: 0,
+    hours: 0, otHours: 0, extraHours: 0, compOffEarned: 0, paid: 0,
+  };
+  for (const d of daily || []) {
+    if (d.status === "present") {
+      if (d.worked_on_weekly_off) a.wop += 1; else a.present += 1;
+    } else if (d.status === "absent") {
+      if (d.weekoff_forfeited) a.sundayAbsent += 1; else a.absent += 1;
+    } else if (d.status === "weekoff") a.weekoff += 1;
+    else if (d.status === "holiday") a.holiday += 1;
+    else if (d.status === "half_day") a.halfDay += 1;
+    else if (d.status === "wfh") a.wfh += 1;
+    else if (d.status === "leave") {
+      if (d.leave_type === "paid") a.pl += 1;
+      else if (d.leave_type === "comp_off") a.compOff += 1;
+      else if (d.leave_type === "unpaid") a.lwp += 1;
+      else if (OTHER_LEAVE_TYPES.has(d.leave_type)) a.otherLeave += 1;
+      else a.otherLeave += 1;
+    }
+    if (d.late_band_v3 || d.late) a.late += 1;
+    if (d.late_excused_by_extra_hours) a.lateExcused += 1;
+    a.lateLop += Number(d.lop_days) || 0;
+    if (missedPunch(d)) a.missedPunch += 1;
+    if (d.dispute) {
+      a.disputes += 1;
+      if (d.dispute.status === "approved") a.disputesApproved += 1;
+      else if (d.dispute.status === "rejected") a.disputesRejected += 1;
+      else a.disputesPending += 1;
+    }
+    a.hours += Number(d.hours_worked) || 0;
+    a.otHours += Number(d.ot_hours) || 0;
+    a.extraHours += Number(d.extra_hours) || 0;
+    if (d.comp_off_eligible) a.compOffEarned += Number(d.comp_off_units) || 1;
+  }
+  a.paid = totalPaidDays(daily);
+  for (const k of ["lateLop", "hours", "otHours", "extraHours", "compOffEarned"]) a[k] = Number(a[k].toFixed(2));
+  return a;
+}
+
+// Column order for every analysis table/row: [header, key, kind]
+export const ANALYSIS_COLUMNS = [
+  ["Present", "present"], ["WOP", "wop"], ["Absent", "absent"], ["A (Sun)", "sundayAbsent"],
+  ["Weekoff", "weekoff"], ["Holiday", "holiday"], ["PL", "pl"], ["Comp-Off taken", "compOff"],
+  ["Other leave", "otherLeave"], ["LWP", "lwp"], ["Half day", "halfDay"], ["WFH", "wfh"],
+  ["Late (Yellow)", "late"], ["Late excused (extra hrs)", "lateExcused"], ["Late LOP days", "lateLop"],
+  ["Missed punch", "missedPunch"], ["Disputes", "disputes"], ["Disputes approved", "disputesApproved"],
+  ["Disputes rejected", "disputesRejected"], ["Disputes pending", "disputesPending"],
+  ["Hours worked", "hours", "hours"], ["OT hours", "otHours", "hours"], ["Extra hours after shift", "extraHours", "hours"],
+  ["Comp-Off earned", "compOffEarned"], ["Total Attendance (paid days)", "paid"],
+];
+
 // exceljs is a separate file that Vite renames on every deploy, so a tab left
 // open across a deploy can fail to fetch it ("Failed to fetch dynamically
 // imported module"). Retry once, then tell the user plainly and reload so the
@@ -353,6 +432,7 @@ export async function exportAttendanceExcel(rows, year, month, rangeLabel) {
   // Master tab with everyone, then one tab per store/location team.
   const used = new Set();
   writeAttendanceSheet(wb.addWorksheet(safeSheetName("Master", used)), rows);
+  writeAnalysisSheet(wb.addWorksheet(safeSheetName("Analysis", used)), rows);
   const byLocation = new Map();
   for (const r of rows) {
     const key = (r.location || "").trim() || "Unassigned";
@@ -393,8 +473,10 @@ function writeAttendanceSheet(ws, rows) {
     const n = dayNumber(d.date);
     header.push(`${n} In`, `${n} Out`, `${n} Status`, `${n} Remarks`);
   }
-  header.push("Present", "Absent", "Leave", "Weekoff", "Holiday", "Late", "Total Attendance");
+  for (const [label] of ANALYSIS_COLUMNS) header.push(label);
   styleHeaderRow(ws.addRow(header));
+  const analysisStart = 4 + days.length * 4;
+  const totals = Object.fromEntries(ANALYSIS_COLUMNS.map(([, k]) => [k, 0]));
 
   for (const r of rows) {
     const values = [r.employee_code, r.name, r.department];
@@ -406,9 +488,15 @@ function writeAttendanceSheet(ws, rows) {
         dayRemarkValue(d),
       );
     }
-    const s = summarize((r.daily || []));
-    values.push(s.present, s.absent, s.leave, s.weekoff, s.holiday, s.late, totalPaidDays(r.daily));
+    const a = analyzeDaily(r.daily);
+    for (const [, k] of ANALYSIS_COLUMNS) { values.push(a[k]); totals[k] += a[k]; }
     const row = ws.addRow(values);
+    ANALYSIS_COLUMNS.forEach(([, k, kind], i) => {
+      const cell = row.getCell(analysisStart + i);
+      cell.numFmt = kind === "hours" ? "0.00" : "0.##";
+      cell.alignment = { horizontal: "center" };
+    });
+    row.getCell(analysisStart + ANALYSIS_COLUMNS.length - 1).font = { bold: true };
 
     (r.daily || []).forEach((d, i) => {
       const col = 4 + i * 4; // 1-indexed — Employee Code/Name/Department occupy 1-3
@@ -426,6 +514,12 @@ function writeAttendanceSheet(ws, rows) {
       }
     });
   }
+
+  const totalValues = ["", "TOTAL", ""];
+  for (let i = 0; i < days.length * 4; i++) totalValues.push("");
+  for (const [, k] of ANALYSIS_COLUMNS) totalValues.push(Number(totals[k].toFixed(2)));
+  styleHeaderRow(ws.addRow(totalValues));
+  ANALYSIS_COLUMNS.forEach((_, i) => { ws.getColumn(analysisStart + i).width = 11; });
 
   ws.getColumn(1).width = 14;
   ws.getColumn(2).width = 22;
@@ -485,6 +579,33 @@ function safeSheetName(label, used) {
   return unique;
 }
 
+// One row per employee with the full analysis, plus a TOTAL row.
+function writeAnalysisSheet(ws, rows) {
+  const header = ["Employee Code", "Name", "Store", "Department", ...ANALYSIS_COLUMNS.map(([l]) => l)];
+  styleHeaderRow(ws.addRow(header));
+  ws.getRow(1).eachCell((c) => { c.alignment = { horizontal: "center", vertical: "middle", wrapText: true }; });
+  ws.getRow(1).height = 32;
+  const totals = Object.fromEntries(ANALYSIS_COLUMNS.map(([, k]) => [k, 0]));
+  for (const r of rows) {
+    const a = analyzeDaily(r.daily);
+    const row = ws.addRow([r.employee_code, r.name, (r.location || "").trim() || "Unassigned", r.department || "",
+      ...ANALYSIS_COLUMNS.map(([, k]) => { totals[k] += a[k]; return a[k]; })]);
+    ANALYSIS_COLUMNS.forEach(([, k, kind], i) => {
+      const cell = row.getCell(5 + i);
+      cell.numFmt = kind === "hours" ? "0.00" : "0.##";
+      cell.alignment = { horizontal: "center" };
+      if ((k === "absent" || k === "sundayAbsent" || k === "lateLop" || k === "disputesPending") && a[k] > 0) {
+        cell.font = { color: { argb: "FF832F23" }, bold: true };
+      }
+    });
+  }
+  styleHeaderRow(ws.addRow(["", "TOTAL", "", "", ...ANALYSIS_COLUMNS.map(([, k]) => Number(totals[k].toFixed(2)))]));
+  [14, 24, 18, 16].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+  ANALYSIS_COLUMNS.forEach((_, i) => { ws.getColumn(5 + i).width = 11; });
+  ws.views = [{ state: "frozen", xSplit: 2, ySplit: 1 }];
+  ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: header.length } };
+}
+
 function writeTimingsSheet(ws, rows) {
   addLateLegend(ws, BLOCK_FONT, rows[0]?.daily ?? []);
   ws.addRow([]);
@@ -493,7 +614,7 @@ function writeTimingsSheet(ws, rows) {
   // 17 Nov 2026), then the day's columns, so the sheet can be filtered/sorted.
   const colHeaderRow = ws.addRow([
     "Employee Code", "Employee Name", "Store", "AttendanceDate", "Shift", "A. InTime", "A.OutTime",
-    "W. Duration", "OT", "T Duration", "Status", "Remarks",
+    "W. Duration", "OT", "T Duration", "Status", "Remarks", "Dispute",
   ]);
   colHeaderRow.eachCell((cell) => { cell.font = { ...BLOCK_FONT, bold: true }; cell.alignment = { horizontal: "left", vertical: "top" }; });
   const headerRowNumber = colHeaderRow.number;
@@ -521,6 +642,7 @@ function writeTimingsSheet(ws, rows) {
         formatDurationHHMM(d.hours_worked),
         status,
         dayRemarkValue(d),
+        disputeLabel(d),
       ]);
       dataRow.eachCell((cell) => { cell.font = BLOCK_FONT; cell.alignment = { horizontal: "left", vertical: "top" }; });
       setRemarkCell(dataRow.getCell(12), d);
@@ -537,10 +659,30 @@ function writeTimingsSheet(ws, rows) {
         if (isWop(d)) { paintWop(dataRow, 5, 5); paintWop(dataRow, 11, 11); }
       }
     }
+    // Summary line under each employee's days: the same analysis as the Master tab.
+    const a = analyzeDaily(r.daily);
+    const parts = [
+      `P ${a.present}`, a.wop ? `WOP ${a.wop}` : null, `A ${a.absent}`, a.sundayAbsent ? `A(Sun) ${a.sundayAbsent}` : null,
+      `WO ${a.weekoff}`, `H ${a.holiday}`, `PL ${a.pl}`, `CO taken ${a.compOff}`,
+      a.otherLeave ? `Other leave ${a.otherLeave}` : null, a.lwp ? `LWP ${a.lwp}` : null,
+      a.halfDay ? `HD ${a.halfDay}` : null, a.wfh ? `WFH ${a.wfh}` : null,
+      `Late ${a.late}`, a.lateExcused ? `Late excused ${a.lateExcused}` : null, `Late LOP ${a.lateLop}`,
+      `Disputes ${a.disputes} (approved ${a.disputesApproved}, rejected ${a.disputesRejected}, pending ${a.disputesPending})`,
+      `Worked ${formatDurationHHMM(a.hours)}`, `OT ${formatDurationHHMM(a.otHours)}`,
+      a.compOffEarned ? `CO earned ${a.compOffEarned}` : null, `Paid days ${a.paid}`,
+    ].filter(Boolean);
+    const sumRow = ws.addRow([r.employee_code, r.name, "SUMMARY", parts.join("  |  ")]);
+    ws.mergeCells(sumRow.number, 4, sumRow.number, 13);
+    sumRow.eachCell((cell) => {
+      cell.font = { ...BLOCK_FONT, bold: true };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEFE9DA" } };
+      cell.alignment = { horizontal: "left", vertical: "top", wrapText: true };
+    });
+    sumRow.height = 24;
     ws.addRow([]); // one blank row between employees
   }
 
-  [14, 24, 16, 14, 7, 10, 10, 11, 7, 10, 8, 30].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+  [14, 24, 16, 14, 7, 10, 10, 11, 7, 10, 8, 30, 22].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
   ws.views = [{ state: "frozen", xSplit: 2, ySplit: headerRowNumber }];
 }
 
@@ -579,6 +721,7 @@ export async function exportAttendanceTimingsExcel(rows, year, month, rangeLabel
   });
 
   const used = new Set();
+  writeAnalysisSheet(wb.addWorksheet(safeSheetName("Analysis", used)), rows);
   for (const slot of slots) {
     const ws = wb.addWorksheet(safeSheetName(slot, used));
     writeTimingsSheet(ws, bySlot.get(slot));

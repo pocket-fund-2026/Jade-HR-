@@ -1096,3 +1096,100 @@ def test_post_midnight_clock_out_is_recorded_on_the_shift_day_with_hours_and_ot(
     assert r["last_out"] == true_out.isoformat() and r["last_out_next_day"] is True
     assert r["hours_worked"] == 15.0
     assert r["ot_hours"] > 0
+
+
+# ── HR, 28 Nov 2026: Rushikesh Chande (14570) and Sagar Pawar (14027) ──
+
+RUSHI_SLOT = "10:00 AM – 6:30 PM"
+
+
+def test_saturday_extra_hours_carry_over_the_weekly_off_to_monday():
+    # Sat 14 Nov: short Saturday ends 3 PM, worked 09:56-17:56 (~2h56 extra -> 88 min).
+    # Sun 15 Nov weekly off. Mon 16 Nov in 10:13: inside the allowance, so no Yellow Card / LOP.
+    punches = [
+        datetime(2026, 11, 14, 9, 56, tzinfo=IST), datetime(2026, 11, 14, 17, 56, tzinfo=IST),
+        datetime(2026, 11, 16, 10, 13, tzinfo=IST), datetime(2026, 11, 16, 18, 45, tzinfo=IST),
+    ]
+    rows = compute_daily_attendance(2026, 11, punches, 8, weekly_off_day=6, time_slot=RUSHI_SLOT,
+                                    is_corporate=True, ot_eligible=False)
+    sat = next(r for r in rows if r["date"] == "2026-11-14")
+    mon = next(r for r in rows if r["date"] == "2026-11-16")
+    assert sat["ot_hours"] == 0.0 and sat["extra_hours"] == 2.93  # OT pay unchanged
+    assert mon["late_allowance_from"] == "2026-11-14"
+    assert mon["late_excused_by_extra_hours"] is True
+    summary = apply_late_coming_policy_v3(rows, RUSHI_SLOT)
+    assert not mon.get("late_band_v3") and not mon.get("lop_days")
+    assert summary["yellow_card_count"] == 0
+
+
+def test_allowance_does_not_skip_a_worked_day_or_absence():
+    punches = [
+        datetime(2026, 11, 14, 9, 56, tzinfo=IST), datetime(2026, 11, 14, 17, 56, tzinfo=IST),
+        datetime(2026, 11, 17, 10, 13, tzinfo=IST), datetime(2026, 11, 17, 18, 45, tzinfo=IST),
+    ]  # Monday 16th absent: Tuesday gets nothing
+    rows = compute_daily_attendance(2026, 11, punches, 8, weekly_off_day=6, time_slot=RUSHI_SLOT,
+                                    is_corporate=True, ot_eligible=False)
+    tue = next(r for r in rows if r["date"] == "2026-11-17")
+    assert "late_allowance_minutes" not in tue
+
+
+def test_dispute_clock_out_typed_on_12_hour_clock_is_read_as_pm():
+    from datetime import time as t
+    # Both sides claimed: 10:00 in, "07:00" out -> 7 PM, 9 hours.
+    rows = compute_daily_attendance(2026, 11, [], 8, weekly_off_day=6, time_slot="Flexible", is_corporate=True,
+                                    overrides={date(2026, 11, 11): {"status_override": "present", "first_in": t(10, 0), "last_out": t(7, 0)}})
+    r = next(r for r in rows if r["date"] == "2026-11-11")
+    assert r["last_out"].startswith("2026-11-11T19:00") and r["hours_worked"] == 9.0 and r["last_out_read_as_pm"]
+
+
+def test_missed_clock_out_fills_real_clock_in_and_reads_out_as_pm():
+    from datetime import time as t
+    punches = [datetime(2026, 11, 12, 10, 5, tzinfo=IST)]
+    rows = compute_daily_attendance(2026, 11, punches, 8, weekly_off_day=6, time_slot="Flexible", is_corporate=True,
+                                    overrides={date(2026, 11, 12): {"status_override": "present", "first_in": None, "last_out": t(7, 0)}})
+    r = next(r for r in rows if r["date"] == "2026-11-12")
+    assert r["first_in"].startswith("2026-11-12T10:05") and r["last_out"].startswith("2026-11-12T19:00")
+    assert r["hours_worked"] == 8.92
+
+
+def test_approved_day_without_times_keeps_real_punches_and_midnight_finish():
+    punches = [
+        datetime(2026, 11, 20, 10, 7, tzinfo=IST), datetime(2026, 11, 20, 18, 25, tzinfo=IST),
+        datetime(2026, 11, 21, 0, 13, tzinfo=IST), datetime(2026, 11, 21, 10, 30, tzinfo=IST),
+    ]
+    rows = compute_daily_attendance(2026, 11, punches, 8, weekly_off_day=6, time_slot="Flexible", is_corporate=True,
+                                    overrides={date(2026, 11, 20): {"status_override": "present", "first_in": None, "last_out": None}})
+    r = next(r for r in rows if r["date"] == "2026-11-20")
+    assert r["first_in"].startswith("2026-11-20T10:07")
+    assert r["last_out"].startswith("2026-11-21T00:13")
+    assert r["hours_worked"] == 14.1
+
+
+def test_dispute_clock_out_just_after_midnight_is_next_day_not_noon():
+    from datetime import time as t
+    punches = [datetime(2026, 11, 3, 10, 2, tzinfo=IST)]
+    rows = compute_daily_attendance(2026, 11, punches, 8, weekly_off_day=6, time_slot="10:00 AM – 7:00 PM", is_corporate=True,
+                                    overrides={date(2026, 11, 3): {"status_override": "present", "first_in": None, "last_out": t(0, 5)}})
+    r = next(r for r in rows if r["date"] == "2026-11-03")
+    assert r["last_out"].startswith("2026-11-04T00:05") and r["hours_worked"] == 14.05 and r["last_out_next_day"]
+
+
+def test_approved_dispute_day_is_a_full_day_without_late_card():
+    from datetime import time as t
+    punches = [datetime(2026, 11, 12, 10, 40, tzinfo=IST)]
+    rows = compute_daily_attendance(2026, 11, punches, 8, weekly_off_day=6, time_slot="10:00 AM – 7:00 PM", is_corporate=True,
+                                    overrides={date(2026, 11, 12): {"status_override": "present", "first_in": None,
+                                                                     "last_out": t(7, 0), "from_dispute": True}})
+    r = next(r for r in rows if r["date"] == "2026-11-12")
+    assert r["dispute_approved"] is True
+    summary = apply_late_coming_policy_v3(rows, "10:00 AM – 7:00 PM")
+    assert summary["yellow_card_count"] == 0 and not r.get("lop_days")
+
+
+def test_hr_correction_without_dispute_is_still_banded():
+    from datetime import time as t
+    rows = compute_daily_attendance(2026, 11, [], 8, weekly_off_day=6, time_slot="10:00 AM – 7:00 PM", is_corporate=True,
+                                    overrides={date(2026, 11, 12): {"status_override": "present", "first_in": t(10, 40), "last_out": t(19, 0)}})
+    apply_late_coming_policy_v3(rows, "10:00 AM – 7:00 PM")
+    r = next(r for r in rows if r["date"] == "2026-11-12")
+    assert r.get("late_band_v3") == "level1"

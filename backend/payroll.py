@@ -298,6 +298,39 @@ def holiday_applies_to_all_staff(employee_location: str | None) -> bool:
     return any(name in loc for name in HOLIDAY_ALL_STAFF_LOCATIONS)
 
 
+# From the Nov 2026 pay cycle (23 Oct onward). Earlier, already-paid cycles keep
+# the deductions they were paid with.
+DISPUTE_FULL_DAY_EFFECTIVE = date(2026, 10, 23)
+
+
+def _normalize_override_out_time(override: dict) -> dict:
+    """Employees type a dispute's clock-out on a 12-hour clock: "07:00" for
+    7 PM, "05:00" for 5 PM (Sagar Pawar's Nov 2026 disputes). Stored as-is it
+    lands before the clock-in, and the day shows 0 hours. A same-day clock-out
+    earlier than the clock-in, that becomes later than it with 12 hours added,
+    is read as PM. A genuine past-midnight finish carries last_out_date and is
+    left alone."""
+    first_in, last_out = override.get("first_in"), override.get("last_out")
+    if not last_out or override.get("register"):
+        return override
+    if override.get("last_out_date") and str(override["last_out_date"])[:10] != str(override.get("date") or "")[:10]:
+        return override
+    if last_out.hour >= 12 or not first_in or last_out > first_in:
+        return override
+    if last_out.hour == 0:
+        # "00:15" is a finish just after midnight (next calendar day), never 12:15 PM.
+        return {**override, "last_out_date": _next_day_iso(override), "last_out_read_as_next_day": True}
+    pm = last_out.replace(hour=last_out.hour + 12)
+    if first_in < pm:
+        return {**override, "last_out": pm, "last_out_read_as_pm": True}
+    return override
+
+
+def _next_day_iso(override: dict) -> str | None:
+    d = override.get("date")
+    return (date.fromisoformat(str(d)[:10]) + timedelta(days=1)).isoformat() if d else None
+
+
 def _fill_override_from_punches(override: dict, punches: list[datetime]) -> dict:
     """An approved "forgot to clock in/out" correction carries only the side the
     employee claimed, and the override replaces the whole day — so the real
@@ -305,15 +338,30 @@ def _fill_override_from_punches(override: dict, punches: list[datetime]) -> dict
     hours / OT). Keep it: when exactly one side of a present-day correction is
     missing, take it from the day's raw biometric punches, if they have one on
     the sensible side of the corrected time."""
-    if override.get("register") or override.get("status_override") != "present" or not punches:
+    if override.get("register") or override.get("status_override") != "present":
+        return override
+    override = _normalize_override_out_time(override)
+    if not punches:
         return override
     first_in, last_out = override.get("first_in"), override.get("last_out")
-    if first_in and last_out or not (first_in or last_out):
+    if first_in and last_out:
         return override
+    if not (first_in or last_out):
+        # Approved with no times (e.g. "worked till past midnight"): the day
+        # was confirmed present, so keep the real punches instead of a blank day.
+        if len(punches) >= 2:
+            return {**override, "first_in": punches[0].astimezone(IST).time(), "last_out": punches[-1].astimezone(IST).time()}
+        return {**override, "first_in": punches[0].astimezone(IST).time()}
     if last_out and not first_in:
         raw = punches[0].astimezone(IST).time()
         if raw < last_out:
             return {**override, "first_in": raw}
+        if last_out.hour == 0:
+            return {**override, "first_in": raw, "last_out_date": _next_day_iso(override), "last_out_read_as_next_day": True}
+        pm = last_out.replace(hour=last_out.hour + 12) if last_out.hour < 12 else None
+        if pm and raw < pm:
+            # "Forgot to clock out at 07:00" with a 10:15 clock-in means 7 PM.
+            return {**override, "first_in": raw, "last_out": pm, "last_out_read_as_pm": True}
     elif first_in and not last_out:
         raw = punches[-1].astimezone(IST).time()
         if raw > first_in:
@@ -348,7 +396,7 @@ def _apply_override(
     first_in, last_out = override.get("first_in"), override.get("last_out")
     day_standard = _standard_hours_for_day(d, standard_hours_per_day, time_slot, ot_eligible)
 
-    hours_worked = ot_hours = 0.0
+    hours_worked = ot_hours = extra_hours = 0.0
     first_in_iso = last_out_iso = None
     late = False
     grace = _late_grace_for(time_slot, d)
@@ -363,6 +411,7 @@ def _apply_override(
         end = datetime.combine(out_day, last_out, tzinfo=IST)
         hours_worked = max(0.0, (end - start).total_seconds() / 3600.0)
         ot_hours = _ot_hours(d, start, end, day_standard, time_slot)
+        extra_hours = _extra_hours_after_shift(d, start, end, time_slot, ot_eligible)
         first_in_iso, last_out_iso = start.isoformat(), end.isoformat()
         late = (hours_worked < day_standard) if is_flexible else (first_in > grace)
     elif status == "present":
@@ -396,10 +445,17 @@ def _apply_override(
         "last_out": last_out_iso,
         "hours_worked": round(hours_worked, 2),
         "ot_hours": round(ot_hours, 2),
+        "extra_hours": round(extra_hours, 2),
         "status": status,
         "late": late,
         "late_half_day_tier": bool(corrected_in and corrected_in >= LATE_HALF_DAY_CUTOFF_V2),
         "corrected": True,
+        **({"last_out_read_as_pm": True} if override.get("last_out_read_as_pm") else {}),
+        **({"last_out_next_day": True} if override.get("last_out_read_as_next_day") else {}),
+        # Approved dispute (HR, 28 Nov 2026): the day counts as a full day on the
+        # employee's time slot: no late band or late deduction, remark 1.
+        **({"dispute_approved": True} if override.get("from_dispute") and status == "present"
+           and d >= DISPUTE_FULL_DAY_EFFECTIVE else {}),
     }
 
 
@@ -411,6 +467,43 @@ def _apply_override(
 EXTRA_HOURS_PER_ALLOWED_HOUR = 2.0
 
 
+def _shift_end_for_day(d: date, time_slot: str | None, ot_eligible: bool) -> time | None:
+    """Clock time the assigned shift ends on `d`. A shortened Saturday
+    (SATURDAY_SHIFT_HOURS, non-OT staff) ends start + those hours, e.g. 3 PM."""
+    slot = _slot_times(time_slot)
+    if time_slot == FLEXIBLE_TIME_SLOT or slot is None:
+        return None
+    if d.weekday() == 5 and not ot_eligible and time_slot in SATURDAY_SHIFT_HOURS:
+        return (datetime.combine(date(2000, 1, 1), slot[0]) + timedelta(hours=SATURDAY_SHIFT_HOURS[time_slot])).time()
+    return slot[1]
+
+
+def _extra_hours_after_shift(
+    d: date, start: datetime, end: datetime, time_slot: str | None, ot_eligible: bool,
+) -> float:
+    """Hours worked past the shift's own end that day. Independent of OT pay
+    eligibility: it only feeds the next-day late allowance."""
+    shift_end = _shift_end_for_day(d, time_slot, ot_eligible)
+    if shift_end is None:
+        return 0.0
+    cutoff = datetime.combine(d, shift_end, tzinfo=IST)
+    return round(max(0.0, (end - max(start, cutoff)).total_seconds() / 3600.0), 2)
+
+
+def _previous_working_row(rows: list[dict], d: date) -> dict | None:
+    """The last row before `d` that was a working day, stepping back over
+    weekly offs and company holidays that were not worked. "The very next
+    working day" after a Saturday is Monday when Sunday is the weekly off
+    (HR, 28 Nov 2026: Rushikesh Chande, 14 -> 16 Nov)."""
+    for r in reversed(rows):
+        if date.fromisoformat(r["date"]) >= d:
+            continue
+        if r.get("status") in ("weekoff", "holiday"):
+            continue
+        return r
+    return None
+
+
 def _extra_hours_late_allowance_minutes(
     prev_row: dict | None, d: date, weekly_off_day: int, time_slot: str | None, holidays: dict,
 ) -> int:
@@ -419,13 +512,16 @@ def _extra_hours_late_allowance_minutes(
     # hand out phantom allowances to anyone working a normal 9h day.
     if time_slot == FLEXIBLE_TIME_SLOT or _slot_times(time_slot) is None or d.weekday() == weekly_off_day:
         return 0
-    if not prev_row or prev_row.get("date") != (d - timedelta(days=1)).isoformat():
+    if not prev_row:
+        return 0
+    prev_day = date.fromisoformat(prev_row["date"])
+    if (d - prev_day).days > 7:
         return 0
     if prev_row.get("status") != "present" or prev_row.get("worked_on_weekly_off"):
         return 0
-    if (d - timedelta(days=1)) in holidays:
+    if prev_day in holidays:
         return 0
-    extra = float(prev_row.get("ot_hours") or 0.0)
+    extra = float(prev_row.get("extra_hours", prev_row.get("ot_hours")) or 0.0)
     return int(extra * 60 / EXTRA_HOURS_PER_ALLOWED_HOUR)
 
 
@@ -644,7 +740,14 @@ def compute_daily_attendance(
             day_punches = by_day.get(d, [])
             if day_punches and day_punches[0].astimezone(IST).time() < MIDNIGHT_TAIL_CUTOFF:
                 day_punches = day_punches[1:]  # tail of yesterday's shift, same rule as raw days below
-            override = _fill_override_from_punches(overrides[d], day_punches)
+            override = _fill_override_from_punches({"date": d.isoformat(), **overrides[d]}, day_punches)
+            if (d in midnight_tail_dates and not overrides[d].get("last_out") and not override.get("register")
+                    and override.get("status_override") == "present" and override.get("first_in")):
+                # Approved day whose real finish was after midnight: the clock-out sits in tomorrow's bucket.
+                tail = [p for p in by_day.get(d + timedelta(days=1), []) if p.astimezone(IST).time() < MIDNIGHT_TAIL_CUTOFF]
+                if tail:
+                    override = {**override, "last_out": max(tail).astimezone(IST).time(),
+                                "last_out_date": (d + timedelta(days=1)).isoformat()}
             row = _apply_override(d, override, standard_hours_per_day, time_slot, ot_eligible)
             if row["status"] == "present" and d.weekday() == weekly_off_day and not override.get("register"):
                 # A corrected day on the weekly off is still WOP: no late mark,
@@ -795,15 +898,22 @@ def compute_daily_attendance(
                     "last_out": last_out.isoformat(), "hours_worked": round(hours_worked, 2), "ot_hours": round(ot_hours, 2),
                     "last_out_next_day": True,
                 })
-        allowance = _extra_hours_late_allowance_minutes(rows[-1] if rows else None, d, weekly_off_day, time_slot, holidays)
+        row["extra_hours"] = _extra_hours_after_shift(d, first_in, last_out, time_slot, ot_eligible)
+        prev_row = _previous_working_row(rows, d)
+        allowance = _extra_hours_late_allowance_minutes(prev_row, d, weekly_off_day, time_slot, holidays)
         excused = False
         if allowance:
             shift_start = SHIFT_START_BY_TIME_SLOT.get(time_slot, DEFAULT_SHIFT_START)
             allowed_until = (datetime.combine(d, shift_start) + timedelta(minutes=allowance)).time()
             row["late_allowance_minutes"] = allowance
             row["late_allowance_until"] = allowed_until.strftime("%H:%M")
-            row["late_allowance_extra_hours"] = rows[-1]["ot_hours"]
-            if row["late"] and first_in_local <= allowed_until:
+            row["late_allowance_extra_hours"] = prev_row.get("extra_hours", prev_row.get("ot_hours"))
+            row["late_allowance_from"] = prev_row["date"]
+            # Under v3 any arrival past the shift start is a Yellow Card, so an
+            # arrival inside v2's 20-minute grace (row["late"] False) still
+            # needs excusing; otherwise v3 bands 10:01-10:20 regardless.
+            would_be_late = row["late"] or (is_corporate and late_policy_v3_active(d) and first_in_local > shift_start)
+            if would_be_late and first_in_local <= allowed_until:
                 row["late"] = False
                 row["late_excused_by_extra_hours"] = True
                 row["late_minutes_excused"] = int(
@@ -1068,6 +1178,8 @@ def apply_late_coming_policy_v3(daily: list[dict], time_slot: str | None) -> dic
             continue
         if r.get("worked_on_weekly_off"):
             continue  # WOP: no Yellow Card, band or deduction on a day off
+        if r.get("dispute_approved"):
+            continue  # approved dispute: a full day on the time slot, no card or deduction
         arrival = datetime.fromisoformat(r["first_in"]).astimezone(IST).time()
         if r.get("late_excused_by_extra_hours"):
             continue  # arrival fell inside the allowance earned by yesterday's extra hours: not late, no card

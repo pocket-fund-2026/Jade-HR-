@@ -8,7 +8,7 @@ import MonthPicker from "../../../components/MonthPicker.jsx";
 import api from "../../../lib/api.js";
 import { useAuth } from "../../../lib/auth.jsx";
 import { LEAVE_LABELS } from "../../../lib/leaveTypes.js";
-import { dayCode, dayNumber, dayRemark, parseRemarkNumber, totalPaidDays, exportAttendanceExcel, isWop, missedPunch, exportAttendanceTimingsExcel, statusColorKey, summarize } from "../../../lib/attendanceExport.js";
+import { dayCode, dayNumber, dayRemark, parseRemarkNumber, exportAttendanceExcel, isWop, missedPunch, exportAttendanceTimingsExcel, statusColorKey, analyzeDaily, disputeLabel } from "../../../lib/attendanceExport.js";
 import { formatHoursMins, formatTime, lateAllowanceInfo } from "../../../lib/format.js";
 
 import EmptyState from "../../../components/EmptyState.jsx";
@@ -232,6 +232,25 @@ function EditCellModal({ employee, day, onClose, onSaved, onReload, canCorrect }
   );
 }
 
+// Per-employee analysis beside the grid (HR, 28 Nov 2026). Same numbers as the
+// Excel "Analysis" tab: analyzeDaily reads the very rows the grid prints.
+const hm = (h) => { const t = Math.round((h || 0) * 60); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`; };
+const SUMMARY_COLS = [
+  ["P", (a) => a.present + (a.wop ? ` +${a.wop}` : ""), "Present (+ worked on weekly off)"],
+  ["A", (a) => a.absent + (a.sundayAbsent ? ` +${a.sundayAbsent}S` : ""), "Absent (+ unearned Sundays)", "text-rust-600"],
+  ["PL", (a) => a.pl, "Paid Leave taken"],
+  ["CO", (a) => a.compOff, "Comp-Off taken"],
+  ["Lv", (a) => a.otherLeave + a.lwp + a.halfDay, "Other leave, LWP and half days"],
+  ["WO", (a) => a.weekoff, "Weekly offs"],
+  ["H", (a) => a.holiday, "Holidays"],
+  ["Late", (a) => a.late + (a.lateExcused ? ` (${a.lateExcused}✓)` : ""), "Yellow Cards (✓ = excused by previous day's extra hours)", "text-rust-600"],
+  ["LOP", (a) => a.lateLop || "", "Late-coming deduction, days"],
+  ["Disp", (a) => (a.disputes ? `${a.disputesApproved}/${a.disputesRejected}/${a.disputesPending}` : ""), "Disputes approved / rejected / pending"],
+  ["OT", (a) => (a.otHours ? hm(a.otHours) : ""), "Overtime hours"],
+  ["CO+", (a) => a.compOffEarned || "", "Comp-Off earned (worked weekly off / holiday)"],
+  ["Total", (a) => a.paid, "Paid days", "font-semibold text-ink"],
+];
+
 export default function AttendanceReport() {
   const { can } = useAuth();
   const canEdit = can("disputes.manage");
@@ -301,7 +320,7 @@ export default function AttendanceReport() {
         <div>
           <h2 className="font-display text-2xl text-ink">Attendance sheet</h2>
           <p className="text-xs text-ink/70 font-nums mt-0.5 flex items-center gap-1.5 flex-wrap">
-            <span>P = Present · A = Absent · WO = Weekoff · H = Holiday · HD = Half Day · PL = Paid Leave · CO = Comp-Off · LWP = Leave Without Pay · ML/PTL/CL = Maternity/Paternity/Compassionate — hover a cell for hours &amp; <abbr className="acr">OT</abbr>. Green dot = Comp-Off eligible. Orange dot = has a remark. Orange cell = WOP (worked their weekly off). Yellow cell = missed check-in/out.</span>
+            <span>P = Present · A = Absent · WO = Weekoff · H = Holiday · HD = Half Day · PL = Paid Leave · CO = Comp-Off · LWP = Leave Without Pay · ML/PTL/CL = Maternity/Paternity/Compassionate — hover a cell for hours &amp; <abbr className="acr">OT</abbr>. <abbr className="acr">OT</abbr> 1:30 under a cell = overtime that day. Green dot = Comp-Off eligible. Orange dot = has a remark. Top-left dot = late allowance from extra hours (dark green = used). D✓ / D✗ / D? = dispute approved / rejected / pending (an approved dispute counts as a full day). Orange cell = WOP (worked their weekly off). Yellow cell = missed check-in/out. Right-hand columns: P, A, PL, CO, other leave, WO, H, Late, late <abbr className="acr">LOP</abbr>, disputes (approved/rejected/pending), <abbr className="acr">OT</abbr>, Comp-Off earned, paid days.</span>
             <span className="inline-flex items-center gap-1 text-jade-700">
               <Pencil size={11} /> {canEdit ? "Click any cell to correct it or add a remark." : "Click any cell to add a remark."}
             </span>
@@ -382,27 +401,25 @@ export default function AttendanceReport() {
               {days.map((d) => (
                 <th key={d.date} className="px-1 py-2 font-semibold text-ink/70 text-center w-14">{dayNumber(d.date)}</th>
               ))}
-              <th className="px-2 py-2 font-semibold text-[11px] text-ink/70 text-center">P</th>
-              <th className="px-2 py-2 font-semibold text-[11px] text-ink/70 text-center">A</th>
-              <th className="px-2 py-2 font-semibold text-[11px] text-ink/70 text-center">L</th>
-              <th className="px-2 py-2 font-semibold text-[11px] text-ink/70 text-center">Late</th>
-              <th className="px-2 py-2 font-semibold text-[11px] text-ink/70 text-center">Total</th>
+              {SUMMARY_COLS.map(([label, , hint]) => (
+                <th key={label} title={hint} className="px-2 py-2 font-semibold text-[11px] text-ink/70 text-center whitespace-nowrap">{label}</th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={days.length + 6}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
+              <tr><td className="px-4 py-8 text-ink/70 text-center" colSpan={days.length + 1 + SUMMARY_COLS.length}><span className="t-shimmer" data-text="Loading…">Loading…</span></td></tr>
             ) : rows.length === 0 ? (
-              <tr><td colSpan={days.length + 6}><EmptyState title="No employees found" action={{ label: "Open employees", to: "/admin/employees" }}>Employees show here once they are added and active.</EmptyState></td></tr>
+              <tr><td colSpan={days.length + 1 + SUMMARY_COLS.length}><EmptyState title="No employees found" action={{ label: "Open employees", to: "/admin/employees" }}>Employees show here once they are added and active.</EmptyState></td></tr>
             ) : (
               visibleRows.map((r, i) => {
-                const s = summarize(r.daily);
+                const a = analyzeDaily(r.daily);
                 const showStoreHeader = i === 0 || storeOf(visibleRows[i - 1]) !== storeOf(r);
                 return (
                   <Fragment key={r.employee_id}>
                   {showStoreHeader && (
                     <tr className="bg-manila">
-                      <td colSpan={days.length + 6} className="px-3 py-1.5 text-[11px] font-semibold text-ink/70 sticky left-0">
+                      <td colSpan={days.length + 1 + SUMMARY_COLS.length} className="px-3 py-1.5 text-[11px] font-semibold text-ink/70 sticky left-0">
                         {storeOf(r)} <span className="font-nums normal-case text-ink/60">· {visibleRows.filter((x) => storeOf(x) === storeOf(r)).length}</span>
                       </td>
                     </tr>
@@ -417,7 +434,7 @@ export default function AttendanceReport() {
                       return (
                         <td
                           key={d.date}
-                          title={`${cellTitle(d)}${dayRemark(d) ? ` — Remark: ${dayRemark(d)}` : ""}${editable ? (canEdit ? " — click to edit" : " — click to add a remark") : ""}`}
+                          title={`${cellTitle(d)}${d.dispute ? ` — Dispute: ${disputeLabel(d)}` : ""}${d.last_out_read_as_pm ? " — clock-out read as PM" : ""}${dayRemark(d) ? ` — Remark: ${dayRemark(d)}` : ""}${editable ? (canEdit ? " — click to edit" : " — click to add a remark") : ""}`}
                           onClick={editable ? () => setEditing({ employee: r, day: d }) : undefined}
                           className={`p-0.5 text-center align-top ${missedPunch(d) ? "bg-[#FFE066]" : isWop(d) ? "bg-[#FFE0B2]" : ""} ${editable ? "cursor-pointer hover:ring-1 hover:ring-jade-500 hover:ring-inset" : ""}`}
                         >
@@ -449,6 +466,19 @@ export default function AttendanceReport() {
                                 {formatTime(d.last_out)}
                               </span>
                             )}
+                            {Number(d.ot_hours) > 0 && (
+                              <span className="text-[9px] leading-none font-semibold text-jade-700 font-nums whitespace-nowrap" title={`Overtime ${hm(d.ot_hours)}`}>
+                                OT {hm(d.ot_hours)}
+                              </span>
+                            )}
+                            {d.dispute && (
+                              <span
+                                className={`text-[9px] leading-none font-semibold whitespace-nowrap ${d.dispute.status === "approved" ? "text-jade-700" : d.dispute.status === "rejected" ? "text-rust-600" : "text-ochre-700"}`}
+                                title={`Dispute: ${disputeLabel(d)}`}
+                              >
+                                D{d.dispute.status === "approved" ? "✓" : d.dispute.status === "rejected" ? "✗" : "?"}
+                              </span>
+                            )}
                             {dayRemark(d) && (
                               <span className="block max-w-[3.25rem] truncate text-[9px] leading-none font-semibold text-ochre-700 font-nums" title={dayRemark(d)}>
                                 {dayRemark(d)}
@@ -458,11 +488,9 @@ export default function AttendanceReport() {
                         </td>
                       );
                     })}
-                    <td className="px-2 py-2 font-nums text-center">{s.present}</td>
-                    <td className="px-2 py-2 font-nums text-center">{s.absent}</td>
-                    <td className="px-2 py-2 font-nums text-center">{s.leave}</td>
-                    <td className="px-2 py-2 font-nums text-center text-rust-600">{s.late}</td>
-                    <td className="px-2 py-2 font-nums text-center font-semibold text-ink">{totalPaidDays(r.daily)}</td>
+                    {SUMMARY_COLS.map(([label, render, , cls]) => (
+                      <td key={label} className={`px-2 py-2 font-nums text-center whitespace-nowrap ${cls || ""}`}>{render(a)}</td>
+                    ))}
                   </tr>
                   </Fragment>
                 );

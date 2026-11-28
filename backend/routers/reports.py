@@ -27,6 +27,33 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
 
+def _attach_disputes(results: list[dict], start: date, end: date) -> None:
+    """Adds `dispute` ({status, issue_type, claimed_in, claimed_out}) to each
+    daily row that has an attendance dispute, so the sheet can show and count
+    raised / approved / rejected / pending disputes. The latest one wins when
+    a day was disputed more than once (an appeal). Best-effort."""
+    try:
+        rows = fetch_all_paged(
+            "hr_attendance_disputes", "id,employee_id,date,status,issue_type,claimed_in,claimed_out,created_at",
+            ("employee_id", "date", "created_at", "id"),
+            lambda q: q.gte("date", start.isoformat()).lte("date", end.isoformat()),
+        )
+    except Exception:
+        logger.exception("could not read hr_attendance_disputes")
+        return
+    by_key: dict[tuple, dict] = {}
+    for r in sorted(rows, key=lambda r: r.get("created_at") or ""):
+        by_key[(r["employee_id"], str(r["date"])[:10])] = {
+            "status": r["status"], "issue_type": r.get("issue_type"),
+            "claimed_in": r.get("claimed_in"), "claimed_out": r.get("claimed_out"),
+        }
+    for res in results:
+        for d in res.get("daily") or []:
+            disp = by_key.get((res["employee_id"], d["date"]))
+            if disp:
+                d["dispute"] = disp
+
+
 def _attach_manual_remarks(results: list[dict], start: date, end: date) -> None:
     """Adds `remark_manual` (HR's typed Remarks, hr_attendance_remarks) to the
     matching daily rows. Best-effort: until sql/088 is applied the table is
@@ -521,6 +548,7 @@ def attendance_report(
     dates = [d["date"] for r in out for d in (r["daily"] or [])]
     if dates:
         _attach_manual_remarks(out, date.fromisoformat(min(dates)), date.fromisoformat(max(dates)))
+        _attach_disputes(out, date.fromisoformat(min(dates)), date.fromisoformat(max(dates)))
     return out
 
 
@@ -588,6 +616,7 @@ def attendance_report_range(
             "daily": daily,
         })
     _attach_manual_remarks(results, from_date, to_date)
+    _attach_disputes(results, from_date, to_date)
     return results
 
 
