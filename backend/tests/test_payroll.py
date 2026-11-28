@@ -1193,3 +1193,18 @@ def test_hr_correction_without_dispute_is_still_banded():
     apply_late_coming_policy_v3(rows, "10:00 AM – 7:00 PM")
     r = next(r for r in rows if r["date"] == "2026-11-12")
     assert r.get("late_band_v3") == "level1"
+
+
+def test_paid_cycles_before_nov_2026_keep_the_old_rules():
+    from datetime import time as t
+    # Sat 10 Oct -> Mon 12 Oct (Oct cycle, already paid): no carry-over, no PM reading.
+    punches = [
+        datetime(2026, 10, 10, 9, 56, tzinfo=IST), datetime(2026, 10, 10, 17, 56, tzinfo=IST),
+        datetime(2026, 10, 12, 10, 13, tzinfo=IST), datetime(2026, 10, 12, 18, 45, tzinfo=IST),
+    ]
+    rows = compute_daily_attendance(2026, 10, punches, 8, weekly_off_day=6, time_slot=RUSHI_SLOT, is_corporate=True, ot_eligible=False,
+                                    overrides={date(2026, 10, 14): {"status_override": "present", "first_in": t(10, 0), "last_out": t(7, 0), "from_dispute": True}})
+    mon = next(r for r in rows if r["date"] == "2026-10-12")
+    assert "late_allowance_minutes" not in mon
+    wed = next(r for r in rows if r["date"] == "2026-10-14")
+    assert wed["hours_worked"] == 0.0 and not wed.get("dispute_approved")

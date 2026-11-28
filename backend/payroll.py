@@ -298,9 +298,13 @@ def holiday_applies_to_all_staff(employee_location: str | None) -> bool:
     return any(name in loc for name in HOLIDAY_ALL_STAFF_LOCATIONS)
 
 
-# From the Nov 2026 pay cycle (23 Oct onward). Earlier, already-paid cycles keep
-# the deductions they were paid with.
-DISPUTE_FULL_DAY_EFFECTIVE = date(2026, 10, 23)
+# The 28 Nov 2026 attendance fixes (dispute times read as PM / after midnight,
+# approval without times keeps the punches, approved dispute = full day, extra
+# hours carried over a weekly off, v3 arrivals inside the allowance excused)
+# apply from the Nov 2026 pay cycle (23 Oct onward). Earlier, already-paid
+# cycles keep exactly the figures they were paid with.
+ATTENDANCE_FIXES_EFFECTIVE = date(2026, 10, 23)
+DISPUTE_FULL_DAY_EFFECTIVE = ATTENDANCE_FIXES_EFFECTIVE
 
 
 def _normalize_override_out_time(override: dict) -> dict:
@@ -329,6 +333,24 @@ def _normalize_override_out_time(override: dict) -> dict:
 def _next_day_iso(override: dict) -> str | None:
     d = override.get("date")
     return (date.fromisoformat(str(d)[:10]) + timedelta(days=1)).isoformat() if d else None
+
+
+def _fill_override_from_punches_legacy(override: dict, punches: list[datetime]) -> dict:
+    """Behaviour before ATTENDANCE_FIXES_EFFECTIVE, kept for paid cycles."""
+    if override.get("register") or override.get("status_override") != "present" or not punches:
+        return override
+    first_in, last_out = override.get("first_in"), override.get("last_out")
+    if first_in and last_out or not (first_in or last_out):
+        return override
+    if last_out and not first_in:
+        raw = punches[0].astimezone(IST).time()
+        if raw < last_out:
+            return {**override, "first_in": raw}
+    elif first_in and not last_out:
+        raw = punches[-1].astimezone(IST).time()
+        if raw > first_in:
+            return {**override, "last_out": raw}
+    return override
 
 
 def _fill_override_from_punches(override: dict, punches: list[datetime]) -> dict:
@@ -740,8 +762,11 @@ def compute_daily_attendance(
             day_punches = by_day.get(d, [])
             if day_punches and day_punches[0].astimezone(IST).time() < MIDNIGHT_TAIL_CUTOFF:
                 day_punches = day_punches[1:]  # tail of yesterday's shift, same rule as raw days below
-            override = _fill_override_from_punches({"date": d.isoformat(), **overrides[d]}, day_punches)
-            if (d in midnight_tail_dates and not overrides[d].get("last_out") and not override.get("register")
+            if d >= ATTENDANCE_FIXES_EFFECTIVE:
+                override = _fill_override_from_punches({"date": d.isoformat(), **overrides[d]}, day_punches)
+            else:
+                override = _fill_override_from_punches_legacy(overrides[d], day_punches)
+            if (d >= ATTENDANCE_FIXES_EFFECTIVE and d in midnight_tail_dates and not overrides[d].get("last_out") and not override.get("register")
                     and override.get("status_override") == "present" and override.get("first_in")):
                 # Approved day whose real finish was after midnight: the clock-out sits in tomorrow's bucket.
                 tail = [p for p in by_day.get(d + timedelta(days=1), []) if p.astimezone(IST).time() < MIDNIGHT_TAIL_CUTOFF]
@@ -899,7 +924,13 @@ def compute_daily_attendance(
                     "last_out_next_day": True,
                 })
         row["extra_hours"] = _extra_hours_after_shift(d, first_in, last_out, time_slot, ot_eligible)
-        prev_row = _previous_working_row(rows, d)
+        fixes_on = d >= ATTENDANCE_FIXES_EFFECTIVE
+        if fixes_on:
+            prev_row = _previous_working_row(rows, d)
+        else:
+            prev_row = rows[-1] if rows and rows[-1].get("date") == (d - timedelta(days=1)).isoformat() else None
+            if prev_row is not None:
+                prev_row = {**prev_row, "extra_hours": prev_row.get("ot_hours")}
         allowance = _extra_hours_late_allowance_minutes(prev_row, d, weekly_off_day, time_slot, holidays)
         excused = False
         if allowance:
@@ -912,7 +943,7 @@ def compute_daily_attendance(
             # Under v3 any arrival past the shift start is a Yellow Card, so an
             # arrival inside v2's 20-minute grace (row["late"] False) still
             # needs excusing; otherwise v3 bands 10:01-10:20 regardless.
-            would_be_late = row["late"] or (is_corporate and late_policy_v3_active(d) and first_in_local > shift_start)
+            would_be_late = row["late"] or (fixes_on and is_corporate and late_policy_v3_active(d) and first_in_local > shift_start)
             if would_be_late and first_in_local <= allowed_until:
                 row["late"] = False
                 row["late_excused_by_extra_hours"] = True

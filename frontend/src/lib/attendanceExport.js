@@ -185,7 +185,7 @@ export const MISSED_PUNCH_FONT = "FF5C3B00";
 export function missedPunch(d) {
   if (!d || !["present", "half_day", "wfh"].includes(d.status)) return false;
   // An approved dispute settled the day: it is a full day, not a missed punch.
-  if (d.dispute_approved || (d.corrected && d.dispute && d.dispute.status === "approved")) return false;
+  if (d.dispute_approved) return false;
   if (!d.first_in || !d.last_out) return true;
   return new Date(d.first_in).getTime() === new Date(d.last_out).getTime();
 }
