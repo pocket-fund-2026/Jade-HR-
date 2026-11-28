@@ -394,6 +394,13 @@ def _parse_reason_times(reason: str):
         pass  # the last "out ... TIME" mention is the finish
     if mo:
         tout = _token_time(*mo.group(1, 2, 3))
+    elif tout is None and _NIGHT_RE.search(reason):
+        # "full night 2 AM", "night punch 4:00": a night shift's finish written without "out"
+        mn = re.search(r"night[^\d]{0,20}?" + _TIME_TOKEN, reason, re.IGNORECASE)
+        ma = re.search(r"(\d{1,2})(?:\s*[:.]\s*(\d{2}))?\s*(a\.?\s?m\.?)(?!\w)", reason, re.IGNORECASE)
+        m2 = mn or ma
+        if m2:
+            tout = _token_time(*m2.group(1, 2, 3))
     return tin, tout
 
 
@@ -444,6 +451,10 @@ def _resolve_dispute_times(override: dict, d: date, punches: list[datetime]) -> 
             first_in = raw_in
         elif t_in:
             first_in = _clock(*t_in) if t_in[2] else time(t_in[0] if t_in[0] >= 7 else t_in[0] + 12, t_in[1])
+        elif t_out or last_out:
+            # Finish known, start not recorded anywhere: the shift's own start.
+            first_in = override.get("_shift_start") or DEFAULT_SHIFT_START
+            out["first_in_assumed"] = True
         if first_in:
             out["first_in"] = first_in
     if not first_in:
@@ -461,11 +472,11 @@ def _resolve_dispute_times(override: dict, d: date, punches: list[datetime]) -> 
             elif tm != claimed:
                 out["last_out_read_as_pm"] = True
         return out
-    if raw_out and raw_out > first_in and not (t_out and night):
-        out["last_out"] = raw_out
-        return out
     if t_out:
         tm, nxt = _resolve_out(d, first_in, t_out, night)
+        if raw_out and raw_out > first_in and not nxt and raw_out >= tm:
+            out["last_out"] = raw_out  # the real punch is as late or later: trust it
+            return out
         out["last_out"] = tm
         out["last_out_from_reason"] = True
         if nxt:
@@ -888,7 +899,9 @@ def compute_daily_attendance(
             if day_punches and day_punches[0].astimezone(IST).time() < MIDNIGHT_TAIL_CUTOFF:
                 day_punches = day_punches[1:]  # tail of yesterday's shift, same rule as raw days below
             if d >= ATTENDANCE_FIXES_EFFECTIVE:
-                override = _fill_override_from_punches({"date": d.isoformat(), **overrides[d]}, day_punches)
+                override = _fill_override_from_punches(
+                    {"date": d.isoformat(), "_shift_start": SHIFT_START_BY_TIME_SLOT.get(time_slot, DEFAULT_SHIFT_START),
+                     **overrides[d]}, day_punches)
             else:
                 override = _fill_override_from_punches_legacy(overrides[d], day_punches)
             if (d >= ATTENDANCE_FIXES_EFFECTIVE and d in midnight_tail_dates and not overrides[d].get("last_out") and not override.get("register")

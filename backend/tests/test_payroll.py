@@ -1273,3 +1273,19 @@ def test_claimed_clock_in_keeps_the_single_evening_punch():
     r = _disp_day(6, "Directly Going Pressto collect Dry cleaning", claimed_in="10:00",
                   punches=[datetime(2026, 11, 6, 21, 48, tzinfo=IST)])
     assert r["first_in"].startswith("2026-11-06T10:00") and r["last_out"].startswith("2026-11-06T21:48")
+
+
+def test_reason_till_1_30am_beats_an_early_punch():
+    r = _disp_day(10, "went to jade store till 1:30am ",
+                  punches=[datetime(2026, 11, 10, 10, 48, tzinfo=IST), datetime(2026, 11, 10, 18, 33, tzinfo=IST)])
+    assert r["last_out"].startswith("2026-11-11T01:30")
+
+
+def test_full_night_time_without_out_word():
+    r = _disp_day(13, "Checking for clutch box for full night  2 AM..", punches=[datetime(2026, 11, 13, 9, 16, tzinfo=IST)])
+    assert r["last_out"].startswith("2026-11-14T02:00")
+
+
+def test_out_known_but_no_clock_in_uses_shift_start():
+    r = _disp_day(3, "full night in kalaghoda store store opening event out time night 3:30")
+    assert r["first_in"].startswith("2026-11-03T10:00") and r["last_out"].startswith("2026-11-04T03:30")
