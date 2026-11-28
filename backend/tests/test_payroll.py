@@ -1267,3 +1267,9 @@ def test_double_tapped_night_tail_is_not_a_clock_in():
     assert sun["status"] != "present" and not sun.get("first_in")
     sat = next(r for r in rows if r["date"] == "2026-11-21")
     assert sat["last_out"].startswith("2026-11-22T04:01")
+
+
+def test_claimed_clock_in_keeps_the_single_evening_punch():
+    r = _disp_day(6, "Directly Going Pressto collect Dry cleaning", claimed_in="10:00",
+                  punches=[datetime(2026, 11, 6, 21, 48, tzinfo=IST)])
+    assert r["first_in"].startswith("2026-11-06T10:00") and r["last_out"].startswith("2026-11-06T21:48")

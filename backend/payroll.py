@@ -437,7 +437,7 @@ def _resolve_dispute_times(override: dict, d: date, punches: list[datetime]) -> 
     t_in, t_out = _parse_reason_times(reason) if reason else (None, None)
     first_in, last_out = override.get("first_in"), override.get("last_out")
     raw_in = punches[0].astimezone(IST).time() if punches else None
-    raw_out = punches[-1].astimezone(IST).time() if len(punches) >= 2 else None
+    raw_out = punches[-1].astimezone(IST).time() if punches else None  # checked against the clock-in below
     out = {**override}
     if not first_in:
         if raw_in and (not last_out or raw_in < last_out or last_out.hour < 12):
