@@ -434,7 +434,7 @@ export default function AttendanceReport() {
                       return (
                         <td
                           key={d.date}
-                          title={`${cellTitle(d)}${d.dispute ? ` — Dispute: ${disputeLabel(d)}` : ""}${d.last_out_read_as_pm ? " — clock-out read as PM" : ""}${dayRemark(d) ? ` — Remark: ${dayRemark(d)}` : ""}${editable ? (canEdit ? " — click to edit" : " — click to add a remark") : ""}`}
+                          title={`${cellTitle(d)}${d.dispute ? ` — Dispute: ${disputeLabel(d)}` : ""}${d.last_out_read_as_pm ? " — clock-out read as PM" : ""}${d.last_out_next_day ? " — clocked out after midnight" : ""}${d.last_out_from_reason ? " — clock-out taken from the dispute reason" : ""}${dayRemark(d) ? ` — Remark: ${dayRemark(d)}` : ""}${editable ? (canEdit ? " — click to edit" : " — click to add a remark") : ""}`}
                           onClick={editable ? () => setEditing({ employee: r, day: d }) : undefined}
                           className={`p-0.5 text-center align-top ${missedPunch(d) ? "bg-[#FFE066]" : isWop(d) ? "bg-[#FFE0B2]" : ""} ${editable ? "cursor-pointer hover:ring-1 hover:ring-jade-500 hover:ring-inset" : ""}`}
                         >

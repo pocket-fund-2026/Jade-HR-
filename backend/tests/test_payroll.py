@@ -1208,3 +1208,62 @@ def test_paid_cycles_before_nov_2026_keep_the_old_rules():
     assert "late_allowance_minutes" not in mon
     wed = next(r for r in rows if r["date"] == "2026-10-14")
     assert wed["hours_worked"] == 0.0 and not wed.get("dispute_approved")
+
+
+# ── HR, 28 Nov 2026: night crews' approved disputes (Prashant, Prachit, Ajay ...) ──
+
+def _disp_day(day, reason, claimed_in=None, claimed_out=None, punches=(), slot="10:00 AM – 7:00 PM", corporate=True):
+    from datetime import time as t
+    d = date(2026, 11, day)
+    ov = {"status_override": "present", "first_in": t.fromisoformat(claimed_in) if claimed_in else None,
+          "last_out": t.fromisoformat(claimed_out) if claimed_out else None, "from_dispute": True,
+          "note": f"Approved dispute (HR): {reason}"}
+    rows = compute_daily_attendance(2026, 11, list(punches), 8, weekly_off_day=6, time_slot=slot,
+                                    is_corporate=corporate, overrides={d: ov})
+    return next(r for r in rows if r["date"] == d.isoformat())
+
+
+def test_full_night_claimed_2am_is_next_morning_not_2pm():
+    r = _disp_day(13, "Full night  Checking box with Santosh master", claimed_out="02:00",
+                  punches=[datetime(2026, 11, 13, 9, 57, tzinfo=IST)])
+    assert r["last_out"].startswith("2026-11-14T02:00") and r["hours_worked"] == 16.05 and r["ot_hours"] == 7.0
+    assert r["midnight_comp_off"] is True
+
+
+def test_explicit_am_in_reason_wins():
+    r = _disp_day(21, "Box cheking  In time :- 9:57 Out time:- 6 am", claimed_out="06:00",
+                  punches=[datetime(2026, 11, 21, 9, 58, tzinfo=IST)])
+    assert r["last_out"].startswith("2026-11-22T06:00")
+
+
+def test_out_time_only_in_reason_text():
+    r = _disp_day(20, "full night for inventory Audit out punch night 2:22",
+                  punches=[datetime(2026, 11, 20, 9, 38, tzinfo=IST)])
+    assert r["last_out"].startswith("2026-11-21T02:22") and r["last_out_from_reason"]
+
+
+def test_daytime_out_without_night_stays_pm():
+    r = _disp_day(17, "Went to market  Out time 8:46", claimed_out="08:45",
+                  punches=[datetime(2026, 11, 17, 10, 47, tzinfo=IST)])
+    assert r["last_out"].startswith("2026-11-17T20:45")
+
+
+def test_range_in_reason_with_no_punches():
+    r = _disp_day(3, "Final Store Launch Party - 3rd Nov - at the store 10:30 am to 1:30 am")
+    assert r["first_in"].startswith("2026-11-03T10:30") and r["last_out"].startswith("2026-11-04T01:30")
+
+
+def test_numbers_that_are_not_times_are_ignored():
+    r = _disp_day(10, "Informed our reporting manager about my leave in 15 days advance.",
+                  punches=[datetime(2026, 11, 10, 10, 0, tzinfo=IST), datetime(2026, 11, 10, 19, 0, tzinfo=IST)])
+    assert r["last_out"].startswith("2026-11-10T19:00")
+
+
+def test_double_tapped_night_tail_is_not_a_clock_in():
+    punches = [datetime(2026, 11, 21, 9, 44, tzinfo=IST), datetime(2026, 11, 22, 4, 1, tzinfo=IST),
+               datetime(2026, 11, 22, 4, 1, 30, tzinfo=IST)]
+    rows = compute_daily_attendance(2026, 11, punches, 8, weekly_off_day=6, time_slot="10:00 AM – 7:00 PM", is_corporate=True)
+    sun = next(r for r in rows if r["date"] == "2026-11-22")
+    assert sun["status"] != "present" and not sun.get("first_in")
+    sat = next(r for r in rows if r["date"] == "2026-11-21")
+    assert sat["last_out"].startswith("2026-11-22T04:01")

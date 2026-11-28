@@ -353,6 +353,129 @@ def _fill_override_from_punches_legacy(override: dict, punches: list[datetime]) 
     return override
 
 
+_TIME_TOKEN = (r"(\d{1,2})(?:\s*[:.]\s*(\d{2}))?\s*(a\.?\s?m\.?|p\.?\s?m\.?)?"
+               r"(?![\d%])(?!\s*(?:days?|min|mins|minutes?|hrs?|hours?|th\b|st\b|nd\b|rd\b))")
+_NIGHT_RE = re.compile(r"night|midnight|\bnigh\b", re.IGNORECASE)
+_RANGE_RE = re.compile(r"(?:from|at|morning)?\s*" + _TIME_TOKEN + r"\s*(?:onwards\s*)?(?:to|till|-|–)\s*(?:night|morning|evening)?\s*" + _TIME_TOKEN, re.IGNORECASE)
+_OUT_RE = re.compile(
+    r"\b(?:out\s*(?:time|punch)?|logged\s*out(?:\s*at)?|till|until|past|correct\s*time|punch(?:\s*time)?)\b"
+    r"[^\d]{0,22}?" + _TIME_TOKEN, re.IGNORECASE)
+_IN_RE = re.compile(r"\bin\s*time[^\d]{0,6}" + _TIME_TOKEN, re.IGNORECASE)
+
+
+def _token_time(h: str, m: str | None, ap: str | None) -> tuple[int, int, str | None] | None:
+    hh, mm = int(h), int(m or 0)
+    if hh > 23 or mm > 59:
+        return None
+    ap = (ap or "").lower().replace(".", "").replace(" ", "") or None
+    if ap and hh > 12:
+        ap = None
+    return hh, mm, ap
+
+
+def _dispute_reason(override: dict) -> str:
+    note = str(override.get("note") or "")
+    return note.split("):", 1)[1] if note.startswith("Approved dispute") and "):" in note else ""
+
+
+def _parse_reason_times(reason: str):
+    """(in, out) clock tokens an employee wrote in a dispute reason, each
+    (hour, minute, 'am'|'pm'|None) or None: "from 10am to 1:30 am",
+    "out time night 2:40", "In time :- 9:57 Out time:- 6 am", "till 12:30am"."""
+    tin = tout = None
+    m = _RANGE_RE.search(reason)
+    if m and (m.group(3) or m.group(6) or ":" in m.group(0) or "." in m.group(0)):
+        tin, tout = _token_time(*m.group(1, 2, 3)), _token_time(*m.group(4, 5, 6))
+    mi = _IN_RE.search(reason)
+    if mi:
+        tin = _token_time(*mi.group(1, 2, 3))
+    mo = None
+    for mo in _OUT_RE.finditer(reason):
+        pass  # the last "out ... TIME" mention is the finish
+    if mo:
+        tout = _token_time(*mo.group(1, 2, 3))
+    return tin, tout
+
+
+def _clock(h: int, m: int, ap: str | None) -> time:
+    if ap == "pm" and h < 12:
+        h += 12
+    elif ap == "am" and h == 12:
+        h = 0
+    return time(h % 24, m)
+
+
+def _resolve_out(d: date, first_in: time, out: tuple[int, int, str | None], night: bool) -> tuple[time, str | None]:
+    """A clock-out (hour, minute, am/pm?) against the day's clock-in -> (time,
+    next-day ISO date or None). Explicit am/pm is taken as written (am earlier
+    than the clock-in = next morning). Without it: a "night" shift ending
+    01:00-07:59 is next morning, 00:xx is just past midnight, and any other
+    time earlier than the clock-in is PM (12-hour clock: "07:00" = 7 PM)."""
+    h, m, ap = out
+    nxt = (d + timedelta(days=1)).isoformat()
+    if ap:
+        t = _clock(h, m, ap)
+        return (t, nxt) if t <= first_in else (t, None)
+    t = time(h, m)
+    if t > first_in:
+        return t, None
+    if h == 0 or (night and h < 8):
+        return t, nxt
+    if h < 12 and time(h + 12, m) > first_in:
+        return time(h + 12, m), None
+    return t, nxt
+
+
+def _resolve_dispute_times(override: dict, d: date, punches: list[datetime]) -> dict:
+    """Approved-dispute day, Nov 2026 cycle onward: settle the clock-in and
+    clock-out from (in order) what was claimed, the real biometric punches, and
+    the times the employee wrote in the reason, reading 12-hour and overnight
+    times the way the reason describes (HR, 28 Nov 2026: night crews' "02:00"
+    and "04:00" finishes were being paid as 2 PM / 4 PM)."""
+    reason = _dispute_reason(override)
+    night = bool(_NIGHT_RE.search(reason))
+    t_in, t_out = _parse_reason_times(reason) if reason else (None, None)
+    first_in, last_out = override.get("first_in"), override.get("last_out")
+    raw_in = punches[0].astimezone(IST).time() if punches else None
+    raw_out = punches[-1].astimezone(IST).time() if len(punches) >= 2 else None
+    out = {**override}
+    if not first_in:
+        if raw_in and (not last_out or raw_in < last_out or last_out.hour < 12):
+            first_in = raw_in
+        elif t_in:
+            first_in = _clock(*t_in) if t_in[2] else time(t_in[0] if t_in[0] >= 7 else t_in[0] + 12, t_in[1])
+        if first_in:
+            out["first_in"] = first_in
+    if not first_in:
+        return out
+    claimed = last_out
+    if claimed is not None:
+        # The claimed box carries no am/pm; borrow it from the reason when the
+        # reason writes the same clock time ("out time 9:00 PM", "6 am").
+        ap = t_out[2] if t_out and (t_out[0] % 12, t_out[1]) == (claimed.hour % 12, claimed.minute) else None
+        if ap or claimed <= first_in:
+            tm, nxt = _resolve_out(d, first_in, (claimed.hour if not ap else claimed.hour % 12 or 12, claimed.minute, ap), night)
+            out["last_out"] = tm
+            if nxt:
+                out["last_out_date"], out["last_out_read_as_next_day"] = nxt, True
+            elif tm != claimed:
+                out["last_out_read_as_pm"] = True
+        return out
+    if raw_out and raw_out > first_in and not (t_out and night):
+        out["last_out"] = raw_out
+        return out
+    if t_out:
+        tm, nxt = _resolve_out(d, first_in, t_out, night)
+        out["last_out"] = tm
+        out["last_out_from_reason"] = True
+        if nxt:
+            out["last_out_date"], out["last_out_read_as_next_day"] = nxt, True
+        return out
+    if raw_out and raw_out > first_in:
+        out["last_out"] = raw_out
+    return out
+
+
 def _fill_override_from_punches(override: dict, punches: list[datetime]) -> dict:
     """An approved "forgot to clock in/out" correction carries only the side the
     employee claimed, and the override replaces the whole day — so the real
@@ -362,6 +485,8 @@ def _fill_override_from_punches(override: dict, punches: list[datetime]) -> dict
     the sensible side of the corrected time."""
     if override.get("register") or override.get("status_override") != "present":
         return override
+    if override.get("from_dispute") and override.get("date"):
+        return _resolve_dispute_times(override, date.fromisoformat(str(override["date"])[:10]), punches)
     override = _normalize_override_out_time(override)
     if not punches:
         return override
@@ -774,6 +899,16 @@ def compute_daily_attendance(
                     override = {**override, "last_out": max(tail).astimezone(IST).time(),
                                 "last_out_date": (d + timedelta(days=1)).isoformat()}
             row = _apply_override(d, override, standard_hours_per_day, time_slot, ot_eligible)
+            if d >= ATTENDANCE_FIXES_EFFECTIVE and row.get("last_out") and row.get("first_in") \
+                    and row["last_out"][:10] > row["first_in"][:10]:
+                row["last_out_next_day"] = True
+                out_t = datetime.fromisoformat(row["last_out"]).astimezone(IST).time()
+                if is_corporate and out_t >= MIDNIGHT_COMP_OFF_AFTER and d not in COMP_OFF_EXCLUDED_DATES:
+                    # Same credit a biometric punch past 12:30 AM earns (approved night shift).
+                    row["midnight_comp_off"] = True
+                    row["midnight_comp_off_clock_out"] = out_t.isoformat()
+            if override.get("last_out_from_reason"):
+                row["last_out_from_reason"] = True
             if row["status"] == "present" and d.weekday() == weekly_off_day and not override.get("register"):
                 # A corrected day on the weekly off is still WOP: no late mark,
                 # Yellow Card or deduction (HR, 17 Nov 2026), same as a raw punch.
@@ -840,6 +975,9 @@ def compute_daily_attendance(
             continue
 
         punches = by_day.get(d, [])
+        if d >= ATTENDANCE_FIXES_EFFECTIVE:
+            # Every punch before 6 AM is last night's tail (a double tap at 4:01 left one behind as a clock-in).
+            punches = [p for p in punches if p.astimezone(IST).time() >= MIDNIGHT_TAIL_CUTOFF] or punches[:0]
         # A first punch before MIDNIGHT_TAIL_CUTOFF isn't a fresh arrival —
         # it's the tail of YESTERDAY's shift, misfiled into today's bucket
         # by pure calendar-date grouping. Drop it so it can't masquerade as

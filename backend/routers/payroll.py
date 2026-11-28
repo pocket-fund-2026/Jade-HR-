@@ -198,6 +198,8 @@ def _fetch_all_overrides_by_employee_range(start: date, end: date) -> dict[str, 
             "last_out": _parse_time(r["last_out"]),
             "last_out_date": r.get("last_out_date"),
             "from_dispute": str(r.get("note") or "").startswith("Approved dispute"),
+        "note": r.get("note") or "",
+            "note": r.get("note") or "",
         }
     for r in _fetch_register_rows(start, end):
         by_employee.setdefault(r["employee_id"], {})[date.fromisoformat(r["date"])] = _register_override(r)
@@ -223,6 +225,8 @@ def _fetch_overrides(employee_id: str, year: int, month: int) -> dict[date, dict
             "last_out": _parse_time(r["last_out"]),
             "last_out_date": r.get("last_out_date"),
             "from_dispute": str(r.get("note") or "").startswith("Approved dispute"),
+        "note": r.get("note") or "",
+            "note": r.get("note") or "",
         }
         for r in resp.data
     }
@@ -250,6 +254,8 @@ def _fetch_overrides_range(employee_id: str, start: date, end: date) -> dict[dat
             "last_out": _parse_time(r["last_out"]),
             "last_out_date": r.get("last_out_date"),
             "from_dispute": str(r.get("note") or "").startswith("Approved dispute"),
+        "note": r.get("note") or "",
+            "note": r.get("note") or "",
         }
         for r in resp.data
     }
@@ -269,6 +275,8 @@ def _fetch_all_overrides_by_employee(year: int, month: int, calendar_month: bool
             "last_out": _parse_time(r["last_out"]),
             "last_out_date": r.get("last_out_date"),
             "from_dispute": str(r.get("note") or "").startswith("Approved dispute"),
+        "note": r.get("note") or "",
+            "note": r.get("note") or "",
         }
     for r in _fetch_register_rows(start, end):
         by_employee.setdefault(r["employee_id"], {})[date.fromisoformat(r["date"])] = _register_override(r)
