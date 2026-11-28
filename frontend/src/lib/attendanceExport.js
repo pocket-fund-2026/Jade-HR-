@@ -471,11 +471,11 @@ function writeAttendanceSheet(ws, rows) {
   const header = ["Employee Code", "Name", "Department"];
   for (const d of days) {
     const n = dayNumber(d.date);
-    header.push(`${n} In`, `${n} Out`, `${n} Status`, `${n} Remarks`);
+    header.push(`${n} In`, `${n} Out`, `${n} OT`, `${n} Status`, `${n} Remarks`);
   }
   for (const [label] of ANALYSIS_COLUMNS) header.push(label);
   styleHeaderRow(ws.addRow(header));
-  const analysisStart = 4 + days.length * 4;
+  const analysisStart = 4 + days.length * 5;
   const totals = Object.fromEntries(ANALYSIS_COLUMNS.map(([, k]) => [k, 0]));
 
   for (const r of rows) {
@@ -484,6 +484,7 @@ function writeAttendanceSheet(ws, rows) {
       values.push(
         d.first_in ? formatTime(d.first_in) : "",
         d.last_out ? formatTime(d.last_out) : "",
+        Number(d.ot_hours) > 0 ? Number(Number(d.ot_hours).toFixed(2)) : "",
         dayCode(d),
         dayRemarkValue(d),
       );
@@ -499,24 +500,26 @@ function writeAttendanceSheet(ws, rows) {
     row.getCell(analysisStart + ANALYSIS_COLUMNS.length - 1).font = { bold: true };
 
     (r.daily || []).forEach((d, i) => {
-      const col = 4 + i * 4; // 1-indexed — Employee Code/Name/Department occupy 1-3
-      setRemarkCell(row.getCell(col + 3), d);
-      colorRowByStatus(row, statusColorKey(d), col, col + 2);
+      const col = 4 + i * 5; // 1-indexed — Employee Code/Name/Department occupy 1-3; In, Out, OT, Status, Remarks
+      setRemarkCell(row.getCell(col + 4), d);
+      colorRowByStatus(row, statusColorKey(d), col, col + 3);
+      row.getCell(col + 2).numFmt = "0.00";
       // col is the "In" cell of the group — grade it by lateness severity,
       // overriding just that cell's fill+font (Out/Status keep their normal
       // status coloring — a late day is still Present everywhere else).
       const tier = lateTier(d);
       if (tier) applyLateTier(row.getCell(col), tier, {});
-      if (isWop(d)) paintWop(row, col, col + 3);
+      if (isWop(d)) paintWop(row, col, col + 4);
       if (missedPunch(d)) {
-        paintMissed(row, col, col + 3);
-        if (isWop(d)) paintWop(row, col + 2, col + 2); // keep WOP visible on the Status cell
+        paintMissed(row, col, col + 4);
+        if (isWop(d)) paintWop(row, col + 3, col + 3); // keep WOP visible on the Status cell
       }
+      if (Number(d.ot_hours) > 0) row.getCell(col + 2).font = { ...(row.getCell(col + 2).font || {}), bold: true };
     });
   }
 
   const totalValues = ["", "TOTAL", ""];
-  for (let i = 0; i < days.length * 4; i++) totalValues.push("");
+  for (let i = 0; i < days.length * 5; i++) totalValues.push("");
   for (const [, k] of ANALYSIS_COLUMNS) totalValues.push(Number(totals[k].toFixed(2)));
   styleHeaderRow(ws.addRow(totalValues));
   ANALYSIS_COLUMNS.forEach((_, i) => { ws.getColumn(analysisStart + i).width = 11; });
@@ -525,11 +528,12 @@ function writeAttendanceSheet(ws, rows) {
   ws.getColumn(2).width = 22;
   ws.getColumn(3).width = 16;
   for (let i = 0; i < days.length; i++) {
-    const col = 4 + i * 4;
+    const col = 4 + i * 5;
     ws.getColumn(col).width = 9;
     ws.getColumn(col + 1).width = 9;
-    ws.getColumn(col + 2).width = 8;
-    ws.getColumn(col + 3).width = 34; // Remarks
+    ws.getColumn(col + 2).width = 6; // OT
+    ws.getColumn(col + 3).width = 8;
+    ws.getColumn(col + 4).width = 34; // Remarks
   }
   // Freeze the legend + header rows and employee identity columns so all
   // stay in view while scanning across a month's worth of day-groups.

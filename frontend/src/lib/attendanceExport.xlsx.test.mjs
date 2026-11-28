@@ -80,10 +80,10 @@ test("missed punch: row highlighted, Remarks blank, in all three exports", async
 
   let wb = await workbookFrom(() => exportAttendanceExcel(r, 2026, 11));
   let row = wb.getWorksheet("Master").getRow(3);
-  assert.equal(fill(row.getCell(8)), "FFFFE066");          // day 2 In
-  assert.equal(fill(row.getCell(11)), "FFFFE066");         // day 2 Remarks
-  assert.ok(!row.getCell(11).value);                        // blank, for manual entry
-  assert.equal(String(row.getCell(7).value), "1"); // day 1 normal
+  assert.equal(fill(row.getCell(9)), "FFFFE066");          // day 2 In
+  assert.equal(fill(row.getCell(13)), "FFFFE066");         // day 2 Remarks
+  assert.ok(!row.getCell(13).value);                        // blank, for manual entry
+  assert.equal(String(row.getCell(8).value), "1"); // day 1 normal
 
   wb = await workbookFrom(() => exportAttendanceTimingsExcel(r, 2026, 11));
   const hit = [];
@@ -131,9 +131,9 @@ test("WOP days are highlighted orange in all three exports", async () => {
 
   let wb = await workbookFrom(() => exportAttendanceExcel(r, 2026, 11));
   let row = wb.getWorksheet("Master").getRow(3);
-  assert.equal(fill(row.getCell(8)), "FFFFB74D");   // day 2 In
-  assert.equal(fill(row.getCell(10)), "FFFFB74D");  // day 2 Status
-  assert.equal(fill(row.getCell(11)), "FFFFB74D");  // day 2 Remarks
+  assert.equal(fill(row.getCell(9)), "FFFFB74D");   // day 2 In
+  assert.equal(fill(row.getCell(12)), "FFFFB74D");  // day 2 Status
+  assert.equal(fill(row.getCell(13)), "FFFFB74D");  // day 2 Remarks
   assert.notEqual(fill(row.getCell(5)), "FFFFB74D"); // day 1 (normal) is not orange
 
   wb = await workbookFrom(() => exportAttendanceTimingsExcel(r, 2026, 11));
@@ -222,6 +222,9 @@ test("analysis: Master columns, Analysis tab and datewise summary tally leaves, 
   const mh = master.getRow(2).values.slice(1);
   assert.equal(master.getRow(3).getCell(mh.indexOf("Disputes") + 1).value, 3);
   assert.equal(master.getRow(4).getCell(2).value, "TOTAL");
+  assert.equal(mh[5], "16 OT");                                   // In, Out, OT, Status, Remarks per day
+  assert.equal(master.getRow(3).getCell(6).value, 1.5);           // 16 Nov OT
+  assert.equal(master.getRow(3).getCell(mh.indexOf("OT hours") + 1).value, 1.5);
 
   wb = await workbookFrom(() => exportAttendanceTimingsExcel(r, 2026, 11));
   const t = wb.worksheets[1];
@@ -241,6 +244,6 @@ test("approved dispute day: remark 1, not highlighted as a missed punch", async 
   const r = [{ employee_code: "5001", name: "Disp", department: "Ops", time_slot: "10:00 AM – 7:00 PM", daily: [d] }];
   const wb = await workbookFrom(() => exportAttendanceExcel(r, 2026, 11));
   const row = wb.getWorksheet("Master").getRow(3);
-  assert.equal(row.getCell(7).value, 1);
-  assert.notEqual(row.getCell(7).fill?.fgColor?.argb, "FFFFE066");
+  assert.equal(row.getCell(8).value, 1);
+  assert.notEqual(row.getCell(8).fill?.fgColor?.argb, "FFFFE066");
 });
